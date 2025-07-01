@@ -21,6 +21,8 @@
   let panOffset = { x: 0, y: 0 };
   let viewportTransform = { x: 0, y: 0, scale: 1 };
   let isRendering = false;
+  let isCtrlPressed = false;
+  let cursorOverCanvas = false;
 
   // Debug prop changes
   $: console.log('PDFViewer prop pdfFile changed:', pdfFile?.name || 'null');
@@ -35,6 +37,11 @@
   // Re-render drawing paths when they change
   $: if (drawingEngine && $currentPagePaths && canvasesReady) {
     drawingEngine.renderPaths($currentPagePaths);
+  }
+  
+  // Update cursor when drawing state changes
+  $: if ($drawingState.tool && containerDiv) {
+    updateCursor();
   }
 
   onMount(async () => {
@@ -52,6 +59,10 @@
     if (pdfManager) {
       pdfManager.destroy();
     }
+    
+    // Clean up keyboard event listeners
+    document.removeEventListener('keydown', handleKeyDown);
+    document.removeEventListener('keyup', handleKeyUp);
   });
 
   async function initializeCanvases() {
@@ -170,6 +181,10 @@
     drawingCanvas.addEventListener('pointerup', handlePointerUp);
     drawingCanvas.addEventListener('pointerleave', handlePointerUp);
     
+    // Add canvas hover events for cursor tracking
+    drawingCanvas.addEventListener('pointerenter', handleCanvasEnter);
+    drawingCanvas.addEventListener('pointerleave', handleCanvasLeave);
+    
     // Add panning events to the entire container for infinite canvas feel
     containerDiv.addEventListener('pointerdown', handleContainerPointerDown);
     containerDiv.addEventListener('pointermove', handleContainerPointerMove);
@@ -179,6 +194,10 @@
     // Add wheel event for zoom with Ctrl+scroll to container
     containerDiv.addEventListener('wheel', handleWheel, { passive: false });
     
+    // Add keyboard events for Ctrl key tracking
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+    
     // Prevent context menu on right click
     drawingCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
     containerDiv.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -187,14 +206,13 @@
 function handlePointerDown(event: PointerEvent) {
     if (!drawingEngine) return;
     
+    // If Ctrl is pressed, let the container handle panning
+    if (event.ctrlKey) {
+      return; // Don't capture the event, let container handle it
+    }
+    
     event.preventDefault();
     drawingCanvas.setPointerCapture(event.pointerId);
-
-    if (event.ctrlKey) {
-      isPanning = true;
-      panStart = { x: event.clientX - panOffset.x, y: event.clientY - panOffset.y };
-      return;
-    }
 
     isDrawing = true;
     const point = drawingEngine.getPointFromEvent(event);
@@ -213,7 +231,11 @@ function handlePointerDown(event: PointerEvent) {
 function handlePointerMove(event: PointerEvent) {
     if (isPanning) {
       panOffset = { x: event.clientX - panStart.x, y: event.clientY - panStart.y };
-      containerDiv.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px)`;
+      // Apply the transform to the content wrapper
+      const contentWrapper = containerDiv.querySelector('.flex');
+      if (contentWrapper) {
+        contentWrapper.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px)`;
+      }
       return;
     }
 
@@ -227,11 +249,6 @@ function handlePointerMove(event: PointerEvent) {
   }
 
 function handlePointerUp(event: PointerEvent) {
-    if (isPanning) {
-      isPanning = false;
-      return;
-    }
-
     if (!isDrawing || !drawingEngine) return;
     
     event.preventDefault();
@@ -255,14 +272,68 @@ function handlePointerUp(event: PointerEvent) {
   currentDrawingPath = [];
   }
 
+  // Canvas hover handlers for cursor tracking
+  function handleCanvasEnter(event: PointerEvent) {
+    cursorOverCanvas = true;
+    updateCursor();
+  }
+
+  function handleCanvasLeave(event: PointerEvent) {
+    cursorOverCanvas = false;
+    updateCursor();
+  }
+
+  // Keyboard handlers for Ctrl key tracking
+  function handleKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Control' && !isCtrlPressed) {
+      isCtrlPressed = true;
+      updateCursor();
+    }
+  }
+
+  function handleKeyUp(event: KeyboardEvent) {
+    if (event.key === 'Control' && isCtrlPressed) {
+      isCtrlPressed = false;
+      updateCursor();
+    }
+  }
+
+  // Update cursor based on current state
+  function updateCursor() {
+    if (!containerDiv) return;
+    
+    if (cursorOverCanvas) {
+      // Inside canvas (PDF area)
+      if (isCtrlPressed) {
+        containerDiv.style.cursor = 'grab';
+        if (drawingCanvas) drawingCanvas.style.cursor = 'grab';
+      } else {
+        // Default drawing cursor based on tool
+        containerDiv.style.cursor = '';
+        if (drawingCanvas) {
+          if ($drawingState.tool === 'eraser') {
+            drawingCanvas.style.cursor = 'url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="black" stroke-width="2" opacity="0.5"/></svg>\') 10 10, auto';
+          } else {
+            drawingCanvas.style.cursor = 'crosshair';
+          }
+        }
+      }
+    } else {
+      // Outside canvas (background area) - always show grab cursor
+      containerDiv.style.cursor = 'grab';
+      if (drawingCanvas) drawingCanvas.style.cursor = '';
+    }
+  }
+
   // Container panning handlers for infinite canvas
   function handleContainerPointerDown(event: PointerEvent) {
-    // Handle panning when Ctrl is pressed anywhere in the container
-    if (event.ctrlKey) {
+    // Handle panning when Ctrl is pressed anywhere, or when outside canvas area
+    if (event.ctrlKey || !cursorOverCanvas) {
       event.preventDefault();
       isPanning = true;
       panStart = { x: event.clientX - panOffset.x, y: event.clientY - panOffset.y };
       containerDiv.setPointerCapture(event.pointerId);
+      containerDiv.style.cursor = 'grabbing';
     }
   }
 
@@ -270,6 +341,11 @@ function handlePointerUp(event: PointerEvent) {
     if (isPanning) {
       event.preventDefault();
       panOffset = { x: event.clientX - panStart.x, y: event.clientY - panStart.y };
+      // Apply the transform to the content wrapper
+      const contentWrapper = containerDiv.querySelector('.flex');
+      if (contentWrapper) {
+        contentWrapper.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px)`;
+      }
     }
   }
 
@@ -277,6 +353,7 @@ function handlePointerUp(event: PointerEvent) {
     if (isPanning) {
       isPanning = false;
       containerDiv.releasePointerCapture(event.pointerId);
+      updateCursor(); // Restore proper cursor after panning
     }
   }
 
@@ -395,20 +472,10 @@ function handlePointerUp(event: PointerEvent) {
 <style>
   .pdf-viewer {
     background: linear-gradient(135deg, #FDF6E3 0%, #F7F3E9 100%);
-    cursor: grab;
     position: relative;
   }
   
-  .pdf-viewer:active {
-    cursor: grabbing;
-  }
-  
-  
   .drawing-canvas {
-    cursor: crosshair;
-  }
-  
-  .drawing-canvas.eraser {
-    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="black" stroke-width="2" opacity="0.5"/></svg>') 10 10, auto;
+    /* Cursor is dynamically controlled by JavaScript */
   }
 </style>
