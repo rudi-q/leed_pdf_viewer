@@ -13,9 +13,14 @@
   let pdfManager: PDFManager;
   let drawingEngine: DrawingEngine;
   let isDrawing = false;
+  let isPanning = false;
   let currentDrawingPath: Point[] = [];
   let canvasesReady = false;
   let lastLoadedFile: File | null = null;
+  let panStart = { x: 0, y: 0 };
+  let panOffset = { x: 0, y: 0 };
+  let viewportTransform = { x: 0, y: 0, scale: 1 };
+  let isRendering = false;
 
   // Debug prop changes
   $: console.log('PDFViewer prop pdfFile changed:', pdfFile?.name || 'null');
@@ -104,6 +109,9 @@
       // Mark this file as loaded
       lastLoadedFile = pdfFile;
       
+      // Reset pan offset to center the PDF
+      panOffset = { x: 0, y: 0 };
+      
       await renderCurrentPage();
       console.log('PDF render completed successfully');
     } catch (error) {
@@ -116,9 +124,19 @@
   }
 
   async function renderCurrentPage() {
-    if (!pdfCanvas || !$pdfState.document) return;
+    if (!pdfCanvas || !$pdfState.document || isRendering) return;
 
+    isRendering = true;
     try {
+      const page = await $pdfState.document.getPage($pdfState.currentPage);
+      const viewport = page.getViewport({ scale: $pdfState.scale });
+      
+      // Set canvas dimensions to match the scaled viewport
+      pdfCanvas.width = viewport.width;
+      pdfCanvas.height = viewport.height;
+      pdfCanvas.style.width = `${viewport.width}px`;
+      pdfCanvas.style.height = `${viewport.height}px`;
+      
       await pdfManager.renderPage($pdfState.currentPage, {
         scale: $pdfState.scale,
         canvas: pdfCanvas
@@ -138,41 +156,67 @@
       }
     } catch (error) {
       console.error('Error rendering page:', error);
+    } finally {
+      isRendering = false;
     }
   }
 
   function setupDrawingEvents() {
-    if (!drawingCanvas) return;
+    if (!drawingCanvas || !containerDiv) return;
 
+    // Add drawing events to the drawing canvas
     drawingCanvas.addEventListener('pointerdown', handlePointerDown);
     drawingCanvas.addEventListener('pointermove', handlePointerMove);
     drawingCanvas.addEventListener('pointerup', handlePointerUp);
     drawingCanvas.addEventListener('pointerleave', handlePointerUp);
     
+    // Add panning events to the entire container for infinite canvas feel
+    containerDiv.addEventListener('pointerdown', handleContainerPointerDown);
+    containerDiv.addEventListener('pointermove', handleContainerPointerMove);
+    containerDiv.addEventListener('pointerup', handleContainerPointerUp);
+    containerDiv.addEventListener('pointerleave', handleContainerPointerUp);
+    
+    // Add wheel event for zoom with Ctrl+scroll to container
+    containerDiv.addEventListener('wheel', handleWheel, { passive: false });
+    
     // Prevent context menu on right click
     drawingCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    containerDiv.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
-  function handlePointerDown(event: PointerEvent) {
+function handlePointerDown(event: PointerEvent) {
     if (!drawingEngine) return;
     
     event.preventDefault();
     drawingCanvas.setPointerCapture(event.pointerId);
-    
+
+    if (event.ctrlKey) {
+      isPanning = true;
+      panStart = { x: event.clientX - panOffset.x, y: event.clientY - panOffset.y };
+      return;
+    }
+
     isDrawing = true;
     const point = drawingEngine.getPointFromEvent(event);
     
+    const size = $drawingState.tool === 'eraser' ? $drawingState.eraserSize : $drawingState.lineWidth;
     drawingEngine.startDrawing(
       point,
       $drawingState.tool,
       $drawingState.color,
-      $drawingState.lineWidth
+      size
     );
     
     currentDrawingPath = [point];
   }
 
-  function handlePointerMove(event: PointerEvent) {
+function handlePointerMove(event: PointerEvent) {
+    if (isPanning) {
+      panOffset = { x: event.clientX - panStart.x, y: event.clientY - panStart.y };
+      containerDiv.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px)`;
+      return;
+    }
+
     if (!isDrawing || !drawingEngine) return;
     
     event.preventDefault();
@@ -182,7 +226,12 @@
     currentDrawingPath.push(point);
   }
 
-  function handlePointerUp(event: PointerEvent) {
+function handlePointerUp(event: PointerEvent) {
+    if (isPanning) {
+      isPanning = false;
+      return;
+    }
+
     if (!isDrawing || !drawingEngine) return;
     
     event.preventDefault();
@@ -203,7 +252,53 @@
       addDrawingPath(drawingPath);
     }
     
-    currentDrawingPath = [];
+  currentDrawingPath = [];
+  }
+
+  // Container panning handlers for infinite canvas
+  function handleContainerPointerDown(event: PointerEvent) {
+    // Handle panning when Ctrl is pressed anywhere in the container
+    if (event.ctrlKey) {
+      event.preventDefault();
+      isPanning = true;
+      panStart = { x: event.clientX - panOffset.x, y: event.clientY - panOffset.y };
+      containerDiv.setPointerCapture(event.pointerId);
+    }
+  }
+
+  function handleContainerPointerMove(event: PointerEvent) {
+    if (isPanning) {
+      event.preventDefault();
+      panOffset = { x: event.clientX - panStart.x, y: event.clientY - panStart.y };
+    }
+  }
+
+  function handleContainerPointerUp(event: PointerEvent) {
+    if (isPanning) {
+      isPanning = false;
+      containerDiv.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function handleWheel(event: WheelEvent) {
+    // Only handle wheel events when Ctrl is pressed (for zooming)
+    if (event.ctrlKey) {
+      event.preventDefault();
+      
+      // Fix zoom direction: deltaY < 0 means scroll up (zoom in)
+      const zoomIn = event.deltaY < 0;
+      
+      if (zoomIn) {
+        const newScale = Math.min($pdfState.scale * 1.1, 10); // Allow much more zoom in
+        pdfState.update(state => ({ ...state, scale: newScale }));
+      } else {
+        const newScale = Math.max($pdfState.scale / 1.1, 0.1); // Allow much more zoom out
+        pdfState.update(state => ({ ...state, scale: newScale }));
+      }
+      
+      // Re-render at new scale
+      renderCurrentPage();
+    }
   }
 
   export async function goToPage(pageNumber: number) {
@@ -222,18 +317,20 @@
   }
 
   export async function zoomIn() {
-    const newScale = Math.min($pdfState.scale * 1.2, 3);
+    const newScale = Math.min($pdfState.scale * 1.2, 10); // Allow much more zoom in
     pdfState.update(state => ({ ...state, scale: newScale }));
     await renderCurrentPage();
   }
 
   export async function zoomOut() {
-    const newScale = Math.max($pdfState.scale / 1.2, 0.5);
+    const newScale = Math.max($pdfState.scale / 1.2, 0.1); // Allow much more zoom out
     pdfState.update(state => ({ ...state, scale: newScale }));
     await renderCurrentPage();
   }
 
   export function resetZoom() {
+    // Reset both zoom and pan position to center the PDF
+    panOffset = { x: 0, y: 0 };
     pdfState.update(state => ({ ...state, scale: 1.2 }));
     renderCurrentPage();
   }
@@ -243,13 +340,13 @@
   <!-- Debug info -->
   {#if console.log('PDF State:', { isLoading: $pdfState.isLoading, hasDocument: !!$pdfState.document, totalPages: $pdfState.totalPages })}<!-- Debug logged -->{/if}
   
-  <!-- Always render canvases to ensure they're available for binding -->
-  <div class="relative w-full h-full flex items-center justify-center overflow-auto hide-scrollbar">
+  <!-- Simple centered canvas -->
+  <div class="flex items-center justify-center w-full h-full" style="transform: translate({panOffset.x}px, {panOffset.y}px);">
     <div class="relative">
       <!-- PDF Canvas -->
       <canvas
         bind:this={pdfCanvas}
-        class="absolute top-0 left-0 shadow-lg rounded-lg"
+        class="shadow-lg rounded-lg"
         class:hidden={!$pdfState.document}
         style="z-index: 1;"
       ></canvas>
@@ -262,6 +359,7 @@
         class:hidden={!$pdfState.document}
         style="z-index: 2;"
       ></canvas>
+      
     </div>
   </div>
 
@@ -297,5 +395,20 @@
 <style>
   .pdf-viewer {
     background: linear-gradient(135deg, #FDF6E3 0%, #F7F3E9 100%);
+    cursor: grab;
+    position: relative;
+  }
+  
+  .pdf-viewer:active {
+    cursor: grabbing;
+  }
+  
+  
+  .drawing-canvas {
+    cursor: crosshair;
+  }
+  
+  .drawing-canvas.eraser {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="black" stroke-width="2" opacity="0.5"/></svg>') 10 10, auto;
   }
 </style>

@@ -109,12 +109,27 @@ export class DrawingEngine {
     }
   }
 
-  // Render a single path
+  // Render a single path, scaling coordinates if needed
   private renderPath(path: DrawingPath): void {
     if (path.points.length < 2) return;
     
+    // Scale points to current canvas size if relative coordinates are available
+    const scaledPoints = path.points.map(point => {
+      if (point.relativeX !== undefined && point.relativeY !== undefined) {
+        // Use relative coordinates and scale to current canvas size
+        return {
+          x: point.relativeX * this.canvas.width,
+          y: point.relativeY * this.canvas.height,
+          pressure: point.pressure
+        };
+      } else {
+        // Fallback to original coordinates
+        return point;
+      }
+    });
+    
     this.context.beginPath();
-    this.context.moveTo(path.points[0].x, path.points[0].y);
+    this.context.moveTo(scaledPoints[0].x, scaledPoints[0].y);
     
     // Set drawing properties
     if (path.tool === 'eraser') {
@@ -127,9 +142,9 @@ export class DrawingEngine {
     }
     
     // Draw smooth path
-    for (let i = 1; i < path.points.length - 1; i++) {
-      const currentPoint = path.points[i];
-      const nextPoint = path.points[i + 1];
+    for (let i = 1; i < scaledPoints.length - 1; i++) {
+      const currentPoint = scaledPoints[i];
+      const nextPoint = scaledPoints[i + 1];
       
       const midPoint = {
         x: (currentPoint.x + nextPoint.x) / 2,
@@ -140,24 +155,38 @@ export class DrawingEngine {
     }
     
     // Draw to the last point
-    if (path.points.length > 1) {
-      const lastPoint = path.points[path.points.length - 1];
+    if (scaledPoints.length > 1) {
+      const lastPoint = scaledPoints[scaledPoints.length - 1];
       this.context.lineTo(lastPoint.x, lastPoint.y);
     }
     
     this.context.stroke();
   }
 
-  // Get point from pointer event, accounting for canvas scaling
-  getPointFromEvent(event: PointerEvent): Point {
+  // Get point from pointer event in PDF-relative coordinates (0-1 range)
+  getPointFromEvent(event: PointerEvent, pdfScale = 1): Point {
     const rect = this.canvas.getBoundingClientRect();
-    const scaleX = this.canvas.width / rect.width;
-    const scaleY = this.canvas.height / rect.height;
+    
+    // Get raw canvas coordinates
+    const canvasX = event.clientX - rect.left;
+    const canvasY = event.clientY - rect.top;
+    
+    // Convert to PDF-relative coordinates (0-1 range)
+    // This makes drawings scale-independent
+    const relativeX = canvasX / rect.width;
+    const relativeY = canvasY / rect.height;
+    
+    // Convert to actual canvas coordinates at current scale
+    const actualX = relativeX * this.canvas.width;
+    const actualY = relativeY * this.canvas.height;
     
     return {
-      x: (event.clientX - rect.left) * scaleX,
-      y: (event.clientY - rect.top) * scaleY,
-      pressure: event.pressure || 1.0
+      x: actualX,
+      y: actualY,
+      pressure: event.pressure || 1.0,
+      // Store relative coordinates for scaling
+      relativeX,
+      relativeY
     };
   }
 

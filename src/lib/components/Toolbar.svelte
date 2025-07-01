@@ -5,8 +5,10 @@
     setTool, 
     setColor, 
     setLineWidth, 
+    setEraserSize,
     availableColors, 
     availableLineWidths,
+    availableEraserSizes,
     undoLastPath,
     clearCurrentPageDrawings,
     type DrawingTool 
@@ -30,10 +32,12 @@
   export let onNextPage: () => void;
   export let onZoomIn: () => void;
   export let onZoomOut: () => void;
+  export let onResetZoom: () => void;
 
   let fileInput: HTMLInputElement;
   let showColorPalette = false;
   let showLineWidthPicker = false;
+  let showEraserSizePicker = false;
 
   function handleToolChange(tool: DrawingTool) {
     setTool(tool);
@@ -47,6 +51,11 @@
   function handleLineWidthChange(width: number) {
     setLineWidth(width);
     showLineWidthPicker = false;
+  }
+
+  function handleEraserSizeChange(size: number) {
+    setEraserSize(size);
+    showEraserSizePicker = false;
   }
 
   function handleFileSelect() {
@@ -78,6 +87,9 @@
     }
     if (!target.closest('.line-width-container')) {
       showLineWidthPicker = false;
+    }
+    if (!target.closest('.eraser-size-container')) {
+      showEraserSizePicker = false;
     }
   }
 </script>
@@ -135,6 +147,14 @@
           title="Zoom in"
         >
           <span class="text-sm font-bold">{icons.zoomIn}</span>
+        </button>
+
+        <button
+          class="tool-button text-xs px-2"
+          on:click={onResetZoom}
+          title="Reset zoom to 120%"
+        >
+          <span class="font-medium">Reset</span>
         </button>
       </div>
 
@@ -228,6 +248,44 @@
             </div>
           {/if}
         </div>
+
+        <!-- Eraser size picker -->
+        {#if $drawingState.tool === 'eraser'}
+          <div class="relative eraser-size-container">
+            <button
+              class="tool-button flex items-center justify-center"
+              on:click={() => showEraserSizePicker = !showEraserSizePicker}
+              title="Eraser size"
+              aria-label="Choose eraser size"
+            >
+              <div 
+                class="rounded-full bg-charcoal opacity-50"
+                style="width: {Math.max($drawingState.eraserSize / 2, 6)}px; height: {Math.max($drawingState.eraserSize / 2, 6)}px;"
+              ></div>
+            </button>
+
+            {#if showEraserSizePicker}
+              <div class="absolute top-full mt-2 left-0 floating-panel animate-slide-up">
+                <div class="flex flex-col space-y-2 p-2">
+                  {#each availableEraserSizes as size}
+                    <button
+                      class="flex items-center justify-center p-2 rounded-lg hover:bg-sage/10 transition-colors"
+                      class:bg-sage={size === $drawingState.eraserSize}
+                      on:click={() => handleEraserSizeChange(size)}
+                      title="Eraser size {size}px"
+                    >
+                      <div 
+                        class="rounded-full bg-charcoal opacity-50"
+                        style="width: {Math.max(size / 2, 6)}px; height: {Math.max(size / 2, 6)}px;"
+                      ></div>
+                      <span class="ml-2 text-sm text-charcoal">{size}px</span>
+                    </button>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
+        {/if}
       </div>
 
       <!-- Right section: Actions -->
@@ -250,21 +308,15 @@
       </div>
     </div>
 
-    <!-- Current tool info -->
-    <div class="mt-3 pt-3 border-t border-charcoal/10">
-      <div class="flex items-center justify-center space-x-4 text-sm text-charcoal/70">
+    <!-- Compact tool info -->
+    <div class="mt-2 pt-2 border-t border-charcoal/10">
+      <div class="flex items-center justify-center space-x-3 text-xs text-charcoal/70">
         <span>
           Tool: <span class="font-medium text-charcoal capitalize">{$drawingState.tool}</span>
         </span>
-        {#if $drawingState.tool === 'pencil'}
-          <span>
-            Size: <span class="font-medium text-charcoal">{$drawingState.lineWidth}px</span>
-          </span>
-        {/if}
+        <span>Size: <span class="font-medium text-charcoal">{$drawingState.tool === 'eraser' ? $drawingState.eraserSize : $drawingState.lineWidth}px</span></span>
         {#if $pdfState.document}
-          <span>
-            PDF: <span class="font-medium text-charcoal">{$pdfState.totalPages} pages</span>
-          </span>
+          <span>PDF: <span class="font-medium text-charcoal">{$pdfState.totalPages} pages</span></span>
         {/if}
       </div>
     </div>

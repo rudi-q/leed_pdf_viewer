@@ -88,9 +88,24 @@
       }
     }
   }
+
+  function handleWheel(event: WheelEvent) {
+    // Handle Ctrl+scroll for zoom anywhere on the page
+    if (event.ctrlKey) {
+      event.preventDefault();
+      
+      // deltaY < 0 means scroll up (zoom in), deltaY > 0 means scroll down (zoom out)
+      const zoomIn = event.deltaY < 0;
+      if (zoomIn) {
+        pdfViewer?.zoomIn();
+      } else {
+        pdfViewer?.zoomOut();
+      }
+    }
+  }
 </script>
 
-<svelte:window on:keydown={handleKeyboard} />
+<svelte:window on:keydown={handleKeyboard} on:wheel={handleWheel} />
 
 <main 
   class="w-screen h-screen relative overflow-hidden"
@@ -106,10 +121,11 @@
     onNextPage={() => pdfViewer?.nextPage()}
     onZoomIn={() => pdfViewer?.zoomIn()}
     onZoomOut={() => pdfViewer?.zoomOut()}
+    onResetZoom={() => pdfViewer?.resetZoom()}
   />
 
   <!-- Main content -->
-  <div class="w-full h-full pt-32">
+  <div class="w-full h-full pt-20">
     {#if showWelcome}
       <!-- Welcome screen -->
       <div class="absolute inset-0 flex items-center justify-center">

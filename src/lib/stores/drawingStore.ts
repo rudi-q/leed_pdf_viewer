@@ -7,6 +7,7 @@ export interface DrawingState {
   tool: DrawingTool;
   color: string;
   lineWidth: number;
+  eraserSize: number;
   isDrawing: boolean;
 }
 
@@ -22,6 +23,8 @@ export interface Point {
   x: number;
   y: number;
   pressure?: number;
+  relativeX?: number;
+  relativeY?: number;
 }
 
 export interface DrawingPath {
@@ -37,6 +40,7 @@ export const drawingState = writable<DrawingState>({
   tool: 'pencil',
   color: '#2D3748', // charcoal color
   lineWidth: 2,
+  eraserSize: 8,
   isDrawing: false
 });
 
@@ -84,6 +88,9 @@ export const availableColors = [
 // Available line widths
 export const availableLineWidths = [1, 2, 3, 5, 8, 12];
 
+// Available eraser sizes
+export const availableEraserSizes = [4, 8, 12, 16, 24, 32];
+
 // Derived store for current page paths
 export const currentPagePaths = derived(
   [drawingPaths, pdfState],
@@ -103,6 +110,10 @@ export const setColor = (color: string) => {
 
 export const setLineWidth = (lineWidth: number) => {
   drawingState.update(state => ({ ...state, lineWidth }));
+};
+
+export const setEraserSize = (eraserSize: number) => {
+  drawingState.update(state => ({ ...state, eraserSize }));
 };
 
 export const setIsDrawing = (isDrawing: boolean) => {
