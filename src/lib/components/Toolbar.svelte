@@ -107,25 +107,23 @@
 
 <div class="toolbar fixed top-4 left-4 right-4 z-50">
   <div class="floating-panel">
-    <!-- Premium Leed Branding -->
-    <div class="flex items-center justify-center mb-3 pb-3 border-b border-charcoal/10">
-      <h1 class="text-2xl font-serif text-charcoal tracking-wider" style="font-family: 'Playfair Display', 'Times New Roman', serif; font-weight: 700; letter-spacing: 0.1em;">
-        Leed
-      </h1>
-    </div>
-    
     <div class="flex items-center justify-between">
-      <!-- Left section: File and navigation -->
-      <div class="flex items-center space-x-2">
+      <!-- Left section: Branding and file operations -->
+      <div class="flex items-center space-x-3">
+        <!-- Leed branding -->
+        <h1 class="text-xl font-serif text-charcoal tracking-wider mr-2" style="font-family: 'Playfair Display', 'Times New Roman', serif; font-weight: 700; letter-spacing: 0.1em;">
+          Leed
+        </h1>
+        
+        <div class="h-6 w-px bg-charcoal/20"></div>
+        
         <button
           class="tool-button"
           on:click={handleFileSelect}
           title="Upload PDF"
         >
-          <Folder size={20} />
+          <Folder size={18} />
         </button>
-
-        <div class="h-6 w-px bg-charcoal/20"></div>
 
         <button
           class="tool-button"
@@ -134,7 +132,7 @@
           on:click={onPreviousPage}
           title="Previous page"
         >
-          <ChevronLeft size={20} />
+          <ChevronLeft size={18} />
         </button>
 
         <button
@@ -144,17 +142,15 @@
           on:click={onNextPage}
           title="Next page"
         >
-          <ChevronRight size={20} />
+          <ChevronRight size={18} />
         </button>
-
-        <div class="h-6 w-px bg-charcoal/20"></div>
 
         <button
           class="tool-button"
           on:click={onZoomOut}
           title="Zoom out"
         >
-          <ZoomOut size={18} />
+          <ZoomOut size={16} />
         </button>
 
         <button
@@ -162,7 +158,7 @@
           on:click={onZoomIn}
           title="Zoom in"
         >
-          <ZoomIn size={18} />
+          <ZoomIn size={16} />
         </button>
 
         <button
@@ -316,8 +312,8 @@
         {/if}
       </div>
 
-      <!-- Right section: Actions -->
-      <div class="flex items-center space-x-2">
+      <!-- Right section: Actions and status -->
+      <div class="flex items-center space-x-3">
         <button
           class="tool-button"
           class:opacity-50={$undoStack.length === 0}
@@ -325,7 +321,7 @@
           on:click={handleUndo}
           title="Undo (Ctrl+Z)"
         >
-          <Undo2 size={18} />
+          <Undo2 size={16} />
         </button>
 
         <button
@@ -335,31 +331,28 @@
           on:click={handleRedo}
           title="Redo (Ctrl+Y)"
         >
-          <Redo2 size={18} />
+          <Redo2 size={16} />
         </button>
-
-        <div class="h-6 w-px bg-charcoal/20"></div>
 
         <button
           class="tool-button text-red-500 hover:bg-red-50"
           on:click={handleClear}
           title="Clear all drawings on this page"
         >
-          <Trash2 size={16} />
+          <Trash2 size={14} />
         </button>
-      </div>
-    </div>
-
-    <!-- Compact tool info -->
-    <div class="mt-2 pt-2 border-t border-charcoal/10">
-      <div class="flex items-center justify-center space-x-3 text-xs text-charcoal/70">
-        <span>
-          Tool: <span class="font-medium text-charcoal capitalize">{$drawingState.tool}</span>
-        </span>
-        <span>Size: <span class="font-medium text-charcoal">{$drawingState.tool === 'eraser' ? $drawingState.eraserSize : $drawingState.lineWidth}px</span></span>
-        {#if $pdfState.document}
-          <span>PDF: <span class="font-medium text-charcoal">{$pdfState.totalPages} pages</span></span>
-        {/if}
+        
+        <div class="h-6 w-px bg-charcoal/20"></div>
+        
+        <!-- Compact tool status -->
+        <div class="flex items-center space-x-2 text-xs text-charcoal/70">
+          <span class="capitalize font-medium text-charcoal">{$drawingState.tool}</span>
+          <span>{$drawingState.tool === 'eraser' ? $drawingState.eraserSize : $drawingState.lineWidth}px</span>
+          {#if $pdfState.document}
+            <span>•</span>
+            <span>{$pdfState.totalPages}p</span>
+          {/if}
+        </div>
       </div>
     </div>
   </div>
