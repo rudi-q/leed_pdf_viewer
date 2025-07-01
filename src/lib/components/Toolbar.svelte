@@ -9,23 +9,28 @@
     availableColors, 
     availableLineWidths,
     availableEraserSizes,
-    undoLastPath,
+    undo,
+    redo,
+    undoStack,
+    redoStack,
     clearCurrentPageDrawings,
     type DrawingTool 
   } from '../stores/drawingStore';
+  
+  // Feather Icons
+  import { 
+    Folder, 
+    ChevronLeft, 
+    ChevronRight, 
+    ZoomIn, 
+    ZoomOut, 
+    Edit3, 
+    Square, 
+    Undo2, 
+    Redo2, 
+    Trash2 
+  } from 'lucide-svelte';
 
-  // Icons (you can replace these with actual SVG icons or icon fonts)
-  const icons = {
-    pencil: '✏️',
-    eraser: '🧽',
-    undo: '↶',
-    clear: '🗑️',
-    prev: '⬅️',
-    next: '➡️',
-    zoomOut: '🔍-',
-    zoomIn: '🔍+',
-    upload: '📁'
-  };
 
   export let onFileUpload: (files: FileList) => void;
   export let onPreviousPage: () => void;
@@ -70,7 +75,11 @@
   }
 
   function handleUndo() {
-    undoLastPath();
+    undo();
+  }
+  
+  function handleRedo() {
+    redo();
   }
 
   function handleClear() {
@@ -106,7 +115,7 @@
           on:click={handleFileSelect}
           title="Upload PDF"
         >
-          <span class="text-xl">{icons.upload}</span>
+          <Folder size={20} />
         </button>
 
         <div class="h-6 w-px bg-charcoal/20"></div>
@@ -118,7 +127,7 @@
           on:click={onPreviousPage}
           title="Previous page"
         >
-          <span class="text-lg">{icons.prev}</span>
+          <ChevronLeft size={20} />
         </button>
 
         <button
@@ -128,7 +137,7 @@
           on:click={onNextPage}
           title="Next page"
         >
-          <span class="text-lg">{icons.next}</span>
+          <ChevronRight size={20} />
         </button>
 
         <div class="h-6 w-px bg-charcoal/20"></div>
@@ -138,7 +147,7 @@
           on:click={onZoomOut}
           title="Zoom out"
         >
-          <span class="text-sm font-bold">{icons.zoomOut}</span>
+          <ZoomOut size={18} />
         </button>
 
         <button
@@ -146,7 +155,7 @@
           on:click={onZoomIn}
           title="Zoom in"
         >
-          <span class="text-sm font-bold">{icons.zoomIn}</span>
+          <ZoomIn size={18} />
         </button>
 
         <button
@@ -166,7 +175,7 @@
           on:click={() => handleToolChange('pencil')}
           title="Pencil"
         >
-          <span class="text-xl">{icons.pencil}</span>
+          <Edit3 size={18} />
         </button>
 
         <button
@@ -175,7 +184,7 @@
           on:click={() => handleToolChange('eraser')}
           title="Eraser"
         >
-          <span class="text-xl">{icons.eraser}</span>
+          <Square size={18} />
         </button>
 
         <div class="h-6 w-px bg-charcoal/20"></div>
@@ -292,18 +301,32 @@
       <div class="flex items-center space-x-2">
         <button
           class="tool-button"
+          class:opacity-50={$undoStack.length === 0}
+          disabled={$undoStack.length === 0}
           on:click={handleUndo}
-          title="Undo last drawing"
+          title="Undo (Ctrl+Z)"
         >
-          <span class="text-lg">{icons.undo}</span>
+          <Undo2 size={18} />
         </button>
+
+        <button
+          class="tool-button"
+          class:opacity-50={$redoStack.length === 0}
+          disabled={$redoStack.length === 0}
+          on:click={handleRedo}
+          title="Redo (Ctrl+Y)"
+        >
+          <Redo2 size={18} />
+        </button>
+
+        <div class="h-6 w-px bg-charcoal/20"></div>
 
         <button
           class="tool-button text-red-500 hover:bg-red-50"
           on:click={handleClear}
           title="Clear all drawings on this page"
         >
-          <span class="text-lg">{icons.clear}</span>
+          <Trash2 size={16} />
         </button>
       </div>
     </div>

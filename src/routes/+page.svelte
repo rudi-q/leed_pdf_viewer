@@ -3,6 +3,7 @@
   import PDFViewer from '$lib/components/PDFViewer.svelte';
   import Toolbar from '$lib/components/Toolbar.svelte';
   import { isValidPDFFile, formatFileSize } from '$lib/utils/pdfUtils';
+  import { undo, redo } from '$lib/stores/drawingStore';
   
   let pdfViewer: PDFViewer;
   let currentFile: File | null = null;
@@ -55,7 +56,20 @@
     if (event.ctrlKey || event.metaKey) {
       switch (event.key) {
         case 'z':
-          // Undo handled by toolbar
+          if (event.shiftKey) {
+            // Ctrl+Shift+Z = Redo (alternative to Ctrl+Y)
+            event.preventDefault();
+            redo();
+          } else {
+            // Ctrl+Z = Undo
+            event.preventDefault();
+            undo();
+          }
+          break;
+        case 'y':
+          // Ctrl+Y = Redo
+          event.preventDefault();
+          redo();
           break;
         case '=':
         case '+':

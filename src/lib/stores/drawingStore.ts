@@ -69,6 +69,10 @@ if (typeof window !== 'undefined') {
 // Drawing paths store - stores all drawing data per page
 export const drawingPaths = writable<Map<number, DrawingPath[]>>(new Map());
 
+// Undo/redo functionality
+export const undoStack = writable<Array<{ pageNumber: number; paths: DrawingPath[] }>>([]); 
+export const redoStack = writable<Array<{ pageNumber: number; paths: DrawingPath[] }>>([]);
+
 // Available colors for the color palette
 export const availableColors = [
   '#2D3748', // charcoal
@@ -120,11 +124,29 @@ export const setIsDrawing = (isDrawing: boolean) => {
   drawingState.update(state => ({ ...state, isDrawing }));
 };
 
+// Save state for undo functionality
+const saveUndoState = (pageNumber: number, paths: DrawingPath[]) => {
+  undoStack.update(stack => {
+    const newState = { pageNumber, paths: [...paths] };
+    stack.push(newState);
+    // Limit undo stack size
+    if (stack.length > 50) {
+      stack.shift();
+    }
+    return stack;
+  });
+  // Clear redo stack when new action is performed
+  redoStack.set([]);
+};
+
 export const addDrawingPath = (path: DrawingPath) => {
   drawingPaths.update(paths => {
-    const pagePaths = paths.get(path.pageNumber) || [];
-    pagePaths.push(path);
-    paths.set(path.pageNumber, pagePaths);
+    const currentPaths = paths.get(path.pageNumber) || [];
+    // Save current state for undo
+    saveUndoState(path.pageNumber, currentPaths);
+    
+    const newPaths = [...currentPaths, path];
+    paths.set(path.pageNumber, newPaths);
     return new Map(paths);
   });
 };
@@ -140,21 +162,61 @@ export const clearCurrentPageDrawings = () => {
   })();
 };
 
-export const undoLastPath = () => {
-  pdfState.subscribe(state => {
-    if (state.currentPage > 0) {
+// Undo function
+export const undo = () => {
+  undoStack.update(stack => {
+    const lastState = stack.pop();
+    if (lastState) {
+      // Save current state to redo stack
+      redoStack.update(redoStack => {
+        drawingPaths.subscribe(paths => {
+          const currentPaths = paths.get(lastState.pageNumber) || [];
+          redoStack.push({ pageNumber: lastState.pageNumber, paths: [...currentPaths] });
+        })();
+        return redoStack;
+      });
+      
+      // Restore previous state
       drawingPaths.update(paths => {
-        const pagePaths = paths.get(state.currentPage) || [];
-        if (pagePaths.length > 0) {
-          pagePaths.pop();
-          if (pagePaths.length === 0) {
-            paths.delete(state.currentPage);
-          } else {
-            paths.set(state.currentPage, pagePaths);
-          }
+        if (lastState.paths.length === 0) {
+          paths.delete(lastState.pageNumber);
+        } else {
+          paths.set(lastState.pageNumber, lastState.paths);
         }
         return new Map(paths);
       });
     }
-  })();
+    return stack;
+  });
 };
+
+// Redo function
+export const redo = () => {
+  redoStack.update(stack => {
+    const nextState = stack.pop();
+    if (nextState) {
+      // Save current state to undo stack
+      undoStack.update(undoStack => {
+        drawingPaths.subscribe(paths => {
+          const currentPaths = paths.get(nextState.pageNumber) || [];
+          undoStack.push({ pageNumber: nextState.pageNumber, paths: [...currentPaths] });
+        })();
+        return undoStack;
+      });
+      
+      // Restore next state
+      drawingPaths.update(paths => {
+        if (nextState.paths.length === 0) {
+          paths.delete(nextState.pageNumber);
+        } else {
+          paths.set(nextState.pageNumber, nextState.paths);
+        }
+        return new Map(paths);
+      });
+    }
+    return stack;
+  });
+};
+
+// Legacy function - keeping for backward compatibility
+export const undoLastPath = undo;
