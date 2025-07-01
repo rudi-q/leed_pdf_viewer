@@ -136,6 +136,8 @@
     onZoomIn={() => pdfViewer?.zoomIn()}
     onZoomOut={() => pdfViewer?.zoomOut()}
     onResetZoom={() => pdfViewer?.resetZoom()}
+    onFitToWidth={() => pdfViewer?.fitToWidth()}
+    onFitToHeight={() => pdfViewer?.fitToHeight()}
   />
 
   <!-- Main content -->

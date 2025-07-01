@@ -418,6 +418,40 @@ function handlePointerUp(event: PointerEvent) {
     pdfState.update(state => ({ ...state, scale: 1.2 }));
     renderCurrentPage();
   }
+
+  export async function fitToWidth() {
+    if (!$pdfState.document || !containerDiv) return;
+    
+    try {
+      const page = await $pdfState.document.getPage($pdfState.currentPage);
+      const viewport = page.getViewport({ scale: 1 });
+      const containerWidth = containerDiv.clientWidth - 40; // Account for padding
+      const newScale = containerWidth / viewport.width;
+      
+      panOffset = { x: 0, y: 0 };
+      pdfState.update(state => ({ ...state, scale: newScale }));
+      await renderCurrentPage();
+    } catch (error) {
+      console.error('Error fitting to width:', error);
+    }
+  }
+
+  export async function fitToHeight() {
+    if (!$pdfState.document || !containerDiv) return;
+    
+    try {
+      const page = await $pdfState.document.getPage($pdfState.currentPage);
+      const viewport = page.getViewport({ scale: 1 });
+      const containerHeight = containerDiv.clientHeight - 100; // Account for toolbar and page info
+      const newScale = containerHeight / viewport.height;
+      
+      panOffset = { x: 0, y: 0 };
+      pdfState.update(state => ({ ...state, scale: newScale }));
+      await renderCurrentPage();
+    } catch (error) {
+      console.error('Error fitting to height:', error);
+    }
+  }
 </script>
 
 <div bind:this={containerDiv} class="pdf-viewer relative w-full h-full overflow-hidden">

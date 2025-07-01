@@ -38,6 +38,8 @@
   export let onZoomIn: () => void;
   export let onZoomOut: () => void;
   export let onResetZoom: () => void;
+  export let onFitToWidth: () => void;
+  export let onFitToHeight: () => void;
 
   let fileInput: HTMLInputElement;
   let showColorPalette = false;
@@ -167,6 +169,22 @@
           title="Reset zoom to 120%"
         >
           <span class="font-medium text-xs">Reset</span>
+        </button>
+
+        <button
+          class="tool-button text-xs px-1"
+          on:click={onFitToWidth}
+          title="Fit to width"
+        >
+          <span class="font-medium text-xs">Fit W</span>
+        </button>
+
+        <button
+          class="tool-button text-xs px-1"
+          on:click={onFitToHeight}
+          title="Fit to height"
+        >
+          <span class="font-medium text-xs">Fit H</span>
         </button>
       </div>
 
