@@ -1,0 +1,89 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Custom globals for that vibey feel */
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-cream text-charcoal overflow-hidden;
+  }
+  
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Custom drawing canvas styles */
+@layer components {
+  .drawing-canvas {
+    cursor: crosshair;
+    touch-action: none; /* Prevent scrolling while drawing */
+  }
+  
+  .drawing-canvas.eraser {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="pink" stroke-width="2"/></svg>') 10 10, auto;
+  }
+  
+  .tool-button {
+    @apply p-3 rounded-xl transition-all duration-200 ease-out;
+    @apply hover:scale-105 hover:shadow-lg active:scale-95;
+    @apply focus:outline-none focus:ring-2 focus:ring-sage/50;
+  }
+  
+  .tool-button.active {
+    @apply bg-sage text-white shadow-md;
+  }
+  
+  .tool-button:not(.active) {
+    @apply bg-white/70 text-charcoal hover:bg-white/90;
+  }
+  
+  .pdf-viewer {
+    @apply bg-white/50 backdrop-blur-sm rounded-2xl shadow-xl;
+    @apply border border-white/30;
+  }
+  
+  .floating-panel {
+    @apply bg-white/80 backdrop-blur-md rounded-2xl shadow-xl;
+    @apply border border-white/30 p-4;
+  }
+  
+  .smooth-button {
+    @apply px-4 py-2 rounded-xl font-medium transition-all duration-200;
+    @apply hover:scale-105 active:scale-95 focus:outline-none;
+  }
+  
+  .primary-button {
+    @apply smooth-button bg-sage text-white hover:bg-sage/90;
+    @apply shadow-lg hover:shadow-xl;
+  }
+  
+  .secondary-button {
+    @apply smooth-button bg-white/70 text-charcoal hover:bg-white/90;
+    @apply border border-charcoal/10;
+  }
+}
+
+/* Scrollbar styling for that clean look */
+@layer utilities {
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .glass-effect {
+    @apply bg-white/30 backdrop-blur-md border border-white/20;
+  }
+}
