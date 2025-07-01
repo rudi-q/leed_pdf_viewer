@@ -204,26 +204,31 @@
           </button>
 
           {#if showColorPalette}
-            <div class="absolute top-full mt-2 left-0 floating-panel animate-slide-up">
-              <div class="grid grid-cols-3 gap-2 p-3">
-                {#each availableColors as color}
-                  <button
-                    class="w-10 h-10 rounded-xl border-2 border-white/70 shadow-lg hover:scale-105 transition-all duration-200 relative"
-                    class:ring-4={color === $drawingState.color}
-                    class:ring-sage={color === $drawingState.color}
-                    class:ring-offset-2={color === $drawingState.color}
-                    style="background-color: {color}"
-                    on:click={() => handleColorChange(color)}
-                    title="Select color {color}"
-                    aria-label="Select color {color}"
-                  >
-                    {#if color === $drawingState.color}
-                      <div class="absolute inset-0 flex items-center justify-center">
-                        <div class="w-3 h-3 rounded-full bg-white/90 shadow-sm"></div>
-                      </div>
-                    {/if}
-                  </button>
-                {/each}
+            <div class="absolute top-full mt-2 left-0 z-50">
+              <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-4 min-w-[200px]">
+                <div class="grid grid-cols-4 gap-3">
+                  {#each availableColors as color}
+                    <button
+                      class="w-8 h-8 rounded-full border-2 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-sage focus:ring-offset-2"
+                      class:border-sage={color === $drawingState.color}
+                      class:border-gray-300={color !== $drawingState.color}
+                      class:scale-110={color === $drawingState.color}
+                      class:shadow-lg={color === $drawingState.color}
+                      style="background-color: {color}"
+                      on:click={() => handleColorChange(color)}
+                      title="Select {color}"
+                      aria-label="Select color {color}"
+                    >
+                      {#if color === $drawingState.color}
+                        <div class="w-full h-full rounded-full flex items-center justify-center">
+                          <svg class="w-3 h-3 text-white drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                          </svg>
+                        </div>
+                      {/if}
+                    </button>
+                  {/each}
+                </div>
               </div>
             </div>
           {/if}
