@@ -205,17 +205,24 @@
 
           {#if showColorPalette}
             <div class="absolute top-full mt-2 left-0 floating-panel animate-slide-up">
-              <div class="grid grid-cols-4 gap-2 p-2">
+              <div class="grid grid-cols-3 gap-2 p-3">
                 {#each availableColors as color}
                   <button
-                    class="w-8 h-8 rounded-lg border-2 border-white shadow-md hover:scale-110 transition-transform"
-                    class:ring-2={color === $drawingState.color}
+                    class="w-10 h-10 rounded-xl border-2 border-white/70 shadow-lg hover:scale-105 transition-all duration-200 relative"
+                    class:ring-4={color === $drawingState.color}
                     class:ring-sage={color === $drawingState.color}
+                    class:ring-offset-2={color === $drawingState.color}
                     style="background-color: {color}"
                     on:click={() => handleColorChange(color)}
                     title="Select color {color}"
                     aria-label="Select color {color}"
-                  ></button>
+                  >
+                    {#if color === $drawingState.color}
+                      <div class="absolute inset-0 flex items-center justify-center">
+                        <div class="w-3 h-3 rounded-full bg-white/90 shadow-sm"></div>
+                      </div>
+                    {/if}
+                  </button>
                 {/each}
               </div>
             </div>

@@ -141,24 +141,31 @@
     try {
       const page = await $pdfState.document.getPage($pdfState.currentPage);
       const viewport = page.getViewport({ scale: $pdfState.scale });
+      const outputScale = window.devicePixelRatio || 1;
       
-      // Set canvas dimensions to match the scaled viewport
-      pdfCanvas.width = viewport.width;
-      pdfCanvas.height = viewport.height;
+      // Set canvas dimensions to match the scaled viewport and device pixel ratio for crisp rendering
+      pdfCanvas.width = Math.floor(viewport.width * outputScale);
+      pdfCanvas.height = Math.floor(viewport.height * outputScale);
       pdfCanvas.style.width = `${viewport.width}px`;
       pdfCanvas.style.height = `${viewport.height}px`;
       
+      // Scale the canvas context to match device pixel ratio
+      const context = pdfCanvas.getContext('2d');
+      if (context) {
+        context.scale(outputScale, outputScale);
+      }
+      
       await pdfManager.renderPage($pdfState.currentPage, {
-        scale: $pdfState.scale,
+        scale: $pdfState.scale * outputScale,
         canvas: pdfCanvas
       });
 
-      // Sync drawing canvas size with PDF canvas
+      // Sync drawing canvas size with PDF canvas (but don't apply devicePixelRatio to drawing canvas)
       if (drawingCanvas) {
-        drawingCanvas.width = pdfCanvas.width;
-        drawingCanvas.height = pdfCanvas.height;
-        drawingCanvas.style.width = pdfCanvas.style.width;
-        drawingCanvas.style.height = pdfCanvas.style.height;
+        drawingCanvas.width = viewport.width;
+        drawingCanvas.height = viewport.height;
+        drawingCanvas.style.width = `${viewport.width}px`;
+        drawingCanvas.style.height = `${viewport.height}px`;
         
         // Re-render drawing paths for current page
         if (drawingEngine) {
