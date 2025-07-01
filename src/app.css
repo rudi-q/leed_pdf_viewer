@@ -33,7 +33,7 @@
   }
   
   .tool-button {
-    @apply p-3 rounded-xl transition-all duration-200 ease-out;
+    @apply p-2 rounded-lg transition-all duration-200 ease-out;
     @apply hover:scale-105 hover:shadow-lg active:scale-95;
     @apply focus:outline-none focus:ring-2 focus:ring-sage/50;
   }

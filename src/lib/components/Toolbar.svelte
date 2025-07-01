@@ -105,24 +105,24 @@
 
 <svelte:window on:click={handleClickOutside} />
 
-<div class="toolbar fixed top-4 left-4 right-4 z-50">
-  <div class="floating-panel">
+<div class="toolbar fixed top-2 left-4 right-4 z-50">
+  <div class="floating-panel !py-1 !px-3">
     <div class="flex items-center justify-between">
       <!-- Left section: Branding and file operations -->
-      <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-2">
         <!-- Leed branding -->
-        <h1 class="text-xl font-serif text-charcoal tracking-wider mr-2" style="font-family: 'Playfair Display', 'Times New Roman', serif; font-weight: 700; letter-spacing: 0.1em;">
+        <h1 class="text-sm font-serif text-charcoal tracking-wider mr-1" style="font-family: 'Playfair Display', 'Times New Roman', serif; font-weight: 700; letter-spacing: 0.1em;">
           Leed
         </h1>
         
-        <div class="h-6 w-px bg-charcoal/20"></div>
+        <div class="h-4 w-px bg-charcoal/20"></div>
         
         <button
           class="tool-button"
           on:click={handleFileSelect}
           title="Upload PDF"
         >
-          <Folder size={18} />
+          <Folder size={14} />
         </button>
 
         <button
@@ -132,7 +132,7 @@
           on:click={onPreviousPage}
           title="Previous page"
         >
-          <ChevronLeft size={18} />
+          <ChevronLeft size={14} />
         </button>
 
         <button
@@ -142,7 +142,7 @@
           on:click={onNextPage}
           title="Next page"
         >
-          <ChevronRight size={18} />
+          <ChevronRight size={14} />
         </button>
 
         <button
@@ -150,7 +150,7 @@
           on:click={onZoomOut}
           title="Zoom out"
         >
-          <ZoomOut size={16} />
+          <ZoomOut size={12} />
         </button>
 
         <button
@@ -158,15 +158,15 @@
           on:click={onZoomIn}
           title="Zoom in"
         >
-          <ZoomIn size={16} />
+          <ZoomIn size={12} />
         </button>
 
         <button
-          class="tool-button text-xs px-2"
+          class="tool-button text-xs px-1"
           on:click={onResetZoom}
           title="Reset zoom to 120%"
         >
-          <span class="font-medium">Reset</span>
+          <span class="font-medium text-xs">Reset</span>
         </button>
       </div>
 
@@ -178,7 +178,7 @@
           on:click={() => handleToolChange('pencil')}
           title="Pencil"
         >
-          <Edit3 size={18} />
+          <Edit3 size={14} />
         </button>
 
         <button
@@ -187,21 +187,21 @@
           on:click={() => handleToolChange('eraser')}
           title="Eraser"
         >
-          <Square size={18} />
+          <Square size={14} />
         </button>
 
-        <div class="h-6 w-px bg-charcoal/20"></div>
+        <div class="h-4 w-px bg-charcoal/20"></div>
 
         <!-- Color picker -->
         <div class="relative color-palette-container">
           <button
-            class="tool-button w-12 h-12 p-2"
+            class="tool-button w-8 h-8 p-1"
             on:click={() => showColorPalette = !showColorPalette}
             title="Choose color"
             aria-label="Choose drawing color"
           >
             <div 
-              class="w-full h-full rounded-lg border-2 border-white shadow-inner"
+              class="w-full h-full rounded-md border border-white shadow-inner"
               style="background-color: {$drawingState.color}"
             ></div>
           </button>
@@ -321,7 +321,7 @@
           on:click={handleUndo}
           title="Undo (Ctrl+Z)"
         >
-          <Undo2 size={16} />
+          <Undo2 size={12} />
         </button>
 
         <button
@@ -331,7 +331,7 @@
           on:click={handleRedo}
           title="Redo (Ctrl+Y)"
         >
-          <Redo2 size={16} />
+          <Redo2 size={12} />
         </button>
 
         <button
@@ -339,10 +339,10 @@
           on:click={handleClear}
           title="Clear all drawings on this page"
         >
-          <Trash2 size={14} />
+          <Trash2 size={12} />
         </button>
         
-        <div class="h-6 w-px bg-charcoal/20"></div>
+        <div class="h-4 w-px bg-charcoal/20"></div>
         
         <!-- Compact tool status -->
         <div class="flex items-center space-x-2 text-xs text-charcoal/70">
