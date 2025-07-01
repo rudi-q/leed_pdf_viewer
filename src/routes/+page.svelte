@@ -202,6 +202,20 @@
   </div>
 </main>
 
+<!-- Footer -->
+<footer class="fixed bottom-4 left-4 right-4 z-40 pointer-events-none">
+  <div class="flex justify-center">
+    <div class="floating-panel text-center py-2 px-4 pointer-events-auto">
+      <p class="text-xs text-charcoal/60">
+        ❤️ An open-source, lovable PDF viewer • 
+        <a href="https://github.com/yourusername/LeedPDF" class="text-sage hover:text-sage/80 transition-colors" target="_blank" rel="noopener">
+          View on GitHub
+        </a>
+      </p>
+    </div>
+  </div>
+</footer>
+
 <style>
   main {
     background: linear-gradient(135deg, #FDF6E3 0%, #F7F3E9 50%, #F0EFEB 100%);

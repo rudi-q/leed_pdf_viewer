@@ -107,6 +107,13 @@
 
 <div class="toolbar fixed top-4 left-4 right-4 z-50">
   <div class="floating-panel">
+    <!-- Premium Leed Branding -->
+    <div class="flex items-center justify-center mb-3 pb-3 border-b border-charcoal/10">
+      <h1 class="text-2xl font-serif text-charcoal tracking-wider" style="font-family: 'Playfair Display', 'Times New Roman', serif; font-weight: 700; letter-spacing: 0.1em;">
+        Leed
+      </h1>
+    </div>
+    
     <div class="flex items-center justify-between">
       <!-- Left section: File and navigation -->
       <div class="flex items-center space-x-2">
