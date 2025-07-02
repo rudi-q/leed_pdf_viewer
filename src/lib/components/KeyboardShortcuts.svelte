@@ -39,6 +39,7 @@
         { keys: ['Ctrl', '0'], description: 'Reset zoom' },
         { keys: ['W'], description: 'Fit to width' },
         { keys: ['H'], description: 'Fit to height' },
+        { keys: ['T'], description: 'Toggle page thumbnails' },
       ]
     },
     {

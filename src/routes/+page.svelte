@@ -3,6 +3,7 @@
   import PDFViewer from '$lib/components/PDFViewer.svelte';
   import Toolbar from '$lib/components/Toolbar.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
+  import PageThumbnails from '$lib/components/PageThumbnails.svelte';
   import { isValidPDFFile, formatFileSize } from '$lib/utils/pdfUtils';
   import { undo, redo, setCurrentPDF, setTool, drawingPaths, shapeObjects } from '$lib/stores/drawingStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
@@ -13,6 +14,7 @@
   let showWelcome = true;
   let showShortcuts = false;
   let isFullscreen = false;
+  let showThumbnails = false;
 
   function handleFileUpload(files: FileList) {
     console.log('handleFileUpload called with:', files);
@@ -158,6 +160,12 @@
           event.preventDefault();
           showShortcuts = true;
           break;
+        case 't':
+        case 'T':
+          // Toggle thumbnails
+          event.preventDefault();
+          showThumbnails = !showThumbnails;
+          break;
         case 'F11':
           // Toggle fullscreen
           event.preventDefault();
@@ -251,6 +259,14 @@
     }
   }
 
+  function handleToggleThumbnails(show: boolean) {
+    showThumbnails = show;
+  }
+
+  function handlePageSelect(pageNumber: number) {
+    pdfViewer?.goToPage(pageNumber);
+  }
+
   // Listen for fullscreen changes
   function handleFullscreenChange() {
     isFullscreen = !!document.fullscreenElement;
@@ -284,6 +300,8 @@
     onFitToWidth={() => pdfViewer?.fitToWidth()}
     onFitToHeight={() => pdfViewer?.fitToHeight()}
     onExportPDF={handleExportPDF}
+    {showThumbnails}
+    onToggleThumbnails={handleToggleThumbnails}
   />
 
   <!-- Main content -->
@@ -328,8 +346,21 @@
         </div>
       </div>
     {:else}
-      <!-- PDF Viewer -->
-      <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} />
+      <!-- PDF Viewer with optional thumbnail panel -->
+      <div class="flex h-full">
+        <!-- Page Thumbnails Panel -->
+        {#if showThumbnails}
+          <PageThumbnails 
+            isVisible={showThumbnails}
+            onPageSelect={handlePageSelect}
+          />
+        {/if}
+        
+        <!-- PDF Viewer -->
+        <div class="flex-1">
+          <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} />
+        </div>
+      </div>
     {/if}
   </div>
 
