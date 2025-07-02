@@ -86,8 +86,16 @@ export class KonvaShapeEngine {
     // Only handle events when using shape tools
     // Let pencil/eraser tools pass through to drawing canvas
     
-    // Click to select objects
+    // Click to handle text placement and object selection
     this.stage.on('click tap', (e) => {
+      // Handle text tool first
+      if (this.currentTool === 'text' && e.target === this.stage) {
+        const pos = this.stage.getPointerPosition();
+        if (!pos) return;
+        this.addText(pos.x, pos.y);
+        return;
+      }
+      
       // Only handle if we're using shape tools or clicking on existing shapes
       if (['text', 'rectangle', 'circle', 'arrow'].includes(this.currentTool) || e.target !== this.stage) {
         if (e.target === this.stage) {
@@ -257,20 +265,22 @@ export class KonvaShapeEngine {
     // Generate unique ID for the shape
     this.currentShape.id(`shape_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
     
-    // [Note] You can trigger a save event here if needed
-    // e.g., this.onShapeAdded?.(this.serializeShape(this.currentShape));
+    // Trigger save event
+    if (this.onShapeAdded) {
+      this.onShapeAdded(this.serializeShape(this.currentShape));
+    }
     
     this.currentShape = null;
   }
 
-  async addText(x: number, y: number, text: string = 'Text', fontSize: number = 16) {
+  async addText(x: number, y: number, text: string = '', fontSize: number = 16) {
     await this.ensureInitialized();
     if (!this.isInitialized || !Konva) return;
     
     const textNode = new Konva.Text({
       x,
       y,
-      text,
+      text: text || 'Click to edit', // Placeholder text
       fontSize,
       fontFamily: 'Inter, Arial, sans-serif',
       fill: '#2D3748',
@@ -283,13 +293,8 @@ export class KonvaShapeEngine {
     // Auto-select new text for immediate editing
     this.transformer.nodes([textNode]);
     
-    // [Note] Trigger save
-    // e.g., this.onShapeAdded?.(this.serializeShape(textNode));
-    
-    // Auto-edit if it's default text
-    if (text === 'Text') {
-      setTimeout(() => this.editText(textNode), 100);
-    }
+    // Always auto-edit new text for empty input
+    setTimeout(() => this.editText(textNode), 100);
 
     return textNode;
   }
@@ -300,7 +305,8 @@ export class KonvaShapeEngine {
     
     const input = document.createElement('input');
     input.type = 'text';
-    input.value = textNode.text();
+    // Start with empty input for new text objects
+    input.value = textNode.text() === 'Click to edit' ? '' : textNode.text();
     input.style.position = 'absolute';
     input.style.top = (stageBox.top + textPosition.y) + 'px';
     input.style.left = (stageBox.left + textPosition.x) + 'px';
@@ -315,12 +321,50 @@ export class KonvaShapeEngine {
     document.body.appendChild(input);
     input.focus();
     input.select();
-
+    
+    const cleanup = () => {
+      if (document.body.contains(input)) {
+        document.body.removeChild(input);
+      }
+    };
+    
     const updateText = () => {
-      textNode.text(input.value || 'Text');
-      document.body.removeChild(input);
-      // [Note] Trigger save after editing
-      // e.g., this.onShapeUpdated?.(this.serializeShape(textNode));
+      const newText = input.value.trim();
+      if (newText === '') {
+        // If text is empty, remove the text node
+        console.log('Text is empty, removing text node');
+        if (this.onShapeDeleted) {
+          this.onShapeDeleted(textNode.id());
+        }
+        textNode.destroy();
+        this.transformer.nodes([]);
+      } else {
+        // Check if this is a new text object (has placeholder text)
+        const isNewText = textNode.text() === 'Click to edit';
+        
+        // Update text
+        textNode.text(newText);
+        
+        // Trigger appropriate save event
+        if (isNewText && this.onShapeAdded) {
+          // This is a new text object being saved for the first time
+          this.onShapeAdded(this.serializeShape(textNode));
+        } else if (!isNewText && this.onShapeUpdated) {
+          // This is an existing text object being updated
+          this.onShapeUpdated(this.serializeShape(textNode));
+        }
+      }
+      cleanup();
+    };
+    
+    const cancelEdit = () => {
+      // If this was a new text object (placeholder text), remove it on cancel
+      if (textNode.text() === 'Click to edit') {
+        console.log('Canceling new text creation');
+        textNode.destroy();
+        this.transformer.nodes([]);
+      }
+      cleanup();
     };
 
     input.addEventListener('blur', updateText);
@@ -328,7 +372,7 @@ export class KonvaShapeEngine {
       if (e.key === 'Enter') {
         updateText();
       } else if (e.key === 'Escape') {
-        document.body.removeChild(input);
+        cancelEdit();
       }
     });
   }
