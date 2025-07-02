@@ -61,6 +61,9 @@
     console.log('PDFViewer mounted');
     pdfManager = new PDFManager();
     
+    // Test cursor accessibility first
+    await testCursorAccess();
+    
     // Wait for DOM to be fully rendered
     await tick();
     
@@ -401,6 +404,25 @@ function handlePointerUp(event: PointerEvent) {
   }
 
   // Custom cursors using separate SVG files with fallbacks
+  let cursorsLoaded = false;
+  
+  // Test if SVG cursors can be loaded
+  async function testCursorAccess() {
+    try {
+      const response = await fetch('/cursors/pencil.svg');
+      if (response.ok) {
+        console.log('SVG cursor files are accessible');
+        cursorsLoaded = true;
+      } else {
+        console.warn('SVG cursor files not accessible, status:', response.status);
+        cursorsLoaded = false;
+      }
+    } catch (error) {
+      console.warn('Error loading SVG cursor files:', error);
+      cursorsLoaded = false;
+    }
+  }
+  
   const pencilCursor = `url('/cursors/pencil.svg') 2 18, crosshair`;
   const eraserCursor = `url('/cursors/eraser.svg') 10 10, crosshair`;
   
