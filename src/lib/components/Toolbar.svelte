@@ -42,7 +42,11 @@
     Square, 
     Undo2, 
     Redo2, 
-    Trash2 
+    Trash2,
+    Type,
+    RectangleHorizontal,
+    Circle,
+    ArrowRight
   } from 'lucide-svelte';
 
 
@@ -220,6 +224,45 @@
           title="Eraser"
         >
           <Square size={14} />
+        </button>
+
+        <div class="h-4 w-px bg-charcoal/20"></div>
+
+        <!-- Shape Tools -->
+        <button
+          class="tool-button"
+          class:active={$drawingState.tool === 'text'}
+          on:click={() => handleToolChange('text')}
+          title="Text"
+        >
+          <Type size={14} />
+        </button>
+
+        <button
+          class="tool-button"
+          class:active={$drawingState.tool === 'rectangle'}
+          on:click={() => handleToolChange('rectangle')}
+          title="Rectangle"
+        >
+          <RectangleHorizontal size={14} />
+        </button>
+
+        <button
+          class="tool-button"
+          class:active={$drawingState.tool === 'circle'}
+          on:click={() => handleToolChange('circle')}
+          title="Circle"
+        >
+          <Circle size={14} />
+        </button>
+
+        <button
+          class="tool-button"
+          class:active={$drawingState.tool === 'arrow'}
+          on:click={() => handleToolChange('arrow')}
+          title="Arrow"
+        >
+          <ArrowRight size={14} />
         </button>
 
         <div class="h-4 w-px bg-charcoal/20"></div>

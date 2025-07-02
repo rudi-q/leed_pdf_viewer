@@ -1,7 +1,7 @@
 import { writable, derived } from 'svelte/store';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 
-export type DrawingTool = 'pencil' | 'eraser';
+export type DrawingTool = 'pencil' | 'eraser' | 'text' | 'rectangle' | 'circle' | 'arrow';
 
 export interface DrawingState {
   tool: DrawingTool;
@@ -34,6 +34,9 @@ export interface DrawingPath {
   points: Point[];
   pageNumber: number;
 }
+
+// Import ShapeObject from KonvaShapeEngine
+export type { ShapeObject } from '../utils/konvaShapeEngine';
 
 // Drawing state store
 export const drawingState = writable<DrawingState>({
@@ -68,6 +71,9 @@ if (typeof window !== 'undefined') {
 
 // Drawing paths store - stores all drawing data per page
 export const drawingPaths = writable<Map<number, DrawingPath[]>>(new Map());
+
+// Shape objects store - stores all shape data per page
+export const shapeObjects = writable<Map<number, ShapeObject[]>>(new Map());
 
 // Auto-save functionality
 const STORAGE_KEY = 'leedpdf_drawings';
@@ -237,6 +243,36 @@ export const addDrawingPath = (path: DrawingPath) => {
     const newPaths = [...currentPaths, path];
     paths.set(path.pageNumber, newPaths);
     return new Map(paths);
+  });
+};
+
+// Shape object management functions
+export const addShapeObject = (shape: ShapeObject) => {
+  shapeObjects.update(shapes => {
+    const currentShapes = shapes.get(shape.pageNumber) || [];
+    const newShapes = [...currentShapes, shape];
+    shapes.set(shape.pageNumber, newShapes);
+    return new Map(shapes);
+  });
+};
+
+export const updateShapeObject = (updatedShape: ShapeObject) => {
+  shapeObjects.update(shapes => {
+    const currentShapes = shapes.get(updatedShape.pageNumber) || [];
+    const newShapes = currentShapes.map(shape => 
+      shape.id === updatedShape.id ? updatedShape : shape
+    );
+    shapes.set(updatedShape.pageNumber, newShapes);
+    return new Map(shapes);
+  });
+};
+
+export const deleteShapeObject = (shapeId: string, pageNumber: number) => {
+  shapeObjects.update(shapes => {
+    const currentShapes = shapes.get(pageNumber) || [];
+    const newShapes = currentShapes.filter(shape => shape.id !== shapeId);
+    shapes.set(pageNumber, newShapes);
+    return new Map(shapes);
   });
 };
 

@@ -38,6 +38,7 @@
 		"@sveltejs/adapter-vercel": "^5.7.2",
 		"@tailwindcss/typography": "^0.5.16",
 		"autoprefixer": "^10.4.21",
+		"konva": "^9.3.20",
 		"lucide-svelte": "^0.525.0",
 		"pdf-lib": "^1.17.1",
 		"pdfjs-dist": "^5.3.31",

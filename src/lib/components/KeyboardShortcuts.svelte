@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
+  import { browser } from '$app/environment';
   
   export let isOpen = false;
   
@@ -17,11 +18,15 @@
   }
   
   onMount(() => {
-    document.addEventListener('keydown', handleKeydown);
+    if (browser) {
+      document.addEventListener('keydown', handleKeydown);
+    }
   });
   
   onDestroy(() => {
-    document.removeEventListener('keydown', handleKeydown);
+    if (browser) {
+      document.removeEventListener('keydown', handleKeydown);
+    }
   });
   
   const shortcuts = [
