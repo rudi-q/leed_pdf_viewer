@@ -104,7 +104,11 @@ export class DrawingEngine {
   renderPaths(paths: DrawingPath[]): void {
     this.clearCanvas();
     
-    for (const path of paths) {
+    // Filter out eraser paths and only render pencil paths
+    // Eraser paths will be handled by removing intersecting pencil paths
+    const pencilPaths = paths.filter(path => path.tool === 'pencil');
+    
+    for (const path of pencilPaths) {
       this.renderPath(path);
     }
   }
@@ -188,6 +192,39 @@ export class DrawingEngine {
       relativeX,
       relativeY
     };
+  }
+
+  // Check if two paths intersect (for eraser functionality)
+  pathsIntersect(path1: DrawingPath, path2: DrawingPath, tolerance: number = 20): boolean {
+    // Normalize points to use relative coordinates for comparison
+    const normalizePoint = (point: Point) => {
+      if (point.relativeX !== undefined && point.relativeY !== undefined) {
+        return { x: point.relativeX, y: point.relativeY };
+      }
+      // Convert absolute to relative using current canvas size
+      return {
+        x: point.x / this.canvas.width,
+        y: point.y / this.canvas.height
+      };
+    };
+
+    const path1Points = path1.points.map(normalizePoint);
+    const path2Points = path2.points.map(normalizePoint);
+    
+    // Use relative tolerance (percentage of canvas)
+    const relativeTolerance = tolerance / Math.min(this.canvas.width, this.canvas.height);
+    
+    for (const point1 of path1Points) {
+      for (const point2 of path2Points) {
+        const distance = Math.sqrt(
+          Math.pow(point1.x - point2.x, 2) + Math.pow(point1.y - point2.y, 2)
+        );
+        if (distance <= relativeTolerance) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   // Resize canvas and maintain aspect ratio

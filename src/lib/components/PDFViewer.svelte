@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy, tick } from 'svelte';
-  import { drawingState, pdfState, currentPagePaths, addDrawingPath, type DrawingPath, type Point } from '../stores/drawingStore';
+  import { drawingState, pdfState, currentPagePaths, addDrawingPath, drawingPaths, type DrawingPath, type Point } from '../stores/drawingStore';
   import { PDFManager } from '../utils/pdfUtils';
   import { DrawingEngine } from '../utils/drawingUtils';
 
@@ -265,18 +265,54 @@ function handlePointerUp(event: PointerEvent) {
     const finalPath = drawingEngine.endDrawing();
     
     if (finalPath.length > 1) {
-      const drawingPath: DrawingPath = {
-        tool: $drawingState.tool,
-        color: $drawingState.color,
-        lineWidth: $drawingState.lineWidth,
-        points: finalPath,
-        pageNumber: $pdfState.currentPage
-      };
-      
-      addDrawingPath(drawingPath);
+      // Check tool type
+      if ($drawingState.tool === 'eraser') {
+        // Remove intersecting pencil paths and ensure auto-save
+        drawingPaths.update(paths => {
+          const pagePaths = paths.get($pdfState.currentPage) || [];
+          const eraserPath = {
+            tool: 'eraser' as const,
+            color: '#000000',
+            lineWidth: $drawingState.eraserSize,
+            points: finalPath,
+            pageNumber: $pdfState.currentPage
+          };
+          
+          console.log('Checking eraser intersections with', pagePaths.length, 'paths');
+          const remainingPaths = pagePaths.filter((path, index) => {
+            const intersects = drawingEngine.pathsIntersect(path, eraserPath);
+            if (intersects) {
+              console.log(`Path ${index} intersects with eraser - removing`);
+            }
+            return !intersects;
+          });
+
+          // Always update to ensure auto-save triggers
+          paths.set($pdfState.currentPage, [...remainingPaths]);
+          console.log(`Eraser processed: ${pagePaths.length} -> ${remainingPaths.length} paths remaining`);
+          
+          // Force immediate re-render
+          setTimeout(() => {
+            if (drawingEngine) {
+              drawingEngine.renderPaths(remainingPaths);
+            }
+          }, 0);
+
+          return new Map(paths);
+        });
+      } else {
+        // Add pencil drawing path
+        const drawingPath: DrawingPath = {
+          tool: $drawingState.tool,
+          color: $drawingState.color,
+          lineWidth: $drawingState.lineWidth,
+          points: finalPath,
+          pageNumber: $pdfState.currentPage
+        };
+        addDrawingPath(drawingPath);
+      }
     }
-    
-  currentDrawingPath = [];
+    currentDrawingPath = [];
   }
 
   // Canvas hover handlers for cursor tracking
@@ -305,6 +341,10 @@ function handlePointerUp(event: PointerEvent) {
     }
   }
 
+  // Custom cursors using separate SVG files
+  const pencilCursor = `url('/cursors/pencil.svg') 2 18, auto`;
+  const eraserCursor = `url('/cursors/eraser.svg') 10 10, auto`;
+
   // Update cursor based on current state
   function updateCursor() {
     if (!containerDiv) return;
@@ -315,13 +355,15 @@ function handlePointerUp(event: PointerEvent) {
         containerDiv.style.cursor = 'grab';
         if (drawingCanvas) drawingCanvas.style.cursor = 'grab';
       } else {
-        // Default drawing cursor based on tool
+        // Custom cursors based on tool
         containerDiv.style.cursor = '';
         if (drawingCanvas) {
           if ($drawingState.tool === 'eraser') {
-            drawingCanvas.style.cursor = 'url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="black" stroke-width="2" opacity="0.5"/></svg>\') 10 10, auto';
+            console.log('Setting eraser cursor:', eraserCursor);
+            drawingCanvas.style.cursor = eraserCursor;
           } else {
-            drawingCanvas.style.cursor = 'crosshair';
+            console.log('Setting pencil cursor:', pencilCursor);
+            drawingCanvas.style.cursor = pencilCursor;
           }
         }
       }
