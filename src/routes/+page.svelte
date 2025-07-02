@@ -214,7 +214,7 @@
   }
 
   async function handleExportPDF() {
-    if (!currentFile) {
+    if (!currentFile || !pdfViewer) {
       alert('No PDF loaded');
       return;
     }
@@ -227,8 +227,12 @@
       // Create exporter and set up data
       const exporter = new PDFExporter();
       exporter.setOriginalPDF(pdfBytes);
-      exporter.setDrawingPaths($drawingPaths);
-      exporter.setShapeObjects($shapeObjects);
+
+      // Get merged canvas for current page (combining PDF + drawings + shapes)
+      const mergedCanvas = await pdfViewer.getMergedCanvas();
+      if (mergedCanvas) {
+        exporter.setPageCanvas(1, mergedCanvas); // For now, just current page
+      }
 
       // Export the annotated PDF
       const annotatedPdfBytes = await exporter.exportToPDF();

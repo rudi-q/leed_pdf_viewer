@@ -10,19 +10,14 @@ export interface ExportOptions {
 
 export class PDFExporter {
   private originalPdfBytes: Uint8Array | null = null;
-  private drawingPaths: Map<number, DrawingPath[]> = new Map();
-  private shapeObjects: Map<number, ShapeObject[]> = new Map();
+  private canvasElements: Map<number, HTMLCanvasElement> = new Map();
 
   setOriginalPDF(pdfBytes: Uint8Array) {
     this.originalPdfBytes = pdfBytes;
   }
 
-  setDrawingPaths(paths: Map<number, DrawingPath[]>) {
-    this.drawingPaths = new Map(paths);
-  }
-
-  setShapeObjects(shapes: Map<number, ShapeObject[]>) {
-    this.shapeObjects = new Map(shapes);
+  setPageCanvas(pageNumber: number, canvas: HTMLCanvasElement) {
+    this.canvasElements.set(pageNumber, canvas);
   }
 
   async exportToPDF(): Promise<Uint8Array> {
@@ -31,28 +26,21 @@ export class PDFExporter {
     }
 
     try {
-      // Load the original PDF
+      console.log('Loading original PDF document');
       const pdfDoc = await PDFDocument.load(this.originalPdfBytes);
       const pages = pdfDoc.getPages();
+      console.log('Total pages in document:', pages.length);
 
-      // Add drawings and shapes to each page
+      // Embed images from canvases into PDF
       for (let pageNumber = 1; pageNumber <= pages.length; pageNumber++) {
-        const page = pages[pageNumber - 1]; // PDF pages are 0-indexed
-        
-        // Add drawing paths
-        const paths = this.drawingPaths.get(pageNumber) || [];
-        if (paths.length > 0) {
-          await this.addDrawingsToPage(page, paths);
-        }
-        
-        // Add shape objects
-        const shapes = this.shapeObjects.get(pageNumber) || [];
-        if (shapes.length > 0) {
-          await this.addShapesToPage(page, shapes);
+        const canvas = this.canvasElements.get(pageNumber);
+        if (canvas) {
+          console.log('Adding canvas annotations to page', pageNumber);
+          await this.embedCanvasInPage(pdfDoc, pages[pageNumber - 1], canvas);
         }
       }
 
-      // Serialize the PDF
+      console.log('Saving annotated PDF');
       return await pdfDoc.save();
     } catch (error) {
       console.error('Error exporting PDF:', error);
@@ -60,107 +48,24 @@ export class PDFExporter {
     }
   }
 
-  private async addDrawingsToPage(page: any, paths: DrawingPath[]) {
+  private async embedCanvasInPage(pdfDoc: any, page: any, canvas: HTMLCanvasElement) {
+    // Convert canvas to PNG data
+    const imageData = canvas.toDataURL('image/png');
+    const imageBytes = Uint8Array.from(atob(imageData.split(',')[1]), c => c.charCodeAt(0));
+    
+    // Embed the image in the PDF
+    const image = await pdfDoc.embedPng(imageBytes);
+    
+    // Get page dimensions
     const { width, height } = page.getSize();
-
-    for (const path of paths) {
-      if (path.tool === 'eraser') {
-        // Erasers are more complex to implement in PDF
-        // For now, we'll skip them or implement as white lines
-        continue;
-      }
-
-      if (path.points.length < 2) continue;
-
-      // Convert hex color to RGB
-      const color = this.hexToRgb(path.color);
-      
-      // Start drawing the path
-      page.moveTo(path.points[0].x, height - path.points[0].y); // Flip Y coordinate
-
-      for (let i = 1; i < path.points.length; i++) {
-        const point = path.points[i];
-        page.lineTo(point.x, height - point.y); // Flip Y coordinate
-      }
-
-      // Set stroke properties
-      page.setStrokeColor(color);
-      page.setLineWidth(path.lineWidth);
-      page.stroke();
-    }
-  }
-
-  private async addShapesToPage(page: any, shapes: ShapeObject[]) {
-    const { width, height } = page.getSize();
-
-    for (const shape of shapes) {
-      const color = this.hexToRgb(shape.fill || shape.stroke || '#2D3748');
-      
-      switch (shape.type) {
-        case 'text':
-          if (shape.text) {
-            page.drawText(shape.text, {
-              x: shape.x,
-              y: height - shape.y - (shape.fontSize || 16), // Flip Y and account for text height
-              size: shape.fontSize || 16,
-              color: rgb(color.r, color.g, color.b),
-            });
-          }
-          break;
-        
-        case 'rectangle':
-          const rectWidth = shape.width || 100;
-          const rectHeight = shape.height || 60;
-          page.drawRectangle({
-            x: shape.x,
-            y: height - shape.y - rectHeight, // Flip Y coordinate
-            width: rectWidth,
-            height: rectHeight,
-            borderColor: rgb(color.r, color.g, color.b),
-            borderWidth: shape.strokeWidth || 2,
-          });
-          break;
-        
-        case 'circle':
-          const radius = (shape.width || 60) / 2;
-          page.drawCircle({
-            x: shape.x + radius,
-            y: height - shape.y - radius, // Flip Y coordinate
-            size: radius,
-            borderColor: rgb(color.r, color.g, color.b),
-            borderWidth: shape.strokeWidth || 2,
-          });
-          break;
-        
-        case 'arrow':
-          if (shape.points && shape.points.length === 4) {
-            const [x1, y1, x2, y2] = shape.points;
-            // Draw arrow as a line (PDF-lib doesn't have built-in arrow support)
-            page.moveTo(x1, height - y1);
-            page.lineTo(x2, height - y2);
-            page.setStrokeColor(rgb(color.r, color.g, color.b));
-            page.setLineWidth(shape.strokeWidth || 2);
-            page.stroke();
-            
-            // Add simple arrowhead
-            const angle = Math.atan2(y2 - y1, x2 - x1);
-            const arrowLength = 10;
-            const arrowAngle = Math.PI / 6;
-            
-            const arrowX1 = x2 - arrowLength * Math.cos(angle - arrowAngle);
-            const arrowY1 = y2 - arrowLength * Math.sin(angle - arrowAngle);
-            const arrowX2 = x2 - arrowLength * Math.cos(angle + arrowAngle);
-            const arrowY2 = y2 - arrowLength * Math.sin(angle + arrowAngle);
-            
-            page.moveTo(x2, height - y2);
-            page.lineTo(arrowX1, height - arrowY1);
-            page.moveTo(x2, height - y2);
-            page.lineTo(arrowX2, height - arrowY2);
-            page.stroke();
-          }
-          break;
-      }
-    }
+    
+    // Draw the image over the existing page content
+    page.drawImage(image, {
+      x: 0,
+      y: 0,
+      width: width,
+      height: height,
+    });
   }
 
   private hexToRgb(hex: string): { r: number; g: number; b: number } {

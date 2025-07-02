@@ -568,6 +568,50 @@ function handlePointerUp(event: PointerEvent) {
       console.error('Error fitting to height:', error);
     }
   }
+
+  export async function getMergedCanvas(): Promise<HTMLCanvasElement | null> {
+    if (!pdfCanvas || !drawingCanvas) {
+      console.error('Canvases not available for export');
+      return null;
+    }
+
+    try {
+      // Create a new canvas for merging
+      const mergedCanvas = document.createElement('canvas');
+      const ctx = mergedCanvas.getContext('2d');
+      if (!ctx) {
+        console.error('Could not get 2D context for merged canvas');
+        return null;
+      }
+
+      // Set canvas size to match PDF canvas
+      mergedCanvas.width = pdfCanvas.width;
+      mergedCanvas.height = pdfCanvas.height;
+
+      // Draw PDF canvas first (background)
+      ctx.drawImage(pdfCanvas, 0, 0);
+
+      // Draw drawing canvas on top (pencil strokes and eraser marks)
+      ctx.drawImage(drawingCanvas, 0, 0);
+
+      // Draw Konva shapes on top if available
+      if (konvaEngine) {
+        try {
+          const konvaCanvas = konvaEngine.exportAsCanvas();
+          ctx.drawImage(konvaCanvas, 0, 0);
+        } catch (error) {
+          console.warn('Could not export Konva shapes:', error);
+          // Continue without shapes if there's an error
+        }
+      }
+
+      console.log('Merged canvas created successfully:', mergedCanvas.width, 'x', mergedCanvas.height);
+      return mergedCanvas;
+    } catch (error) {
+      console.error('Error creating merged canvas:', error);
+      return null;
+    }
+  }
 </script>
 
 <div bind:this={containerDiv} class="pdf-viewer relative w-full h-full overflow-hidden">

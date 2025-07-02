@@ -530,6 +530,13 @@ export class KonvaShapeEngine {
     return this.stage;
   }
 
+  exportAsCanvas(): HTMLCanvasElement {
+    if (!this.isInitialized || !this.stage) {
+      throw new Error('Konva stage not initialized');
+    }
+    return this.stage.toCanvas();
+  }
+
   // Event callbacks - set these from parent component
   onShapeAdded?: (shape: ShapeObject) => void;
   onShapeUpdated?: (shape: ShapeObject) => void;
