@@ -1,17 +1,20 @@
 <script lang="ts">
   import { onMount, onDestroy, tick } from 'svelte';
-  import { drawingState, pdfState, currentPagePaths, addDrawingPath, type DrawingPath, type Point } from '../stores/drawingStore';
+  import { drawingState, pdfState, currentPagePaths, addDrawingPath, drawingPaths, shapeObjects, addShapeObject, updateShapeObject, deleteShapeObject, type DrawingPath, type Point } from '../stores/drawingStore';
   import { PDFManager } from '../utils/pdfUtils';
   import { DrawingEngine } from '../utils/drawingUtils';
+  import { KonvaShapeEngine, type ShapeObject } from '../utils/konvaShapeEngine';
 
   export let pdfFile: File | null = null;
 
   let pdfCanvas: HTMLCanvasElement;
   let drawingCanvas: HTMLCanvasElement;
+  let konvaContainer: HTMLDivElement;
   let containerDiv: HTMLDivElement;
   
   let pdfManager: PDFManager;
   let drawingEngine: DrawingEngine;
+  let konvaEngine: KonvaShapeEngine;
   let isDrawing = false;
   let isPanning = false;
   let currentDrawingPath: Point[] = [];
@@ -39,14 +42,27 @@
     drawingEngine.renderPaths($currentPagePaths);
   }
   
-  // Update cursor when drawing state changes
+  // Update cursor and tool when drawing state changes
   $: if ($drawingState.tool && containerDiv) {
+    console.log('TOOL CHANGED:', $drawingState.tool);
+    console.log('Shape tools includes this tool:', ['text', 'rectangle', 'circle', 'arrow'].includes($drawingState.tool));
     updateCursor();
+    
+    // Update Konva tool
+    if (konvaEngine) {
+      console.log('Setting Konva tool to:', $drawingState.tool);
+      konvaEngine.setTool($drawingState.tool);
+    } else {
+      console.log('Konva engine not available yet');
+    }
   }
 
   onMount(async () => {
     console.log('PDFViewer mounted');
     pdfManager = new PDFManager();
+    
+    // Test cursor accessibility first
+    await testCursorAccess();
     
     // Wait for DOM to be fully rendered
     await tick();
@@ -66,14 +82,31 @@
   });
 
   async function initializeCanvases() {
-    if (pdfCanvas && drawingCanvas) {
+    if (pdfCanvas && drawingCanvas && konvaContainer) {
       console.log('Initializing canvases...');
       canvasesReady = true;
       
       try {
         drawingEngine = new DrawingEngine(drawingCanvas);
+        konvaEngine = new KonvaShapeEngine(konvaContainer);
+
+        // Set up Konva event handlers
+        konvaEngine.onShapeAdded = (shape) => {
+          shape.pageNumber = $pdfState.currentPage;
+          addShapeObject(shape);
+        };
+
+        konvaEngine.onShapeUpdated = (shape) => {
+          shape.pageNumber = $pdfState.currentPage;
+          updateShapeObject(shape);
+        };
+
+        konvaEngine.onShapeDeleted = (shapeId) => {
+          deleteShapeObject(shapeId, $pdfState.currentPage);
+        };
+
         setupDrawingEvents();
-        console.log('Drawing engine initialized successfully');
+        console.log('Drawing engines initialized successfully');
         
         // If there's a pending file, load it now
         if (pdfFile && pdfFile !== lastLoadedFile) {
@@ -81,15 +114,15 @@
           await loadPDF();
         }
       } catch (error) {
-        console.error('Error initializing drawing engine:', error);
+        console.error('Error initializing drawing engines:', error);
       }
     } else {
-      console.log('Canvases not ready yet:', { pdfCanvas: !!pdfCanvas, drawingCanvas: !!drawingCanvas });
+      console.log('Canvases not ready yet:', { pdfCanvas: !!pdfCanvas, drawingCanvas: !!drawingCanvas, konvaContainer: !!konvaContainer });
     }
   }
 
   // Monitor canvas binding
-  $: if (pdfCanvas && drawingCanvas && !canvasesReady) {
+  $: if (pdfCanvas && drawingCanvas && konvaContainer && !canvasesReady) {
     console.log('Canvases bound, initializing...');
     initializeCanvases();
   }
@@ -160,7 +193,7 @@
         canvas: pdfCanvas
       });
 
-      // Sync drawing canvas size with PDF canvas (but don't apply devicePixelRatio to drawing canvas)
+      // Sync drawing canvas and Konva stage sizes with PDF canvas
       if (drawingCanvas) {
         drawingCanvas.width = viewport.width;
         drawingCanvas.height = viewport.height;
@@ -171,6 +204,13 @@
         if (drawingEngine) {
           drawingEngine.renderPaths($currentPagePaths);
         }
+      }
+
+      if (konvaEngine) {
+        // Sync shape stage size and load shapes for current page
+        konvaEngine.resize(viewport.width, viewport.height);
+        const currentShapes = $shapeObjects.get($pdfState.currentPage) || [];
+        konvaEngine.loadShapes(currentShapes);
       }
     } catch (error) {
       console.error('Error rendering page:', error);
@@ -211,12 +251,34 @@
   }
 
 function handlePointerDown(event: PointerEvent) {
+    console.log('Canvas handlePointerDown called:', $drawingState.tool, event.target);
     if (!drawingEngine) return;
     
     // If Ctrl is pressed, let the container handle panning
     if (event.ctrlKey) {
+      console.log('Ctrl pressed, letting container handle panning');
       return; // Don't capture the event, let container handle it
     }
+    
+    // Only handle freehand drawing tools (pencil, eraser) here
+    // Konva tools (text, rectangle, circle, arrow) are handled by Konva
+    if (!['pencil', 'eraser'].includes($drawingState.tool)) {
+      console.log('Shape tool detected:', $drawingState.tool);
+      // Shape tools should be handled by Konva, but if we get here, it means
+      // the Konva container isn't working properly, so we handle text manually
+      if ($drawingState.tool === 'text' && konvaEngine) {
+        const rect = drawingCanvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        console.log('Adding text at:', x, y);
+        konvaEngine.addText(x, y);
+      }
+      // Don't return - this indicates a problem with Konva event handling
+      console.warn('Shape tool event reached drawing canvas - this should not happen');
+      return;
+    }
+    
+    console.log('Freehand tool starting drawing:', $drawingState.tool);
     
     event.preventDefault();
     drawingCanvas.setPointerCapture(event.pointerId);
@@ -265,18 +327,54 @@ function handlePointerUp(event: PointerEvent) {
     const finalPath = drawingEngine.endDrawing();
     
     if (finalPath.length > 1) {
-      const drawingPath: DrawingPath = {
-        tool: $drawingState.tool,
-        color: $drawingState.color,
-        lineWidth: $drawingState.lineWidth,
-        points: finalPath,
-        pageNumber: $pdfState.currentPage
-      };
-      
-      addDrawingPath(drawingPath);
+      // Check tool type
+      if ($drawingState.tool === 'eraser') {
+        // Remove intersecting pencil paths and ensure auto-save
+        drawingPaths.update(paths => {
+          const pagePaths = paths.get($pdfState.currentPage) || [];
+          const eraserPath = {
+            tool: 'eraser' as const,
+            color: '#000000',
+            lineWidth: $drawingState.eraserSize,
+            points: finalPath,
+            pageNumber: $pdfState.currentPage
+          };
+          
+          console.log('Checking eraser intersections with', pagePaths.length, 'paths');
+          const remainingPaths = pagePaths.filter((path, index) => {
+            const intersects = drawingEngine.pathsIntersect(path, eraserPath);
+            if (intersects) {
+              console.log(`Path ${index} intersects with eraser - removing`);
+            }
+            return !intersects;
+          });
+
+          // Always update to ensure auto-save triggers
+          paths.set($pdfState.currentPage, [...remainingPaths]);
+          console.log(`Eraser processed: ${pagePaths.length} -> ${remainingPaths.length} paths remaining`);
+          
+          // Force immediate re-render
+          setTimeout(() => {
+            if (drawingEngine) {
+              drawingEngine.renderPaths(remainingPaths);
+            }
+          }, 0);
+
+          return new Map(paths);
+        });
+      } else {
+        // Add pencil drawing path
+        const drawingPath: DrawingPath = {
+          tool: $drawingState.tool,
+          color: $drawingState.color,
+          lineWidth: $drawingState.lineWidth,
+          points: finalPath,
+          pageNumber: $pdfState.currentPage
+        };
+        addDrawingPath(drawingPath);
+      }
     }
-    
-  currentDrawingPath = [];
+    currentDrawingPath = [];
   }
 
   // Canvas hover handlers for cursor tracking
@@ -305,6 +403,33 @@ function handlePointerUp(event: PointerEvent) {
     }
   }
 
+  // Custom cursors using separate SVG files with fallbacks
+  let cursorsLoaded = false;
+  
+  // Test if SVG cursors can be loaded
+  async function testCursorAccess() {
+    try {
+      const response = await fetch('/cursors/pencil.svg');
+      if (response.ok) {
+        console.log('SVG cursor files are accessible');
+        cursorsLoaded = true;
+      } else {
+        console.warn('SVG cursor files not accessible, status:', response.status);
+        cursorsLoaded = false;
+      }
+    } catch (error) {
+      console.warn('Error loading SVG cursor files:', error);
+      cursorsLoaded = false;
+    }
+  }
+  
+  const pencilCursor = `url('/cursors/pencil.svg') 2 18, crosshair`;
+  const eraserCursor = `url('/cursors/eraser.svg') 10 10, crosshair`;
+  
+  // Alternative: using built-in cursors as backup
+  const pencilCursorFallback = 'crosshair';
+  const eraserCursorFallback = 'grab';
+
   // Update cursor based on current state
   function updateCursor() {
     if (!containerDiv) return;
@@ -315,13 +440,23 @@ function handlePointerUp(event: PointerEvent) {
         containerDiv.style.cursor = 'grab';
         if (drawingCanvas) drawingCanvas.style.cursor = 'grab';
       } else {
-        // Default drawing cursor based on tool
+        // Custom cursors based on tool
         containerDiv.style.cursor = '';
         if (drawingCanvas) {
           if ($drawingState.tool === 'eraser') {
-            drawingCanvas.style.cursor = 'url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="black" stroke-width="2" opacity="0.5"/></svg>\') 10 10, auto';
+            console.log('Setting eraser cursor:', eraserCursor);
+            drawingCanvas.style.cursor = eraserCursor;
+            // Test if cursor was applied
+            setTimeout(() => {
+              console.log('Current drawing canvas cursor:', drawingCanvas.style.cursor);
+            }, 100);
           } else {
-            drawingCanvas.style.cursor = 'crosshair';
+            console.log('Setting pencil cursor:', pencilCursor);
+            drawingCanvas.style.cursor = pencilCursor;
+            // Test if cursor was applied
+            setTimeout(() => {
+              console.log('Current drawing canvas cursor:', drawingCanvas.style.cursor);
+            }, 100);
           }
         }
       }
@@ -334,8 +469,11 @@ function handlePointerUp(event: PointerEvent) {
 
   // Container panning handlers for infinite canvas
   function handleContainerPointerDown(event: PointerEvent) {
-    // Handle panning when Ctrl is pressed anywhere, or when outside canvas area
-    if (event.ctrlKey || !cursorOverCanvas) {
+    console.log('Container handleContainerPointerDown called:', event.target, 'Ctrl pressed:', event.ctrlKey);
+    // Only handle panning when Ctrl is pressed
+    // Let drawing canvas handle its own events
+    if (event.ctrlKey) {
+      console.log('Container starting panning');
       event.preventDefault();
       isPanning = true;
       panStart = { x: event.clientX - panOffset.x, y: event.clientY - panOffset.y };
@@ -418,6 +556,105 @@ function handlePointerUp(event: PointerEvent) {
     pdfState.update(state => ({ ...state, scale: 1.2 }));
     renderCurrentPage();
   }
+
+  export async function fitToWidth() {
+    if (!$pdfState.document || !containerDiv) return;
+    
+    try {
+      const page = await $pdfState.document.getPage($pdfState.currentPage);
+      const viewport = page.getViewport({ scale: 1 });
+      const containerWidth = containerDiv.clientWidth - 40; // Account for padding
+      const newScale = containerWidth / viewport.width;
+      
+      panOffset = { x: 0, y: 0 };
+      pdfState.update(state => ({ ...state, scale: newScale }));
+      await renderCurrentPage();
+    } catch (error) {
+      console.error('Error fitting to width:', error);
+    }
+  }
+
+  export async function fitToHeight() {
+    if (!$pdfState.document || !containerDiv) return;
+    
+    try {
+      const page = await $pdfState.document.getPage($pdfState.currentPage);
+      const viewport = page.getViewport({ scale: 1 });
+      const containerHeight = containerDiv.clientHeight - 100; // Account for toolbar and page info
+      const newScale = containerHeight / viewport.height;
+      
+      panOffset = { x: 0, y: 0 };
+      pdfState.update(state => ({ ...state, scale: newScale }));
+      await renderCurrentPage();
+    } catch (error) {
+      console.error('Error fitting to height:', error);
+    }
+  }
+
+  export async function getMergedCanvas(): Promise<HTMLCanvasElement | null> {
+    if (!pdfCanvas || !drawingCanvas) {
+      console.error('Canvases not available for export');
+      return null;
+    }
+
+    try {
+      // Create a new canvas for merging
+      const mergedCanvas = document.createElement('canvas');
+      const ctx = mergedCanvas.getContext('2d');
+      if (!ctx) {
+        console.error('Could not get 2D context for merged canvas');
+        return null;
+      }
+
+      // Get the device pixel ratio used for PDF rendering
+      const outputScale = window.devicePixelRatio || 1;
+      
+      // Set canvas size to match PDF canvas (already scaled by devicePixelRatio)
+      mergedCanvas.width = pdfCanvas.width;
+      mergedCanvas.height = pdfCanvas.height;
+
+      // Draw PDF canvas first (background) - already properly scaled
+      ctx.drawImage(pdfCanvas, 0, 0);
+
+      // Scale the drawing canvas to match the PDF canvas scaling
+      // The drawing canvas is at CSS size, but PDF canvas is at device pixel ratio size
+      const scaleX = pdfCanvas.width / drawingCanvas.width;
+      const scaleY = pdfCanvas.height / drawingCanvas.height;
+      
+      console.log('Export scaling:', { 
+        pdfSize: [pdfCanvas.width, pdfCanvas.height], 
+        drawingSize: [drawingCanvas.width, drawingCanvas.height],
+        scale: [scaleX, scaleY],
+        outputScale 
+      });
+
+      // Draw drawing canvas scaled to match PDF resolution
+      ctx.save();
+      ctx.scale(scaleX, scaleY);
+      ctx.drawImage(drawingCanvas, 0, 0);
+      ctx.restore();
+
+      // Draw Konva shapes scaled to match PDF resolution
+      if (konvaEngine) {
+        try {
+          const konvaCanvas = konvaEngine.exportAsCanvas();
+          ctx.save();
+          ctx.scale(scaleX, scaleY);
+          ctx.drawImage(konvaCanvas, 0, 0);
+          ctx.restore();
+        } catch (error) {
+          console.warn('Could not export Konva shapes:', error);
+          // Continue without shapes if there's an error
+        }
+      }
+
+      console.log('Merged canvas created successfully:', mergedCanvas.width, 'x', mergedCanvas.height);
+      return mergedCanvas;
+    } catch (error) {
+      console.error('Error creating merged canvas:', error);
+      return null;
+    }
+  }
 </script>
 
 <div bind:this={containerDiv} class="pdf-viewer relative w-full h-full overflow-hidden">
@@ -443,6 +680,16 @@ function handlePointerUp(event: PointerEvent) {
         class:hidden={!$pdfState.document}
         style="z-index: 2;"
       ></canvas>
+      
+      <!-- Konva Container for Shapes/Text -->
+      <div
+        bind:this={konvaContainer}
+        class="absolute top-0 left-0 w-full h-full"
+        class:hidden={!$pdfState.document}
+        class:pointer-events-none={!['text', 'rectangle', 'circle', 'arrow'].includes($drawingState.tool)}
+        style="z-index: 3;"
+        on:click={() => console.log('Konva container clicked, current tool:', $drawingState.tool)}
+      ></div>
       
     </div>
   </div>

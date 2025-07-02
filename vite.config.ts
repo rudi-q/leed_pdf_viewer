@@ -13,10 +13,15 @@ export default defineConfig({
 	server: {
 		fs: {
 			allow: ['..', 'node_modules/pdfjs-dist']
+		},
+		headers: {
+			'Cache-Control': 'public, max-age=31536000',
 		}
 	},
 	build: {
 		target: 'esnext',
-		chunkSizeWarningLimit: 1000
-	}
+		chunkSizeWarningLimit: 1000,
+		assetsInlineLimit: 0 // Don't inline assets, keep them as separate files
+	},
+	assetsInclude: ['**/*.svg'] // Ensure SVG files are included as assets
 });

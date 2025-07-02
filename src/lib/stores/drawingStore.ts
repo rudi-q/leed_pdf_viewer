@@ -1,7 +1,7 @@
 import { writable, derived } from 'svelte/store';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 
-export type DrawingTool = 'pencil' | 'eraser';
+export type DrawingTool = 'pencil' | 'eraser' | 'text' | 'rectangle' | 'circle' | 'arrow';
 
 export interface DrawingState {
   tool: DrawingTool;
@@ -34,6 +34,9 @@ export interface DrawingPath {
   points: Point[];
   pageNumber: number;
 }
+
+// Import ShapeObject from KonvaShapeEngine
+export type { ShapeObject } from '../utils/konvaShapeEngine';
 
 // Drawing state store
 export const drawingState = writable<DrawingState>({
@@ -68,6 +71,98 @@ if (typeof window !== 'undefined') {
 
 // Drawing paths store - stores all drawing data per page
 export const drawingPaths = writable<Map<number, DrawingPath[]>>(new Map());
+
+// Shape objects store - stores all shape data per page
+export const shapeObjects = writable<Map<number, ShapeObject[]>>(new Map());
+
+// Auto-save functionality
+const STORAGE_KEY = 'leedpdf_drawings';
+const STORAGE_KEY_PDF_INFO = 'leedpdf_current_pdf';
+
+// Track current PDF to associate drawings with specific files
+let currentPDFKey: string | null = null;
+
+// Generate a unique key for PDF based on name and size
+export const generatePDFKey = (fileName: string, fileSize: number): string => {
+  return `${fileName}_${fileSize}`;
+};
+
+// Set current PDF and load its drawings
+export const setCurrentPDF = (fileName: string, fileSize: number) => {
+  const pdfKey = generatePDFKey(fileName, fileSize);
+  currentPDFKey = pdfKey;
+  
+  // Save current PDF info
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY_PDF_INFO, JSON.stringify({ fileName, fileSize, pdfKey }));
+  }
+  
+  // Load drawings for this specific PDF
+  loadDrawingsForCurrentPDF();
+};
+
+// Load drawings for current PDF
+const loadDrawingsForCurrentPDF = () => {
+  if (!currentPDFKey || typeof window === 'undefined') return;
+  
+  try {
+    const savedDrawings = localStorage.getItem(`${STORAGE_KEY}_${currentPDFKey}`);
+    if (savedDrawings) {
+      const parsedDrawings = JSON.parse(savedDrawings);
+      const drawingsMap = new Map();
+      
+      Object.entries(parsedDrawings).forEach(([pageNum, paths]) => {
+        drawingsMap.set(parseInt(pageNum), paths as DrawingPath[]);
+      });
+      
+      drawingPaths.set(drawingsMap);
+      console.log(`Loaded drawings for PDF ${currentPDFKey}:`, drawingsMap);
+    } else {
+      // No saved drawings for this PDF, start fresh
+      drawingPaths.set(new Map());
+      console.log(`No saved drawings found for PDF ${currentPDFKey}`);
+    }
+  } catch (error) {
+    console.error('Error loading drawings for current PDF:', error);
+    drawingPaths.set(new Map());
+  }
+};
+
+// Load last PDF info on initialization
+if (typeof window !== 'undefined') {
+  try {
+    const savedPDFInfo = localStorage.getItem(STORAGE_KEY_PDF_INFO);
+    if (savedPDFInfo) {
+      const { pdfKey } = JSON.parse(savedPDFInfo);
+      currentPDFKey = pdfKey;
+      loadDrawingsForCurrentPDF();
+    }
+  } catch (error) {
+    console.error('Error loading PDF info from localStorage:', error);
+  }
+}
+
+// Save drawings to localStorage whenever they change (PDF-specific)
+if (typeof window !== 'undefined') {
+  drawingPaths.subscribe(paths => {
+    if (!currentPDFKey) return;
+    
+    try {
+      // Convert Map to object for JSON serialization
+      const pathsObject: Record<string, DrawingPath[]> = {};
+      paths.forEach((pathList, pageNum) => {
+        if (pathList.length > 0) {
+          pathsObject[pageNum.toString()] = pathList;
+        }
+      });
+      
+      localStorage.setItem(`${STORAGE_KEY}_${currentPDFKey}`, JSON.stringify(pathsObject));
+      console.log(`Auto-saved drawings for PDF ${currentPDFKey}`);
+    } catch (error) {
+      console.error('Error saving drawings to localStorage:', error);
+    }
+  });
+}
 
 // Undo/redo functionality
 export const undoStack = writable<Array<{ pageNumber: number; paths: DrawingPath[] }>>([]); 
@@ -151,6 +246,36 @@ export const addDrawingPath = (path: DrawingPath) => {
   });
 };
 
+// Shape object management functions
+export const addShapeObject = (shape: ShapeObject) => {
+  shapeObjects.update(shapes => {
+    const currentShapes = shapes.get(shape.pageNumber) || [];
+    const newShapes = [...currentShapes, shape];
+    shapes.set(shape.pageNumber, newShapes);
+    return new Map(shapes);
+  });
+};
+
+export const updateShapeObject = (updatedShape: ShapeObject) => {
+  shapeObjects.update(shapes => {
+    const currentShapes = shapes.get(updatedShape.pageNumber) || [];
+    const newShapes = currentShapes.map(shape => 
+      shape.id === updatedShape.id ? updatedShape : shape
+    );
+    shapes.set(updatedShape.pageNumber, newShapes);
+    return new Map(shapes);
+  });
+};
+
+export const deleteShapeObject = (shapeId: string, pageNumber: number) => {
+  shapeObjects.update(shapes => {
+    const currentShapes = shapes.get(pageNumber) || [];
+    const newShapes = currentShapes.filter(shape => shape.id !== shapeId);
+    shapes.set(pageNumber, newShapes);
+    return new Map(shapes);
+  });
+};
+
 export const clearCurrentPageDrawings = () => {
   pdfState.subscribe(state => {
     if (state.currentPage > 0) {
@@ -160,6 +285,19 @@ export const clearCurrentPageDrawings = () => {
       });
     }
   })();
+};
+
+// Clear all drawings for current PDF
+export const clearAllDrawings = () => {
+  drawingPaths.set(new Map());
+  undoStack.set([]);
+  redoStack.set([]);
+  
+  // Also clear from localStorage
+  if (currentPDFKey && typeof window !== 'undefined') {
+    localStorage.removeItem(`${STORAGE_KEY}_${currentPDFKey}`);
+    console.log(`Cleared all drawings for PDF ${currentPDFKey}`);
+  }
 };
 
 // Undo function

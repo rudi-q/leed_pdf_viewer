@@ -1,5 +1,6 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import type { DrawingPath } from '../stores/drawingStore';
+import type { ShapeObject } from './konvaShapeEngine';
 
 export interface ExportOptions {
   includeOriginalPDF: boolean;
@@ -9,14 +10,14 @@ export interface ExportOptions {
 
 export class PDFExporter {
   private originalPdfBytes: Uint8Array | null = null;
-  private drawingPaths: Map<number, DrawingPath[]> = new Map();
+  private canvasElements: Map<number, HTMLCanvasElement> = new Map();
 
   setOriginalPDF(pdfBytes: Uint8Array) {
     this.originalPdfBytes = pdfBytes;
   }
 
-  setDrawingPaths(paths: Map<number, DrawingPath[]>) {
-    this.drawingPaths = new Map(paths);
+  setPageCanvas(pageNumber: number, canvas: HTMLCanvasElement) {
+    this.canvasElements.set(pageNumber, canvas);
   }
 
   async exportToPDF(): Promise<Uint8Array> {
@@ -25,19 +26,21 @@ export class PDFExporter {
     }
 
     try {
-      // Load the original PDF
+      console.log('Loading original PDF document');
       const pdfDoc = await PDFDocument.load(this.originalPdfBytes);
       const pages = pdfDoc.getPages();
+      console.log('Total pages in document:', pages.length);
 
-      // Add drawings to each page
-      for (const [pageNumber, paths] of this.drawingPaths) {
-        if (pageNumber > 0 && pageNumber <= pages.length) {
-          const page = pages[pageNumber - 1]; // PDF pages are 0-indexed
-          await this.addDrawingsToPage(page, paths);
+      // Embed images from canvases into PDF
+      for (let pageNumber = 1; pageNumber <= pages.length; pageNumber++) {
+        const canvas = this.canvasElements.get(pageNumber);
+        if (canvas) {
+          console.log('Adding canvas annotations to page', pageNumber);
+          await this.embedCanvasInPage(pdfDoc, pages[pageNumber - 1], canvas);
         }
       }
 
-      // Serialize the PDF
+      console.log('Saving annotated PDF');
       return await pdfDoc.save();
     } catch (error) {
       console.error('Error exporting PDF:', error);
@@ -45,34 +48,24 @@ export class PDFExporter {
     }
   }
 
-  private async addDrawingsToPage(page: any, paths: DrawingPath[]) {
+  private async embedCanvasInPage(pdfDoc: any, page: any, canvas: HTMLCanvasElement) {
+    // Convert canvas to PNG data
+    const imageData = canvas.toDataURL('image/png');
+    const imageBytes = Uint8Array.from(atob(imageData.split(',')[1]), c => c.charCodeAt(0));
+    
+    // Embed the image in the PDF
+    const image = await pdfDoc.embedPng(imageBytes);
+    
+    // Get page dimensions
     const { width, height } = page.getSize();
-
-    for (const path of paths) {
-      if (path.tool === 'eraser') {
-        // Erasers are more complex to implement in PDF
-        // For now, we'll skip them or implement as white lines
-        continue;
-      }
-
-      if (path.points.length < 2) continue;
-
-      // Convert hex color to RGB
-      const color = this.hexToRgb(path.color);
-      
-      // Start drawing the path
-      page.moveTo(path.points[0].x, height - path.points[0].y); // Flip Y coordinate
-
-      for (let i = 1; i < path.points.length; i++) {
-        const point = path.points[i];
-        page.lineTo(point.x, height - point.y); // Flip Y coordinate
-      }
-
-      // Set stroke properties
-      page.setStrokeColor(color);
-      page.setLineWidth(path.lineWidth);
-      page.stroke();
-    }
+    
+    // Draw the image over the existing page content
+    page.drawImage(image, {
+      x: 0,
+      y: 0,
+      width: width,
+      height: height,
+    });
   }
 
   private hexToRgb(hex: string): { r: number; g: number; b: number } {

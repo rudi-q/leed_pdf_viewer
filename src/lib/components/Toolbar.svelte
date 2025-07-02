@@ -14,8 +14,22 @@
     undoStack,
     redoStack,
     clearCurrentPageDrawings,
+    drawingPaths,
     type DrawingTool 
   } from '../stores/drawingStore';
+  
+  // Auto-save indicator
+  let showAutoSaveIndicator = false;
+  let autoSaveTimeout: number;
+  
+  // Show auto-save indicator when drawings change
+  $: if ($drawingPaths && typeof window !== 'undefined') {
+    showAutoSaveIndicator = true;
+    if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = window.setTimeout(() => {
+      showAutoSaveIndicator = false;
+    }, 2000); // Hide after 2 seconds
+  }
   
   // Feather Icons
   import { 
@@ -28,7 +42,12 @@
     Square, 
     Undo2, 
     Redo2, 
-    Trash2 
+    Trash2,
+    Type,
+    RectangleHorizontal,
+    Circle,
+    ArrowRight,
+    Download
   } from 'lucide-svelte';
 
 
@@ -38,6 +57,9 @@
   export let onZoomIn: () => void;
   export let onZoomOut: () => void;
   export let onResetZoom: () => void;
+  export let onFitToWidth: () => void;
+  export let onFitToHeight: () => void;
+  export let onExportPDF: () => void;
 
   let fileInput: HTMLInputElement;
   let showColorPalette = false;
@@ -168,6 +190,22 @@
         >
           <span class="font-medium text-xs">Reset</span>
         </button>
+
+        <button
+          class="tool-button text-xs px-1"
+          on:click={onFitToWidth}
+          title="Fit to width"
+        >
+          <span class="font-medium text-xs">Fit W</span>
+        </button>
+
+        <button
+          class="tool-button text-xs px-1"
+          on:click={onFitToHeight}
+          title="Fit to height"
+        >
+          <span class="font-medium text-xs">Fit H</span>
+        </button>
       </div>
 
       <!-- Center section: Drawing tools -->
@@ -188,6 +226,45 @@
           title="Eraser"
         >
           <Square size={14} />
+        </button>
+
+        <div class="h-4 w-px bg-charcoal/20"></div>
+
+        <!-- Shape Tools -->
+        <button
+          class="tool-button"
+          class:active={$drawingState.tool === 'text'}
+          on:click={() => handleToolChange('text')}
+          title="Text"
+        >
+          <Type size={14} />
+        </button>
+
+        <button
+          class="tool-button"
+          class:active={$drawingState.tool === 'rectangle'}
+          on:click={() => handleToolChange('rectangle')}
+          title="Rectangle"
+        >
+          <RectangleHorizontal size={14} />
+        </button>
+
+        <button
+          class="tool-button"
+          class:active={$drawingState.tool === 'circle'}
+          on:click={() => handleToolChange('circle')}
+          title="Circle"
+        >
+          <Circle size={14} />
+        </button>
+
+        <button
+          class="tool-button"
+          class:active={$drawingState.tool === 'arrow'}
+          on:click={() => handleToolChange('arrow')}
+          title="Arrow"
+        >
+          <ArrowRight size={14} />
         </button>
 
         <div class="h-4 w-px bg-charcoal/20"></div>
@@ -341,6 +418,16 @@
         >
           <Trash2 size={12} />
         </button>
+
+        <button
+          class="tool-button text-sage hover:bg-sage/10"
+          class:opacity-50={!$pdfState.document}
+          disabled={!$pdfState.document}
+          on:click={onExportPDF}
+          title="Export annotated PDF"
+        >
+          <Download size={12} />
+        </button>
         
         <div class="h-4 w-px bg-charcoal/20"></div>
         
@@ -351,6 +438,10 @@
           {#if $pdfState.document}
             <span>•</span>
             <span>{$pdfState.totalPages}p</span>
+          {/if}
+          {#if showAutoSaveIndicator}
+            <span>•</span>
+            <span class="text-sage font-medium">Saved ✓</span>
           {/if}
         </div>
       </div>
