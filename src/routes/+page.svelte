@@ -166,6 +166,12 @@
           event.preventDefault();
           showThumbnails = !showThumbnails;
           break;
+        case 'u':
+        case 'U':
+          // Upload file
+          event.preventDefault();
+          document.querySelector('input[type="file"]')?.click();
+          break;
         case 'F11':
           // Toggle fullscreen
           event.preventDefault();
