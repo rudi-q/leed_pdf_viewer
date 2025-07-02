@@ -46,7 +46,8 @@
     Type,
     RectangleHorizontal,
     Circle,
-    ArrowRight
+    ArrowRight,
+    Download
   } from 'lucide-svelte';
 
 
@@ -58,6 +59,7 @@
   export let onResetZoom: () => void;
   export let onFitToWidth: () => void;
   export let onFitToHeight: () => void;
+  export let onExportPDF: () => void;
 
   let fileInput: HTMLInputElement;
   let showColorPalette = false;
@@ -415,6 +417,16 @@
           title="Clear all drawings on this page"
         >
           <Trash2 size={12} />
+        </button>
+
+        <button
+          class="tool-button text-sage hover:bg-sage/10"
+          class:opacity-50={!$pdfState.document}
+          disabled={!$pdfState.document}
+          on:click={onExportPDF}
+          title="Export annotated PDF"
+        >
+          <Download size={12} />
         </button>
         
         <div class="h-4 w-px bg-charcoal/20"></div>

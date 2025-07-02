@@ -37,16 +37,28 @@
         { keys: ['Ctrl', '+'], description: 'Zoom in' },
         { keys: ['Ctrl', '-'], description: 'Zoom out' },
         { keys: ['Ctrl', '0'], description: 'Reset zoom' },
+        { keys: ['W'], description: 'Fit to width' },
+        { keys: ['H'], description: 'Fit to height' },
       ]
     },
     {
-      category: 'Drawing',
+      category: 'Drawing Tools',
       items: [
         { keys: ['1'], description: 'Switch to pencil' },
         { keys: ['2'], description: 'Switch to eraser' },
+        { keys: ['3'], description: 'Switch to text' },
+        { keys: ['4'], description: 'Switch to rectangle' },
+        { keys: ['5'], description: 'Switch to circle' },
+        { keys: ['6'], description: 'Switch to arrow' },
+      ]
+    },
+    {
+      category: 'Actions',
+      items: [
         { keys: ['Ctrl', 'Z'], description: 'Undo last action' },
         { keys: ['Ctrl', 'Y'], description: 'Redo action' },
         { keys: ['Ctrl', 'Shift', 'Z'], description: 'Redo action (alt)' },
+        { keys: ['Delete'], description: 'Delete selected shapes' },
       ]
     },
     {

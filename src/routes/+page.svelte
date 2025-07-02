@@ -4,7 +4,8 @@
   import Toolbar from '$lib/components/Toolbar.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
   import { isValidPDFFile, formatFileSize } from '$lib/utils/pdfUtils';
-  import { undo, redo, setCurrentPDF, setTool } from '$lib/stores/drawingStore';
+  import { undo, redo, setCurrentPDF, setTool, drawingPaths, shapeObjects } from '$lib/stores/drawingStore';
+  import { PDFExporter } from '$lib/utils/pdfExport';
   
   let pdfViewer: PDFViewer;
   let currentFile: File | null = null;
@@ -58,6 +59,12 @@
   }
 
   function handleKeyboard(event: KeyboardEvent) {
+    // Check if user is typing in a text input (but allow ESC)
+    const isTyping = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+    if (isTyping && event.key !== 'Escape') {
+      return; // Don't handle shortcuts while typing (except ESC)
+    }
+    
     // Handle keyboard shortcuts
     if (event.ctrlKey || event.metaKey) {
       switch (event.key) {
@@ -108,6 +115,38 @@
           // Switch to eraser
           event.preventDefault();
           setTool('eraser');
+          break;
+        case '3':
+          // Switch to text
+          event.preventDefault();
+          setTool('text');
+          break;
+        case '4':
+          // Switch to rectangle
+          event.preventDefault();
+          setTool('rectangle');
+          break;
+        case '5':
+          // Switch to circle
+          event.preventDefault();
+          setTool('circle');
+          break;
+        case '6':
+          // Switch to arrow
+          event.preventDefault();
+          setTool('arrow');
+          break;
+        case 'h':
+        case 'H':
+          // Fit to height
+          event.preventDefault();
+          pdfViewer?.fitToHeight();
+          break;
+        case 'w':
+        case 'W':
+          // Fit to width
+          event.preventDefault();
+          pdfViewer?.fitToWidth();
           break;
         case '?':
           // Show keyboard shortcuts
@@ -174,6 +213,40 @@
     }
   }
 
+  async function handleExportPDF() {
+    if (!currentFile) {
+      alert('No PDF loaded');
+      return;
+    }
+
+    try {
+      // Read the original PDF file
+      const arrayBuffer = await currentFile.arrayBuffer();
+      const pdfBytes = new Uint8Array(arrayBuffer);
+
+      // Create exporter and set up data
+      const exporter = new PDFExporter();
+      exporter.setOriginalPDF(pdfBytes);
+      exporter.setDrawingPaths($drawingPaths);
+      exporter.setShapeObjects($shapeObjects);
+
+      // Export the annotated PDF
+      const annotatedPdfBytes = await exporter.exportToPDF();
+
+      // Generate filename
+      const originalName = currentFile.name.replace(/\.pdf$/i, '');
+      const filename = `${originalName}_annotated.pdf`;
+
+      // Download the file
+      PDFExporter.downloadFile(annotatedPdfBytes, filename, 'application/pdf');
+      
+      console.log('PDF exported successfully:', filename);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export PDF. Please try again.');
+    }
+  }
+
   // Listen for fullscreen changes
   function handleFullscreenChange() {
     isFullscreen = !!document.fullscreenElement;
@@ -206,6 +279,7 @@
     onResetZoom={() => pdfViewer?.resetZoom()}
     onFitToWidth={() => pdfViewer?.fitToWidth()}
     onFitToHeight={() => pdfViewer?.fitToHeight()}
+    onExportPDF={handleExportPDF}
   />
 
   <!-- Main content -->
