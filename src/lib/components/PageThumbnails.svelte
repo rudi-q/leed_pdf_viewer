@@ -14,11 +14,53 @@
   const THUMBNAIL_WIDTH = 120;
   const THUMBNAIL_HEIGHT = 160;
 
-  // Generate thumbnail for current page when panel becomes visible
-  let hasGeneratedInitial = false;
-  $: if (isVisible && $pdfState.document && $pdfState.currentPage && !hasGeneratedInitial) {
-    hasGeneratedInitial = true;
-    generateThumbnail($pdfState.currentPage);
+  // Intersection Observer for lazy loading
+  let observer: IntersectionObserver | null = null;
+  
+  // Set up lazy loading when panel becomes visible and DOM is ready
+  $: if (isVisible && thumbnailContainer && $pdfState.document && !observer) {
+    // Use tick() to ensure DOM is fully rendered
+    tick().then(() => setupLazyLoading());
+  }
+  
+  // Clean up observer when panel is hidden
+  $: if (!isVisible && observer) {
+    observer.disconnect();
+    observer = null;
+  }
+  
+  function setupLazyLoading() {
+    if (typeof window === 'undefined') return;
+    
+    console.log('Setting up lazy loading observer');
+    
+    observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const pageNumber = parseInt(entry.target.getAttribute('data-page') || '0');
+            console.log('Page', pageNumber, 'came into view, generating thumbnail');
+            if (pageNumber && !thumbnails.has(pageNumber)) {
+              generateThumbnail(pageNumber);
+            }
+            // Stop observing this element once loaded
+            observer?.unobserve(entry.target);
+          }
+        });
+      },
+      {
+        root: thumbnailContainer,
+        rootMargin: '50px', // Load thumbnails 50px before they come into view
+        threshold: 0.1
+      }
+    );
+    
+    // Observe all placeholder elements
+    const placeholders = thumbnailContainer?.querySelectorAll('.thumbnail-placeholder');
+    console.log('Found', placeholders?.length, 'placeholders to observe');
+    placeholders?.forEach(placeholder => {
+      observer?.observe(placeholder);
+    });
   }
 
 
@@ -77,7 +119,11 @@
     thumbnails.clear();
     generatedPages.clear();
     thumbnails = new Map();
-    hasGeneratedInitial = false; // Reset initial generation flag
+    // Reset observer when document changes
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
   }
 
   // Svelte action to render thumbnail on canvas
@@ -132,6 +178,7 @@
           {:else}
             <div 
               class="thumbnail-placeholder"
+              data-page={pageNumber}
               on:click={() => {
                 // Generate thumbnail when clicked if not already generated
                 if (!thumbnail) {
