@@ -6,7 +6,7 @@ let Konva: any = null;
 
 export interface ShapeObject {
   id: string;
-  type: 'text' | 'rectangle' | 'circle' | 'arrow';
+  type: 'text' | 'rectangle' | 'circle' | 'arrow' | 'star';
   pageNumber: number;
   x: number;
   y: number;
@@ -18,6 +18,9 @@ export interface ShapeObject {
   stroke?: string;
   strokeWidth?: number;
   points?: number[]; // For arrows
+  numPoints?: number; // For stars
+  innerRadius?: number; // For stars
+  outerRadius?: number; // For stars
   relativeX: number; // 0-1 range for scaling
   relativeY: number; // 0-1 range for scaling
   relativeWidth?: number;
@@ -29,7 +32,7 @@ export class KonvaShapeEngine {
   private layer: any;
   private transformer: any;
   private container: HTMLDivElement;
-  private currentTool: DrawingTool | 'text' | 'rectangle' | 'circle' | 'arrow' = 'text';
+  private currentTool: DrawingTool | 'text' | 'rectangle' | 'circle' | 'arrow' | 'star' = 'text';
   private isDrawingShape = false;
   private startPos = { x: 0, y: 0 };
   private currentShape: any = null;
@@ -97,7 +100,7 @@ export class KonvaShapeEngine {
       }
       
       // Only handle if we're using shape tools or clicking on existing shapes
-      if (['text', 'rectangle', 'circle', 'arrow'].includes(this.currentTool) || e.target !== this.stage) {
+      if (['text', 'rectangle', 'circle', 'arrow', 'star'].includes(this.currentTool) || e.target !== this.stage) {
         if (e.target === this.stage) {
           // Clicked on empty area - deselect all
           this.transformer.nodes([]);
@@ -125,25 +128,25 @@ export class KonvaShapeEngine {
 
     // Shape drawing events - only when using shape tools
     this.stage.on('mousedown touchstart', (e) => {
-      if (['rectangle', 'circle', 'arrow'].includes(this.currentTool)) {
+      if (['rectangle', 'circle', 'arrow', 'star'].includes(this.currentTool)) {
         this.handleShapeStart(e);
       }
     });
     
     this.stage.on('mousemove touchmove', (e) => {
-      if (['rectangle', 'circle', 'arrow'].includes(this.currentTool)) {
+      if (['rectangle', 'circle', 'arrow', 'star'].includes(this.currentTool)) {
         this.handleShapeMove(e);
       }
     });
     
     this.stage.on('mouseup touchend', (e) => {
-      if (['rectangle', 'circle', 'arrow'].includes(this.currentTool)) {
+      if (['rectangle', 'circle', 'arrow', 'star'].includes(this.currentTool)) {
         this.handleShapeEnd();
       }
     });
   }
 
-  async setTool(tool: DrawingTool | 'text' | 'rectangle' | 'circle' | 'arrow') {
+  async setTool(tool: DrawingTool | 'text' | 'rectangle' | 'circle' | 'arrow' | 'star') {
     await this.ensureInitialized();
     if (!this.isInitialized) return;
     
@@ -152,7 +155,7 @@ export class KonvaShapeEngine {
     // Change cursor based on tool
     if (tool === 'text') {
       this.stage.container().style.cursor = 'text';
-    } else if (['rectangle', 'circle', 'arrow'].includes(tool)) {
+    } else if (['rectangle', 'circle', 'arrow', 'star'].includes(tool)) {
       this.stage.container().style.cursor = 'crosshair';
     } else {
       this.stage.container().style.cursor = 'default';
@@ -161,7 +164,7 @@ export class KonvaShapeEngine {
 
   private handleShapeStart(e: any) {
     // Only handle shape tools
-    if (!['rectangle', 'circle', 'arrow'].includes(this.currentTool)) {
+    if (!['rectangle', 'circle', 'arrow', 'star'].includes(this.currentTool)) {
       return;
     }
 
@@ -213,6 +216,19 @@ export class KonvaShapeEngine {
           pointerWidth: 8
         });
         break;
+      case 'star':
+        this.currentShape = new Konva.Star({
+          x: pos.x,
+          y: pos.y,
+          numPoints: 5,
+          innerRadius: 0,
+          outerRadius: 0,
+          stroke: '#2D3748',
+          strokeWidth: 2,
+          fill: 'transparent',
+          draggable: true
+        });
+        break;
     }
 
     if (this.currentShape) {
@@ -241,6 +257,12 @@ export class KonvaShapeEngine {
       this.currentShape.radius(radius);
     } else if (this.currentShape instanceof Konva.Arrow) {
       this.currentShape.points([this.startPos.x, this.startPos.y, pos.x, pos.y]);
+    } else if (this.currentShape instanceof Konva.Star) {
+      const radius = Math.sqrt(
+        Math.pow(pos.x - this.startPos.x, 2) + Math.pow(pos.y - this.startPos.y, 2)
+      );
+      this.currentShape.outerRadius(radius);
+      this.currentShape.innerRadius(radius * 0.4); // Inner radius is 40% of outer radius
     }
   }
 
@@ -257,6 +279,11 @@ export class KonvaShapeEngine {
       }
     } else if (this.currentShape instanceof Konva.Circle) {
       if (this.currentShape.radius() < 3) {
+        this.currentShape.destroy();
+        return;
+      }
+    } else if (this.currentShape instanceof Konva.Star) {
+      if (this.currentShape.outerRadius() < 3) {
         this.currentShape.destroy();
         return;
       }
@@ -431,6 +458,21 @@ export class KonvaShapeEngine {
         strokeWidth: shape.strokeWidth(),
         fill: shape.fill()
       };
+    } else if (shape instanceof Konva.Star) {
+      return {
+        ...baseObject,
+        type: 'star' as const,
+        width: shape.outerRadius() * 2,
+        height: shape.outerRadius() * 2,
+        relativeWidth: (shape.outerRadius() * 2) / stageWidth,
+        relativeHeight: (shape.outerRadius() * 2) / stageHeight,
+        numPoints: shape.numPoints(),
+        innerRadius: shape.innerRadius(),
+        outerRadius: shape.outerRadius(),
+        stroke: shape.stroke(),
+        strokeWidth: shape.strokeWidth(),
+        fill: shape.fill()
+      };
     }
 
     throw new Error(`Unknown shape type: ${shape.constructor.name}`);
@@ -496,6 +538,20 @@ export class KonvaShapeEngine {
             draggable: true,
             pointerLength: 10,
             pointerWidth: 8
+          });
+          break;
+        case 'star':
+          shape = new Konva.Star({
+            id: shapeData.id,
+            x: shapeData.x,
+            y: shapeData.y,
+            numPoints: shapeData.numPoints || 5,
+            innerRadius: shapeData.innerRadius || 20,
+            outerRadius: shapeData.outerRadius || 40,
+            stroke: shapeData.stroke || '#2D3748',
+            strokeWidth: shapeData.strokeWidth || 2,
+            fill: shapeData.fill || 'transparent',
+            draggable: true
           });
           break;
         default:

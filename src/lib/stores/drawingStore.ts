@@ -1,7 +1,7 @@
 import { writable, derived } from 'svelte/store';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 
-export type DrawingTool = 'pencil' | 'eraser' | 'text' | 'rectangle' | 'circle' | 'arrow';
+export type DrawingTool = 'pencil' | 'eraser' | 'text' | 'rectangle' | 'circle' | 'arrow' | 'star';
 
 export interface DrawingState {
   tool: DrawingTool;

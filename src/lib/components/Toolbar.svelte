@@ -48,7 +48,8 @@
     Circle,
     ArrowRight,
     Download,
-    Layout
+    Layout,
+    Star
   } from 'lucide-svelte';
 
 
