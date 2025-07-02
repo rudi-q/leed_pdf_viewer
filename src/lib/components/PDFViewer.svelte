@@ -696,7 +696,7 @@ function handlePointerUp(event: PointerEvent) {
         bind:this={konvaContainer}
         class="absolute top-0 left-0 w-full h-full"
         class:hidden={!$pdfState.document}
-        class:pointer-events-none={!['text', 'rectangle', 'circle', 'arrow', 'star'].includes($drawingState.tool)}
+        class:pointer-events-none={!['text', 'rectangle', 'circle', 'arrow', 'star', 'note'].includes($drawingState.tool)}
         style="z-index: 3;"
         on:click={() => console.log('Konva container clicked, current tool:', $drawingState.tool)}
       ></div>

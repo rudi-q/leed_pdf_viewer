@@ -1,7 +1,7 @@
 import { writable, derived } from 'svelte/store';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 
-export type DrawingTool = 'pencil' | 'eraser' | 'highlight' | 'text' | 'rectangle' | 'circle' | 'arrow' | 'star';
+export type DrawingTool = 'pencil' | 'eraser' | 'text' | 'rectangle' | 'circle' | 'arrow' | 'star' | 'highlight' | 'note';
 
 export interface DrawingState {
   tool: DrawingTool;
@@ -10,6 +10,7 @@ export interface DrawingState {
   eraserSize: number;
   highlightColor: string;
   highlightOpacity: number;
+  noteColor: string;
   isDrawing: boolean;
 }
 
@@ -50,6 +51,7 @@ export const drawingState = writable<DrawingState>({
   eraserSize: 8,
   highlightColor: '#FFEB3B', // yellow
   highlightOpacity: 0.4,
+  noteColor: '#FFF59D', // light yellow
   isDrawing: false
 });
 
@@ -208,6 +210,18 @@ export const availableHighlightColors = [
   '#607D8B'  // blue grey
 ];
 
+// Available sticky note colors
+export const availableNoteColors = [
+  '#FFF59D', // light yellow
+  '#FFCC80', // light orange
+  '#F8BBD9', // light pink
+  '#CE93D8', // light purple
+  '#90CAF9', // light blue
+  '#A5D6A7', // light green
+  '#FFAB91', // light coral
+  '#B0BEC5'  // light grey
+];
+
 // Derived store for current page paths
 export const currentPagePaths = derived(
   [drawingPaths, pdfState],
@@ -239,6 +253,10 @@ export const setHighlightColor = (highlightColor: string) => {
 
 export const setHighlightOpacity = (highlightOpacity: number) => {
   drawingState.update(state => ({ ...state, highlightOpacity }));
+};
+
+export const setNoteColor = (noteColor: string) => {
+  drawingState.update(state => ({ ...state, noteColor }));
 };
 
 export const setIsDrawing = (isDrawing: boolean) => {

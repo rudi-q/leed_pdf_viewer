@@ -53,6 +53,7 @@
         { keys: ['6'], description: 'Switch to arrow' },
         { keys: ['7'], description: 'Switch to star' },
         { keys: ['8'], description: 'Switch to highlighter' },
+        { keys: ['9'], description: 'Switch to sticky note' },
       ]
     },
     {

@@ -148,6 +148,11 @@
           event.preventDefault();
           setTool('highlight');
           break;
+        case '9':
+          // Switch to sticky note
+          event.preventDefault();
+          setTool('note');
+          break;
         case 'h':
         case 'H':
           // Fit to height

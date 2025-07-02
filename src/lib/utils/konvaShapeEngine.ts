@@ -6,7 +6,7 @@ let Konva: any = null;
 
 export interface ShapeObject {
   id: string;
-  type: 'text' | 'rectangle' | 'circle' | 'arrow' | 'star';
+  type: 'text' | 'rectangle' | 'circle' | 'arrow' | 'star' | 'note';
   pageNumber: number;
   x: number;
   y: number;
@@ -32,7 +32,7 @@ export class KonvaShapeEngine {
   private layer: any;
   private transformer: any;
   private container: HTMLDivElement;
-  private currentTool: DrawingTool | 'text' | 'rectangle' | 'circle' | 'arrow' | 'star' = 'text';
+  private currentTool: DrawingTool | 'text' | 'rectangle' | 'circle' | 'arrow' | 'star' | 'note' = 'text';
   private isDrawingShape = false;
   private startPos = { x: 0, y: 0 };
   private currentShape: any = null;
@@ -91,16 +91,24 @@ export class KonvaShapeEngine {
     
     // Click to handle text placement and object selection
     this.stage.on('click tap', (e) => {
-      // Handle text tool first
-      if (this.currentTool === 'text' && e.target === this.stage) {
-        const pos = this.stage.getPointerPosition();
-        if (!pos) return;
-        this.addText(pos.x, pos.y);
-        return;
-      }
+    // Handle text tool first
+    if (this.currentTool === 'text' && e.target === this.stage) {
+      const pos = this.stage.getPointerPosition();
+      if (!pos) return;
+      this.addText(pos.x, pos.y);
+      return;
+    }
+    
+    // Handle sticky note tool
+    if (this.currentTool === 'note' && e.target === this.stage) {
+      const pos = this.stage.getPointerPosition();
+      if (!pos) return;
+      this.addStickyNote(pos.x, pos.y);
+      return;
+    }
       
       // Only handle if we're using shape tools or clicking on existing shapes
-      if (['text', 'rectangle', 'circle', 'arrow', 'star'].includes(this.currentTool) || e.target !== this.stage) {
+      if (['text', 'rectangle', 'circle', 'arrow', 'star', 'note'].includes(this.currentTool) || e.target !== this.stage) {
         if (e.target === this.stage) {
           // Clicked on empty area - deselect all
           this.transformer.nodes([]);
@@ -119,10 +127,16 @@ export class KonvaShapeEngine {
       }
     });
 
-    // Double-click to edit text
+    // Double-click to edit text or sticky notes
     this.stage.on('dblclick dbltap', (e) => {
       if (e.target instanceof Konva.Text) {
-        this.editText(e.target);
+        // Check if this text is part of a sticky note group
+        const parent = e.target.getParent();
+        if (parent && parent.textNode === e.target) {
+          this.editStickyNote(parent);
+        } else {
+          this.editText(e.target);
+        }
       }
     });
 
@@ -146,14 +160,14 @@ export class KonvaShapeEngine {
     });
   }
 
-  async setTool(tool: DrawingTool | 'text' | 'rectangle' | 'circle' | 'arrow' | 'star') {
+  async setTool(tool: DrawingTool | 'text' | 'rectangle' | 'circle' | 'arrow' | 'star' | 'note') {
     await this.ensureInitialized();
     if (!this.isInitialized) return;
     
     this.currentTool = tool;
     
     // Change cursor based on tool
-    if (tool === 'text') {
+    if (tool === 'text' || tool === 'note') {
       this.stage.container().style.cursor = 'text';
     } else if (['rectangle', 'circle', 'arrow', 'star'].includes(tool)) {
       this.stage.container().style.cursor = 'crosshair';
@@ -326,6 +340,67 @@ export class KonvaShapeEngine {
     return textNode;
   }
 
+  async addStickyNote(x: number, y: number, text: string = '', noteColor: string = '#FFF59D') {
+    await this.ensureInitialized();
+    if (!this.isInitialized || !Konva) return;
+    
+    // Create a group to hold both background and text
+    const noteGroup = new Konva.Group({
+      x,
+      y,
+      draggable: true,
+      id: `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    });
+
+    // Create sticky note background
+    const noteBackground = new Konva.Rect({
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 80,
+      fill: noteColor,
+      stroke: '#E6B800', // slightly darker yellow border
+      strokeWidth: 1,
+      cornerRadius: 3,
+      shadowColor: 'rgba(0, 0, 0, 0.3)',
+      shadowOffsetX: 2,
+      shadowOffsetY: 2,
+      shadowBlur: 4
+    });
+
+    // Create text node for the sticky note content
+    const textNode = new Konva.Text({
+      x: 8,
+      y: 8,
+      width: 104, // Leave 8px padding on each side
+      height: 64, // Leave 8px padding top and bottom
+      text: text || 'Click to edit',
+      fontSize: 12,
+      fontFamily: 'Inter, Arial, sans-serif',
+      fill: '#2D3748',
+      wrap: 'word',
+      verticalAlign: 'top'
+    });
+
+    // Add both to the group
+    noteGroup.add(noteBackground);
+    noteGroup.add(textNode);
+    
+    this.layer.add(noteGroup);
+    
+    // Store references for editing
+    noteGroup.textNode = textNode;
+    noteGroup.backgroundNode = noteBackground;
+    
+    // Auto-select new note for immediate editing
+    this.transformer.nodes([noteGroup]);
+    
+    // Always auto-edit new sticky note for empty input
+    setTimeout(() => this.editStickyNote(noteGroup), 100);
+
+    return noteGroup;
+  }
+
   private editText(textNode: any) {
     const textPosition = textNode.getAbsolutePosition();
     const stageBox = this.stage.container().getBoundingClientRect();
@@ -404,6 +479,90 @@ export class KonvaShapeEngine {
     });
   }
 
+  private editStickyNote(noteGroup: any) {
+    const textNode = noteGroup.textNode;
+    if (!textNode) return;
+    
+    const textPosition = textNode.getAbsolutePosition();
+    const stageBox = this.stage.container().getBoundingClientRect();
+    
+    const textarea = document.createElement('textarea');
+    // Start with empty input for new sticky notes
+    textarea.value = textNode.text() === 'Click to edit' ? '' : textNode.text();
+    textarea.style.position = 'absolute';
+    textarea.style.top = (stageBox.top + textPosition.y) + 'px';
+    textarea.style.left = (stageBox.left + textPosition.x) + 'px';
+    textarea.style.width = '104px'; // Match sticky note text width
+    textarea.style.height = '64px'; // Match sticky note text height
+    textarea.style.fontSize = textNode.fontSize() + 'px';
+    textarea.style.fontFamily = textNode.fontFamily();
+    textarea.style.border = '2px solid #4A90E2';
+    textarea.style.background = 'white';
+    textarea.style.outline = 'none';
+    textarea.style.resize = 'none';
+    textarea.style.zIndex = '1000';
+    textarea.style.padding = '4px';
+
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    
+    const cleanup = () => {
+      if (document.body.contains(textarea)) {
+        document.body.removeChild(textarea);
+      }
+    };
+    
+    const updateNote = () => {
+      const newText = textarea.value.trim();
+      if (newText === '') {
+        // If text is empty, remove the sticky note
+        console.log('Sticky note text is empty, removing note');
+        if (this.onShapeDeleted) {
+          this.onShapeDeleted(noteGroup.id());
+        }
+        noteGroup.destroy();
+        this.transformer.nodes([]);
+      } else {
+        // Check if this is a new sticky note (has placeholder text)
+        const isNewNote = textNode.text() === 'Click to edit';
+        
+        // Update text
+        textNode.text(newText);
+        
+        // Trigger appropriate save event
+        if (isNewNote && this.onShapeAdded) {
+          // This is a new sticky note being saved for the first time
+          this.onShapeAdded(this.serializeShape(noteGroup));
+        } else if (!isNewNote && this.onShapeUpdated) {
+          // This is an existing sticky note being updated
+          this.onShapeUpdated(this.serializeShape(noteGroup));
+        }
+      }
+      cleanup();
+    };
+    
+    const cancelEdit = () => {
+      // If this was a new sticky note (placeholder text), remove it on cancel
+      if (textNode.text() === 'Click to edit') {
+        console.log('Canceling new sticky note creation');
+        noteGroup.destroy();
+        this.transformer.nodes([]);
+      }
+      cleanup();
+    };
+
+    textarea.addEventListener('blur', updateNote);
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.ctrlKey) {
+        // Ctrl+Enter to save
+        updateNote();
+      } else if (e.key === 'Escape') {
+        cancelEdit();
+      }
+    });
+  }
+
   private serializeShape(shape: any): ShapeObject {
     const stageWidth = this.stage.width();
     const stageHeight = this.stage.height();
@@ -472,6 +631,23 @@ export class KonvaShapeEngine {
         stroke: shape.stroke(),
         strokeWidth: shape.strokeWidth(),
         fill: shape.fill()
+      };
+    } else if (shape instanceof Konva.Group && shape.textNode) {
+      // This is a sticky note group
+      const backgroundNode = shape.backgroundNode;
+      const textNode = shape.textNode;
+      return {
+        ...baseObject,
+        type: 'note' as const,
+        width: backgroundNode.width(),
+        height: backgroundNode.height(),
+        relativeWidth: backgroundNode.width() / stageWidth,
+        relativeHeight: backgroundNode.height() / stageHeight,
+        text: textNode.text(),
+        fontSize: textNode.fontSize(),
+        fill: backgroundNode.fill(), // Note background color
+        stroke: backgroundNode.stroke(),
+        strokeWidth: backgroundNode.strokeWidth()
       };
     }
 
@@ -553,6 +729,50 @@ export class KonvaShapeEngine {
             fill: shapeData.fill || 'transparent',
             draggable: true
           });
+          break;
+        case 'note':
+          // Recreate sticky note group
+          shape = new Konva.Group({
+            id: shapeData.id,
+            x: shapeData.x,
+            y: shapeData.y,
+            draggable: true
+          });
+          
+          const noteBackground = new Konva.Rect({
+            x: 0,
+            y: 0,
+            width: shapeData.width || 120,
+            height: shapeData.height || 80,
+            fill: shapeData.fill || '#FFF59D',
+            stroke: shapeData.stroke || '#E6B800',
+            strokeWidth: shapeData.strokeWidth || 1,
+            cornerRadius: 3,
+            shadowColor: 'rgba(0, 0, 0, 0.3)',
+            shadowOffsetX: 2,
+            shadowOffsetY: 2,
+            shadowBlur: 4
+          });
+          
+          const noteText = new Konva.Text({
+            x: 8,
+            y: 8,
+            width: (shapeData.width || 120) - 16,
+            height: (shapeData.height || 80) - 16,
+            text: shapeData.text || '',
+            fontSize: shapeData.fontSize || 12,
+            fontFamily: 'Inter, Arial, sans-serif',
+            fill: '#2D3748',
+            wrap: 'word',
+            verticalAlign: 'top'
+          });
+          
+          shape.add(noteBackground);
+          shape.add(noteText);
+          
+          // Store references for editing
+          shape.textNode = noteText;
+          shape.backgroundNode = noteBackground;
           break;
         default:
           return;
