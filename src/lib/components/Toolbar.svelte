@@ -47,7 +47,8 @@
     RectangleHorizontal,
     Circle,
     ArrowRight,
-    Download
+    Download,
+    Layout
   } from 'lucide-svelte';
 
 
@@ -60,6 +61,10 @@
   export let onFitToWidth: () => void;
   export let onFitToHeight: () => void;
   export let onExportPDF: () => void;
+  
+  // Thumbnail panel control
+  export let showThumbnails = false;
+  export let onToggleThumbnails: (show: boolean) => void;
 
   let fileInput: HTMLInputElement;
   let showColorPalette = false;
@@ -265,6 +270,18 @@
           title="Arrow"
         >
           <ArrowRight size={14} />
+        </button>
+
+        <div class="h-4 w-px bg-charcoal/20"></div>
+
+        <!-- Page Thumbnails Toggle -->
+        <button
+          class="tool-button"
+          class:active={showThumbnails}
+          on:click={() => onToggleThumbnails(!showThumbnails)}
+          title="Page Thumbnails (T)"
+        >
+          <Layout size={14} />
         </button>
 
         <div class="h-4 w-px bg-charcoal/20"></div>

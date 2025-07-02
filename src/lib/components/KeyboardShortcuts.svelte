@@ -39,6 +39,7 @@
         { keys: ['Ctrl', '0'], description: 'Reset zoom' },
         { keys: ['W'], description: 'Fit to width' },
         { keys: ['H'], description: 'Fit to height' },
+        { keys: ['T'], description: 'Toggle page thumbnails' },
       ]
     },
     {
@@ -55,6 +56,7 @@
     {
       category: 'Actions',
       items: [
+        { keys: ['U'], description: 'Upload PDF file' },
         { keys: ['Ctrl', 'Z'], description: 'Undo last action' },
         { keys: ['Ctrl', 'Y'], description: 'Redo action' },
         { keys: ['Ctrl', 'Shift', 'Z'], description: 'Redo action (alt)' },

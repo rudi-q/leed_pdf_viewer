@@ -157,6 +157,10 @@
       panOffset = { x: 0, y: 0 };
       
       await renderCurrentPage();
+      
+      // Auto-fit to height on first load for better initial view
+      await fitToHeight();
+      
       console.log('PDF render completed successfully');
     } catch (error) {
       console.error('Error loading PDF:', error);
