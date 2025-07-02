@@ -606,21 +606,42 @@ function handlePointerUp(event: PointerEvent) {
         return null;
       }
 
-      // Set canvas size to match PDF canvas
+      // Get the device pixel ratio used for PDF rendering
+      const outputScale = window.devicePixelRatio || 1;
+      
+      // Set canvas size to match PDF canvas (already scaled by devicePixelRatio)
       mergedCanvas.width = pdfCanvas.width;
       mergedCanvas.height = pdfCanvas.height;
 
-      // Draw PDF canvas first (background)
+      // Draw PDF canvas first (background) - already properly scaled
       ctx.drawImage(pdfCanvas, 0, 0);
 
-      // Draw drawing canvas on top (pencil strokes and eraser marks)
-      ctx.drawImage(drawingCanvas, 0, 0);
+      // Scale the drawing canvas to match the PDF canvas scaling
+      // The drawing canvas is at CSS size, but PDF canvas is at device pixel ratio size
+      const scaleX = pdfCanvas.width / drawingCanvas.width;
+      const scaleY = pdfCanvas.height / drawingCanvas.height;
+      
+      console.log('Export scaling:', { 
+        pdfSize: [pdfCanvas.width, pdfCanvas.height], 
+        drawingSize: [drawingCanvas.width, drawingCanvas.height],
+        scale: [scaleX, scaleY],
+        outputScale 
+      });
 
-      // Draw Konva shapes on top if available
+      // Draw drawing canvas scaled to match PDF resolution
+      ctx.save();
+      ctx.scale(scaleX, scaleY);
+      ctx.drawImage(drawingCanvas, 0, 0);
+      ctx.restore();
+
+      // Draw Konva shapes scaled to match PDF resolution
       if (konvaEngine) {
         try {
           const konvaCanvas = konvaEngine.exportAsCanvas();
+          ctx.save();
+          ctx.scale(scaleX, scaleY);
           ctx.drawImage(konvaCanvas, 0, 0);
+          ctx.restore();
         } catch (error) {
           console.warn('Could not export Konva shapes:', error);
           // Continue without shapes if there's an error
