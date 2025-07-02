@@ -35,21 +35,26 @@
   1. Store recent files in localStorage.
   2. Update welcome screen to show list.
 
-## **4. Auto-save Drawings to Browser**
+## **4. Auto-save Drawings to Browser** ✅ COMPLETED
 - **Description**: Keep drawings in localStorage to prevent data loss.
 - **Difficulty**: Low
 - **Priority**: High
-- **Steps**:
-  1. Save drawing data periodically.
-  2. Restore drawings on load.
+- **Implementation**:
+  - ✅ PDF-specific storage using fileName + fileSize as unique key
+  - ✅ Auto-save drawings to localStorage on every change
+  - ✅ Auto-restore drawings when reopening same PDF
+  - ✅ Visual "Saved ✓" indicator in toolbar
+  - ✅ Clear drawings function for new PDFs
 
-## **5. Fit to Width/Height Buttons**
+## **5. Fit to Width/Height Buttons** ✅ COMPLETED
 - **Description**: Allow users to fit PDF to viewport width/height.
 - **Difficulty**: Very Low
 - **Priority**: High
-- **Steps**:
-  1. Add buttons to toolbar.
-  2. Implement zoom-to-fit calculations.
+- **Implementation**:
+  - ✅ Added "Fit W" and "Fit H" buttons to toolbar
+  - ✅ Implemented fitToWidth() and fitToHeight() methods
+  - ✅ Auto-calculates optimal scale for viewport
+  - ✅ Centers view and resets pan position
 
 ## **6. Dark Mode Toggle**
 - **Description**: Provide a toggle to switch the app to dark mode.

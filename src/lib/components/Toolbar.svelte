@@ -14,8 +14,22 @@
     undoStack,
     redoStack,
     clearCurrentPageDrawings,
+    drawingPaths,
     type DrawingTool 
   } from '../stores/drawingStore';
+  
+  // Auto-save indicator
+  let showAutoSaveIndicator = false;
+  let autoSaveTimeout: number;
+  
+  // Show auto-save indicator when drawings change
+  $: if ($drawingPaths && typeof window !== 'undefined') {
+    showAutoSaveIndicator = true;
+    if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = window.setTimeout(() => {
+      showAutoSaveIndicator = false;
+    }, 2000); // Hide after 2 seconds
+  }
   
   // Feather Icons
   import { 
@@ -369,6 +383,10 @@
           {#if $pdfState.document}
             <span>•</span>
             <span>{$pdfState.totalPages}p</span>
+          {/if}
+          {#if showAutoSaveIndicator}
+            <span>•</span>
+            <span class="text-sage font-medium">Saved ✓</span>
           {/if}
         </div>
       </div>

@@ -3,7 +3,7 @@
   import PDFViewer from '$lib/components/PDFViewer.svelte';
   import Toolbar from '$lib/components/Toolbar.svelte';
   import { isValidPDFFile, formatFileSize } from '$lib/utils/pdfUtils';
-  import { undo, redo } from '$lib/stores/drawingStore';
+  import { undo, redo, setCurrentPDF } from '$lib/stores/drawingStore';
   
   let pdfViewer: PDFViewer;
   let currentFile: File | null = null;
@@ -30,6 +30,9 @@
     console.log('Setting currentFile and hiding welcome');
     currentFile = file;
     showWelcome = false;
+    
+    // Set current PDF for auto-save functionality
+    setCurrentPDF(file.name, file.size);
     console.log('Updated state:', { currentFile: !!currentFile, showWelcome });
   }
 
