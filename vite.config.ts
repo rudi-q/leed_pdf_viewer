@@ -51,7 +51,14 @@ export default defineConfig({
 	build: {
 		target: 'esnext',
 		chunkSizeWarningLimit: 1000,
-		assetsInlineLimit: 0 // Don't inline assets, keep them as separate files
+		assetsInlineLimit: 0, // Don't inline assets, keep them as separate files
+		minify: 'terser',
+		terserOptions: {
+			compress: {
+				drop_console: true,
+				drop_debugger: true
+			}
+		}
 	},
 	assetsInclude: ['**/*.svg'] // Ensure SVG files are included as assets
 });
