@@ -6,9 +6,12 @@
     setColor, 
     setLineWidth, 
     setEraserSize,
+    setHighlightColor,
+    setHighlightOpacity,
     availableColors, 
     availableLineWidths,
     availableEraserSizes,
+    availableHighlightColors,
     undo,
     redo,
     undoStack,
@@ -49,7 +52,8 @@
     ArrowRight,
     Download,
     Layout,
-    Star
+    Star,
+    Highlighter
   } from 'lucide-svelte';
 
 
@@ -234,6 +238,15 @@
           <Square size={14} />
         </button>
 
+        <button
+          class="tool-button"
+          class:active={$drawingState.tool === 'highlight'}
+          on:click={() => handleToolChange('highlight')}
+          title="Highlighter"
+        >
+          <Highlighter size={14} />
+        </button>
+
         <div class="h-4 w-px bg-charcoal/20"></div>
 
         <!-- Shape Tools -->
@@ -271,6 +284,15 @@
           title="Arrow"
         >
           <ArrowRight size={14} />
+        </button>
+
+        <button
+          class="tool-button"
+          class:active={$drawingState.tool === 'star'}
+          on:click={() => handleToolChange('star')}
+          title="Star"
+        >
+          <Star size={14} />
         </button>
 
         <div class="h-4 w-px bg-charcoal/20"></div>

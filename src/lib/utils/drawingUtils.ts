@@ -57,10 +57,16 @@ export class DrawingEngine {
     if (tool === 'eraser') {
       this.context.globalCompositeOperation = 'destination-out';
       this.context.lineWidth = lineWidth * 2; // Eraser is wider
+    } else if (tool === 'highlight') {
+      this.context.globalCompositeOperation = 'multiply';
+      this.context.strokeStyle = color;
+      this.context.lineWidth = lineWidth * 3; // Highlighter is wider
+      this.context.globalAlpha = 0.3; // Semi-transparent for highlight effect
     } else {
       this.context.globalCompositeOperation = 'source-over';
       this.context.strokeStyle = color;
       this.context.lineWidth = lineWidth;
+      this.context.globalAlpha = 1.0; // Reset alpha for pencil
     }
   }
 
@@ -104,11 +110,11 @@ export class DrawingEngine {
   renderPaths(paths: DrawingPath[]): void {
     this.clearCanvas();
     
-    // Filter out eraser paths and only render pencil paths
-    // Eraser paths will be handled by removing intersecting pencil paths
-    const pencilPaths = paths.filter(path => path.tool === 'pencil');
+    // Filter out eraser paths and only render drawing tool paths
+    // Eraser paths will be handled by removing intersecting drawing paths
+    const drawingPaths = paths.filter(path => path.tool === 'pencil' || path.tool === 'highlight');
     
-    for (const path of pencilPaths) {
+    for (const path of drawingPaths) {
       this.renderPath(path);
     }
   }
@@ -139,10 +145,16 @@ export class DrawingEngine {
     if (path.tool === 'eraser') {
       this.context.globalCompositeOperation = 'destination-out';
       this.context.lineWidth = path.lineWidth * 2;
+    } else if (path.tool === 'highlight') {
+      this.context.globalCompositeOperation = 'multiply';
+      this.context.strokeStyle = path.color;
+      this.context.lineWidth = path.lineWidth * 3; // Highlighter is wider
+      this.context.globalAlpha = 0.3; // Semi-transparent for highlight effect
     } else {
       this.context.globalCompositeOperation = 'source-over';
       this.context.strokeStyle = path.color;
       this.context.lineWidth = path.lineWidth;
+      this.context.globalAlpha = 1.0; // Reset alpha for pencil
     }
     
     // Draw smooth path

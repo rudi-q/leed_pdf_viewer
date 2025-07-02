@@ -138,6 +138,16 @@
           event.preventDefault();
           setTool('arrow');
           break;
+        case '7':
+          // Switch to star
+          event.preventDefault();
+          setTool('star');
+          break;
+        case '8':
+          // Switch to highlight
+          event.preventDefault();
+          setTool('highlight');
+          break;
         case 'h':
         case 'H':
           // Fit to height

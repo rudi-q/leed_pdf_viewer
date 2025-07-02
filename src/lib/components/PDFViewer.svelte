@@ -264,9 +264,9 @@ function handlePointerDown(event: PointerEvent) {
       return; // Don't capture the event, let container handle it
     }
     
-    // Only handle freehand drawing tools (pencil, eraser) here
+    // Only handle freehand drawing tools (pencil, eraser, highlight) here
     // Konva tools (text, rectangle, circle, arrow) are handled by Konva
-    if (!['pencil', 'eraser'].includes($drawingState.tool)) {
+    if (!['pencil', 'eraser', 'highlight'].includes($drawingState.tool)) {
       console.log('Shape tool detected:', $drawingState.tool);
       // Shape tools should be handled by Konva, but if we get here, it means
       // the Konva container isn't working properly, so we handle text manually
@@ -291,10 +291,11 @@ function handlePointerDown(event: PointerEvent) {
     const point = drawingEngine.getPointFromEvent(event);
     
     const size = $drawingState.tool === 'eraser' ? $drawingState.eraserSize : $drawingState.lineWidth;
+    const color = $drawingState.tool === 'highlight' ? $drawingState.highlightColor : $drawingState.color;
     drawingEngine.startDrawing(
       point,
       $drawingState.tool,
-      $drawingState.color,
+      color,
       size
     );
     
@@ -367,10 +368,11 @@ function handlePointerUp(event: PointerEvent) {
           return new Map(paths);
         });
       } else {
-        // Add pencil drawing path
+        // Add drawing path (pencil or highlight)
+        const color = $drawingState.tool === 'highlight' ? $drawingState.highlightColor : $drawingState.color;
         const drawingPath: DrawingPath = {
           tool: $drawingState.tool,
-          color: $drawingState.color,
+          color: color,
           lineWidth: $drawingState.lineWidth,
           points: finalPath,
           pageNumber: $pdfState.currentPage
@@ -454,6 +456,10 @@ function handlePointerUp(event: PointerEvent) {
             setTimeout(() => {
               console.log('Current drawing canvas cursor:', drawingCanvas.style.cursor);
             }, 100);
+          } else if ($drawingState.tool === 'highlight') {
+            // Use pencil cursor for highlight tool (similar drawing experience)
+            console.log('Setting highlight cursor:', pencilCursor);
+            drawingCanvas.style.cursor = pencilCursor;
           } else {
             console.log('Setting pencil cursor:', pencilCursor);
             drawingCanvas.style.cursor = pencilCursor;
