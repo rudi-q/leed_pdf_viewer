@@ -14,14 +14,17 @@
   - ✅ Loading indicators and async generation
   - ✅ Responsive layout with flex integration
 
-## **1. Export Annotated PDF**
+## **1. Export Annotated PDF** ✅ COMPLETED
 - **Description**: Enable users to save their annotated documents as a new PDF.
 - **Difficulty**: Medium
 - **Priority**: High
-- **Steps**:
-  1. Capture annotation data.
-  2. Merge annotations into PDF using PDF.js.
-  3. Provide download link.
+- **Implementation**:
+  - ✅ PDF-lib integration for PDF manipulation
+  - ✅ Canvas merging system (PDF + drawings + shapes)
+  - ✅ High-resolution export with device pixel ratio support
+  - ✅ Automatic filename generation (_annotated.pdf suffix)
+  - ✅ One-click export from toolbar
+  - ✅ Full preservation of original PDF quality
 
 ## **2. Keyboard Shortcuts Overlay (Help)** ✅ COMPLETED
 - **Description**: Provide an overlay with keyboard shortcuts.
@@ -41,6 +44,59 @@
 - **Steps**:
   1. Store recent files in localStorage.
   2. Update welcome screen to show list.
+
+## **X. Drawing Tools & Shape Support** ✅ COMPLETED
+- **Description**: Complete drawing system with multiple tools.
+- **Implementation**:
+  - ✅ Hybrid drawing system (Canvas + Konva.js)
+  - ✅ Pencil tool with custom SVG cursor
+  - ✅ Eraser tool with custom SVG cursor and shape erasure
+  - ✅ Text tool with inline editing and auto-cleanup
+  - ✅ Rectangle tool with real-time preview
+  - ✅ Circle tool with real-time preview
+  - ✅ Arrow tool with proper intersection detection
+  - ✅ Full undo/redo system for all tools
+  - ✅ Keyboard shortcuts (1-6 keys) for tool switching
+
+## **X. Custom Cursors** ✅ COMPLETED
+- **Description**: Tool-specific cursors for better UX.
+- **Implementation**:
+  - ✅ Custom SVG pencil cursor with proper hotspot
+  - ✅ Custom SVG eraser cursor with visual feedback
+  - ✅ Fallback cursor support for compatibility
+  - ✅ Cursor files stored in /static/cursors/
+  - ✅ Dynamic cursor switching based on active tool
+
+## **X. Progressive Web App (PWA)** ✅ COMPLETED
+- **Description**: Make LeedPDF installable as a native app.
+- **Implementation**:
+  - ✅ @vite-pwa/sveltekit integration
+  - ✅ Web app manifest with LeedPDF branding
+  - ✅ Service worker with Workbox caching
+  - ✅ Offline functionality after first visit
+  - ✅ Auto-updating service worker
+  - ✅ Installable on mobile and desktop
+  - ✅ Standalone display mode
+  - ✅ File handling for PDF files
+
+## **X. Keyboard Shortcuts System** ✅ COMPLETED
+- **Description**: Comprehensive keyboard navigation.
+- **Implementation**:
+  - ✅ Tool shortcuts (1-6 for tools)
+  - ✅ Navigation shortcuts (arrows, W/H for fit)
+  - ✅ Zoom shortcuts (Ctrl+/-, Ctrl+0, Ctrl+scroll)
+  - ✅ Action shortcuts (Ctrl+Z/Y for undo/redo)
+  - ✅ Upload shortcut (U key)
+  - ✅ Help shortcut (? and F1)
+  - ✅ Fullscreen shortcut (F11)
+  - ✅ Thumbnails toggle (T key)
+
+## **X. Auto-fit to Height** ✅ COMPLETED
+- **Description**: Automatically fit PDF to viewport height on load.
+- **Implementation**:
+  - ✅ Automatic fit-to-height when PDF first loads
+  - ✅ Better initial viewing experience
+  - ✅ Responsive scaling for all screen sizes
 
 ## **4. Auto-save Drawings to Browser** ✅ COMPLETED
 - **Description**: Keep drawings in localStorage to prevent data loss.
