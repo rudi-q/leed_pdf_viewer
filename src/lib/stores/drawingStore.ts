@@ -1,13 +1,16 @@
 import { writable, derived } from 'svelte/store';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 
-export type DrawingTool = 'pencil' | 'eraser' | 'text' | 'rectangle' | 'circle' | 'arrow';
+export type DrawingTool = 'pencil' | 'eraser' | 'text' | 'rectangle' | 'circle' | 'arrow' | 'star' | 'highlight' | 'note';
 
 export interface DrawingState {
   tool: DrawingTool;
   color: string;
   lineWidth: number;
   eraserSize: number;
+  highlightColor: string;
+  highlightOpacity: number;
+  noteColor: string;
   isDrawing: boolean;
 }
 
@@ -33,6 +36,8 @@ export interface DrawingPath {
   lineWidth: number;
   points: Point[];
   pageNumber: number;
+  highlightColor?: string;
+  highlightOpacity?: number;
 }
 
 // Import ShapeObject from KonvaShapeEngine
@@ -44,6 +49,9 @@ export const drawingState = writable<DrawingState>({
   color: '#2D3748', // charcoal color
   lineWidth: 2,
   eraserSize: 8,
+  highlightColor: '#FFEB3B', // yellow
+  highlightOpacity: 0.4,
+  noteColor: '#FFF59D', // light yellow
   isDrawing: false
 });
 
@@ -190,6 +198,30 @@ export const availableLineWidths = [1, 2, 3, 5, 8, 12];
 // Available eraser sizes
 export const availableEraserSizes = [4, 8, 12, 16, 24, 32];
 
+// Available highlight colors
+export const availableHighlightColors = [
+  '#FFEB3B', // yellow
+  '#FF9800', // orange
+  '#E91E63', // pink
+  '#9C27B0', // purple
+  '#2196F3', // blue
+  '#4CAF50', // green
+  '#FF5722', // red
+  '#607D8B'  // blue grey
+];
+
+// Available sticky note colors
+export const availableNoteColors = [
+  '#FFF59D', // light yellow
+  '#FFCC80', // light orange
+  '#F8BBD9', // light pink
+  '#CE93D8', // light purple
+  '#90CAF9', // light blue
+  '#A5D6A7', // light green
+  '#FFAB91', // light coral
+  '#B0BEC5'  // light grey
+];
+
 // Derived store for current page paths
 export const currentPagePaths = derived(
   [drawingPaths, pdfState],
@@ -213,6 +245,18 @@ export const setLineWidth = (lineWidth: number) => {
 
 export const setEraserSize = (eraserSize: number) => {
   drawingState.update(state => ({ ...state, eraserSize }));
+};
+
+export const setHighlightColor = (highlightColor: string) => {
+  drawingState.update(state => ({ ...state, highlightColor }));
+};
+
+export const setHighlightOpacity = (highlightOpacity: number) => {
+  drawingState.update(state => ({ ...state, highlightOpacity }));
+};
+
+export const setNoteColor = (noteColor: string) => {
+  drawingState.update(state => ({ ...state, noteColor }));
 };
 
 export const setIsDrawing = (isDrawing: boolean) => {
