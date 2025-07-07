@@ -128,21 +128,29 @@
   }
 
   async function loadPDF() {
+    console.log('loadPDF called with pdfFile:', typeof pdfFile, pdfFile);
+    
     if (!pdfFile || !pdfCanvas) {
       console.log('Missing pdfFile or pdfCanvas:', { pdfFile: !!pdfFile, pdfCanvas: !!pdfCanvas });
       return;
     }
 
     const isUrl = typeof pdfFile === 'string';
-    console.log('Loading PDF:', isUrl ? pdfFile : `${pdfFile.name} (Size: ${pdfFile.size})`);
+    console.log('Loading PDF - isUrl:', isUrl, 'Value:', isUrl ? pdfFile : `${pdfFile.name} (Size: ${pdfFile.size})`);
     
     try {
+      console.log('Setting loading state to true...');
       pdfState.update(state => ({ ...state, isLoading: true }));
       
       let document;
       if (isUrl) {
-        console.log('Calling pdfManager.loadFromUrl...');
-        document = await pdfManager.loadFromUrl(pdfFile);
+        console.log('Calling pdfManager.loadFromUrl with:', pdfFile);
+        try {
+          document = await pdfManager.loadFromUrl(pdfFile);
+        } catch (urlError) {
+          console.error('Error loading from URL:', urlError);
+          throw new Error(`Failed to load PDF from URL: ${urlError.message}`);
+        }
       } else {
         console.log('Calling pdfManager.loadFromFile...');
         document = await pdfManager.loadFromFile(pdfFile);

@@ -67,22 +67,26 @@
   }
 
   async function handlePdfUrlLoad(url: string) {
-    console.log('Loading PDF from URL:', url);
+    console.log('handlePdfUrlLoad called with URL:', url);
     
     if (!isValidPdfUrl(url)) {
-      console.log('Invalid PDF URL');
+      console.log('Invalid PDF URL:', url);
       alert('Invalid PDF URL. Please provide a valid HTTP or HTTPS URL.');
       return;
     }
     
-    console.log('Setting currentFile to URL and hiding welcome');
+    console.log('URL is valid, proceeding...');
+    console.log('Current state before update:', { currentFile, showWelcome });
+    
     currentFile = url;
     showWelcome = false;
+    
+    console.log('State updated:', { currentFile: !!currentFile, showWelcome });
     
     // Set current PDF for auto-save functionality
     const filename = extractFilenameFromUrl(url);
     setCurrentPDF(filename, 0); // Size will be determined after loading
-    console.log('Updated state for URL:', { currentFile: !!currentFile, showWelcome, filename });
+    console.log('setCurrentPDF called with filename:', filename);
   }
 
   function handleDrop(event: DragEvent) {
@@ -353,9 +357,18 @@
 
   onMount(() => {
     // Check for PDF URL parameter
+    console.log('onMount called, checking for PDF URL parameter');
+    console.log('Current page URL:', $page.url.href);
+    console.log('Search params:', $page.url.search);
+    
     const pdfUrl = $page.url.searchParams.get('pdf');
+    console.log('PDF URL from searchParams:', pdfUrl);
+    
     if (pdfUrl) {
+      console.log('Found PDF URL, calling handlePdfUrlLoad...');
       handlePdfUrlLoad(pdfUrl);
+    } else {
+      console.log('No PDF URL parameter found');
     }
     
     document.addEventListener('fullscreenchange', handleFullscreenChange);
