@@ -5,7 +5,7 @@
   import { DrawingEngine } from '../utils/drawingUtils';
   import { KonvaShapeEngine, type ShapeObject } from '../utils/konvaShapeEngine';
 
-  export let pdfFile: File | null = null;
+  export let pdfFile: File | string | null = null;
 
   let pdfCanvas: HTMLCanvasElement;
   let drawingCanvas: HTMLCanvasElement;
@@ -19,7 +19,7 @@
   let isPanning = false;
   let currentDrawingPath: Point[] = [];
   let canvasesReady = false;
-  let lastLoadedFile: File | null = null;
+  let lastLoadedFile: File | string | null = null;
   let panStart = { x: 0, y: 0 };
   let panOffset = { x: 0, y: 0 };
   let viewportTransform = { x: 0, y: 0, scale: 1 };
@@ -28,12 +28,12 @@
   let cursorOverCanvas = false;
 
   // Debug prop changes
-  $: console.log('PDFViewer prop pdfFile changed:', pdfFile?.name || 'null');
+  $: console.log('PDFViewer prop pdfFile changed:', typeof pdfFile === 'string' ? pdfFile : (pdfFile?.name || 'null'));
   $: console.log('PDFViewer canvases ready:', canvasesReady);
   
   // Only load PDF when both conditions are met and it's a new file
   $: if (pdfFile && canvasesReady && pdfFile !== lastLoadedFile) {
-    console.log('Loading PDF - file changed and canvases ready:', pdfFile.name);
+    console.log('Loading PDF - file changed and canvases ready:', typeof pdfFile === 'string' ? pdfFile : pdfFile.name);
     loadPDF();
   }
 
@@ -110,7 +110,7 @@
         
         // If there's a pending file, load it now
         if (pdfFile && pdfFile !== lastLoadedFile) {
-          console.log('Loading pending PDF file:', pdfFile.name);
+          console.log('Loading pending PDF file:', typeof pdfFile === 'string' ? pdfFile : pdfFile.name);
           await loadPDF();
         }
       } catch (error) {
@@ -133,13 +133,20 @@
       return;
     }
 
-    console.log('Loading PDF:', pdfFile.name, 'Size:', pdfFile.size);
+    const isUrl = typeof pdfFile === 'string';
+    console.log('Loading PDF:', isUrl ? pdfFile : `${pdfFile.name} (Size: ${pdfFile.size})`);
     
     try {
       pdfState.update(state => ({ ...state, isLoading: true }));
       
-      console.log('Calling pdfManager.loadFromFile...');
-      const document = await pdfManager.loadFromFile(pdfFile);
+      let document;
+      if (isUrl) {
+        console.log('Calling pdfManager.loadFromUrl...');
+        document = await pdfManager.loadFromUrl(pdfFile);
+      } else {
+        console.log('Calling pdfManager.loadFromFile...');
+        document = await pdfManager.loadFromFile(pdfFile);
+      }
       console.log('PDF loaded successfully, pages:', document.numPages);
       
       pdfState.update(state => ({

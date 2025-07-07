@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { page } from '$app/stores';
   import PDFViewer from '$lib/components/PDFViewer.svelte';
   import Toolbar from '$lib/components/Toolbar.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
@@ -9,7 +10,7 @@
   import { PDFExporter } from '$lib/utils/pdfExport';
   
   let pdfViewer: PDFViewer;
-  let currentFile: File | null = null;
+  let currentFile: File | string | null = null; // Support both File objects and URL strings
   let dragOver = false;
   let showWelcome = true;
   let showShortcuts = false;
@@ -40,6 +41,48 @@
     // Set current PDF for auto-save functionality
     setCurrentPDF(file.name, file.size);
     console.log('Updated state:', { currentFile: !!currentFile, showWelcome });
+  }
+
+  function isValidPdfUrl(url: string): boolean {
+    try {
+      const validUrl = new URL(url);
+      // Accept both http and https protocols
+      return validUrl.protocol === 'https:' || validUrl.protocol === 'http:';
+    } catch {
+      return false;
+    }
+  }
+
+  function extractFilenameFromUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname;
+      const filename = pathname.split('/').pop() || 'document.pdf';
+      
+      // If the filename doesn't end with .pdf, append it
+      return filename.toLowerCase().endsWith('.pdf') ? filename : filename + '.pdf';
+    } catch {
+      return 'document.pdf';
+    }
+  }
+
+  async function handlePdfUrlLoad(url: string) {
+    console.log('Loading PDF from URL:', url);
+    
+    if (!isValidPdfUrl(url)) {
+      console.log('Invalid PDF URL');
+      alert('Invalid PDF URL. Please provide a valid HTTP or HTTPS URL.');
+      return;
+    }
+    
+    console.log('Setting currentFile to URL and hiding welcome');
+    currentFile = url;
+    showWelcome = false;
+    
+    // Set current PDF for auto-save functionality
+    const filename = extractFilenameFromUrl(url);
+    setCurrentPDF(filename, 0); // Size will be determined after loading
+    console.log('Updated state for URL:', { currentFile: !!currentFile, showWelcome, filename });
   }
 
   function handleDrop(event: DragEvent) {
@@ -249,9 +292,25 @@
     }
 
     try {
-      // Read the original PDF file
-      const arrayBuffer = await currentFile.arrayBuffer();
-      const pdfBytes = new Uint8Array(arrayBuffer);
+      let pdfBytes: Uint8Array;
+      let originalName: string;
+      
+      if (typeof currentFile === 'string') {
+        // URL-loaded PDF: fetch the PDF data
+        console.log('Fetching PDF data from URL for export:', currentFile);
+        const response = await fetch(currentFile);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
+        originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
+      } else {
+        // File-loaded PDF: read the file
+        const arrayBuffer = await currentFile.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
+        originalName = currentFile.name.replace(/\.pdf$/i, '');
+      }
 
       // Create exporter and set up data
       const exporter = new PDFExporter();
@@ -267,7 +326,6 @@
       const annotatedPdfBytes = await exporter.exportToPDF();
 
       // Generate filename
-      const originalName = currentFile.name.replace(/\.pdf$/i, '');
       const filename = `${originalName}_annotated.pdf`;
 
       // Download the file
@@ -294,6 +352,12 @@
   }
 
   onMount(() => {
+    // Check for PDF URL parameter
+    const pdfUrl = $page.url.searchParams.get('pdf');
+    if (pdfUrl) {
+      handlePdfUrlLoad(pdfUrl);
+    }
+    
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
