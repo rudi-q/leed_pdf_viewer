@@ -53,6 +53,17 @@
     }
   }
 
+  function tryWithCorsProxy(originalUrl: string): string {
+    // Option 1: Try with a CORS proxy (for testing)
+    // return `https://corsproxy.io/?${encodeURIComponent(originalUrl)}`;
+    
+    // Option 2: Use allorigins proxy
+    // return `https://api.allorigins.win/raw?url=${encodeURIComponent(originalUrl)}`;
+    
+    // For now, return original URL
+    return originalUrl;
+  }
+
   function extractFilenameFromUrl(url: string): string {
     try {
       const urlObj = new URL(url);
@@ -362,11 +373,23 @@
     console.log('Search params:', $page.url.search);
     
     const pdfUrl = $page.url.searchParams.get('pdf');
-    console.log('PDF URL from searchParams:', pdfUrl);
+    console.log('PDF URL from searchParams (raw):', pdfUrl);
     
+    // Try to decode the URL in case it's encoded
+    let decodedPdfUrl = pdfUrl;
     if (pdfUrl) {
+      try {
+        decodedPdfUrl = decodeURIComponent(pdfUrl);
+        console.log('PDF URL after decoding:', decodedPdfUrl);
+      } catch (e) {
+        console.log('URL decoding failed, using original:', e);
+        decodedPdfUrl = pdfUrl;
+      }
+    }
+    
+    if (decodedPdfUrl) {
       console.log('Found PDF URL, calling handlePdfUrlLoad...');
-      handlePdfUrlLoad(pdfUrl);
+      handlePdfUrlLoad(decodedPdfUrl);
     } else {
       console.log('No PDF URL parameter found');
     }

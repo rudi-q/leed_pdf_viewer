@@ -149,6 +149,12 @@
           document = await pdfManager.loadFromUrl(pdfFile);
         } catch (urlError) {
           console.error('Error loading from URL:', urlError);
+          
+          // Check if it might be a CORS issue
+          if (urlError.message.includes('CORS') || urlError.message.includes('fetch')) {
+            throw new Error(`Failed to load PDF from URL: This might be a CORS issue. The PDF server doesn't allow cross-origin requests. Try using a PDF with CORS enabled or a direct download link.`);
+          }
+          
           throw new Error(`Failed to load PDF from URL: ${urlError.message}`);
         }
       } else {
