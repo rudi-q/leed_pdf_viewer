@@ -9,7 +9,14 @@ if (typeof window !== 'undefined') {
   // Dynamic import to avoid SSR issues
   import('pdfjs-dist').then((lib) => {
     pdfjsLib = lib;
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.mjs';
+    if (typeof window !== 'undefined') {
+	  import('pdfjs-dist/build/pdf.worker.mjs').then((worker) => {
+		pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+		  'pdfjs-dist/build/pdf.worker.mjs', 
+		  import.meta.url
+		).toString();
+	  });
+	}
     isInitialized = true;
     console.log('PDF.js loaded successfully');
   }).catch((error) => {
@@ -20,6 +27,82 @@ if (typeof window !== 'undefined') {
 export interface RenderOptions {
   scale: number;
   canvas: HTMLCanvasElement;
+}
+
+// CORS proxy helper
+async function fetchWithCorsProxy(url: string): Promise<ArrayBuffer> {
+  const proxies = [
+    '', // Try direct first
+    'https://api.allorigins.win/raw?url=',
+    'https://corsproxy.io/?'
+  ];
+
+  for (const proxy of proxies) {
+    try {
+      const fetchUrl = proxy ? proxy + encodeURIComponent(url) : url;
+      console.log(`Trying to fetch: ${fetchUrl}`);
+
+      const response = await fetch(fetchUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+
+      // Verify it's a PDF
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const pdfSignature = uint8Array.subarray(0, 4);
+      const pdfHeader = String.fromCharCode(...pdfSignature);
+
+      if (pdfHeader === '%PDF') {
+        console.log(`Successfully fetched PDF via: ${proxy || 'direct'}`);
+        return arrayBuffer;
+      } else {
+        throw new Error('Response is not a valid PDF');
+      }
+    } catch (error: any) {
+      console.warn(`Failed with ${proxy || 'direct'}: ${error.message}`);
+      if (proxy === proxies[proxies.length - 1]) {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error('All fetch attempts failed');
+}
+
+// Enhanced Dropbox URL converter
+function convertDropboxUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+
+    if (!urlObj.hostname.includes('dropbox.com')) {
+      return url;
+    }
+
+    // Remove problematic parameters
+    urlObj.searchParams.delete('st');
+    urlObj.searchParams.set('dl', '1');
+
+    // For /scl/fi/ format, try to convert to dropboxusercontent.com
+    if (urlObj.pathname.includes('/scl/fi/')) {
+      const pathMatch = urlObj.pathname.match(/\/scl\/fi\/([^\/]+)\/(.+)/);
+      if (pathMatch) {
+        const fileId = pathMatch[1];
+        const fileName = pathMatch[2];
+        const rlkey = urlObj.searchParams.get('rlkey');
+
+        if (rlkey) {
+          return `https://dl.dropboxusercontent.com/scl/fi/${fileId}/${fileName}?rlkey=${rlkey}&dl=1`;
+        }
+      }
+    }
+
+    return urlObj.toString();
+  } catch (error) {
+    console.warn('Error converting Dropbox URL:', error);
+    return url;
+  }
 }
 
 export class PDFManager {
@@ -76,16 +159,27 @@ export class PDFManager {
     await this.ensurePDFJSLoaded();
     
     try {
+      console.log('Loading PDF from URL:', url);
+      
+      // Convert Dropbox URLs to direct download format
+      const directUrl = convertDropboxUrl(url);
+      console.log('Using direct URL:', directUrl);
+      
+      // Fetch the PDF data with CORS proxy fallbacks
+      const arrayBuffer = await fetchWithCorsProxy(directUrl);
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
       this.document = await pdfjsLib.getDocument({
-        url,
+        data: uint8Array,
         cMapUrl: '/pdfjs/cmaps/',
         cMapPacked: true,
       }).promise;
       
+      console.log('PDF loaded successfully from URL');
       return this.document;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading PDF from URL:', error);
-      throw new Error('Failed to load PDF from URL');
+      throw new Error(`Failed to load PDF from URL: ${error.message}`);
     }
   }
 
