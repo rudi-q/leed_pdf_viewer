@@ -5,7 +5,7 @@
   import { DrawingEngine } from '../utils/drawingUtils';
   import { KonvaShapeEngine, type ShapeObject } from '../utils/konvaShapeEngine';
 
-  export let pdfFile: File | null = null;
+  export let pdfFile: File | string | null = null;
 
   let pdfCanvas: HTMLCanvasElement;
   let drawingCanvas: HTMLCanvasElement;
@@ -19,7 +19,7 @@
   let isPanning = false;
   let currentDrawingPath: Point[] = [];
   let canvasesReady = false;
-  let lastLoadedFile: File | null = null;
+  let lastLoadedFile: File | string | null = null;
   let panStart = { x: 0, y: 0 };
   let panOffset = { x: 0, y: 0 };
   let viewportTransform = { x: 0, y: 0, scale: 1 };
@@ -28,12 +28,12 @@
   let cursorOverCanvas = false;
 
   // Debug prop changes
-  $: console.log('PDFViewer prop pdfFile changed:', pdfFile?.name || 'null');
+  $: console.log('PDFViewer prop pdfFile changed:', typeof pdfFile === 'string' ? pdfFile : (pdfFile?.name || 'null'));
   $: console.log('PDFViewer canvases ready:', canvasesReady);
   
   // Only load PDF when both conditions are met and it's a new file
   $: if (pdfFile && canvasesReady && pdfFile !== lastLoadedFile) {
-    console.log('Loading PDF - file changed and canvases ready:', pdfFile.name);
+    console.log('Loading PDF - file changed and canvases ready:', typeof pdfFile === 'string' ? pdfFile : pdfFile.name);
     loadPDF();
   }
 
@@ -110,7 +110,7 @@
         
         // If there's a pending file, load it now
         if (pdfFile && pdfFile !== lastLoadedFile) {
-          console.log('Loading pending PDF file:', pdfFile.name);
+          console.log('Loading pending PDF file:', typeof pdfFile === 'string' ? pdfFile : pdfFile.name);
           await loadPDF();
         }
       } catch (error) {
@@ -128,18 +128,39 @@
   }
 
   async function loadPDF() {
+    console.log('loadPDF called with pdfFile:', typeof pdfFile, pdfFile);
+    
     if (!pdfFile || !pdfCanvas) {
       console.log('Missing pdfFile or pdfCanvas:', { pdfFile: !!pdfFile, pdfCanvas: !!pdfCanvas });
       return;
     }
 
-    console.log('Loading PDF:', pdfFile.name, 'Size:', pdfFile.size);
+    const isUrl = typeof pdfFile === 'string';
+    console.log('Loading PDF - isUrl:', isUrl, 'Value:', isUrl ? pdfFile : `${pdfFile.name} (Size: ${pdfFile.size})`);
     
     try {
+      console.log('Setting loading state to true...');
       pdfState.update(state => ({ ...state, isLoading: true }));
       
-      console.log('Calling pdfManager.loadFromFile...');
-      const document = await pdfManager.loadFromFile(pdfFile);
+      let document;
+      if (isUrl) {
+        console.log('Calling pdfManager.loadFromUrl with:', pdfFile);
+        try {
+          document = await pdfManager.loadFromUrl(pdfFile);
+        } catch (urlError) {
+          console.error('Error loading from URL:', urlError);
+          
+          // Check if it might be a CORS issue
+          if (urlError.message.includes('CORS') || urlError.message.includes('fetch')) {
+            throw new Error(`Failed to load PDF from URL: This might be a CORS issue. The PDF server doesn't allow cross-origin requests. Try using a PDF with CORS enabled or a direct download link.`);
+          }
+          
+          throw new Error(`Failed to load PDF from URL: ${urlError.message}`);
+        }
+      } else {
+        console.log('Calling pdfManager.loadFromFile...');
+        document = await pdfManager.loadFromFile(pdfFile);
+      }
       console.log('PDF loaded successfully, pages:', document.numPages);
       
       pdfState.update(state => ({
