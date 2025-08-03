@@ -116,7 +116,7 @@
   }
 
   function handleClear() {
-    if (confirm('Clear all drawings on this page?')) {
+    if (confirm('Delete all drawings on this page? This can\'t be undone.')) {
       clearCurrentPageDrawings();
     }
   }
@@ -143,10 +143,8 @@
     <div class="flex items-center justify-between">
       <!-- Left section: Branding and file operations -->
       <div class="flex items-center space-x-2">
-        <!-- Leed branding -->
-        <h1 class="text-sm font-serif text-charcoal tracking-wider mr-1" style="font-family: 'Playfair Display', 'Times New Roman', serif; font-weight: 700; letter-spacing: 0.1em;">
-          Leed
-        </h1>
+        <!-- Logo -->
+        <img src="/favicon.png" alt="LeedPDF" class="w-4 h-4 mr-1" />
         
         <div class="h-4 w-px bg-charcoal/20"></div>
         
@@ -324,7 +322,7 @@
           <button
             class="tool-button w-8 h-8 p-1"
             on:click={() => showColorPalette = !showColorPalette}
-            title="Choose color"
+            title="Drawing color"
             aria-label="Choose drawing color"
           >
             <div 
@@ -369,7 +367,7 @@
           <button
             class="tool-button flex items-center justify-center"
             on:click={() => showLineWidthPicker = !showLineWidthPicker}
-            title="Line thickness"
+            title="Brush size"
             aria-label="Choose line thickness"
           >
             <div 

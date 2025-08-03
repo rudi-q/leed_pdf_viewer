@@ -59,7 +59,7 @@
     {
       category: 'Actions',
       items: [
-        { keys: ['U'], description: 'Upload PDF file' },
+        { keys: ['U'], description: 'Choose PDF file' },
         { keys: ['Ctrl', 'Z'], description: 'Undo last action' },
         { keys: ['Ctrl', 'Y'], description: 'Redo action' },
         { keys: ['Ctrl', 'Shift', 'Z'], description: 'Redo action (alt)' },

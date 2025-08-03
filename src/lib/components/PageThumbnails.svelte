@@ -187,7 +187,7 @@
                 handleThumbnailClick(pageNumber);
               }}
             >
-              <div class="text-xs text-slate mb-2">Click to load</div>
+              <div class="text-xs text-slate mb-2">Loading...</div>
               <div class="loading-spinner"></div>
             </div>
           {/if}

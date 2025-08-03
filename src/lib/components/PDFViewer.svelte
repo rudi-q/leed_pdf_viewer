@@ -728,7 +728,7 @@ function handlePointerUp(event: PointerEvent) {
   {#if $pdfState.isLoading}
     <div class="absolute inset-0 flex items-center justify-center">
       <div class="animate-spin rounded-full h-12 w-12 border-4 border-sage border-t-transparent"></div>
-      <span class="ml-3 text-charcoal font-medium">Loading PDF...</span>
+      <span class="ml-3 text-charcoal font-medium">Opening your PDF...</span>
     </div>
   {:else if $pdfState.document && $pdfState.totalPages > 0}
     <!-- Page Info -->
@@ -746,8 +746,7 @@ function handlePointerUp(event: PointerEvent) {
     <div class="absolute inset-0 flex items-center justify-center">
       <div class="text-center">
         <div class="text-6xl mb-4">📄</div>
-        <h3 class="text-xl font-medium text-charcoal mb-2">No PDF loaded</h3>
-        <p class="text-slate">Upload a PDF file to start drawing</p>
+        <h3 class="text-xl font-medium text-charcoal mb-2">Drop a PDF here or click to browse</h3>
         <p class="text-xs text-slate mt-2">Debug: Loading={$pdfState.isLoading}, Document={!!$pdfState.document}, Pages={$pdfState.totalPages}</p>
       </div>
     </div>

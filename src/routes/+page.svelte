@@ -34,13 +34,13 @@
 
     if (!isValidPDFFile(file)) {
       console.log('Invalid PDF file');
-      alert('Please select a valid PDF file.');
+      alert('Please choose a valid PDF file.');
       return;
     }
 
     if (file.size > 50 * 1024 * 1024) { // 50MB limit
       console.log('File too large');
-      alert('File size too large. Please select a file smaller than 50MB.');
+      alert('File too large. Please choose a file under 50MB.');
       return;
     }
 
@@ -101,7 +101,7 @@
 
     if (!isValidPdfUrl(url)) {
       console.log('Invalid PDF URL');
-      alert('Invalid PDF URL. Please provide a valid HTTP or HTTPS URL.');
+      alert('Invalid PDF URL. Please provide a valid web address.');
       return;
     }
 
@@ -317,7 +317,7 @@
 
   async function handleExportPDF() {
     if (!currentFile || !pdfViewer) {
-      alert('No PDF loaded');
+      alert('No PDF to export');
       return;
     }
 
@@ -355,7 +355,7 @@
       console.log('PDF exported successfully:', filename);
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Failed to export PDF. Please try again.');
+      alert('Export failed. Please try again.');
     }
   }
 
@@ -411,7 +411,8 @@
           <div class="text-8xl mb-6 animate-bounce-soft">✏️</div>
           <h1 class="text-4xl font-bold text-charcoal mb-4">LeedPDF</h1>
           <p class="text-lg text-slate mb-8">
-            A vibey PDF viewer where you can draw, sketch, and annotate with the smoothness of pencil on paper.
+            Add drawings and notes to any PDF. <br>
+            <i>Works with mouse, touch, or stylus.</i>
           </p>
 
           <div class="space-y-4">
@@ -419,11 +420,11 @@
               class="primary-button text-lg px-8 py-4"
               on:click={() => document.querySelector('input[type="file"]')?.click()}
             >
-              Upload PDF & Start Drawing
+              Choose PDF File
             </button>
 
             <p class="text-sm text-slate">
-              Or drag and drop a PDF file anywhere on this page
+              or drop one anywhere
             </p>
           </div>
 
