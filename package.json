@@ -16,8 +16,11 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.30.0",
+		"@sveltejs/adapter-static": "^3.0.8",
 		"@sveltejs/kit": "^2.16.0",
 		"@sveltejs/vite-plugin-svelte": "^5.0.0",
+		"@tauri-apps/api": "^2.7.0",
+		"@tauri-apps/cli": "^2.7.1",
 		"@typescript-eslint/eslint-plugin": "^8.35.1",
 		"@typescript-eslint/parser": "^8.35.1",
 		"@vite-pwa/sveltekit": "^1.0.0",
@@ -37,7 +40,6 @@
 		]
 	},
 	"dependencies": {
-		"@sveltejs/adapter-vercel": "^5.7.2",
 		"@tailwindcss/typography": "^0.5.16",
 		"autoprefixer": "^10.4.21",
 		"konva": "^9.3.20",
