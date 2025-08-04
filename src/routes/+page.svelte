@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
   import PDFViewer from '$lib/components/PDFViewer.svelte';
   import Toolbar from '$lib/components/Toolbar.svelte';
@@ -17,6 +18,9 @@
   let showShortcuts = false;
   let isFullscreen = false;
   let showThumbnails = false;
+  let showUrlInput = false;
+  let urlInput = '';
+  let urlError = '';
 
   // Check for PDF URL parameter reactively
   $: if (browser && $page && $page.url) {
@@ -371,6 +375,44 @@
     isFullscreen = !!document.fullscreenElement;
   }
 
+  function handleViewFromLink() {
+    showUrlInput = true;
+    urlError = '';
+    urlInput = '';
+  }
+
+  function handleUrlSubmit() {
+    const trimmedUrl = urlInput.trim();
+    if (!trimmedUrl) {
+      urlError = 'Please enter a URL';
+      return;
+    }
+    
+    if (!isValidPdfUrl(trimmedUrl)) {
+      urlError = 'Please enter a valid URL starting with http:// or https://';
+      return;
+    }
+    
+    // Navigate to the same page with the PDF parameter
+    goto(`/?pdf=${encodeURIComponent(trimmedUrl)}`);
+  }
+
+  function handleUrlCancel() {
+    showUrlInput = false;
+    urlInput = '';
+    urlError = '';
+  }
+
+  function handleUrlKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handleUrlSubmit();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      handleUrlCancel();
+    }
+  }
+
   onMount(() => {
     console.log('[onMount] Component mounted');
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -425,8 +467,53 @@
               Choose PDF File
             </button>
 
+            <div class="text-sm text-slate">
+              <span>or</span>
+            </div>
+
+            {#if !showUrlInput}
+              <button
+                class="secondary-button text-lg px-8 py-4"
+                on:click={handleViewFromLink}
+              >
+                View from Link
+              </button>
+            {:else}
+              <div class="space-y-3 animate-slide-up">
+                <div class="flex gap-2">
+                  <input
+                    type="url"
+                    bind:value={urlInput}
+                    on:keydown={handleUrlKeydown}
+                    placeholder="Paste PDF URL (Dropbox links supported)"
+                    class="flex-1 px-4 py-3 rounded-xl border border-charcoal/20 bg-white/80 text-charcoal placeholder-slate focus:outline-none focus:ring-2 focus:ring-sage/50 focus:border-sage transition-all"
+                    autofocus
+                  />
+                </div>
+                <div class="flex gap-2 justify-center">
+                  <button
+                    class="primary-button px-6 py-2"
+                    on:click={handleUrlSubmit}
+                  >
+                    Load PDF
+                  </button>
+                  <button
+                    class="secondary-button px-6 py-2"
+                    on:click={handleUrlCancel}
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {#if urlError}
+                  <p class="text-sm text-red-600 text-center animate-fade-in">
+                    {urlError}
+                  </p>
+                {/if}
+              </div>
+            {/if}
+
             <p class="text-sm text-slate">
-              or drop one anywhere
+              or drop a file anywhere
             </p>
           </div>
 
