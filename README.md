@@ -1,231 +1,158 @@
-# 🎨 Leed
-
-*An open-source, lovable PDF viewer with infinite drawing possibilities*
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/LeedPDF)
+# LeedPDF ✏️
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-FF3E00?style=flat&logo=svelte&logoColor=white)](https://kit.svelte.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-**Leed** is a premium PDF viewer and annotation tool that transforms your PDFs into an infinite canvas for creativity. Draw, sketch, and annotate with the smoothness of pencil on paper, now in your browser.
+**A modern, open-source PDF annotation tool that runs entirely in your browser**
+
+Transform any PDF into an interactive canvas. Draw, annotate, and collaborate without uploading your documents to external servers.
+
+[**Try it now →**](https://leed.my) | [**Report Issues**](https://github.com/rudi-q/leed_pdf_viewer/issues) | [**Contribute**](https://github.com/rudi-q/leed_pdf_viewer/blob/main/CONTRIBUTING.md)
 
 ## ✨ Features
 
-### 🎯 **Core Functionality**
-- 📄 **High-Quality PDF Rendering** - Crisp display on all screen types including retina displays
-- ✏️ **Natural Drawing Experience** - Smooth pencil and eraser tools with pressure sensitivity
-- 🎨 **Rich Color Palette** - Beautiful, curated color selection with modern UI
-- 📐 **Precision Controls** - Adjustable line width and eraser sizes
-- 🔄 **Complete Undo/Redo** - Full action history with keyboard shortcuts
+### 🎨 **Drawing & Annotation**
+- **Freehand drawing** with customizable pencil and highlighter tools
+- **Shape tools** including rectangles, circles, arrows, and stars
+- **Text annotations** with inline editing
+- **Sticky notes** for quick comments
+- **Smart eraser** that removes intersecting elements
 
-### 🚀 **Advanced Features**
-- 🌌 **Infinite Canvas** - Pan and zoom without limits, your drawings stay anchored
-- 🎯 **Smart Cursor System** - Context-aware cursors that change based on your actions
-- 📱 **Universal Input Support** - Mouse, trackpad, touch, and Apple Pencil optimized
-- 💾 **Per-Page Storage** - Your annotations are saved separately for each PDF page
-- ⌨️ **Power User Shortcuts** - Lightning-fast keyboard controls
-- 🎨 **Premium UI/UX** - Clean, modern interface with smooth animations
+### 📱 **Universal Access**
+- Works on **any device** - desktop, tablet, or phone
+- **Touch-optimized** with Apple Pencil support
+- **No installation required** - runs in your browser
+- **Offline capable** after first visit (PWA)
 
-### 🎮 **Interaction Models**
-- **Inside PDF viewport**: 
-  - Normal drawing with tools
-  - Hold `Ctrl` to pan (cursor becomes hand)
-- **Outside PDF viewport**: 
-  - Always in pan mode for infinite canvas feel
-  - No Ctrl needed for panning
-- **Zoom anywhere**: `Ctrl + scroll` for precise zoom control
+### 🔒 **Privacy First**
+- **100% client-side** - your PDFs never leave your device
+- **No account required** - start annotating immediately
+- **Local auto-save** - your work is preserved automatically
+
+### ⚡ **Performance**
+- **Instant loading** from URLs (including Dropbox links)
+- **High-DPI rendering** for crisp display on all screens
+- **Infinite canvas** - pan and zoom without limits
+- **Full undo/redo** with keyboard shortcuts
+
+## 🚀 Quick Start
+
+### Option 1: Use Online
+Visit [leed.my](https://leed.my) and start annotating immediately.
+
+### Option 2: Load from URL
+Share annotated PDFs by adding `?pdf=` to any URL:
+```
+https://leed.my?pdf=https://example.com/document.pdf
+```
+
+### Option 3: Run Locally
+```bash
+git clone https://github.com/rudi-q/leed_pdf_viewer.git
+cd leed_pdf_viewer
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173` in your browser.
 
 ## 🛠️ Tech Stack
 
 - **Framework**: SvelteKit + TypeScript
-- **PDF Engine**: PDF.js with high-DPI rendering
-- **Styling**: TailwindCSS with custom design system
-- **Icons**: Lucide Svelte (Feather icon family)
-- **Typography**: Playfair Display for premium branding
-- **Build**: Vite with optimized bundling
-- **Deployment**: Vercel with adapter-vercel
-- **Code Quality**: ESLint + Prettier with Svelte rules
+- **PDF Rendering**: PDF.js
+- **Drawing Engine**: HTML5 Canvas + Konva.js
+- **Styling**: Tailwind CSS
+- **Build**: Vite
+- **PWA**: @vite-pwa/sveltekit
 
-## 🚀 Quick Start
+## 📖 Usage
+
+### Basic Controls
+- **Upload**: Drag & drop a PDF or click the folder icon
+- **Draw**: Select pencil tool and start drawing
+- **Navigate**: Use arrow keys or toolbar buttons
+- **Zoom**: Ctrl + scroll wheel or toolbar buttons
+- **Pan**: Ctrl + drag (or just drag outside PDF area)
+
+### Keyboard Shortcuts
+| Action | Shortcut |
+|--------|----------|
+| Tools | `1-9` (pencil, eraser, text, etc.) |
+| Navigation | `←/→` for pages, `W/H` for fit |
+| Zoom | `Ctrl +/-`, `Ctrl 0` to reset |
+| Actions | `Ctrl Z/Y` for undo/redo |
+| Upload | `U` to choose file |
+| Help | `?` or `F1` |
+
+## 🎯 Perfect For
+
+- **Students** reviewing lecture slides and textbooks
+- **Professionals** annotating contracts and reports
+- **Researchers** marking up papers and documentation
+- **Teams** collaborating on design mockups
+- **Anyone** who needs to mark up PDFs quickly
+
+## 🔧 Development
 
 ### Prerequisites
-- Node.js 18+ 
-- pnpm (recommended) or npm
+- Node.js 18+
+- npm/pnpm/yarn
 
-### Installation
-
-1. **Clone the repository**:
+### Setup
 ```bash
-git clone https://github.com/yourusername/LeedPDF.git
-cd LeedPDF
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
 ```
 
-2. **Install dependencies**:
-```bash
-pnpm install
-```
-
-3. **Start development server**:
-```bash
-pnpm dev
-```
-
-4. **Open in browser**: Navigate to `http://localhost:5173`
-
-## 📖 Usage Guide
-
-### Getting Started
-1. **Upload a PDF** - Click the folder icon or drag & drop any PDF file
-2. **Choose your tool** - Pencil for drawing, eraser for corrections
-3. **Pick your style** - Select colors and adjust sizes to your liking
-4. **Start creating** - Draw naturally with mouse, touch, or stylus
-
-### Navigation & Controls
-
-#### **Mouse & Keyboard**
-- **Navigate Pages**: `←/→` arrow keys or toolbar buttons
-- **Zoom**: `Ctrl + scroll` or `Ctrl + +/-` keys
-- **Pan**: `Ctrl + drag` inside PDF, or just drag outside PDF area
-- **Reset View**: `Ctrl + 0` to center and reset zoom
-
-#### **Drawing Tools**
-- **Pencil**: Press `1` or click pencil icon
-- **Eraser**: Press `2` or click eraser icon
-- **Undo**: `Ctrl + Z`
-- **Redo**: `Ctrl + Y` or `Ctrl + Shift + Z`
-- **Clear Page**: Use the trash icon (with confirmation)
-
-#### **Touch & Stylus**
-- **Single finger**: Draw with selected tool
-- **Two fingers**: Pan and zoom gestures
-- **Apple Pencil**: Optimized pressure and tilt support
-
-## 🏗️ Architecture
-
-### Core Components
-
+### Project Structure
 ```
 src/
 ├── lib/
-│   ├── components/
-│   │   ├── PDFViewer.svelte    # Main PDF canvas with drawing overlay
-│   │   └── Toolbar.svelte      # Tool selection and controls
-│   ├── stores/
-│   │   └── drawingStore.ts     # State management for drawings and PDF
-│   └── utils/
-│       ├── pdfUtils.ts         # PDF.js integration and rendering
-│       └── drawingUtils.ts     # Drawing engine and coordinate mapping
-└── routes/
-    └── +page.svelte           # Main application page
+│   ├── components/     # Svelte components
+│   ├── stores/         # State management
+│   └── utils/          # PDF and drawing utilities
+├── routes/             # SvelteKit routes
+└── app.html           # App template
 ```
-
-### Key Systems
-
-#### **Drawing Engine**
-- Real-time coordinate mapping between screen and PDF space
-- Smooth path interpolation for natural drawing feel
-- Efficient rendering with canvas optimizations
-- Precise eraser collision detection
-
-#### **Infinite Canvas**
-- Viewport-independent coordinate system
-- Drawings remain anchored to PDF content during pan/zoom
-- Smooth transform animations with hardware acceleration
-- Memory-efficient rendering of large documents
-
-#### **State Management**
-- Reactive stores for tool state, PDF state, and drawing history
-- Undo/redo system with action batching
-- Per-page drawing storage with automatic cleanup
-- Persistent state across page navigation
-
-## 🎨 Design Philosophy
-
-**Leed** embodies the philosophy that digital tools should feel as natural as their physical counterparts. Every interaction is crafted to feel intuitive:
-
-- **Premium Typography**: Playfair Display for sophisticated branding
-- **Contextual Cursors**: Visual feedback that guides user interaction
-- **Smooth Animations**: Micro-interactions that feel responsive and alive
-- **Infinite Possibilities**: No artificial limits on canvas size or zoom levels
-- **Universal Access**: Works beautifully on any device, any input method
-
-## 🚀 Deployment
-
-### Vercel (Recommended)
-
-1. **Connect your repository** to Vercel
-2. **Deploy automatically** - Vercel will detect SvelteKit and use the right settings
-3. **Custom domain** - Add your own domain in Vercel dashboard
-
-### Manual Build
-
-```bash
-# Build for production
-pnpm build
-
-# Preview production build
-pnpm preview
-
-# Deploy build files from 'build' directory
-```
-
-## 🧪 Development
-
-### Code Quality
-
-```bash
-# Lint code
-pnpm lint
-
-# Format code
-pnpm format
-
-# Type checking
-pnpm check
-```
-
-### Adding Features
-
-1. **Drawing Tools**: Extend `DrawingEngine` class in `drawingUtils.ts`
-2. **UI Components**: Add to `lib/components/` with proper TypeScript types
-3. **State Management**: Extend stores in `drawingStore.ts`
-4. **PDF Features**: Enhance `PDFManager` in `pdfUtils.ts`
 
 ## 🤝 Contributing
 
 We welcome contributions! Here's how to get started:
 
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Make your changes** with proper commit messages
-4. **Add tests** if applicable
-5. **Submit a pull request**
+1. **Fork** the repository
+2. **Create** a feature branch: `git checkout -b feature/awesome-feature`
+3. **Commit** your changes: `git commit -m 'Add awesome feature'`
+4. **Push** to the branch: `git push origin feature/awesome-feature`
+5. **Open** a Pull Request
 
-### Contribution Guidelines
-- Follow the existing code style (ESLint + Prettier)
-- Write descriptive commit messages
+### Development Guidelines
+- Follow the existing code style (ESLint + Prettier configured)
+- Test your changes across different devices/browsers
 - Update documentation for new features
-- Test on multiple devices/browsers
+- Keep commits atomic and well-described
 
 ## 📄 License
 
 MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🎉 Acknowledgments
+## 🙏 Acknowledgments
 
 - **PDF.js** - Mozilla's excellent PDF rendering engine
-- **SvelteKit** - The magical framework that makes this possible
-- **Lucide** - Beautiful, consistent icon system
-- **Vercel** - Seamless deployment and hosting
+- **SvelteKit** - The framework that makes this possible
+- **Konva.js** - Powerful 2D canvas library
+- **Tailwind CSS** - Utility-first CSS framework
 
 ---
 
-<div align="center">
+**Built with ❤️ for the open web**
 
-**Built with ❤️ by developers who believe in open source**
-
-*Transform your PDFs. Unleash your creativity. Share your ideas.*
-
-[🌟 Star this project](https://github.com/yourusername/LeedPDF) • [🐛 Report bugs](https://github.com/yourusername/LeedPDF/issues) • [💡 Request features](https://github.com/yourusername/LeedPDF/issues)
-
-</div>
+*Privacy-focused • Lightweight • No tracking • No accounts • No servers*

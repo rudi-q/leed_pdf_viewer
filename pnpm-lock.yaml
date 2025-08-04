@@ -11,6 +11,9 @@ importers:
       '@tailwindcss/typography':
         specifier: ^0.5.16
         version: 0.5.16(tailwindcss@3.4.17)
+      '@vercel/analytics':
+        specifier: ^1.5.0
+        version: 1.5.0(@sveltejs/kit@2.22.2(@sveltejs/vite-plugin-svelte@5.1.0(svelte@5.34.9)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.0)))(svelte@5.34.9)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.0)))(svelte@5.34.9)
       autoprefixer:
         specifier: ^10.4.21
         version: 10.4.21(postcss@8.5.6)
@@ -1264,6 +1267,32 @@ packages:
   '@typescript-eslint/visitor-keys@8.35.1':
     resolution: {integrity: sha512-VRwixir4zBWCSTP/ljEo091lbpypz57PoeAQ9imjG+vbeof9LplljsL1mos4ccG6H9IjfrVGM359RozUnuFhpw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@vercel/analytics@1.5.0':
+    resolution: {integrity: sha512-MYsBzfPki4gthY5HnYN7jgInhAZ7Ac1cYDoRWFomwGHWEX7odTEzbtg9kf/QSo7XEsEAqlQugA6gJ2WS2DEa3g==}
+    peerDependencies:
+      '@remix-run/react': ^2
+      '@sveltejs/kit': ^1 || ^2
+      next: '>= 13'
+      react: ^18 || ^19 || ^19.0.0-rc
+      svelte: '>= 4'
+      vue: ^3
+      vue-router: ^4
+    peerDependenciesMeta:
+      '@remix-run/react':
+        optional: true
+      '@sveltejs/kit':
+        optional: true
+      next:
+        optional: true
+      react:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
+      vue-router:
+        optional: true
 
   '@vite-pwa/sveltekit@1.0.0':
     resolution: {integrity: sha512-Tv2Bb0EtXlkYQ/7sFSaK69KYcRJiybGvQbJOcdwna+GngCPAM1g1EsvKQ5Be+r7WqtNJfCzKnMhVVbOGxXjF5A==}
@@ -4150,6 +4179,11 @@ snapshots:
     dependencies:
       '@typescript-eslint/types': 8.35.1
       eslint-visitor-keys: 4.2.1
+
+  '@vercel/analytics@1.5.0(@sveltejs/kit@2.22.2(@sveltejs/vite-plugin-svelte@5.1.0(svelte@5.34.9)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.0)))(svelte@5.34.9)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.0)))(svelte@5.34.9)':
+    optionalDependencies:
+      '@sveltejs/kit': 2.22.2(@sveltejs/vite-plugin-svelte@5.1.0(svelte@5.34.9)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.0)))(svelte@5.34.9)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.0))
+      svelte: 5.34.9
 
   '@vite-pwa/sveltekit@1.0.0(@sveltejs/kit@2.22.2(@sveltejs/vite-plugin-svelte@5.1.0(svelte@5.34.9)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.0)))(svelte@5.34.9)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.0)))(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.0))(workbox-build@7.3.0)(workbox-window@7.3.0)':
     dependencies:
