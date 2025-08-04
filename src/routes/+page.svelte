@@ -476,7 +476,7 @@
                 class="secondary-button text-lg px-8 py-4"
                 on:click={handleViewFromLink}
               >
-                View from Link
+                Open from URL
               </button>
             {:else}
               <div class="space-y-3 animate-slide-up">
