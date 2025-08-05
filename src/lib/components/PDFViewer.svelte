@@ -787,12 +787,12 @@ function handlePointerUp(event: PointerEvent) {
   {#if $pdfState.isLoading}
     <div class="absolute inset-0 flex items-center justify-center">
       <div class="animate-spin rounded-full h-12 w-12 border-4 border-sage border-t-transparent"></div>
-      <span class="ml-3 text-charcoal font-medium">Opening your PDF...</span>
+      <span class="ml-3 text-charcoal dark:text-gray-200 font-medium">Opening your PDF...</span>
     </div>
   {:else if $pdfState.document && $pdfState.totalPages > 0}
     <!-- Page Info -->
     <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 floating-panel">
-      <div class="flex items-center space-x-2 text-sm text-charcoal">
+      <div class="flex items-center space-x-2 text-sm text-charcoal dark:text-gray-200">
         <span>Page</span>
         <span class="font-semibold">{$pdfState.currentPage}</span>
         <span>of</span>
@@ -816,6 +816,10 @@ function handlePointerUp(event: PointerEvent) {
   .pdf-viewer {
     background: linear-gradient(135deg, #FDF6E3 0%, #F7F3E9 100%);
     position: relative;
+  }
+  
+  :global(.dark) .pdf-viewer {
+    background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
   }
   
   .drawing-canvas {
