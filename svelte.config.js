@@ -12,8 +12,8 @@ const config = {
 		adapter: adapter({
 			pages: 'build',
 			assets: 'build',
-			fallback: 'index.html', // Important for SPA mode
-			precompress: false,
+			fallback: '200.html', // Important for SPA mode
+			precompress: true,
 			strict: true
 		})
 	}
