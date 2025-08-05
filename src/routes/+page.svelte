@@ -15,6 +15,7 @@
   import { isValidPDFFile } from '$lib/utils/pdfUtils';
   import { redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
+  import { isDarkMode } from '$lib/stores/themeStore';
 
   const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
 
@@ -712,15 +713,28 @@
 
   <div class="w-full h-full pt-12">
     {#if showWelcome}
+      <!-- Peerlist embed at the very top -->
+      <div class="absolute top-20 left-1/2 transform -translate-x-1/2 z-10">
+        <a href="https://peerlist.io/rudik/project/leedpdf" target="_blank" rel="noreferrer">
+          <img
+            src={`https://peerlist.io/api/v1/projects/embed/PRJHBARD8EREAG6RM1B78ODJOGA68D?showUpvote=true&theme=${$isDarkMode ? 'dark' : 'light'}`}
+            alt="LeedPDF"
+            style="width: auto; height: 72px;"
+            class="mx-auto"
+          />
+        </a>
+      </div>
+      
       <div class="absolute inset-0 flex items-center justify-center">
         <div class="text-center max-w-md mx-auto px-6">
           <div class="mb-6 animate-bounce-soft">
             <img src="/logo.png" alt="LeedPDF" class="w-24 h-24 mx-auto dark:hidden object-contain" />
             <img src="/logo-dark.png" alt="LeedPDF" class="w-24 h-24 mx-auto hidden dark:block object-contain" />
           </div>
-          <h1 class="text-4xl font-bold text-charcoal dark:text-gray-100 mb-4">LeedPDF</h1>
+
+          <h1 class="text-4xl text-charcoal dark:text-gray-100 mb-4" style="font-family: 'Dancing Script', cursive; font-weight: 600;">LeedPDF</h1>
           <p class="text-lg text-slate dark:text-gray-300 mb-8">
-            Add drawings and notes to any PDF. <br>
+            Add drawings and notes to any PDF. <br />
             <i>Works with mouse, touch, or stylus.</i>
           </p>
 
