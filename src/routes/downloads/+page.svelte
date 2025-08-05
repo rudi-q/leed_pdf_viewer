@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { Calendar, Download, ExternalLink, Tag } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { Calendar, Download, ExternalLink, Tag } from 'lucide-svelte';
 
-  interface Asset {
+	interface Asset {
     name: string;
     browser_download_url: string;
     size: number;
