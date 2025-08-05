@@ -1,47 +1,47 @@
 <script lang="ts">
-import {
-	availableColors,
-	availableEraserSizes,
-	availableLineWidths,
-	clearCurrentPageDrawings,
-	drawingPaths,
-	drawingState,
-	type DrawingTool,
-	pdfState,
-	redo,
-	redoStack,
-	setColor,
-	setEraserSize,
-	setLineWidth,
-	setTool,
-	undo,
-	undoStack
-} from '../stores/drawingStore';
-import { isDarkMode, toggleTheme } from '../stores/themeStore';
-	// Feather Icons
-	import {
-		ArrowRight,
-		ChevronLeft,
-		ChevronRight,
-		Circle,
-		Download,
-		Edit3,
-		Folder,
-		Highlighter,
-		Layout,
-		RectangleHorizontal,
-		Redo2,
-		Square,
-		Star,
-		StickyNote,
-		Trash2,
-		Type,
-		Undo2,
-		ZoomIn,
-		ZoomOut
-	} from 'lucide-svelte';
+  import {
+    availableColors,
+    availableEraserSizes,
+    availableLineWidths,
+    clearCurrentPageDrawings,
+    drawingPaths,
+    drawingState,
+    type DrawingTool,
+    pdfState,
+    redo,
+    redoStack,
+    setColor,
+    setEraserSize,
+    setLineWidth,
+    setTool,
+    undo,
+    undoStack
+  } from '../stores/drawingStore';
+  import { isDarkMode, toggleTheme } from '../stores/themeStore';
+  // Feather Icons
+  import {
+    ArrowRight,
+    ChevronLeft,
+    ChevronRight,
+    Circle,
+    Download,
+    Edit3,
+    Folder,
+    Highlighter,
+    Layout,
+    RectangleHorizontal,
+    Redo2,
+    Square,
+    Star,
+    StickyNote,
+    Trash2,
+    Type,
+    Undo2,
+    ZoomIn,
+    ZoomOut
+  } from 'lucide-svelte';
 
-	// Auto-save indicator
+  // Auto-save indicator
   let showAutoSaveIndicator = false;
   let autoSaveTimeout: number;
   

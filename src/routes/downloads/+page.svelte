@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Download, Calendar, Tag, ExternalLink } from 'lucide-svelte';
-  import { browser } from '$app/environment';
+  import { Calendar, Download, ExternalLink, Tag } from 'lucide-svelte';
 
   interface Asset {
     name: string;

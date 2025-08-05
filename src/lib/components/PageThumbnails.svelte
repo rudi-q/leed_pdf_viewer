@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { tick } from 'svelte';
-	import { pdfState } from '../stores/drawingStore';
+  import { tick } from 'svelte';
+  import { pdfState } from '../stores/drawingStore';
 
-	export let onPageSelect: (pageNumber: number) => void;
+  export let onPageSelect: (pageNumber: number) => void;
   export let isVisible = false;
 
   let thumbnailContainer: HTMLDivElement;

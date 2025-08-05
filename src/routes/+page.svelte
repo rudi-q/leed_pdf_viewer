@@ -4,7 +4,6 @@
   import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
   import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
-  const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
   import { listen } from '@tauri-apps/api/event';
   import { message } from '@tauri-apps/plugin-dialog';
   import { readFile } from '@tauri-apps/plugin-fs';
@@ -13,9 +12,11 @@
   import Toolbar from '$lib/components/Toolbar.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
   import PageThumbnails from '$lib/components/PageThumbnails.svelte';
-  import { isValidPDFFile, formatFileSize } from '$lib/utils/pdfUtils';
-  import { undo, redo, setCurrentPDF, setTool, drawingPaths, shapeObjects } from '$lib/stores/drawingStore';
+  import { isValidPDFFile } from '$lib/utils/pdfUtils';
+  import { redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
+
+  const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
 
   let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
