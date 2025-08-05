@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
   import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
+  const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
   import { listen } from '@tauri-apps/api/event';
   import { message } from '@tauri-apps/plugin-dialog';
   import { readFile } from '@tauri-apps/plugin-fs';
@@ -766,19 +767,21 @@
             </div>
 
             {#if !showUrlInput}
-            <div class="flex flex-col sm:flex-row gap-4">
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
               <button
                 class="secondary-button text-lg px-8 py-4"
                 on:click={handleViewFromLink}
               >
                 Open from URL
               </button>
-              <a
-                href="/downloads"
-                class="secondary-button text-lg px-8 py-4 text-center no-underline"
-              >
-                Download LeedPDF
-              </a>
+              {#if browser && !isTauri}
+                <a
+                  href="/downloads"
+                  class="secondary-button text-lg px-8 py-4 text-center no-underline"
+                >
+                  Download LeedPDF
+                </a>
+              {/if}
             </div>
             {:else}
               <div class="space-y-3 animate-slide-up">
