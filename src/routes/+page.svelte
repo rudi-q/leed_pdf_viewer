@@ -12,8 +12,8 @@
   import Toolbar from '$lib/components/Toolbar.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
   import PageThumbnails from '$lib/components/PageThumbnails.svelte';
-  import { formatFileSize, isValidPDFFile } from '$lib/utils/pdfUtils';
-  import { redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
+  import { isValidPDFFile, formatFileSize } from '$lib/utils/pdfUtils';
+  import { undo, redo, setCurrentPDF, setTool, drawingPaths, shapeObjects } from '$lib/stores/drawingStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
 
   let pdfViewer: PDFViewer;
@@ -26,6 +26,16 @@
   let showUrlInput = false;
   let urlInput = '';
   let urlError = '';
+
+  // Debug variables
+  let debugVisible = false;
+  let debugResults = 'Click button to test...';
+
+  // File loading variables
+  let hasLoadedFromCommandLine = false;
+  let fileLoadingAttempts = 0;
+  let maxFileLoadingAttempts = 10;
+  let fileLoadingTimer: number | null = null;
 
   // Check for PDF URL parameter reactively
   $: if (browser && $page && $page.url) {
@@ -75,15 +85,15 @@
     try {
       await onOpenUrl((urls) => {
         console.log('Deep link received:', urls);
-        
+
         // Handle the deep link URLs
         for (const url of urls) {
           console.log('Processing deep link URL:', url);
-          
+
           if (url.startsWith('leedpdf://')) {
             const filePath = url.replace('leedpdf://', '');
             console.log('Extracted file path:', filePath);
-            
+
             // If it's a local file path, try to handle it
             if (filePath) {
               handleDeepLinkFile(filePath);
@@ -98,61 +108,184 @@
 
   async function handleDeepLinkFile(filePath: string) {
     console.log('Handling deep link file:', filePath);
-    
+
     // For now, we'll just show an alert with the file path
     // In a real implementation, you might want to:
     // 1. Check if the file exists
     // 2. Validate it's a PDF
     // 3. Load it into your PDF viewer
-    
+
     await message(`Deep link received for file: ${filePath}`, 'LeedPDF - Deep Link');
-    
+
     // You could potentially navigate to a URL with the file path
     // or implement file reading logic here
   }
 
-  async function handleFileFromCommandLine(filePath: string) {
-    console.log('Handling file from command line:', filePath);
-    
+  // Replace your handleFileFromCommandLine function with this enhanced debug version
+
+  async function handleFileFromCommandLine(filePath: string): Promise<boolean> {
+    console.log('*** HANDLING FILE FROM COMMAND LINE ***');
+    console.log('File path:', filePath);
+
+    // Mark that we've attempted to load from command line
+    hasLoadedFromCommandLine = true;
+
     try {
-      // Extract filename from path
-      const fileName = filePath.split(/[\\/]/).pop() || 'document.pdf';
-      
-      // Check if it's a PDF file
+      // Step 1: Validate path
+      if (!filePath || typeof filePath !== 'string') {
+        debugResults += '\n❌ FAILED: Invalid file path received';
+        throw new Error('Invalid file path received');
+      }
+      debugResults += '\n✅ Step 1: Path validation passed';
+
+      // Step 2: Sanitize path
+      let cleanPath = filePath.trim();
+      if (cleanPath.startsWith('"') && cleanPath.endsWith('"')) {
+        cleanPath = cleanPath.slice(1, -1);
+      }
+      debugResults += `\n✅ Step 2: Cleaned path: ${cleanPath}`;
+
+      // Step 3: Extract filename
+      const fileName = cleanPath.split(/[\\/]/).pop() || 'document.pdf';
+      debugResults += `\n✅ Step 3: Extracted filename: ${fileName}`;
+
+      // Step 4: Check if it's a PDF
       if (!fileName.toLowerCase().endsWith('.pdf')) {
-        await message(`Error: "${fileName}" is not a PDF file.`, 'LeedPDF - Invalid File');
-        return;
+        debugResults += '\n❌ FAILED: Not a PDF file';
+        return false;
       }
-      
-      // Read the file from local filesystem using Tauri's fs API
-      console.log('Reading file from:', filePath);
-      const fileData = await readFile(filePath);
-      console.log('File read successfully, size:', fileData.length, 'bytes');
-      
-      // Create a File object from the binary data
+      debugResults += '\n✅ Step 4: PDF file check passed';
+
+      // Step 5: Try to read the file (this is probably where it fails)
+      debugResults += '\n🔄 Step 5: Reading file...';
+      let fileData: Uint8Array;
+      try {
+        fileData = await readFile(cleanPath);
+        debugResults += `\n✅ Step 5: File read successfully! Size: ${fileData.length} bytes`;
+      } catch (readError: unknown) {
+        const errorMsg = readError instanceof Error ? readError.message : String(readError);
+        debugResults += `\n❌ FAILED at Step 5: File read error: ${errorMsg}`;
+
+        // Try alternative path formats
+        debugResults += '\n🔄 Trying alternative path formats...';
+        const altPaths = [
+          cleanPath.replace(/\\/g, '/'),
+          cleanPath.replace(/\//g, '\\'),
+          `"${cleanPath}"` // Try with quotes
+        ];
+
+        let success = false;
+        for (const altPath of altPaths) {
+          try {
+            debugResults += `\n🔄 Trying: ${altPath}`;
+            fileData = await readFile(altPath);
+            debugResults += `\n✅ Success with alternative path!`;
+            cleanPath = altPath;
+            success = true;
+            break;
+          } catch (altError: unknown) {
+            const altErrorMsg = altError instanceof Error ? altError.message : String(altError);
+            debugResults += `\n❌ Failed: ${altErrorMsg}`;
+          }
+        }
+
+        if (!success) {
+          debugResults += '\n❌ FINAL FAILURE: All path formats failed';
+          return false;
+        }
+      }
+
+      // Step 6: Validate PDF header
+      debugResults += '\n🔄 Step 6: Validating PDF header...';
+      const pdfHeader = new Uint8Array(fileData.slice(0, 4));
+      const pdfSignature = String.fromCharCode(...pdfHeader);
+      if (pdfSignature !== '%PDF') {
+        debugResults += `\n❌ FAILED: Invalid PDF signature: ${pdfSignature}`;
+        return false;
+      }
+      debugResults += '\n✅ Step 6: PDF signature valid';
+
+      // Step 7: Create File object
+      debugResults += '\n🔄 Step 7: Creating File object...';
       const file = new File([fileData], fileName, { type: 'application/pdf' });
-      console.log('Created File object:', file.name, 'Type:', file.type, 'Size:', file.size);
-      
-      // Validate the file size (50MB limit)
+      debugResults += `\n✅ Step 7: File object created - ${file.name}, ${file.size} bytes`;
+
+      // Step 8: Size check
       if (file.size > 50 * 1024 * 1024) {
-        await message(`Error: File too large (${formatFileSize(file.size)}). Please choose a file under 50MB.`, 'LeedPDF - File Too Large');
-        return;
+        debugResults += '\n❌ FAILED: File too large';
+        return false;
       }
-      
-      // Show success message
-      await message(`Successfully opened: ${fileName}`, 'LeedPDF - File Loaded');
-      
-      // Load the PDF into the viewer
+      debugResults += '\n✅ Step 8: Size check passed';
+
+      // Step 9: Set state (this should hide welcome screen and show PDF)
+      debugResults += '\n🔄 Step 9: Setting application state...';
       currentFile = file;
       showWelcome = false;
-      
-      // Set current PDF for auto-save functionality
+      debugResults += '\n✅ Step 9: State updated';
+
+      // Step 10: Set PDF for auto-save
+      debugResults += '\n🔄 Step 10: Setting up auto-save...';
       setCurrentPDF(file.name, file.size);
-      console.log('PDF loaded from command line:', { fileName: file.name, size: file.size });
-      
+      debugResults += '\n✅ Step 10: Auto-save configured';
+
+      // Step 11: Mark as processed
+      try {
+        await invoke('mark_file_processed');
+        debugResults += '\n✅ Step 11: Marked as processed in Rust';
+      } catch (e) {
+        debugResults += '\n⚠️ Step 11: Could not mark as processed (not critical)';
+      }
+
+      debugResults += '\n🎉 SUCCESS: PDF should now be loading!';
+      return true;
+
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      debugResults += `\n💥 UNEXPECTED ERROR: ${errorMsg}`;
+      return false;
+    }
+  }
+
+  // Multiple strategies for checking files
+  async function checkForPendingFiles() {
+    try {
+      console.log('Checking for pending files (strategy 1: command)...');
+      const pendingFile = await invoke('get_pending_file') as string | null;
+
+      if (pendingFile) {
+        console.log('Found pending file via command:', pendingFile);
+        const success = await handleFileFromCommandLine(pendingFile);
+
+        if (success) {
+          // Check for more files
+          setTimeout(checkForPendingFiles, 100);
+        }
+      } else {
+        console.log('No pending files found via command');
+      }
     } catch (error) {
-      console.error('Error loading file from command line:', error);
-      await message(`Error loading file: ${error.message}`, 'LeedPDF - Error');
+      console.error('Error checking for pending files:', error);
+    }
+  }
+
+  async function checkFileAssociations() {
+    try {
+      console.log('Checking file associations (strategy 2: direct check)...');
+      const pdfFiles = await invoke('check_file_associations') as string[];
+
+      if (pdfFiles && pdfFiles.length > 0) {
+        console.log('Found PDF files via direct check:', pdfFiles);
+        for (const pdfFile of pdfFiles) {
+          const success = await handleFileFromCommandLine(pdfFile);
+          if (success) {
+            break; // Only load the first one
+          }
+        }
+      } else {
+        console.log('No PDF files found via direct check');
+      }
+    } catch (error) {
+      console.error('Error checking file associations:', error);
     }
   }
 
@@ -358,7 +491,7 @@
         case 'u':
         case 'U':
           event.preventDefault();
-          document.querySelector('input[type="file"]')?.click();
+          (document.querySelector('input[type="file"]') as HTMLInputElement)?.click();
           break;
         case 'F11':
           event.preventDefault();
@@ -477,12 +610,12 @@
       urlError = 'Please enter a URL';
       return;
     }
-    
+
     if (!isValidPdfUrl(trimmedUrl)) {
       urlError = 'Please enter a valid URL starting with http:// or https://';
       return;
     }
-    
+
     // Navigate to the same page with the PDF parameter
     goto(`/?pdf=${encodeURIComponent(trimmedUrl)}`);
   }
@@ -503,53 +636,51 @@
     }
   }
 
-  async function checkForPendingFiles() {
-    try {
-      console.log('Checking for pending files from command line...');
-      const pendingFile = await invoke('get_pending_file');
-
-      if (pendingFile) {
-        console.log('Found pending file:', pendingFile);
-        await handleFileFromCommandLine(pendingFile);
-
-        // Check for more files (in case multiple were passed)
-        setTimeout(checkForPendingFiles, 100);
-      } else {
-        console.log('No pending files found');
-      }
-    } catch (error) {
-      console.error('Error checking for pending files:', error);
-    }
-  }
-
+  // Enhanced onMount with comprehensive file loading
   onMount(() => {
-    console.log('[onMount] Component mounted');
+    console.log('[onMount] Component mounted - setting up comprehensive file loading');
     document.addEventListener('fullscreenchange', handleFullscreenChange);
 
-    // Check for command line files immediately after mount
+    // Strategy 1: Immediate checks
+    console.log('Starting immediate file checks...');
     checkForPendingFiles();
-    
-    // Register deep link handler
-    registerDeepLinkHandler();
-    
-    // Listen for file-opened events from command line arguments
-    console.log('Setting up file-opened event listener...');
-    const unlisten = listen('file-opened', (event) => {
+    checkFileAssociations();
+
+    // Strategy 2: Event listeners
+    console.log('Setting up event listeners...');
+
+    const unlistenFileOpened = listen('file-opened', (event) => {
       console.log('*** FILE-OPENED EVENT RECEIVED ***');
-      console.log('Event:', event);
-      console.log('Payload:', event.payload);
+      console.log('Event payload:', event.payload);
       handleFileFromCommandLine(event.payload as string);
     });
-    
-    // Listen for debug info events (just log, don't show dialogs)
-    const unlistenDebug = listen('debug-info', (event) => {
-      console.log('DEBUG:', event.payload);
+
+    const unlistenStartupReady = listen('startup-file-ready', (event) => {
+      console.log('*** STARTUP-FILE-READY EVENT RECEIVED ***');
+      console.log('Event payload:', event.payload);
+      handleFileFromCommandLine(event.payload as string);
     });
 
+    const unlistenDebug = listen('debug-info', (event) => {
+      console.log('TAURI DEBUG:', event.payload);
+    });
+
+    registerDeepLinkHandler();
+
+    console.log('✅ All file loading strategies initialized');
+
     return () => {
+      console.log('[onDestroy] Cleaning up file loading systems');
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      unlisten.then(fn => fn());
-      unlistenDebug.then(fn => fn());
+
+      if (fileLoadingTimer) {
+        clearInterval(fileLoadingTimer);
+      }
+
+      // Clean up all event listeners
+      unlistenFileOpened.then(fn => fn()).catch(console.error);
+      unlistenStartupReady.then(fn => fn()).catch(console.error);
+      unlistenDebug.then(fn => fn()).catch(console.error);
     };
   });
 </script>
@@ -593,10 +724,42 @@
           <div class="space-y-4">
             <button
               class="primary-button text-lg px-8 py-4"
-              on:click={() => document.querySelector('input[type="file"]')?.click()}
+              on:click={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
             >
               Choose PDF File
             </button>
+
+            <!-- DEBUG BUTTON -->
+           <!-- <button
+              class="secondary-button text-sm px-4 py-2 bg-yellow-200 border-yellow-400"
+              on:click={async () => {
+                debugVisible = true;
+                debugResults = 'Testing...';
+
+                try {
+                  // Test 1: Check if invoke works
+                  debugResults = 'Step 1: Testing invoke function...';
+
+                  const pdfFiles = await invoke('check_file_associations') as string[];
+                  debugResults = `Step 2: SUCCESS! Found files: ${JSON.stringify(pdfFiles)}`;
+
+                  if (pdfFiles && pdfFiles.length > 0) {
+                    // Test 2: Try to load the file
+                    debugResults += '\nStep 3: Trying to load file...';
+                    await handleFileFromCommandLine(pdfFiles[0]);
+                    debugResults += '\nStep 4: File loading attempted!';
+                  } else {
+                    debugResults += '\nStep 3: No files found to load';
+                  }
+
+                } catch (error: unknown) {
+                  const errorMessage = error instanceof Error ? error.message : String(error);
+                  debugResults = `ERROR: ${errorMessage}`;
+                }
+              }}
+            >
+              🔧 DEBUG: Test File Loading
+            </button>-->
 
             <div class="text-sm text-slate">
               <span>or</span>
@@ -618,7 +781,6 @@
                     on:keydown={handleUrlKeydown}
                     placeholder="Paste PDF URL (Dropbox links supported)"
                     class="flex-1 px-4 py-3 rounded-xl border border-charcoal/20 bg-white/80 text-charcoal placeholder-slate focus:outline-none focus:ring-2 focus:ring-sage/50 focus:border-sage transition-all"
-                    autofocus
                   />
                 </div>
                 <div class="flex gap-2 justify-center">
@@ -646,6 +808,20 @@
             <p class="text-sm text-slate">
               or drop a file anywhere
             </p>
+
+            <!-- Debug results display -->
+            {#if debugVisible}
+              <div class="mt-4 p-4 bg-gray-100 rounded-lg text-sm max-w-md mx-auto">
+                <h4 class="font-bold mb-2">Debug Results:</h4>
+                <pre class="whitespace-pre-wrap text-xs">{debugResults}</pre>
+                <button
+                  class="mt-2 text-xs px-2 py-1 bg-gray-300 rounded"
+                  on:click={() => debugVisible = false}
+                >
+                  Close
+                </button>
+              </div>
+            {/if}
           </div>
 
           <div class="mt-12 flex justify-center space-x-8 text-sm text-slate">
@@ -710,6 +886,20 @@
 </main>
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => showShortcuts = false} />
+
+<!-- Hidden file input -->
+<input
+  type="file"
+  accept=".pdf,application/pdf"
+  multiple={false}
+  class="hidden"
+  on:change={(event) => {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      handleFileUpload(input.files);
+    }
+  }}
+/>
 
 <style>
   main {

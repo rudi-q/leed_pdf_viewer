@@ -6,6 +6,19 @@
     "main"
   ],
   "permissions": [
-    "core:default"
+    "core:default",
+    "fs:allow-read-file",
+    "fs:allow-localdata-read-recursive",
+    "fs:allow-home-read-recursive",
+    "fs:allow-resource-read-recursive",
+    "fs:allow-document-read-recursive",
+    "fs:allow-desktop-read-recursive",
+    "fs:allow-download-read-recursive",
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [
+        { "path": "C:\\**" }
+      ]
+    }
   ]
 }
