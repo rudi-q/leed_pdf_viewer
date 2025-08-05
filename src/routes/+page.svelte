@@ -3,6 +3,10 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
+  import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
+  import { listen } from '@tauri-apps/api/event';
+  import { message } from '@tauri-apps/plugin-dialog';
+  import { readFile } from '@tauri-apps/plugin-fs';
   import PDFViewer from '$lib/components/PDFViewer.svelte';
   import Toolbar from '$lib/components/Toolbar.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
@@ -63,6 +67,91 @@
       return validUrl.protocol === 'https:' || validUrl.protocol === 'http:';
     } catch {
       return false;
+    }
+  }
+
+  async function registerDeepLinkHandler() {
+    try {
+      await onOpenUrl((urls) => {
+        console.log('Deep link received:', urls);
+        
+        // Handle the deep link URLs
+        for (const url of urls) {
+          console.log('Processing deep link URL:', url);
+          
+          if (url.startsWith('leedpdf://')) {
+            const filePath = url.replace('leedpdf://', '');
+            console.log('Extracted file path:', filePath);
+            
+            // If it's a local file path, try to handle it
+            if (filePath) {
+              handleDeepLinkFile(filePath);
+            }
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Failed to register deep link handler:', error);
+    }
+  }
+
+  async function handleDeepLinkFile(filePath: string) {
+    console.log('Handling deep link file:', filePath);
+    
+    // For now, we'll just show an alert with the file path
+    // In a real implementation, you might want to:
+    // 1. Check if the file exists
+    // 2. Validate it's a PDF
+    // 3. Load it into your PDF viewer
+    
+    await message(`Deep link received for file: ${filePath}`, 'LeedPDF - Deep Link');
+    
+    // You could potentially navigate to a URL with the file path
+    // or implement file reading logic here
+  }
+
+  async function handleFileFromCommandLine(filePath: string) {
+    console.log('Handling file from command line:', filePath);
+    
+    try {
+      // Extract filename from path
+      const fileName = filePath.split(/[\\/]/).pop() || 'document.pdf';
+      
+      // Check if it's a PDF file
+      if (!fileName.toLowerCase().endsWith('.pdf')) {
+        await message(`Error: "${fileName}" is not a PDF file.`, 'LeedPDF - Invalid File');
+        return;
+      }
+      
+      // Read the file from local filesystem using Tauri's fs API
+      console.log('Reading file from:', filePath);
+      const fileData = await readFile(filePath);
+      console.log('File read successfully, size:', fileData.length, 'bytes');
+      
+      // Create a File object from the binary data
+      const file = new File([fileData], fileName, { type: 'application/pdf' });
+      console.log('Created File object:', file.name, 'Type:', file.type, 'Size:', file.size);
+      
+      // Validate the file size (50MB limit)
+      if (file.size > 50 * 1024 * 1024) {
+        await message(`Error: File too large (${formatFileSize(file.size)}). Please choose a file under 50MB.`, 'LeedPDF - File Too Large');
+        return;
+      }
+      
+      // Show success message
+      await message(`Successfully opened: ${fileName}`, 'LeedPDF - File Loaded');
+      
+      // Load the PDF into the viewer
+      currentFile = file;
+      showWelcome = false;
+      
+      // Set current PDF for auto-save functionality
+      setCurrentPDF(file.name, file.size);
+      console.log('PDF loaded from command line:', { fileName: file.name, size: file.size });
+      
+    } catch (error) {
+      console.error('Error loading file from command line:', error);
+      await message(`Error loading file: ${error.message}`, 'LeedPDF - Error');
     }
   }
 
@@ -416,9 +505,28 @@
   onMount(() => {
     console.log('[onMount] Component mounted');
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    
+    // Register deep link handler
+    registerDeepLinkHandler();
+    
+    // Listen for file-opened events from command line arguments
+    console.log('Setting up file-opened event listener...');
+    const unlisten = listen('file-opened', (event) => {
+      console.log('*** FILE-OPENED EVENT RECEIVED ***');
+      console.log('Event:', event);
+      console.log('Payload:', event.payload);
+      handleFileFromCommandLine(event.payload as string);
+    });
+    
+    // Listen for debug info events (just log, don't show dialogs)
+    const unlistenDebug = listen('debug-info', (event) => {
+      console.log('DEBUG:', event.payload);
+    });
 
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      unlisten.then(fn => fn());
+      unlistenDebug.then(fn => fn());
     };
   });
 </script>

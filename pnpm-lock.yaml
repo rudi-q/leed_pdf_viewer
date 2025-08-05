@@ -11,6 +11,15 @@ importers:
       '@tailwindcss/typography':
         specifier: ^0.5.16
         version: 0.5.16(tailwindcss@3.4.17)
+      '@tauri-apps/plugin-deep-link':
+        specifier: ^2.4.1
+        version: 2.4.1
+      '@tauri-apps/plugin-dialog':
+        specifier: ^2.3.2
+        version: 2.3.2
+      '@tauri-apps/plugin-fs':
+        specifier: ^2.4.1
+        version: 2.4.1
       '@vercel/analytics':
         specifier: ^1.5.0
         version: 1.5.0(@sveltejs/kit@2.22.2(@sveltejs/vite-plugin-svelte@5.1.0(svelte@5.34.9)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.0)))(svelte@5.34.9)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.0)))(svelte@5.34.9)
@@ -1190,6 +1199,15 @@ packages:
     resolution: {integrity: sha512-RcGWR4jOUEl92w3uvI0h61Llkfj9lwGD1iwvDRD2isMrDhOzjeeeVn9aGzeW1jubQ/kAbMYfydcA4BA0Cy733Q==}
     engines: {node: '>= 10'}
     hasBin: true
+
+  '@tauri-apps/plugin-deep-link@2.4.1':
+    resolution: {integrity: sha512-I8Bo+spcAKGhIIJ1qN/gapp/Ot3mosQL98znxr975Zn2ODAkUZ++BQ9FnTpR7PDwfIl5ANSGdIW/YU01zVTcJw==}
+
+  '@tauri-apps/plugin-dialog@2.3.2':
+    resolution: {integrity: sha512-cNLo9YeQSC0MF4IgXnotHsqEgJk72MBZLXmQPrLA95qTaaWiiaFQ38hIMdZ6YbGUNkr3oni3EhU+AD5jLHcdUA==}
+
+  '@tauri-apps/plugin-fs@2.4.1':
+    resolution: {integrity: sha512-vJlKZVGF3UAFGoIEVT6Oq5L4HGDCD78WmA4uhzitToqYiBKWAvZR61M6zAyQzHqLs0ADemkE4RSy/5sCmZm6ZQ==}
 
   '@types/cookie@0.6.0':
     resolution: {integrity: sha512-4Kh9a6B2bQciAhf7FSuMRRkUWecJgJu9nPnx3yzpsfXX/c50REIqpHY4C82bXP90qrLtXtkDxTZosYO3UpOwlA==}
@@ -4075,6 +4093,18 @@ snapshots:
       '@tauri-apps/cli-win32-arm64-msvc': 2.7.1
       '@tauri-apps/cli-win32-ia32-msvc': 2.7.1
       '@tauri-apps/cli-win32-x64-msvc': 2.7.1
+
+  '@tauri-apps/plugin-deep-link@2.4.1':
+    dependencies:
+      '@tauri-apps/api': 2.7.0
+
+  '@tauri-apps/plugin-dialog@2.3.2':
+    dependencies:
+      '@tauri-apps/api': 2.7.0
+
+  '@tauri-apps/plugin-fs@2.4.1':
+    dependencies:
+      '@tauri-apps/api': 2.7.0
 
   '@types/cookie@0.6.0': {}
 
