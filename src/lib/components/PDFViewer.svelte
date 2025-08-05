@@ -27,6 +27,18 @@
   let isCtrlPressed = false;
   let cursorOverCanvas = false;
 
+  // Helper function to extract filename from URL
+  function extractFilenameFromUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname;
+      const filename = pathname.split('/').pop() || 'document.pdf';
+      return filename.toLowerCase().endsWith('.pdf') ? filename : filename + '.pdf';
+    } catch {
+      return 'document.pdf';
+    }
+  }
+
   // Debug prop changes
   $: console.log('PDFViewer prop pdfFile changed:', typeof pdfFile === 'string' ? pdfFile : (pdfFile?.name || 'null'));
   $: console.log('PDFViewer canvases ready:', canvasesReady);
@@ -162,6 +174,41 @@
         document = await pdfManager.loadFromFile(pdfFile);
       }
       console.log('PDF loaded successfully, pages:', document.numPages);
+      
+      // Extract PDF title and update webpage title
+      try {
+        console.log('Attempting to extract PDF metadata...');
+        const metadata = await document.getMetadata();
+        console.log('PDF metadata extracted:', metadata);
+        
+        const pdfTitle = metadata.info?.Title;
+        console.log('PDF Title from metadata:', pdfTitle);
+        
+        if (pdfTitle && pdfTitle.trim()) {
+          const cleanTitle = pdfTitle.trim();
+          window.document.title = cleanTitle;  // Use window.document to avoid conflict
+          console.log('✅ Updated webpage title to PDF title:', cleanTitle);
+        } else {
+          // Fallback to filename if available
+          const fallbackTitle = typeof pdfFile === 'string' 
+            ? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
+            : pdfFile.name.replace(/\.pdf$/i, '');
+          window.document.title = fallbackTitle;
+          console.log('✅ No PDF title found, updated webpage title to filename:', fallbackTitle);
+        }
+      } catch (titleError) {
+        console.error('❌ Could not extract PDF title:', titleError);
+        // Try fallback anyway
+        try {
+          const fallbackTitle = typeof pdfFile === 'string' 
+            ? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
+            : pdfFile.name.replace(/\.pdf$/i, '');
+          window.document.title = fallbackTitle;
+          console.log('✅ Used fallback filename as title:', fallbackTitle);
+        } catch (fallbackError) {
+          console.error('❌ Even fallback title failed:', fallbackError);
+        }
+      }
       
       pdfState.update(state => ({
         ...state,
