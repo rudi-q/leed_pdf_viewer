@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
-  import { browser } from '$app/environment';
-  
-  export let isOpen = false;
+	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
+	import { browser } from '$app/environment';
+
+	export let isOpen = false;
   
   const dispatch = createEventDispatcher();
   

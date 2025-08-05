@@ -7,12 +7,13 @@
   import { listen } from '@tauri-apps/api/event';
   import { message } from '@tauri-apps/plugin-dialog';
   import { readFile } from '@tauri-apps/plugin-fs';
+  import { invoke } from '@tauri-apps/api/core';
   import PDFViewer from '$lib/components/PDFViewer.svelte';
   import Toolbar from '$lib/components/Toolbar.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
   import PageThumbnails from '$lib/components/PageThumbnails.svelte';
-  import { isValidPDFFile, formatFileSize } from '$lib/utils/pdfUtils';
-  import { undo, redo, setCurrentPDF, setTool, drawingPaths, shapeObjects } from '$lib/stores/drawingStore';
+  import { formatFileSize, isValidPDFFile } from '$lib/utils/pdfUtils';
+  import { redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
 
   let pdfViewer: PDFViewer;
@@ -502,9 +503,31 @@
     }
   }
 
+  async function checkForPendingFiles() {
+    try {
+      console.log('Checking for pending files from command line...');
+      const pendingFile = await invoke('get_pending_file');
+
+      if (pendingFile) {
+        console.log('Found pending file:', pendingFile);
+        await handleFileFromCommandLine(pendingFile);
+
+        // Check for more files (in case multiple were passed)
+        setTimeout(checkForPendingFiles, 100);
+      } else {
+        console.log('No pending files found');
+      }
+    } catch (error) {
+      console.error('Error checking for pending files:', error);
+    }
+  }
+
   onMount(() => {
     console.log('[onMount] Component mounted');
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    // Check for command line files immediately after mount
+    checkForPendingFiles();
     
     // Register deep link handler
     registerDeepLinkHandler();

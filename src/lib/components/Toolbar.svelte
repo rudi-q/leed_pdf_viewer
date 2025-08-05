@@ -1,27 +1,46 @@
 <script lang="ts">
-  import { 
-    drawingState, 
-    pdfState, 
-    setTool, 
-    setColor, 
-    setLineWidth, 
-    setEraserSize,
-    setHighlightColor,
-    setHighlightOpacity,
-    availableColors, 
-    availableLineWidths,
-    availableEraserSizes,
-    availableHighlightColors,
-    undo,
-    redo,
-    undoStack,
-    redoStack,
-    clearCurrentPageDrawings,
-    drawingPaths,
-    type DrawingTool 
-  } from '../stores/drawingStore';
-  
-  // Auto-save indicator
+	import {
+		availableColors,
+		availableEraserSizes,
+		availableLineWidths,
+		clearCurrentPageDrawings,
+		drawingPaths,
+		drawingState,
+		type DrawingTool,
+		pdfState,
+		redo,
+		redoStack,
+		setColor,
+		setEraserSize,
+		setLineWidth,
+		setTool,
+		undo,
+		undoStack
+	} from '../stores/drawingStore';
+	// Feather Icons
+	import {
+		ArrowRight,
+		ChevronLeft,
+		ChevronRight,
+		Circle,
+		Download,
+		Edit3,
+		Folder,
+		Highlighter,
+		Layout,
+		RectangleHorizontal,
+		Redo2,
+		Square,
+		Star,
+		StickyNote,
+		Trash2,
+		Type,
+		Undo2,
+		ZoomIn,
+		ZoomOut
+	} from 'lucide-svelte';
+
+	// Auto-save indicator
   let showAutoSaveIndicator = false;
   let autoSaveTimeout: number;
   
@@ -33,32 +52,9 @@
       showAutoSaveIndicator = false;
     }, 2000); // Hide after 2 seconds
   }
-  
-  // Feather Icons
-  import { 
-    Folder, 
-    ChevronLeft, 
-    ChevronRight, 
-    ZoomIn, 
-    ZoomOut, 
-    Edit3, 
-    Square, 
-    Undo2, 
-    Redo2, 
-    Trash2,
-    Type,
-    RectangleHorizontal,
-    Circle,
-    ArrowRight,
-    Download,
-    Layout,
-    Star,
-    Highlighter,
-    StickyNote
-  } from 'lucide-svelte';
 
 
-  export let onFileUpload: (files: FileList) => void;
+	export let onFileUpload: (files: FileList) => void;
   export let onPreviousPage: () => void;
   export let onNextPage: () => void;
   export let onZoomIn: () => void;

@@ -1,11 +1,23 @@
 <script lang="ts">
-  import { onMount, onDestroy, tick } from 'svelte';
-  import { drawingState, pdfState, currentPagePaths, addDrawingPath, drawingPaths, shapeObjects, addShapeObject, updateShapeObject, deleteShapeObject, type DrawingPath, type Point } from '../stores/drawingStore';
-  import { PDFManager } from '../utils/pdfUtils';
-  import { DrawingEngine } from '../utils/drawingUtils';
-  import { KonvaShapeEngine, type ShapeObject } from '../utils/konvaShapeEngine';
+	import { onDestroy, onMount, tick } from 'svelte';
+	import {
+		addDrawingPath,
+		addShapeObject,
+		currentPagePaths,
+		deleteShapeObject,
+		type DrawingPath,
+		drawingPaths,
+		drawingState,
+		pdfState,
+		type Point,
+		shapeObjects,
+		updateShapeObject
+	} from '../stores/drawingStore';
+	import { PDFManager } from '../utils/pdfUtils';
+	import { DrawingEngine } from '../utils/drawingUtils';
+	import { KonvaShapeEngine } from '../utils/konvaShapeEngine';
 
-  export let pdfFile: File | string | null = null;
+	export let pdfFile: File | string | null = null;
 
   let pdfCanvas: HTMLCanvasElement;
   let drawingCanvas: HTMLCanvasElement;
