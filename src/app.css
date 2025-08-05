@@ -12,7 +12,8 @@
   }
   
   body {
-    @apply bg-cream text-charcoal overflow-hidden;
+    @apply bg-cream dark:bg-gray-900 text-charcoal dark:text-gray-100 overflow-hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
   
   * {
@@ -43,17 +44,17 @@
   }
   
   .tool-button:not(.active) {
-    @apply bg-white/70 text-charcoal hover:bg-white/90;
+    @apply bg-white/70 dark:bg-gray-800/70 text-charcoal dark:text-gray-200 hover:bg-white/90 dark:hover:bg-gray-700/90;
   }
   
   .pdf-viewer {
-    @apply bg-white/50 backdrop-blur-sm rounded-2xl shadow-xl;
-    @apply border border-white/30;
+    @apply bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-xl;
+    @apply border border-white/30 dark:border-gray-700/30;
   }
   
   .floating-panel {
-    @apply bg-white/80 backdrop-blur-md rounded-2xl shadow-xl;
-    @apply border border-white/30 p-4;
+    @apply bg-white/80 dark:bg-gray-800/80 backdrop-blur-md rounded-2xl shadow-xl;
+    @apply border border-white/30 dark:border-gray-700/30 p-4;
   }
   
   .smooth-button {
@@ -67,8 +68,8 @@
   }
   
   .secondary-button {
-    @apply smooth-button bg-white/70 text-charcoal hover:bg-white/90;
-    @apply border border-charcoal/10;
+    @apply smooth-button bg-white/70 dark:bg-gray-800/70 text-charcoal dark:text-gray-200 hover:bg-white/90 dark:hover:bg-gray-700/90;
+    @apply border border-charcoal/10 dark:border-gray-600/20;
   }
 }
 
@@ -84,6 +85,6 @@
   }
   
   .glass-effect {
-    @apply bg-white/30 backdrop-blur-md border border-white/20;
+    @apply bg-white/30 dark:bg-gray-800/30 backdrop-blur-md border border-white/20 dark:border-gray-700/20;
   }
 }

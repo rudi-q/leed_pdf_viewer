@@ -716,8 +716,8 @@
           <div class="mb-6 animate-bounce-soft">
             <img src="/favicon.png" alt="LeedPDF" class="w-24 h-24 mx-auto" />
           </div>
-          <h1 class="text-4xl font-bold text-charcoal mb-4">LeedPDF</h1>
-          <p class="text-lg text-slate mb-8">
+          <h1 class="text-4xl font-bold text-charcoal dark:text-gray-100 mb-4">LeedPDF</h1>
+          <p class="text-lg text-slate dark:text-gray-300 mb-8">
             Add drawings and notes to any PDF. <br>
             <i>Works with mouse, touch, or stylus.</i>
           </p>
@@ -916,9 +916,17 @@
   main {
     background: linear-gradient(135deg, #FDF6E3 0%, #F7F3E9 50%, #F0EFEB 100%);
   }
+  
+  :global(.dark) main {
+    background: linear-gradient(135deg, #111827 0%, #1f2937 50%, #374151 100%);
+  }
 
   .drag-over {
     background: linear-gradient(135deg, #FDF6E3 0%, #E8F5E8 50%, #F0EFEB 100%);
+  }
+  
+  :global(.dark) .drag-over {
+    background: linear-gradient(135deg, #111827 0%, #065f46 50%, #374151 100%);
   }
 
   :global(body) {

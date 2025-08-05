@@ -1,22 +1,23 @@
 <script lang="ts">
-	import {
-		availableColors,
-		availableEraserSizes,
-		availableLineWidths,
-		clearCurrentPageDrawings,
-		drawingPaths,
-		drawingState,
-		type DrawingTool,
-		pdfState,
-		redo,
-		redoStack,
-		setColor,
-		setEraserSize,
-		setLineWidth,
-		setTool,
-		undo,
-		undoStack
-	} from '../stores/drawingStore';
+import {
+	availableColors,
+	availableEraserSizes,
+	availableLineWidths,
+	clearCurrentPageDrawings,
+	drawingPaths,
+	drawingState,
+	type DrawingTool,
+	pdfState,
+	redo,
+	redoStack,
+	setColor,
+	setEraserSize,
+	setLineWidth,
+	setTool,
+	undo,
+	undoStack
+} from '../stores/drawingStore';
+import { isDarkMode, toggleTheme } from '../stores/themeStore';
 	// Feather Icons
 	import {
 		ArrowRight,
@@ -329,7 +330,7 @@
 
           {#if showColorPalette}
             <div class="absolute top-full mt-2 left-0 z-50">
-              <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-4 min-w-[200px]">
+              <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-4 min-w-[200px]">
                 <div class="grid grid-cols-4 gap-3">
                   {#each availableColors as color}
                     <button
@@ -475,19 +476,34 @@
         
         <div class="h-4 w-px bg-charcoal/20"></div>
         
-        <!-- Compact tool status -->
-        <div class="flex items-center space-x-2 text-xs text-charcoal/70">
-          <span class="capitalize font-medium text-charcoal">{$drawingState.tool}</span>
-          <span>{$drawingState.tool === 'eraser' ? $drawingState.eraserSize : $drawingState.lineWidth}px</span>
+<!-- Compact tool status -->
+        <div class="flex items-center space-x-2 text-xs text-charcoal/70 dark:text-gray-400">
+          <span class="capitalize font-medium text-charcoal dark:text-gray-200">{$drawingState.tool}</span>
+          <span class="text-charcoal/70 dark:text-gray-400">{$drawingState.tool === 'eraser' ? $drawingState.eraserSize : $drawingState.lineWidth}px</span>
           {#if $pdfState.document}
-            <span>•</span>
-            <span>{$pdfState.totalPages}p</span>
+            <span class="text-charcoal/70 dark:text-gray-400">•</span>
+            <span class="text-charcoal/70 dark:text-gray-400">{$pdfState.totalPages}p</span>
           {/if}
           {#if showAutoSaveIndicator}
-            <span>•</span>
+            <span class="text-charcoal/70 dark:text-gray-400">•</span>
             <span class="text-sage font-medium">Saved ✓</span>
           {/if}
         </div>
+
+        <!-- Theme toggle -->
+        <button
+          class="tool-button text-charcoal dark:text-gray-200 text-xs px-1"
+          on:click={toggleTheme}
+          title="Toggle {$isDarkMode ? 'Light' : 'Dark'} Mode"
+        >
+          <span class="font-medium text-xs">
+            {#if $isDarkMode}
+              🌞
+            {:else}
+              🌙
+            {/if}
+          </span>
+        </button>
       </div>
     </div>
   </div>
