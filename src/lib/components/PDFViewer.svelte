@@ -186,15 +186,15 @@
         
         if (pdfTitle && pdfTitle.trim()) {
           const cleanTitle = pdfTitle.trim();
-          window.document.title = cleanTitle;  // Use window.document to avoid conflict
-          console.log('✅ Updated webpage title to PDF title:', cleanTitle);
+          window.document.title = `${cleanTitle} - LeedPDF`;
+          console.log('✅ Updated webpage title to PDF title:', `${cleanTitle} - LeedPDF`);
         } else {
           // Fallback to filename if available
           const fallbackTitle = typeof pdfFile === 'string' 
             ? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
             : pdfFile.name.replace(/\.pdf$/i, '');
-          window.document.title = fallbackTitle;
-          console.log('✅ No PDF title found, updated webpage title to filename:', fallbackTitle);
+          window.document.title = `${fallbackTitle} - LeedPDF`;
+          console.log('✅ No PDF title found, updated webpage title to filename:', `${fallbackTitle} - LeedPDF`);
         }
       } catch (titleError) {
         console.error('❌ Could not extract PDF title:', titleError);
@@ -203,8 +203,8 @@
           const fallbackTitle = typeof pdfFile === 'string' 
             ? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
             : pdfFile.name.replace(/\.pdf$/i, '');
-          window.document.title = fallbackTitle;
-          console.log('✅ Used fallback filename as title:', fallbackTitle);
+          window.document.title = `${fallbackTitle} - LeedPDF`;
+          console.log('✅ Used fallback filename as title:', `${fallbackTitle} - LeedPDF`);
         } catch (fallbackError) {
           console.error('❌ Even fallback title failed:', fallbackError);
         }
