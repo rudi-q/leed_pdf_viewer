@@ -1,6 +1,6 @@
 [package]
 name = "leed-pdf"
-version = "1.1.0"
+version = "1.1.2"
 description = "A Tauri App"
 authors = ["Rudi K <rudi@doubl.one>"]
 license = "MIT"
