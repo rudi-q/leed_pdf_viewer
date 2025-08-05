@@ -1,10 +1,10 @@
 [package]
-name = "app"
+name = "leed-pdf"
 version = "0.1.0"
 description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
+authors = ["Rudi K <rudi@doubl.one>"]
+license = "MIT"
+repository = "https://github.com/rudi-q/leed_pdf_viewer"
 edition = "2021"
 rust-version = "1.77.2"
 

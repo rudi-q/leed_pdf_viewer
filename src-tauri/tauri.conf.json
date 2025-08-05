@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "leedpdf",
+  "productName": "leed-pdf",
   "version": "0.1.0",
   "identifier": "my.leed.pdf",
   "build": {
