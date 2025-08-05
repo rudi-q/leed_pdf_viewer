@@ -766,12 +766,20 @@
             </div>
 
             {#if !showUrlInput}
+            <div class="flex flex-col sm:flex-row gap-4">
               <button
                 class="secondary-button text-lg px-8 py-4"
                 on:click={handleViewFromLink}
               >
                 Open from URL
               </button>
+              <a
+                href="/downloads"
+                class="secondary-button text-lg px-8 py-4 text-center no-underline"
+              >
+                Download LeedPDF
+              </a>
+            </div>
             {:else}
               <div class="space-y-3 animate-slide-up">
                 <div class="flex gap-2">
