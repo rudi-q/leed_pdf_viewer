@@ -1,7 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "leed-pdf",
-  "version": "0.1.0",
+  "productName": "LeedPDF",
   "identifier": "my.leed.pdf",
   "build": {
     "frontendDist": "../build",
@@ -16,7 +15,9 @@
         "width": 800,
         "height": 600,
         "resizable": true,
-        "fullscreen": false
+        "center": true,
+        "focus": true,
+        "dragDropEnabled": true
       }
     ],
     "security": {
@@ -32,6 +33,24 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "name": "PDF Document",
+        "ext": ["pdf"],
+        "role": "Editor",
+        "rank": "Default",
+        "description": "PDF Drawing and Annotation Tool"
+      }
     ]
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["leedpdf"]
+      }
+    }
   }
 }
+
+
