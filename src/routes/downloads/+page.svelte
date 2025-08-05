@@ -103,6 +103,21 @@
     }
   }
 
+  function isPlatformMatch(fileName: string, os: string): boolean {
+    const lowerName = fileName.toLowerCase();
+    
+    const osKeywords = {
+      'Windows': ['windows', '.exe', '.msi'],
+      'macOS': ['mac', 'darwin', '.dmg'],
+      'Linux': ['linux', '.deb', '.rpm', '.appimage']
+    };
+    
+    const keywords = osKeywords[os as keyof typeof osKeywords];
+    if (!keywords) return false;
+    
+    return keywords.some(keyword => lowerName.includes(keyword.toLowerCase()));
+  }
+
   function findRecommendedAsset(assets: Asset[], os: string): Asset | null {
     if (!assets.length) return null;
     
@@ -145,9 +160,21 @@
       releases = data.filter((release: Release) => !release.draft)
                     .sort((a: Release, b: Release) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
       
-      // Find recommended asset for user's OS from latest release
+      // Find recommended asset for user's OS from the most recent release that has their platform
       if (releases.length > 0) {
-        recommendedAsset = findRecommendedAsset(releases[0].assets, userOS);
+        // First try to find the user's platform in any release, starting with the latest
+        for (const release of releases) {
+          const platformAsset = findRecommendedAsset(release.assets, userOS);
+          // Only use this asset if it actually matches the user's platform
+          if (platformAsset && isPlatformMatch(platformAsset.name, userOS)) {
+            recommendedAsset = platformAsset;
+            break;
+          }
+        }
+        // If no platform-specific asset found, fall back to first asset of latest release
+        if (!recommendedAsset && releases[0].assets.length > 0) {
+          recommendedAsset = releases[0].assets[0];
+        }
       }
     } catch (err) {
       console.error('Error fetching releases:', err);
@@ -288,21 +315,23 @@
 
 <style>
   :global(html) {
-    overflow-y: auto;
-    height: 100%;
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto !important;
   }
 
   :global(body) {
     margin: 0;
     font-family: 'Inter', system-ui, sans-serif;
-    overflow-y: auto;
-    height: 100%;
+    height: auto;
+    min-height: 100%;
+    overflow: visible !important;
   }
 
   main {
     background: linear-gradient(135deg, #FDF6E3 0%, #F7F3E9 50%, #F0EFEB 100%);
     min-height: 100vh;
-    overflow-y: auto;
+    width: 100%;
   }
 
   .container {
