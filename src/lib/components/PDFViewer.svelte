@@ -509,8 +509,8 @@ function handlePointerUp(event: PointerEvent) {
     }
   }
   
-  const pencilCursor = `url('/cursors/pencil.svg') 2 18, crosshair`;
-  const eraserCursor = `url('/cursors/eraser.svg') 10 10, crosshair`;
+  const pencilCursor = `url('/cursors/pencil.svg') 1 9, crosshair`;
+  const eraserCursor = `url('/cursors/eraser.svg') 16 16, crosshair`;
   
   // Alternative: using built-in cursors as backup
   const pencilCursorFallback = 'crosshair';
