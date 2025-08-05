@@ -31,11 +31,14 @@ export interface RenderOptions {
 
 // CORS proxy helper
 async function fetchWithCorsProxy(url: string): Promise<ArrayBuffer> {
-  const proxies = [
+	const urlObj = new URL(url);
+	const needsProxy = !urlObj.hostname.includes('localhost') &&
+		!urlObj.hostname.includes('127.0.0.1');
+	const proxies = needsProxy ? [
     '', // Try direct first
-    'https://api.allorigins.win/raw?url=',
-    'https://corsproxy.io/?'
-  ];
+		'https://corsproxy.io/?',
+    'https://api.allorigins.win/raw?url='
+  ] : ['', 'https://corsproxy.io/?'];
 
   for (const proxy of proxies) {
     try {
