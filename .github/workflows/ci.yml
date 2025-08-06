@@ -216,7 +216,7 @@ jobs:
             
             const comment = `## 🤖 CI Results for PR #${context.issue.number}
             
-            ${summary}
+            Hey 👋 @${pr.user.login}! ${summary}
             
             ### Detailed Results:
             
