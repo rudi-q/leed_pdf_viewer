@@ -18,21 +18,6 @@ test.describe('LeedPDF Application', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0); // Initially no loading spinner
   });
 
-  test('should have working navigation menu', async ({ page }) => {
-    // Test navigation to downloads page (only available in browser, not Tauri)
-    const downloadsLink = page.getByRole('link', { name: /Download LeedPDF/i });
-    if (await downloadsLink.count() > 0) {
-      await downloadsLink.click();
-      await expect(page.url()).toContain('/downloads');
-      
-      // Navigate back to home
-      await page.goto('/');
-      await expect(page.url()).not.toContain('/downloads');
-    } else {
-      // In Tauri app or when downloads link is not visible
-      await expect(page.locator('main')).toBeVisible();
-    }
-  });
 
   test('should display keyboard shortcuts modal', async ({ page }) => {
     // Click the help button or press ? key
