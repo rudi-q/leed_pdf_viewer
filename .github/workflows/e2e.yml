@@ -32,6 +32,9 @@ jobs:
       - name: Install Playwright Browsers
         run: pnpm exec playwright install --with-deps
 
+      - name: Build application
+        run: pnpm build
+
       - name: Run Playwright tests
         run: pnpm test:e2e
 
