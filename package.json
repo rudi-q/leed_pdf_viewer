@@ -17,7 +17,11 @@
 		"test:ui": "vitest --ui",
 		"test:run": "vitest run",
 		"test:coverage": "vitest run --coverage",
-		"test:e2e": "playwright test"
+		"test:e2e": "playwright test",
+		"tauri:dev": "tauri dev",
+		"tauri:build": "tauri build",
+		"tauri:build:debug": "tauri build --debug",
+		"tauri:check": "cd src-tauri && cargo check"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.30.0",
