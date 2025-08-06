@@ -713,21 +713,23 @@
 
   <div class="w-full h-full pt-12">
     {#if showWelcome}
-      <!-- Peerlist embed at the very top -->
-      <div class="absolute top-20 left-1/2 transform -translate-x-1/2 z-10">
-        <a href="https://peerlist.io/rudik/project/leedpdf" target="_blank" rel="noreferrer">
-          <img
-            src={`https://peerlist.io/api/v1/projects/embed/PRJHBARD8EREAG6RM1B78ODJOGA68D?showUpvote=true&theme=${$isDarkMode ? 'dark' : 'light'}`}
-            alt="LeedPDF"
-            style="width: auto; height: 72px;"
-            class="mx-auto"
-          />
-        </a>
-      </div>
-      
-      <div class="absolute inset-0 flex items-center justify-center">
-        <div class="text-center max-w-md mx-auto px-6">
-          <div class="mb-6 animate-bounce-soft">
+      <div class="h-full flex flex-col">
+        <!-- Peerlist embed at the very top -->
+        <div class="flex justify-center pt-8 pb-4">
+          <a href="https://peerlist.io/rudik/project/leedpdf" target="_blank" rel="noreferrer">
+            <img
+              src={`https://peerlist.io/api/v1/projects/embed/PRJHBARD8EREAG6RM1B78ODJOGA68D?showUpvote=true&theme=${$isDarkMode ? 'dark' : 'light'}`}
+              alt="LeedPDF"
+              style="width: auto; height: 72px;"
+              class="mx-auto"
+            />
+          </a>
+        </div>
+        
+        <!-- Main content, centered in remaining space -->
+        <div class="flex-1 flex items-center justify-center">
+          <div class="text-center max-w-md mx-auto px-6">
+            <div class="mb-6 animate-bounce-soft">
             <img src="/logo.png" alt="LeedPDF" class="w-24 h-24 mx-auto dark:hidden object-contain" />
             <img src="/logo-dark.png" alt="LeedPDF" class="w-24 h-24 mx-auto hidden dark:block object-contain" />
           </div>
@@ -869,6 +871,7 @@
           </div>
         </div>
       </div>
+    </div>
     {:else}
       <div class="flex h-full">
         {#if showThumbnails}
