@@ -11,8 +11,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Optimize workers for CI - use half of available cores to prevent resource exhaustion */
-  workers: process.env.CI ? '50%' : undefined,
+  /* Optimize workers for CI - use 75% of available cores for faster execution */
+  workers: process.env.CI ? '75%' : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
