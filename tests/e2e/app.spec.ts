@@ -88,27 +88,6 @@ test.describe('LeedPDF Application', () => {
     }
   });
 
-  test('should handle browser back/forward navigation', async ({ page }) => {
-    // Test navigation if downloads link is available
-    const downloadsLink = page.getByRole('link', { name: /Download LeedPDF/i });
-    if (await downloadsLink.count() > 0) {
-      await downloadsLink.click();
-      await expect(page.url()).toContain('/downloads');
-      
-      // Go back
-      await page.goBack();
-      await expect(page.url()).not.toContain('/downloads');
-      
-      // Go forward
-      await page.goForward();
-      await expect(page.url()).toContain('/downloads');
-    } else {
-      // Test basic navigation functionality
-      const currentUrl = page.url();
-      await page.reload();
-      await expect(page.url()).toBe(currentUrl);
-    }
-  });
 
   test('should display error states gracefully', async ({ page }) => {
     // Test that the app handles errors gracefully without network interference

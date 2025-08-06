@@ -793,6 +793,8 @@
               {#if browser && !isTauri}
                 <a
                   href="/downloads"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   class="secondary-button text-lg px-8 py-4 text-center no-underline"
                 >
                   Download LeedPDF
