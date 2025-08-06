@@ -90,7 +90,7 @@ if (typeof window !== 'undefined') {
 export const drawingPaths = writable<Map<number, DrawingPath[]>>(new Map());
 
 // Shape objects store - stores all shape data per page
-export const shapeObjects = writable<Map<number, ShapeObject[]>>(new Map());
+export const shapeObjects = writable<Map<number, any[]>>(new Map());
 
 // Auto-save functionality
 const STORAGE_KEY = 'leedpdf_drawings';
@@ -297,7 +297,7 @@ export const addDrawingPath = (path: DrawingPath) => {
 };
 
 // Shape object management functions
-export const addShapeObject = (shape: ShapeObject) => {
+export const addShapeObject = (shape: any) => {
 	shapeObjects.update((shapes) => {
 		const currentShapes = shapes.get(shape.pageNumber) || [];
 		const newShapes = [...currentShapes, shape];
@@ -306,7 +306,7 @@ export const addShapeObject = (shape: ShapeObject) => {
 	});
 };
 
-export const updateShapeObject = (updatedShape: ShapeObject) => {
+export const updateShapeObject = (updatedShape: any) => {
 	shapeObjects.update((shapes) => {
 		const currentShapes = shapes.get(updatedShape.pageNumber) || [];
 		const newShapes = currentShapes.map((shape) =>

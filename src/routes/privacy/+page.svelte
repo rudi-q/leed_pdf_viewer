@@ -1,5 +1,5 @@
 <script>
-  export let data;
+  // No data needed for this page
 </script>
 
 <main class="p-6 max-w-3xl mx-auto">

@@ -45,12 +45,29 @@ export class KonvaShapeEngine {
 	}
 
 	private async init() {
-		if (!browser || this.isInitialized) return;
+		if (this.isInitialized) return;
+		
+		// In test environment, use the mocked Konva
+		if (typeof window !== 'undefined' && import.meta.env?.TEST) {
+			try {
+				const konvaModule = await import('konva');
+				Konva = konvaModule.default;
+			} catch (e) {
+				// Konva mock should be available in tests
+				console.warn('Failed to load Konva in test environment');
+				return;
+			}
+		} else if (!browser) {
+			// Skip initialization in SSR
+			return;
+		}
 
 		try {
-			// Dynamically import Konva only on client side
-			const konvaModule = await import('konva');
-			Konva = konvaModule.default;
+			// Dynamically import Konva only on client side if not already loaded
+			if (!Konva) {
+				const konvaModule = await import('konva');
+				Konva = konvaModule.default;
+			}
 
 			this.stage = new Konva.Stage({
 				container: this.container,
@@ -72,7 +89,7 @@ export class KonvaShapeEngine {
 				anchorStroke: '#4A90E2',
 				keepRatio: false,
 				enabledAnchors: ['top-left', 'top-right', 'bottom-left', 'bottom-right'],
-				boundBoxFunc: (oldBox, newBox) => {
+				boundBoxFunc: (oldBox: any, newBox: any) => {
 					// Prevent negative dimensions
 					if (newBox.width < 5 || newBox.height < 5) {
 						return oldBox;
@@ -100,7 +117,7 @@ export class KonvaShapeEngine {
 		// Let pencil/eraser tools pass through to drawing canvas
 
 		// Click to handle text placement and object selection
-		this.stage.on('click tap', (e) => {
+		this.stage.on('click tap', (e: any) => {
 			// Handle text tool first
 			if (this.currentTool === 'text' && e.target === this.stage) {
 				const pos = this.stage.getPointerPosition();
@@ -170,7 +187,7 @@ export class KonvaShapeEngine {
 		});
 
 		// Double-click to edit text or sticky notes
-		this.stage.on('dblclick dbltap', (e) => {
+		this.stage.on('dblclick dbltap', (e: any) => {
 			if (e.target instanceof Konva.Text) {
 				// Check if this text is part of a sticky note group
 				const parent = e.target.getParent();
@@ -189,19 +206,19 @@ export class KonvaShapeEngine {
 		});
 
 		// Shape drawing events - only when using shape tools
-		this.stage.on('mousedown touchstart', (e) => {
+		this.stage.on('mousedown touchstart', (e: any) => {
 			if (['rectangle', 'circle', 'arrow', 'star'].includes(this.currentTool)) {
 				this.handleShapeStart(e);
 			}
 		});
 
-		this.stage.on('mousemove touchmove', (e) => {
+		this.stage.on('mousemove touchmove', (e: any) => {
 			if (['rectangle', 'circle', 'arrow', 'star'].includes(this.currentTool)) {
 				this.handleShapeMove(e);
 			}
 		});
 
-		this.stage.on('mouseup touchend', (e) => {
+		this.stage.on('mouseup touchend', (e: any) => {
 			if (['rectangle', 'circle', 'arrow', 'star'].includes(this.currentTool)) {
 				this.handleShapeEnd();
 			}
@@ -862,7 +879,17 @@ export class KonvaShapeEngine {
 	}
 
 	destroy() {
-		this.stage.destroy();
+		if (this.stage) {
+			this.stage.destroy();
+			this.stage = null;
+		}
+		if (this.layer) {
+			this.layer = null;
+		}
+		if (this.transformer) {
+			this.transformer = null;
+		}
+		this.isInitialized = false;
 	}
 
 	getStage() {

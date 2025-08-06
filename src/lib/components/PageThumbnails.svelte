@@ -97,7 +97,10 @@
         viewport: scaledViewport
       };
 
-      await page.render(renderContext).promise;
+      await page.render({
+        ...renderContext,
+        canvas: canvas
+      }).promise;
       thumbnails.set(pageNumber, canvas);
       
       // Force reactivity update
@@ -175,7 +178,7 @@
               ></canvas>
             </div>
           {:else}
-            <div 
+            <button 
               class="thumbnail-placeholder"
               data-page={pageNumber}
               on:click={() => {
@@ -188,7 +191,7 @@
             >
               <div class="text-xs text-slate mb-2">Loading...</div>
               <div class="loading-spinner"></div>
-            </div>
+            </button>
           {/if}
           <div class="thumbnail-label">
             {pageNumber}
