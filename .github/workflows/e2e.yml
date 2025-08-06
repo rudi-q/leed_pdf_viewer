@@ -86,7 +86,7 @@ jobs:
             
             const comment = `## 🎭 E2E Test Results for PR #${context.issue.number}
             
-            ${summary}
+            Hey 👋 @${context.payload.pull_request.user.login}! ${summary}
             
             ### Results:
             
