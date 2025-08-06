@@ -32,17 +32,6 @@ jobs:
       - name: Install Playwright Browsers
         run: pnpm exec playwright install --with-deps
 
-      - name: Build project
-        run: pnpm build
-
-      - name: Start preview server
-        run: pnpm preview &
-        env:
-          CI: true
-
-      - name: Wait for server
-        run: npx wait-on http://localhost:4173
-
       - name: Run Playwright tests
         run: pnpm test:e2e
 
