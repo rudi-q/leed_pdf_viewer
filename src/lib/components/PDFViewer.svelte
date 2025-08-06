@@ -1,23 +1,23 @@
 <script lang="ts">
-	import { onDestroy, onMount, tick } from 'svelte';
-	import {
-		addDrawingPath,
-		addShapeObject,
-		currentPagePaths,
-		deleteShapeObject,
-		type DrawingPath,
-		drawingPaths,
-		drawingState,
-		pdfState,
-		type Point,
-		shapeObjects,
-		updateShapeObject
-	} from '../stores/drawingStore';
-	import { PDFManager } from '../utils/pdfUtils';
-	import { DrawingEngine } from '../utils/drawingUtils';
-	import { KonvaShapeEngine } from '../utils/konvaShapeEngine';
+  import { onDestroy, onMount, tick } from 'svelte';
+  import {
+    addDrawingPath,
+    addShapeObject,
+    currentPagePaths,
+    deleteShapeObject,
+    type DrawingPath,
+    drawingPaths,
+    drawingState,
+    pdfState,
+    type Point,
+    shapeObjects,
+    updateShapeObject
+  } from '../stores/drawingStore';
+  import { PDFManager } from '../utils/pdfUtils';
+  import { DrawingEngine } from '../utils/drawingUtils';
+  import { KonvaShapeEngine } from '../utils/konvaShapeEngine';
 
-	export let pdfFile: File | string | null = null;
+  export let pdfFile: File | string | null = null;
 
   let pdfCanvas: HTMLCanvasElement;
   let drawingCanvas: HTMLCanvasElement;
@@ -160,7 +160,7 @@
     }
 
     const isUrl = typeof pdfFile === 'string';
-    console.log('Loading PDF - isUrl:', isUrl, 'Value:', isUrl ? pdfFile : `${pdfFile.name} (Size: ${pdfFile.size})`);
+    console.log('Loading PDF - isUrl:', isUrl, 'Value:', isUrl ? pdfFile : `${(pdfFile as File).name} (Size: ${(pdfFile as File).size})`);
     
     try {
       console.log('Setting loading state to true...');
@@ -170,20 +170,21 @@
       if (isUrl) {
         console.log('Calling pdfManager.loadFromUrl with:', pdfFile);
         try {
-          document = await pdfManager.loadFromUrl(pdfFile);
+          document = await pdfManager.loadFromUrl(pdfFile as string);
         } catch (urlError) {
           console.error('Error loading from URL:', urlError);
           
           // Check if it might be a CORS issue
-          if (urlError.message.includes('CORS') || urlError.message.includes('fetch')) {
+          const error = urlError as Error;
+          if (error.message?.includes('CORS') || error.message?.includes('fetch')) {
             throw new Error(`Failed to load PDF from URL: This might be a CORS issue. The PDF server doesn't allow cross-origin requests. Try using a PDF with CORS enabled or a direct download link.`);
           }
           
-          throw new Error(`Failed to load PDF from URL: ${urlError.message}`);
+          throw new Error(`Failed to load PDF from URL: ${(urlError as Error).message}`);
         }
       } else {
         console.log('Calling pdfManager.loadFromFile...');
-        document = await pdfManager.loadFromFile(pdfFile);
+        document = await pdfManager.loadFromFile(pdfFile as File);
       }
       console.log('PDF loaded successfully, pages:', document.numPages);
       
@@ -193,7 +194,7 @@
         const metadata = await document.getMetadata();
         console.log('PDF metadata extracted:', metadata);
         
-        const pdfTitle = metadata.info?.Title;
+        const pdfTitle = (metadata.info as any)?.Title;
         console.log('PDF Title from metadata:', pdfTitle);
         
         if (pdfTitle && pdfTitle.trim()) {
@@ -247,7 +248,7 @@
       pdfState.update(state => ({ ...state, isLoading: false }));
       // Reset the tracking to allow retry
       lastLoadedFile = null;
-      alert(`Failed to load PDF: ${error.message}`);
+      alert(`Failed to load PDF: ${(error as Error).message}`);
     }
   }
 
@@ -388,7 +389,7 @@ function handlePointerMove(event: PointerEvent) {
       // Apply the transform to the content wrapper
       const contentWrapper = containerDiv.querySelector('.flex');
       if (contentWrapper) {
-        contentWrapper.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px)`;
+        (contentWrapper as HTMLElement).style.transform = `translate(${panOffset.x}px, ${panOffset.y}px)`;
       }
       return;
     }
@@ -579,7 +580,7 @@ function handlePointerUp(event: PointerEvent) {
       // Apply the transform to the content wrapper
       const contentWrapper = containerDiv.querySelector('.flex');
       if (contentWrapper) {
-        contentWrapper.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px)`;
+        (contentWrapper as HTMLElement).style.transform = `translate(${panOffset.x}px, ${panOffset.y}px)`;
       }
     }
   }
@@ -748,8 +749,7 @@ function handlePointerUp(event: PointerEvent) {
 </script>
 
 <div bind:this={containerDiv} class="pdf-viewer relative w-full h-full overflow-hidden">
-  <!-- Debug info -->
-  {#if console.log('PDF State:', { isLoading: $pdfState.isLoading, hasDocument: !!$pdfState.document, totalPages: $pdfState.totalPages })}<!-- Debug logged -->{/if}
+  <!-- Debug info logged to console -->
   
   <!-- Simple centered canvas -->
   <div class="flex items-center justify-center w-full h-full" style="transform: translate({panOffset.x}px, {panOffset.y}px);">
@@ -772,6 +772,7 @@ function handlePointerUp(event: PointerEvent) {
       ></canvas>
       
       <!-- Konva Container for Shapes/Text -->
+      <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
       <div
         bind:this={konvaContainer}
         class="absolute top-0 left-0 w-full h-full"
@@ -779,6 +780,10 @@ function handlePointerUp(event: PointerEvent) {
         class:pointer-events-none={!['text', 'rectangle', 'circle', 'arrow', 'star', 'note'].includes($drawingState.tool)}
         style="z-index: 3;"
         on:click={() => console.log('Konva container clicked, current tool:', $drawingState.tool)}
+        on:keydown={(e) => e.key === 'Enter' && console.log('Konva container activated')}
+        role="application"
+        tabindex="-1"
+        aria-label="Drawing area for shapes and text"
       ></div>
       
     </div>
@@ -822,7 +827,5 @@ function handlePointerUp(event: PointerEvent) {
     background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
   }
   
-  .drawing-canvas {
-    /* Cursor is dynamically controlled by JavaScript */
-  }
+  /* Drawing canvas cursor is dynamically controlled by JavaScript */
 </style>

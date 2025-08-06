@@ -32,3 +32,7 @@ vite.config.ts.timestamp-*
 
 # Test files
 test-*.html
+
+# Playwright test artifacts
+playwright-report/
+test-results/

@@ -200,7 +200,7 @@
 
       // Step 6: Validate PDF header
       debugResults += '\n🔄 Step 6: Validating PDF header...';
-      const pdfHeader = new Uint8Array(fileData.slice(0, 4));
+      const pdfHeader = new Uint8Array(fileData!.slice(0, 4));
       const pdfSignature = String.fromCharCode(...pdfHeader);
       if (pdfSignature !== '%PDF') {
         debugResults += `\n❌ FAILED: Invalid PDF signature: ${pdfSignature}`;
@@ -210,7 +210,7 @@
 
       // Step 7: Create File object
       debugResults += '\n🔄 Step 7: Creating File object...';
-      const file = new File([fileData], fileName, { type: 'application/pdf' });
+      const file = new File([fileData!], fileName, { type: 'application/pdf' });
       debugResults += `\n✅ Step 7: File object created - ${file.name}, ${file.size} bytes`;
 
       // Step 8: Size check
@@ -793,6 +793,8 @@
               {#if browser && !isTauri}
                 <a
                   href="/downloads"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   class="secondary-button text-lg px-8 py-4 text-center no-underline"
                 >
                   Download LeedPDF

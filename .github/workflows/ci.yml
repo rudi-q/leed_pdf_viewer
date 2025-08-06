@@ -1,0 +1,261 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test and Type Check
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20, 22]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run type checking
+        run: pnpm check
+
+      - name: Run tests
+        run: pnpm test:run
+
+      - name: Build project
+        run: pnpm build
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results-${{ matrix.node-version }}
+          path: |
+            coverage/
+            test-results/
+          retention-days: 7
+
+  test-coverage:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests with coverage
+        run: pnpm test:coverage
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
+
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run security audit
+        run: pnpm audit --audit-level moderate
+        continue-on-error: true
+
+  tauri-build:
+    name: Tauri Build Verification
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Cargo check
+        run: pnpm tauri:check
+
+      - name: Tauri build (Debug)
+        run: pnpm tauri:build:debug
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ""
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+
+  pr-comment:
+    name: PR Summary Comment
+    if: github.event_name == 'pull_request'
+    needs: [test, test-coverage, security, tauri-build]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    
+    steps:
+      - name: Comment PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            
+            const testJob = '${{ needs.test.result }}';
+            const coverageJob = '${{ needs.test-coverage.result }}';
+            const securityJob = '${{ needs.security.result }}';
+            const tauriJob = '${{ needs.tauri-build.result }}';
+            
+            const getStatusEmoji = (status) => {
+              switch(status) {
+                case 'success': return '✅';
+                case 'failure': return '❌';
+                case 'cancelled': return '⏹️';
+                case 'skipped': return '⏭️';
+                default: return '⚠️';
+              }
+            };
+            
+            const getStatusText = (status) => {
+              switch(status) {
+                case 'success': return 'Passed';
+                case 'failure': return 'Failed';
+                case 'cancelled': return 'Cancelled';
+                case 'skipped': return 'Skipped';
+                default: return 'Unknown';
+              }
+            };
+            
+            const allPassed = testJob === 'success' && coverageJob === 'success' && 
+                             securityJob === 'success' && tauriJob === 'success';
+            
+            const summary = allPassed ? 
+              '🎉 **All checks passed!** Your code is ready for review.' : 
+              '⚠️ **Some checks need attention.** Please review the failing jobs.';
+            
+            const comment = `## 🤖 CI Results for PR #${context.issue.number}
+            
+            Hey 👋 @${pr.user.login}! ${summary}
+            
+            ### Detailed Results:
+            
+            | Check | Status | Description |
+            |-------|--------|-----------|
+            | ${getStatusEmoji(testJob)} **Tests & Type Check** | ${getStatusText(testJob)} | TypeScript validation, unit tests, and builds on Node 20 & 22 |
+            | ${getStatusEmoji(coverageJob)} **Test Coverage** | ${getStatusText(coverageJob)} | Code coverage analysis and reporting |
+            | ${getStatusEmoji(securityJob)} **Security Audit** | ${getStatusText(securityJob)} | Dependency vulnerability scanning |
+            | ${getStatusEmoji(tauriJob)} **Tauri Build** | ${getStatusText(tauriJob)} | Cross-platform Rust/Tauri compilation (Windows, macOS) |
+            
+            ### What this means:
+            - **Tests & Type Check**: Ensures your TypeScript/Svelte code compiles correctly and all unit tests pass
+            - **Test Coverage**: Measures how much of your code is covered by tests
+            - **Security Audit**: Scans dependencies for known security vulnerabilities  
+            - **Tauri Build**: Verifies your desktop app builds successfully across all platforms
+            
+            ---
+            *This comment was automatically generated by the CI workflow*`;
+            
+            // Check if we already have a comment from this workflow
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && comment.body.includes('🤖 CI Results')
+            );
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+            }

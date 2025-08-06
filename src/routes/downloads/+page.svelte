@@ -504,7 +504,7 @@
     font-weight: 600;
   }
 
-  .tag-icon {
+  :global(.tag-icon) {
     color: #7f8c8d;
   }
 
@@ -522,7 +522,7 @@
     line-height: 1.6;
   }
 
-  .release-notes p {
+  .release-notes :global(p) {
     margin: 0 0 0.5rem 0;
   }
 
@@ -607,12 +607,12 @@
     color: #95a5a6;
   }
 
-  .download-arrow {
+  :global(.download-arrow) {
     color: #27ae60;
     transition: transform 0.2s ease;
   }
 
-  .download-item:hover .download-arrow {
+  .download-item:hover :global(.download-arrow) {
     transform: translateX(4px);
   }
 
@@ -688,11 +688,11 @@
     opacity: 0.9;
   }
 
-  .recommended-arrow {
+  :global(.recommended-arrow) {
     transition: transform 0.2s ease;
   }
 
-  .recommended-button:hover .recommended-arrow {
+  .recommended-button:hover :global(.recommended-arrow) {
     transform: translateX(4px);
   }
 

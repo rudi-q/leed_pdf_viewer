@@ -5,22 +5,33 @@ let pdfjsLib: any = null;
 let isInitialized = false;
 
 // Initialize PDF.js only on client side
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && !import.meta.env?.TEST) {
   // Dynamic import to avoid SSR issues
   import('pdfjs-dist').then((lib) => {
     pdfjsLib = lib;
-    if (typeof window !== 'undefined') {
-	  import('pdfjs-dist/build/pdf.worker.mjs').then((worker) => {
-		pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    if (typeof window !== 'undefined' && import.meta.url) {
+	  // Only set worker in non-test environments
+	  try {
+		const workerUrl = new URL(
 		  'pdfjs-dist/build/pdf.worker.mjs', 
 		  import.meta.url
 		).toString();
-	  });
+		pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+	  } catch (e) {
+		// Fallback for environments where URL construction fails
+		pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.mjs';
+	  }
 	}
     isInitialized = true;
     console.log('PDF.js loaded successfully');
   }).catch((error) => {
     console.error('Failed to load PDF.js:', error);
+  });
+} else if (import.meta.env?.TEST) {
+  // In test environment, use the mocked version
+  import('pdfjs-dist').then((lib) => {
+    pdfjsLib = lib;
+    isInitialized = true;
   });
 }
 
@@ -151,7 +162,7 @@ export class PDFManager {
         cMapPacked: true,
       }).promise;
       
-      return this.document;
+      return this.document!;
     } catch (error) {
       console.error('Error loading PDF:', error);
       throw new Error('Failed to load PDF file');
@@ -179,7 +190,7 @@ export class PDFManager {
       }).promise;
       
       console.log('PDF loaded successfully from URL');
-      return this.document;
+      return this.document!;
     } catch (error: any) {
       console.error('Error loading PDF from URL:', error);
       throw new Error(`Failed to load PDF from URL: ${error.message}`);
@@ -216,6 +227,7 @@ export class PDFManager {
       const renderContext = {
         canvasContext: context,
         viewport: viewport,
+        canvas: canvas
       };
       
       await this.currentPageProxy.render(renderContext).promise;

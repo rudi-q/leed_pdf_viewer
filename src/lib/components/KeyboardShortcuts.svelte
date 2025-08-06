@@ -90,6 +90,10 @@
   <div 
     class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"
     on:click|self={close}
+    on:keydown={(e) => e.key === 'Escape' && close()}
+    role="button"
+    tabindex="-1"
+    aria-label="Close modal overlay"
   >
     <!-- Modal -->
     <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/30 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
@@ -101,6 +105,7 @@
             on:click={close}
             class="p-2 hover:bg-charcoal/10 rounded-lg transition-colors"
             title="Close (Esc)"
+            aria-label="Close modal"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>

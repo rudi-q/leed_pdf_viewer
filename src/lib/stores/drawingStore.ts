@@ -90,7 +90,7 @@ if (typeof window !== 'undefined') {
 export const drawingPaths = writable<Map<number, DrawingPath[]>>(new Map());
 
 // Shape objects store - stores all shape data per page
-export const shapeObjects = writable<Map<number, ShapeObject[]>>(new Map());
+export const shapeObjects = writable<Map<number, any[]>>(new Map());
 
 // Auto-save functionality
 const STORAGE_KEY = 'leedpdf_drawings';
@@ -111,7 +111,11 @@ export const setCurrentPDF = (fileName: string, fileSize: number) => {
 
 	// Save current PDF info
 	if (typeof window !== 'undefined') {
-		localStorage.setItem(STORAGE_KEY_PDF_INFO, JSON.stringify({ fileName, fileSize, pdfKey }));
+		try {
+			localStorage.setItem(STORAGE_KEY_PDF_INFO, JSON.stringify({ fileName, fileSize, pdfKey }));
+		} catch (error) {
+			console.warn('Failed to save PDF info to localStorage:', error);
+		}
 	}
 
 	// Load drawings for this specific PDF
@@ -297,7 +301,7 @@ export const addDrawingPath = (path: DrawingPath) => {
 };
 
 // Shape object management functions
-export const addShapeObject = (shape: ShapeObject) => {
+export const addShapeObject = (shape: any) => {
 	shapeObjects.update((shapes) => {
 		const currentShapes = shapes.get(shape.pageNumber) || [];
 		const newShapes = [...currentShapes, shape];
@@ -306,7 +310,7 @@ export const addShapeObject = (shape: ShapeObject) => {
 	});
 };
 
-export const updateShapeObject = (updatedShape: ShapeObject) => {
+export const updateShapeObject = (updatedShape: any) => {
 	shapeObjects.update((shapes) => {
 		const currentShapes = shapes.get(updatedShape.pageNumber) || [];
 		const newShapes = currentShapes.map((shape) =>
@@ -366,11 +370,8 @@ export const undo = () => {
 
 			// Restore previous state
 			drawingPaths.update((paths) => {
-				if (lastState.paths.length === 0) {
-					paths.delete(lastState.pageNumber);
-				} else {
-					paths.set(lastState.pageNumber, lastState.paths);
-				}
+				// Always set the paths array, even if empty
+				paths.set(lastState.pageNumber, lastState.paths);
 				return new Map(paths);
 			});
 		}
@@ -394,11 +395,8 @@ export const redo = () => {
 
 			// Restore next state
 			drawingPaths.update((paths) => {
-				if (nextState.paths.length === 0) {
-					paths.delete(nextState.pageNumber);
-				} else {
-					paths.set(nextState.pageNumber, nextState.paths);
-				}
+				// Always set the paths array, even if empty
+				paths.set(nextState.pageNumber, nextState.paths);
 				return new Map(paths);
 			});
 		}
