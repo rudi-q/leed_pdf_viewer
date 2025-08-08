@@ -340,7 +340,7 @@ test.describe('Sticker/Stamp Functionality', () => {
 			if (await firstButton.count() > 0) {
 				const title = await firstButton.getAttribute('title');
 				expect(title).toBeTruthy();
-				expect(title.length).toBeGreaterThan(0);
+				expect(title?.length).toBeGreaterThan(0);
 			}
 
 			// Should support keyboard navigation
