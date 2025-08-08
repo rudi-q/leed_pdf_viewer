@@ -385,8 +385,16 @@
     dragOver = true;
   }
 
-  function handleDragLeave() {
-    dragOver = false;
+  function handleDragLeave(event: DragEvent) {
+    // Only set dragOver to false if we're actually leaving the main container
+    // Check if the related target is outside the main element
+    const mainElement = event.currentTarget as Element;
+    const relatedTarget = event.relatedTarget as Element;
+    
+    // If relatedTarget is null (leaving the window) or not a child of main, we're truly leaving
+    if (!relatedTarget || !mainElement.contains(relatedTarget)) {
+      dragOver = false;
+    }
   }
 
   function handleKeyboard(event: KeyboardEvent) {
