@@ -2,6 +2,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-FF3E00?style=flat&logo=svelte&logoColor=white)](https://kit.svelte.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![PDF.js](https://img.shields.io/badge/PDF.js-000000?style=flat&logo=mozilla&logoColor=white)](https://mozilla.github.io/pdf.js/)
+[![Konva.js](https://img.shields.io/badge/Konva.js-00D1B2?style=flat&logo=konva&logoColor=white)](https://konvajs.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Tauri](https://img.shields.io/badge/Tauri-FFC131?style=flat&logo=tauri&logoColor=black)](https://tauri.app/)
+[![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![GitHub Stars](https://img.shields.io/github/stars/rudi-q/leed_pdf_viewer?style=social)](https://github.com/rudi-q/leed_pdf_viewer/stargazers)
+[![Downloads](https://img.shields.io/github/downloads/rudi-q/leed_pdf_viewer/total?label=Downloads&logo=github)](https://github.com/rudi-q/leed_pdf_viewer/releases)
 
 **A modern, open-source PDF annotation tool that runs entirely in your browser**
 
@@ -50,8 +57,8 @@ https://leed.my?pdf=https://example.com/document.pdf
 ```bash
 git clone https://github.com/rudi-q/leed_pdf_viewer.git
 cd leed_pdf_viewer
-npm install
-npm run dev
+pnpm install
+pnpm build && pnpm preview
 ```
 
 Open `http://localhost:5173` in your browser.
@@ -101,16 +108,16 @@ Open `http://localhost:5173` in your browser.
 ### Setup
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Start development server
-npm run dev
+pnpm dev
 
 # Build for production
-npm run build
+pnpm build
 
 # Preview production build
-npm run preview
+pnpm preview
 ```
 
 ### Project Structure
@@ -149,6 +156,8 @@ MIT License - see the [LICENSE](LICENSE) file for details.
 - **PDF.js** - Mozilla's excellent PDF rendering engine
 - **SvelteKit** - The framework that makes this possible
 - **Konva.js** - Powerful 2D canvas library
+- **Vite** - Lightning-fast build tool
+- **Tauri** - For building lightweight desktop apps
 - **Tailwind CSS** - Utility-first CSS framework
 
 ---
