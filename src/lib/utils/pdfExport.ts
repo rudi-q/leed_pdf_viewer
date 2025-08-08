@@ -100,7 +100,8 @@ export class PDFExporter {
 
 	// Utility function to download a file
 	static downloadFile(data: Uint8Array | Blob, filename: string, mimeType: string) {
-		const blob = data instanceof Uint8Array ? new Blob([data], { type: mimeType }) : data;
+		const blob =
+			data instanceof Uint8Array ? new Blob([new Uint8Array(data)], { type: mimeType }) : data;
 		const url = URL.createObjectURL(blob);
 
 		const link = document.createElement('a');
