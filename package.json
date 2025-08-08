@@ -62,7 +62,7 @@
 		"@vercel/analytics": "^1.5.0",
 		"autoprefixer": "^10.4.21",
 		"konva": "^9.3.22",
-		"lucide-svelte": "^0.525.0",
+		"lucide-svelte": "^0.539.0",
 		"pdf-lib": "^1.17.1",
 		"pdfjs-dist": "5.4.54",
 		"postcss": "^8.5.6",
