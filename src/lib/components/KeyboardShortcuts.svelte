@@ -70,6 +70,7 @@
       category: 'View',
       items: [
         { keys: ['F11'], description: 'Toggle fullscreen' },
+        { keys: ['F'], description: 'Focus mode (hide toolbar & credits)' },
         { keys: ['Ctrl', 'Scroll'], description: 'Zoom in/out' },
         { keys: ['Ctrl', 'Drag'], description: 'Pan around document' },
       ]
