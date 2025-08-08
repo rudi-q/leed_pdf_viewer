@@ -210,7 +210,7 @@
 
       // Step 7: Create File object
       debugResults += '\n🔄 Step 7: Creating File object...';
-      const file = new File([fileData!], fileName, { type: 'application/pdf' });
+      const file = new File([new Uint8Array(fileData!)], fileName, { type: 'application/pdf' });
       debugResults += `\n✅ Step 7: File object created - ${file.name}, ${file.size} bytes`;
 
       // Step 8: Size check

@@ -314,7 +314,7 @@ export async function createBlankPDF(): Promise<File> {
     const pdfBytes = await pdfDoc.save();
     
     // Create a File object from the PDF bytes
-    const file = new File([pdfBytes], 'blank.pdf', {
+    const file = new File([new Uint8Array(pdfBytes)], 'blank.pdf', {
       type: 'application/pdf',
       lastModified: Date.now()
     });
