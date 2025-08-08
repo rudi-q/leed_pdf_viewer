@@ -51,14 +51,38 @@ export default defineConfig({
 	build: {
 		target: 'esnext',
 		chunkSizeWarningLimit: 1000,
-		assetsInlineLimit: 0, // Don't inline assets, keep them as separate files
+		assetsInlineLimit: 0,
 		minify: 'terser',
 		terserOptions: {
 			compress: {
 				drop_console: true,
-				drop_debugger: true
-			}
+				drop_debugger: true,
+				dead_code: false,
+				inline: false,
+				join_vars: false
+			},
+			mangle: {
+				keep_classnames: true,
+				keep_fnames: true,
+				reserved: [
+					'Konva',
+					'Stage',
+					'Layer',
+					'Shape',
+					'Circle',
+					'Rect',
+					'Text',
+					'Group',
+					'Image',
+					'Line',
+					'Path',
+					'Sprite',
+					'Transformer',
+					'Node',        // Base class for Konva objects
+					'Container',   // Base class for Stage, Layer, Group
+				],
+			},
 		}
 	},
-	assetsInclude: ['**/*.svg'] // Ensure SVG files are included as assets
+	assetsInclude: ['**/*.svg']
 });
