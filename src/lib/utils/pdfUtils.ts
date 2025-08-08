@@ -1,4 +1,5 @@
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
+import { PDFDocument, PageSizes } from 'pdf-lib';
 
 // Dynamic import for pdf.js to avoid SSR issues
 let pdfjsLib: any = null;
@@ -295,4 +296,33 @@ export function formatFileSize(bytes: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Utility function to create a blank PDF document
+export async function createBlankPDF(): Promise<File> {
+  try {
+    // Create a new PDF document
+    const pdfDoc = await PDFDocument.create();
+    
+    // Add a blank page with standard US Letter size (8.5 x 11 inches)
+    const page = pdfDoc.addPage(PageSizes.Letter);
+    
+    // Optionally, you can add more pages or customize the page
+    // For now, we'll just keep it as a single blank page
+    
+    // Serialize the PDF to bytes
+    const pdfBytes = await pdfDoc.save();
+    
+    // Create a File object from the PDF bytes
+    const file = new File([pdfBytes], 'blank.pdf', {
+      type: 'application/pdf',
+      lastModified: Date.now()
+    });
+    
+    console.log('Created blank PDF:', file.name, file.size, 'bytes');
+    return file;
+  } catch (error) {
+    console.error('Error creating blank PDF:', error);
+    throw new Error('Failed to create blank PDF');
+  }
 }

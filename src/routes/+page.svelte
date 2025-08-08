@@ -12,7 +12,7 @@
   import Toolbar from '$lib/components/Toolbar.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
   import PageThumbnails from '$lib/components/PageThumbnails.svelte';
-  import { isValidPDFFile } from '$lib/utils/pdfUtils';
+  import { isValidPDFFile, createBlankPDF } from '$lib/utils/pdfUtils';
   import { redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
   import { isDarkMode } from '$lib/stores/themeStore';
@@ -639,6 +639,25 @@
     }
   }
 
+  async function handleCreateBlankPDF() {
+    try {
+      console.log('Creating blank PDF...');
+      const blankPdfFile = await createBlankPDF();
+      console.log('Blank PDF created:', blankPdfFile.name, blankPdfFile.size, 'bytes');
+      
+      // Load the blank PDF just like a regular file
+      currentFile = blankPdfFile;
+      showWelcome = false;
+      
+      // Set current PDF for auto-save functionality
+      setCurrentPDF(blankPdfFile.name, blankPdfFile.size);
+      console.log('Blank PDF loaded successfully!');
+    } catch (error) {
+      console.error('Failed to create blank PDF:', error);
+      alert('Failed to create blank PDF. Please try again.');
+    }
+  }
+
   // Enhanced onMount with comprehensive file loading
   onMount(() => {
     console.log('[onMount] Component mounted - setting up comprehensive file loading');
@@ -746,6 +765,14 @@
               on:click={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
             >
               Choose PDF File
+            </button>
+
+            <button
+              class="secondary-button text-lg px-8 py-4"
+              on:click={handleCreateBlankPDF}
+              title="Create a blank PDF page to start drawing and taking notes"
+            >
+              📄 Start with Blank PDF
             </button>
 
             <!-- DEBUG BUTTON -->
