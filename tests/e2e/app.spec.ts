@@ -197,7 +197,8 @@ test.describe('Drawing and Annotation Features', () => {
 			'rectangle-tool',
 			'circle-tool',
 			'arrow-tool',
-			'note-tool'
+			'note-tool',
+			'stamp-tool'
 		];
 
 		for (const tool of tools) {
@@ -282,6 +283,38 @@ test.describe('Drawing and Annotation Features', () => {
 
 			if ((await confirmButton.count()) > 0) {
 				await confirmButton.click();
+			}
+		}
+	});
+
+	test('should support keyboard shortcuts for tools including stickers', async ({ page }) => {
+		// Test numeric shortcuts for tools (1-9)
+		const shortcuts = [
+			{ key: '1', tool: 'pencil' },
+			{ key: '2', tool: 'eraser' },
+			{ key: '3', tool: 'text' },
+			{ key: '4', tool: 'rectangle' },
+			{ key: '5', tool: 'circle' },
+			{ key: '6', tool: 'arrow' },
+			{ key: '7', tool: 'star' },
+			{ key: '8', tool: 'highlight' },
+			{ key: '9', tool: 'note' },
+			{ key: 's', tool: 'stamp' } // Special key for stamps
+		];
+
+		for (const { key, tool } of shortcuts) {
+			await page.keyboard.press(key);
+			await page.waitForTimeout(100);
+
+			// Check if the tool became active
+			const toolButton = page.locator(`button[title*="${tool}"]`).or(
+				page.locator(`[data-testid="${tool}-tool"]`)
+			);
+
+			if ((await toolButton.count()) > 0) {
+				const toolClass = await toolButton.getAttribute('class');
+				// Should have active class or similar indication
+				expect(toolClass).toMatch(/active|selected/);
 			}
 		}
 	});
