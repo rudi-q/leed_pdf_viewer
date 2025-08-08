@@ -54,6 +54,7 @@
         { keys: ['7'], description: 'Switch to star' },
         { keys: ['8'], description: 'Switch to highlighter' },
         { keys: ['9'], description: 'Switch to sticky note' },
+        { keys: ['S'], description: 'Switch to stamps' },
       ]
     },
     {

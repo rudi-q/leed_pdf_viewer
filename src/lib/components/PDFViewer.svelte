@@ -69,7 +69,7 @@
   // Update cursor and tool when drawing state changes
   $: if ($drawingState.tool && containerDiv) {
     console.log('TOOL CHANGED:', $drawingState.tool);
-    console.log('Shape tools includes this tool:', ['text', 'rectangle', 'circle', 'arrow', 'star'].includes($drawingState.tool));
+    console.log('Shape tools includes this tool:', ['text', 'rectangle', 'circle', 'arrow', 'star', 'stamp'].includes($drawingState.tool));
     updateCursor();
     
     // Update Konva tool
@@ -777,7 +777,7 @@ function handlePointerUp(event: PointerEvent) {
         bind:this={konvaContainer}
         class="absolute top-0 left-0 w-full h-full"
         class:hidden={!$pdfState.document}
-        class:pointer-events-none={!['text', 'rectangle', 'circle', 'arrow', 'star', 'note'].includes($drawingState.tool)}
+        class:pointer-events-none={!['text', 'rectangle', 'circle', 'arrow', 'star', 'note', 'stamp'].includes($drawingState.tool)}
         style="z-index: 3;"
         on:click={() => console.log('Konva container clicked, current tool:', $drawingState.tool)}
         on:keydown={(e) => e.key === 'Enter' && console.log('Konva container activated')}

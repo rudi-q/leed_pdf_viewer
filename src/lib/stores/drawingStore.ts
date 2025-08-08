@@ -10,7 +10,8 @@ export type DrawingTool =
 	| 'arrow'
 	| 'star'
 	| 'highlight'
-	| 'note';
+	| 'note'
+	| 'stamp';
 
 export interface DrawingState {
 	tool: DrawingTool;
@@ -21,6 +22,7 @@ export interface DrawingState {
 	highlightOpacity: number;
 	noteColor: string;
 	isDrawing: boolean;
+	stampId: string;
 }
 
 export interface PDFState {
@@ -52,6 +54,96 @@ export interface DrawingPath {
 // Import ShapeObject from KonvaShapeEngine
 export type { ShapeObject } from '../utils/konvaShapeEngine';
 
+// Stamp definitions
+export interface StampDefinition {
+	id: string;
+	name: string;
+	category: 'stars' | 'checkmarks' | 'x-marks' | 'smileys' | 'hearts' | 'thumbs';
+	svg: string;
+}
+
+export const availableStamps: StampDefinition[] = [
+	// Stars
+	{
+		id: 'star',
+		name: 'Star',
+		category: 'stars',
+		svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+			<defs>
+				<filter id="sticker-shadow" x="-30%" y="-30%" width="160%" height="160%">
+					<feDropShadow dx="3" dy="3" stdDeviation="3" flood-opacity="0.25"/>
+				</filter>
+			</defs>
+			<rect x="8" y="8" width="84" height="84" rx="12" fill="white" stroke="#E2E8F0" stroke-width="1" filter="url(#sticker-shadow)"/>
+			<path d="M50 22 L55 38 L72 38 L59 48 L64 64 L50 54 L36 64 L41 48 L28 38 L45 38 Z" fill="#FFD700" stroke="#FFA500" stroke-width="1.5"/>
+		</svg>`
+	},
+	// X Marks
+	{
+		id: 'x-mark',
+		name: 'X Mark',
+		category: 'x-marks',
+		svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+			<defs>
+				<filter id="xmark-shadow" x="-30%" y="-30%" width="160%" height="160%">
+					<feDropShadow dx="3" dy="3" stdDeviation="3" flood-opacity="0.25"/>
+				</filter>
+			</defs>
+			<rect x="10" y="10" width="80" height="80" rx="16" fill="white" stroke="#E2E8F0" stroke-width="1" filter="url(#xmark-shadow)"/>
+			<path d="M30 30 L70 70 M70 30 L30 70" fill="none" stroke="#E53E3E" stroke-width="6" stroke-linecap="round"/>
+		</svg>`
+	},
+	// Smiley Faces
+	{
+		id: 'smiley',
+		name: 'Happy Face',
+		category: 'smileys',
+		svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+			<defs>
+				<filter id="smiley-shadow" x="-30%" y="-30%" width="160%" height="160%">
+					<feDropShadow dx="3" dy="3" stdDeviation="3" flood-opacity="0.25"/>
+				</filter>
+			</defs>
+			<circle cx="50" cy="50" r="45" fill="white" stroke="#E2E8F0" stroke-width="1" filter="url(#smiley-shadow)"/>
+			<circle cx="50" cy="50" r="30" fill="#FFD700" stroke="#FFA500" stroke-width="2"/>
+			<circle cx="42" cy="43" r="3" fill="#2D3748"/>
+			<circle cx="58" cy="43" r="3" fill="#2D3748"/>
+			<path d="M40 58 Q50 68 60 58" fill="none" stroke="#2D3748" stroke-width="2" stroke-linecap="round"/>
+		</svg>`
+	},
+	// Hearts
+	{
+		id: 'heart',
+		name: 'Heart',
+		category: 'hearts',
+		svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+			<defs>
+				<filter id="heart-shadow" x="-30%" y="-30%" width="160%" height="160%">
+					<feDropShadow dx="3" dy="3" stdDeviation="3" flood-opacity="0.25"/>
+				</filter>
+			</defs>
+			<ellipse cx="50" cy="52" rx="42" ry="38" fill="white" stroke="#E2E8F0" stroke-width="1" filter="url(#heart-shadow)"/>
+			<path d="M50 75 C50 75 28 58 28 42 C28 32 36 25 45 28 C47 29 49 31 50 33 C51 31 53 29 55 28 C64 25 72 32 72 42 C72 58 50 75 50 75 Z" fill="#E53E3E" stroke="#C53030" stroke-width="1.5"/>
+		</svg>`
+	},
+	// Thumbs Up
+	{
+		id: 'thumbs-up',
+		name: 'Thumbs Up',
+		category: 'thumbs',
+		svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+			<defs>
+				<filter id="thumbs-shadow" x="-30%" y="-30%" width="160%" height="160%">
+					<feDropShadow dx="3" dy="3" stdDeviation="3" flood-opacity="0.25"/>
+				</filter>
+			</defs>
+			<rect x="12" y="15" width="76" height="70" rx="18" fill="white" stroke="#E2E8F0" stroke-width="1" filter="url(#thumbs-shadow)"/>
+			<path d="M40 30 C43 22 50 22 53 30 L53 42 L65 42 C68 42 71 45 71 48 L71 62 C71 65 68 68 65 68 L35 68 C32 68 29 65 29 62 L29 55 C29 52 30 49 32 47 L40 38 Z" fill="#38A169" stroke="#2F855A" stroke-width="1.5"/>
+			<ellipse cx="46" cy="32" rx="6" ry="9" fill="#48BB78" stroke="#2F855A" stroke-width="1"/>
+		</svg>`
+	}
+];
+
 // Drawing state store
 export const drawingState = writable<DrawingState>({
 	tool: 'pencil',
@@ -61,7 +153,8 @@ export const drawingState = writable<DrawingState>({
 	highlightColor: '#FFEB3B', // yellow
 	highlightOpacity: 0.4,
 	noteColor: '#FFF59D', // light yellow
-	isDrawing: false
+	isDrawing: false,
+	stampId: 'star' // default stamp
 });
 
 // PDF state store
@@ -271,6 +364,15 @@ export const setNoteColor = (noteColor: string) => {
 
 export const setIsDrawing = (isDrawing: boolean) => {
 	drawingState.update((state) => ({ ...state, isDrawing }));
+};
+
+export const setStampId = (stampId: string) => {
+	drawingState.update((state) => ({ ...state, stampId }));
+};
+
+// Helper function to get stamp by ID
+export const getStampById = (stampId: string): StampDefinition | undefined => {
+	return availableStamps.find((stamp) => stamp.id === stampId);
 };
 
 // Save state for undo functionality

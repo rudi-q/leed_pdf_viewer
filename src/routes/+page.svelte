@@ -510,6 +510,17 @@
           event.preventDefault();
           focusMode = !focusMode;
           break;
+		case 's':
+		case 'S':
+		  event.preventDefault();
+		  setTool('stamp');
+		  // Also open the stamp palette
+		  // Dispatch event to the toolbar to show stamp palette
+		  const stampButton = document.querySelector('.stamp-palette-container button');
+		  if (stampButton) {
+		    (stampButton as HTMLButtonElement).click();
+		  }
+		  break;
         case 'F11':
           event.preventDefault();
           toggleFullscreen();

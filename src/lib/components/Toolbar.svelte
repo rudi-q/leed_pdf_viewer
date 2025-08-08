@@ -18,6 +18,7 @@
 		undoStack
 	} from '../stores/drawingStore';
 	import { isDarkMode, toggleTheme } from '../stores/themeStore';
+	import StampPalette from './StampPalette.svelte';
 	// Feather Icons
 	import {
 		ArrowRight,
@@ -33,6 +34,7 @@
 		Redo2,
 		Square,
 		Star,
+		Sticker,
 		StickyNote,
 		Trash2,
 		Type,
@@ -73,6 +75,7 @@
   let showColorPalette = false;
   let showLineWidthPicker = false;
   let showEraserSizePicker = false;
+  let showStampPalette = false;
 
   function handleToolChange(tool: DrawingTool) {
     setTool(tool);
@@ -129,6 +132,9 @@
     }
     if (!target.closest('.eraser-size-container')) {
       showEraserSizePicker = false;
+    }
+    if (!target.closest('.stamp-palette-container')) {
+      showStampPalette = false;
     }
   }
 </script>
@@ -299,6 +305,26 @@
         >
           <Star size={14} />
         </button>
+
+        <!-- Stamp tool with palette -->
+        <div class="relative stamp-palette-container">
+          <button
+            class="tool-button"
+            class:active={$drawingState.tool === 'stamp'}
+            on:click={() => {
+              handleToolChange('stamp');
+              showStampPalette = !showStampPalette;
+            }}
+            title="Stamps/Stickers"
+          >
+            <Sticker size={14} />
+          </button>
+
+          <StampPalette 
+            isOpen={showStampPalette} 
+            onClose={() => showStampPalette = false}
+          />
+        </div>
 
         <div class="h-4 w-px bg-charcoal/20"></div>
 
