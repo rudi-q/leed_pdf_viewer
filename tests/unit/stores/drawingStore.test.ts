@@ -53,6 +53,7 @@ describe('DrawingStore', () => {
 				highlightColor: '#FFEB3B',
 				highlightOpacity: 0.4,
 				noteColor: '#FFF59D',
+				stampId: 'star',
 				isDrawing: false
 			});
 		});
