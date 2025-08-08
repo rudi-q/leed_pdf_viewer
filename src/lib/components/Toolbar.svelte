@@ -1,49 +1,49 @@
 <script lang="ts">
-	import {
-		availableColors,
-		availableEraserSizes,
-		availableLineWidths,
-		clearCurrentPageDrawings,
-		drawingPaths,
-		drawingState,
-		type DrawingTool,
-		pdfState,
-		redo,
-		redoStack,
-		setColor,
-		setEraserSize,
-		setLineWidth,
-		setTool,
-		undo,
-		undoStack
-	} from '../stores/drawingStore';
-	import { isDarkMode, toggleTheme } from '../stores/themeStore';
-	import StampPalette from './StampPalette.svelte';
-	// Feather Icons
-	import {
-		ArrowRight,
-		ChevronLeft,
-		ChevronRight,
-		Circle,
-		Download,
-		Edit3,
-		Folder,
-		Highlighter,
-		Layout,
-		RectangleHorizontal,
-		Redo2,
-		Square,
-		Star,
-		Sticker,
-		StickyNote,
-		Trash2,
-		Type,
-		Undo2,
-		ZoomIn,
-		ZoomOut
-	} from 'lucide-svelte';
+  import {
+    availableColors,
+    availableEraserSizes,
+    availableLineWidths,
+    clearCurrentPageDrawings,
+    drawingPaths,
+    drawingState,
+    type DrawingTool,
+    pdfState,
+    redo,
+    redoStack,
+    setColor,
+    setEraserSize,
+    setLineWidth,
+    setTool,
+    undo,
+    undoStack
+  } from '../stores/drawingStore';
+  import { isDarkMode, toggleTheme } from '../stores/themeStore';
+  import StampPalette from './StampPalette.svelte';
+  // Feather Icons
+  import {
+    ArrowRight,
+    ChevronLeft,
+    ChevronRight,
+    Circle,
+    Download,
+    Edit3,
+    Folder,
+    Highlighter,
+    Layout,
+    RectangleHorizontal,
+    Redo2,
+    Square,
+    Star,
+    Sticker,
+    StickyNote,
+    Trash2,
+    Type,
+    Undo2,
+    ZoomIn,
+    ZoomOut
+  } from 'lucide-svelte';
 
-	// Auto-save indicator
+  // Auto-save indicator
   let showAutoSaveIndicator = false;
   let autoSaveTimeout: number;
   
@@ -226,7 +226,7 @@
           class="tool-button"
           class:active={$drawingState.tool === 'pencil'}
           on:click={() => handleToolChange('pencil')}
-          title="Pencil"
+          title="Pencil (1)"
         >
           <Edit3 size={14} />
         </button>
@@ -235,37 +235,16 @@
           class="tool-button"
           class:active={$drawingState.tool === 'eraser'}
           on:click={() => handleToolChange('eraser')}
-          title="Eraser"
+          title="Eraser (2)"
         >
           <Square size={14} />
         </button>
 
         <button
           class="tool-button"
-          class:active={$drawingState.tool === 'highlight'}
-          on:click={() => handleToolChange('highlight')}
-          title="Highlighter"
-        >
-          <Highlighter size={14} />
-        </button>
-
-        <button
-          class="tool-button"
-          class:active={$drawingState.tool === 'note'}
-          on:click={() => handleToolChange('note')}
-          title="Sticky Note"
-        >
-          <StickyNote size={14} />
-        </button>
-
-        <div class="h-4 w-px bg-charcoal/20"></div>
-
-        <!-- Shape Tools -->
-        <button
-          class="tool-button"
           class:active={$drawingState.tool === 'text'}
           on:click={() => handleToolChange('text')}
-          title="Text"
+          title="Text (3)"
         >
           <Type size={14} />
         </button>
@@ -274,7 +253,7 @@
           class="tool-button"
           class:active={$drawingState.tool === 'rectangle'}
           on:click={() => handleToolChange('rectangle')}
-          title="Rectangle"
+          title="Rectangle (4)"
         >
           <RectangleHorizontal size={14} />
         </button>
@@ -283,7 +262,7 @@
           class="tool-button"
           class:active={$drawingState.tool === 'circle'}
           on:click={() => handleToolChange('circle')}
-          title="Circle"
+          title="Circle (5)"
         >
           <Circle size={14} />
         </button>
@@ -292,7 +271,7 @@
           class="tool-button"
           class:active={$drawingState.tool === 'arrow'}
           on:click={() => handleToolChange('arrow')}
-          title="Arrow"
+          title="Arrow (6)"
         >
           <ArrowRight size={14} />
         </button>
@@ -301,10 +280,30 @@
           class="tool-button"
           class:active={$drawingState.tool === 'star'}
           on:click={() => handleToolChange('star')}
-          title="Star"
+          title="Star (7)"
         >
           <Star size={14} />
         </button>
+
+        <button
+          class="tool-button"
+          class:active={$drawingState.tool === 'highlight'}
+          on:click={() => handleToolChange('highlight')}
+          title="Highlighter (8)"
+        >
+          <Highlighter size={14} />
+        </button>
+
+        <button
+          class="tool-button"
+          class:active={$drawingState.tool === 'note'}
+          on:click={() => handleToolChange('note')}
+          title="Sticky Note (9)"
+        >
+          <StickyNote size={14} />
+        </button>
+
+        <div class="h-4 w-px bg-charcoal/20"></div>
 
         <!-- Stamp tool with palette -->
         <div class="relative stamp-palette-container">

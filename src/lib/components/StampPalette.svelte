@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { availableStamps, drawingState, setStampId, type StampDefinition } from '../stores/drawingStore';
+  import { availableStamps, drawingState, setStampId, type StampDefinition } from '../stores/drawingStore';
 
-	// Svelte component - no need for explicit default export
+  // Svelte component - no need for explicit default export
   
   export let isOpen = false;
   export let onClose: () => void = () => {};
@@ -41,40 +41,34 @@
 
 {#if isOpen}
   <div class="absolute top-full mt-2 left-0 z-50">
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-4 min-w-[320px] max-w-[400px]">
-      <div class="mb-3">
-        <h3 class="text-sm font-medium text-charcoal dark:text-gray-200 mb-2">Choose a Stamp</h3>
-        <div class="space-y-3">
-          {#each Object.entries(stampCategories) as [category, stamps]}
-            <div>
-              <div class="flex items-center gap-2 mb-2">
-                <span class="text-lg">{categoryEmojis[category]}</span>
-                <span class="text-xs font-medium text-charcoal/70 dark:text-gray-400 uppercase tracking-wide">
-                  {categoryNames[category]}
-                </span>
+    <div class="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-600/50 p-3 min-w-[280px]">
+      <div class="mb-2">
+        <h3 class="text-sm font-medium text-charcoal/80 dark:text-gray-200 mb-3 text-center">Choose a Stamp</h3>
+        <div class="flex flex-wrap gap-3 justify-center">
+          {#each availableStamps as stamp}
+            <button
+              class="sticker-preview group relative transition-all duration-300 hover:scale-110 hover:rotate-2 focus:outline-none focus:ring-2 focus:ring-sage/50 focus:ring-offset-2 {stamp.id === $drawingState.stampId ? 'scale-110' : ''}"
+              on:click={() => handleStampSelect(stamp)}
+              title={stamp.name}
+            >
+              <!-- SVG sticker with built-in realistic border -->
+              <div class="w-12 h-12 transition-transform duration-300 group-hover:scale-110">
+                {@html stamp.svg}
               </div>
-              <div class="flex flex-wrap gap-2">
-                {#each stamps as stamp}
-                  <button
-                    class="stamp-preview p-2 rounded-lg border-2 transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-sage focus:ring-offset-2 {stamp.id === $drawingState.stampId ? 'border-sage bg-sage/10 scale-105' : 'border-gray-200'}"
-                    on:click={() => handleStampSelect(stamp)}
-                    title={stamp.name}
-                  >
-                    <div class="w-10 h-10">
-                      {@html stamp.svg}
-                    </div>
-                  </button>
-                {/each}
-              </div>
-            </div>
+              
+              <!-- Selection indicator -->
+              {#if stamp.id === $drawingState.stampId}
+                <div class="absolute -inset-1 border-2 border-sage rounded-xl animate-pulse"></div>
+              {/if}
+            </button>
           {/each}
         </div>
       </div>
       
-      <div class="border-t border-gray-200 dark:border-gray-600 pt-3 mt-3">
-        <div class="flex items-center justify-between">
-          <span class="text-xs text-charcoal/70 dark:text-gray-400">
-            Click to select • Perfect for feedback & grading
+      <div class="border-t border-gray-200/50 dark:border-gray-600/50 pt-2 mt-2">
+        <div class="text-center">
+          <span class="text-xs text-charcoal/60 dark:text-gray-400">
+            Perfect for feedback & grading ✨
           </span>
         </div>
       </div>
@@ -83,15 +77,8 @@
 {/if}
 
 <style>
-  .stamp-preview :global(svg) {
+  .sticker-preview :global(svg) {
     width: 100%;
     height: 100%;
-  }
-  
-  /* Ensure stamp SVGs render properly */
-  .stamp-preview :global(svg rect),
-  .stamp-preview :global(svg circle),
-  .stamp-preview :global(svg ellipse) {
-    filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.15));
   }
 </style>
