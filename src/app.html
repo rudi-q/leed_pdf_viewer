@@ -2,13 +2,92 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		
+		<!-- Favicon and Icons -->
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
+		<link rel="apple-touch-icon" href="%sveltekit.assets%/logo.png" />
+		<link rel="mask-icon" href="%sveltekit.assets%/logo.svg" color="#8B9474" />
+		
+		<!-- Viewport and Mobile -->
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-		<meta name="description" content="Add drawings and notes to any PDF. Works with mouse, touch, or stylus." />
-		<title>LeedPDF - Draw on PDFs</title>
+		
+		<!-- Primary Meta Tags -->
+		<title>LeedPDF - Draw on PDFs | Free PDF Annotation Tool</title>
+		<meta name="title" content="LeedPDF - Draw on PDFs | Free PDF Annotation Tool">
+		<meta name="description" content="Add drawings and notes to any PDF with LeedPDF. Free, browser-based PDF annotation tool that works on any device. No uploads required - your files stay private." />
+		<meta name="keywords" content="PDF annotation, PDF editor, draw on PDF, PDF markup, free PDF tool, browser PDF editor, PDF notes, digital annotation, online PDF editor, PDF drawing tool">
+		<meta name="author" content="Rudi K">
+		<meta name="robots" content="index, follow">
+		<link rel="canonical" href="https://leed.my">
+		
+		<!-- Open Graph / Facebook -->
+		<meta property="og:type" content="website">
+		<meta property="og:url" content="https://leed.my">
+		<meta property="og:title" content="LeedPDF - Draw on PDFs | Free PDF Annotation Tool">
+		<meta property="og:description" content="Add drawings and notes to any PDF with LeedPDF. Free, browser-based PDF annotation tool that works on any device. No uploads required - your files stay private.">
+		<meta property="og:image" content="https://leed.my/logo.png">
+		<meta property="og:site_name" content="LeedPDF">
+		<meta property="og:locale" content="en_US">
+		
+		<!-- Twitter -->
+		<meta property="twitter:card" content="summary_large_image">
+		<meta property="twitter:url" content="https://leed.my">
+		<meta property="twitter:title" content="LeedPDF - Draw on PDFs | Free PDF Annotation Tool">
+		<meta property="twitter:description" content="Add drawings and notes to any PDF with LeedPDF. Free, browser-based PDF annotation tool that works on any device. No uploads required - your files stay private.">
+		<meta property="twitter:image" content="https://leed.my/logo.png">
+		<meta property="twitter:creator" content="@rudikq">
+		<meta property="twitter:site" content="@leedpdf">
+		
+		<!-- Additional SEO and App Meta -->
+		<meta name="theme-color" content="#8B9474">
+		<meta name="msapplication-TileColor" content="#8B9474">
+		<meta name="application-name" content="LeedPDF">
+		<meta name="apple-mobile-web-app-title" content="LeedPDF">
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="default">
+		<meta name="format-detection" content="telephone=no">
+		
+		<!-- Preconnect and DNS Prefetch for Performance -->
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link rel="preconnect" href="https://peerlist.io">
+		<link rel="dns-prefetch" href="//github.com">
+		<link rel="dns-prefetch" href="//leed.my">
+		
+		<!-- Fonts -->
 		<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
+		
+		<!-- Structured Data -->
+		<script type="application/ld+json">
+		{
+		  "@context": "https://schema.org",
+		  "@type": "SoftwareApplication",
+		  "name": "LeedPDF",
+		  "description": "A modern, open-source PDF annotation tool that runs entirely in your browser. Draw, annotate, and collaborate without uploading your documents to external servers.",
+		  "url": "https://leed.my",
+		  "applicationCategory": "ProductivityApplication",
+		  "operatingSystem": "Web Browser, Windows, macOS, Linux, iOS, Android",
+		  "author": {
+		    "@type": "Person",
+		    "name": "Rudi K",
+		    "url": "https://github.com/rudi-q",
+		    "sameAs": [
+		      "https://github.com/rudi-q",
+		      "https://peerlist.io/rudik"
+		    ]
+		  },
+		  "offers": {
+		    "@type": "Offer",
+		    "price": "0",
+		    "priceCurrency": "USD"
+		  },
+		  "screenshot": "https://leed.my/screenshot.png",
+		  "softwareVersion": "0.0.1",
+		  "downloadUrl": "https://leed.my/downloads",
+		  "license": "https://opensource.org/licenses/MIT"
+		}
+		</script>
+		
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover" class="overflow-hidden">

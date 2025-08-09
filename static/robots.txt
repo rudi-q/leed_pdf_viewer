@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Block potentially unnecessary paths
+Disallow: /pdfjs/
+Disallow: /cursors/
+Disallow: /_app/
+
+# Sitemap location
+Sitemap: https://leed.my/sitemap.xml
+
+# Crawl delay (optional - prevents overwhelming server)
+Crawl-delay: 1
