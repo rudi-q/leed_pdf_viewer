@@ -780,11 +780,11 @@
             <img src="/logo-dark.png" alt="LeedPDF" class="w-24 h-24 mx-auto hidden dark:block object-contain" />
           </div>
 
-          <h1 class="text-4xl text-charcoal dark:text-gray-100 mb-4" style="font-family: 'Dancing Script', cursive; font-weight: 600;">LeedPDF</h1>
-          <p class="text-lg text-slate dark:text-gray-300 mb-8">
+          <h1 class="text-4xl text-charcoal dark:text-gray-100 mb-4" style="font-family: 'Dancing Script', cursive; font-weight: 600;">LeedPDF - Free PDF Annotation Tool</h1>
+          <h2 class="text-lg text-slate dark:text-gray-300 mb-8 font-normal">
             Add drawings and notes to any PDF. <br />
-            <i>Works with mouse, touch, or stylus.</i>
-          </p>
+            <i>Works with mouse, touch, or stylus - completely free and private.</i>
+          </h2>
 
           <div class="space-y-4">
             <button
