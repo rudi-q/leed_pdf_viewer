@@ -716,6 +716,7 @@ export class KonvaShapeEngine {
 		input.style.fontFamily = textNode.fontFamily();
 		input.style.border = '2px solid #4A90E2';
 		input.style.background = 'white';
+		input.style.color = '#2D3748';
 		input.style.outline = 'none';
 		input.style.zIndex = '1000';
 
@@ -798,6 +799,7 @@ export class KonvaShapeEngine {
 		textarea.style.fontFamily = textNode.fontFamily();
 		textarea.style.border = '2px solid #4A90E2';
 		textarea.style.background = '#FFF59D';
+		textarea.style.color = '#2D3748';
 		textarea.style.outline = 'none';
 		textarea.style.resize = 'none';
 		textarea.style.zIndex = '1000';
