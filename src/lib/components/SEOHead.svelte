@@ -14,7 +14,7 @@
   // Generate structured data with dynamic updates
   $: structuredData = {
     ...softwareApplicationData,
-    url: seoData.url || defaultSEOData.url
+    url: seoData.url || defaultSEOData.url || 'https://leed.my'
   };
 </script>
 
