@@ -108,6 +108,63 @@ export function generateLDJSON(data: StructuredDataSoftware): string {
   return JSON.stringify(data, null, 2);
 }
 
+// FAQ Schema for help pages
+export interface FAQItem {
+  question: string;
+  answer: string;
+}
+
+export interface StructuredDataFAQ {
+  '@context': 'https://schema.org';
+  '@type': 'FAQPage';
+  mainEntity: {
+    '@type': 'Question';
+    name: string;
+    acceptedAnswer: {
+      '@type': 'Answer';
+      text: string;
+    };
+  }[];
+}
+
+// Article Schema for blog posts
+export interface StructuredDataArticle {
+  '@context': 'https://schema.org';
+  '@type': 'Article';
+  headline: string;
+  description: string;
+  author: StructuredDataPerson;
+  publisher: {
+    '@type': 'Organization';
+    name: string;
+    logo: {
+      '@type': 'ImageObject';
+      url: string;
+    };
+  };
+  datePublished: string;
+  dateModified: string;
+  url: string;
+  image?: string;
+  wordCount?: number;
+  articleSection?: string;
+  keywords?: string[];
+}
+
+// Aggregate Rating Schema
+export interface StructuredDataRating {
+  '@context': 'https://schema.org';
+  '@type': 'AggregateRating';
+  itemReviewed: {
+    '@type': 'SoftwareApplication';
+    name: string;
+  };
+  ratingValue: number;
+  reviewCount: number;
+  bestRating: number;
+  worstRating: number;
+}
+
 export const softwareApplicationData: StructuredDataSoftware = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
@@ -136,6 +193,82 @@ export const softwareApplicationData: StructuredDataSoftware = {
   license: 'https://opensource.org/licenses/MIT'
 };
 
+// Generate FAQ Schema
+export function generateFAQSchema(faqs: FAQItem[]): StructuredDataFAQ {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map(faq => ({
+      '@type': 'Question',
+      name: faq.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: faq.answer
+      }
+    }))
+  };
+}
+
+// Generate Article Schema
+export function generateArticleSchema(data: {
+  title: string;
+  description: string;
+  url: string;
+  publishDate: string;
+  modifiedDate?: string;
+  image?: string;
+  wordCount?: number;
+  category?: string;
+  keywords?: string[];
+}): StructuredDataArticle {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: data.title,
+    description: data.description,
+    author: {
+      '@type': 'Person',
+      name: 'Rudi K',
+      url: 'https://github.com/rudi-q',
+      sameAs: [
+        'https://github.com/rudi-q',
+        'https://peerlist.io/rudik'
+      ]
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'LeedPDF',
+      logo: {
+        '@type': 'ImageObject',
+        url: 'https://leed.my/logo.png'
+      }
+    },
+    datePublished: data.publishDate,
+    dateModified: data.modifiedDate || data.publishDate,
+    url: data.url,
+    image: data.image,
+    wordCount: data.wordCount,
+    articleSection: data.category,
+    keywords: data.keywords
+  };
+}
+
+// Generate Rating Schema (ready for when you have reviews)
+export function generateRatingSchema(rating: number, reviewCount: number): StructuredDataRating {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'AggregateRating',
+    itemReviewed: {
+      '@type': 'SoftwareApplication',
+      name: 'LeedPDF'
+    },
+    ratingValue: rating,
+    reviewCount: reviewCount,
+    bestRating: 5,
+    worstRating: 1
+  };
+}
+
 // SEO data for different pages
 export const pageSEOData: Record<string, Partial<SEOData>> = {
   '/': {
@@ -152,5 +285,20 @@ export const pageSEOData: Record<string, Partial<SEOData>> = {
     title: 'Download LeedPDF - Desktop & Mobile Apps',
     description: 'Download LeedPDF for desktop (Windows, Mac, Linux) or use it directly in your browser. Free PDF annotation tool available on all platforms.',
     url: 'https://leed.my/downloads'
-  }
+  },
+  '/features': {
+    title: 'LeedPDF Features - PDF Annotation Tools & Capabilities',
+    description: 'Discover all LeedPDF features: draw, annotate, highlight, add text, shapes, and notes to PDFs. Works on any device with mouse, touch, or stylus input.',
+    url: 'https://leed.my/features'
+  },
+  '/use-cases': {
+    title: 'LeedPDF Use Cases - Perfect for Students, Professionals & Researchers',
+    description: 'Discover how students, professionals, researchers, and teams use LeedPDF for PDF annotation, review, collaboration, and digital note-taking.',
+    url: 'https://leed.my/use-cases'
+  },
+  '/help': {
+    title: 'LeedPDF Help & Documentation - Complete User Guide',
+    description: 'Complete help documentation for LeedPDF. Learn how to annotate PDFs, use drawing tools, keyboard shortcuts, and advanced features.',
+    url: 'https://leed.my/help'
+  },
 };
