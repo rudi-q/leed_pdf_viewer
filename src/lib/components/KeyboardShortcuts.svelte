@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
-	import { browser } from '$app/environment';
+  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
+  import { browser } from '$app/environment';
 
-	export let isOpen = false;
+  export let isOpen = false;
   
   const dispatch = createEventDispatcher();
   
@@ -54,6 +54,7 @@
         { keys: ['7'], description: 'Switch to star' },
         { keys: ['8'], description: 'Switch to highlighter' },
         { keys: ['9'], description: 'Switch to sticky note' },
+        { keys: ['S'], description: 'Switch to stamps' },
       ]
     },
     {

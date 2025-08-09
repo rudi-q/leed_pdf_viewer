@@ -6,7 +6,7 @@ let Konva: any = null;
 
 export interface ShapeObject {
 	id: string;
-	type: 'text' | 'rectangle' | 'circle' | 'arrow' | 'star' | 'note';
+	type: 'text' | 'rectangle' | 'circle' | 'arrow' | 'star' | 'note' | 'stamp';
 	pageNumber: number;
 	x: number;
 	y: number;
@@ -21,6 +21,8 @@ export interface ShapeObject {
 	numPoints?: number; // For stars
 	innerRadius?: number; // For stars
 	outerRadius?: number; // For stars
+	stampId?: string; // For stamps
+	stampSvg?: string; // For stamps
 	relativeX: number; // 0-1 range for scaling
 	relativeY: number; // 0-1 range for scaling
 	relativeWidth?: number;
@@ -123,6 +125,14 @@ export class KonvaShapeEngine {
 				const pos = this.stage.getPointerPosition();
 				if (!pos) return;
 				this.addText(pos.x, pos.y);
+				return;
+			}
+
+			// Handle stamp tool - place stamp when clicking
+			if (this.currentTool === 'stamp' && e.target === this.stage) {
+				const pos = this.stage.getPointerPosition();
+				if (!pos) return;
+				this.addStamp(pos.x, pos.y);
 				return;
 			}
 
@@ -235,6 +245,53 @@ export class KonvaShapeEngine {
 				this.stage.container().style.cursor = this.currentTool === 'note' ? 'text' : 'default';
 			}
 		});
+
+		// Listen for ESC key to cancel new shapes/stamps/text
+		document.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape') {
+				this.cancelNewShape();
+			}
+		});
+	}
+
+	// Cancel new shape/stamp/text placement with ESC key
+	private cancelNewShape() {
+		if (!this.transformer || !this.layer) return;
+
+		// Get currently selected nodes
+		const selectedNodes = this.transformer.nodes();
+		if (selectedNodes.length === 0) return;
+
+		const selectedNode = selectedNodes[0];
+
+		// Check if this is a newly placed text with placeholder text
+		if (selectedNode instanceof Konva.Text && selectedNode.text() === 'Click to edit') {
+			console.log('Canceling new text creation via ESC');
+			selectedNode.destroy();
+			this.transformer.nodes([]);
+			return;
+		}
+
+		// Check if this is a newly placed sticky note with placeholder text
+		if (selectedNode instanceof Konva.Group && selectedNode.textNode) {
+			const textNode = selectedNode.textNode;
+			if (textNode.text() === 'Click to edit') {
+				console.log('Canceling new sticky note creation via ESC');
+				selectedNode.destroy();
+				this.transformer.nodes([]);
+				return;
+			}
+		}
+
+		// Check if this is a newly placed stamp (has stampId property and is selected)
+		if (selectedNode instanceof Konva.Group && selectedNode.stampId) {
+			// We consider a stamp "new" if it's currently selected and was just placed
+			// This is similar to how text works - stamps auto-select after placement
+			console.log('Canceling new stamp placement via ESC');
+			selectedNode.destroy();
+			this.transformer.nodes([]);
+			return;
+		}
 	}
 
 	async setTool(tool: DrawingTool | 'text' | 'rectangle' | 'circle' | 'arrow' | 'star' | 'note') {
@@ -492,6 +549,156 @@ export class KonvaShapeEngine {
 		return noteGroup;
 	}
 
+	async addStamp(
+		x: number,
+		y: number,
+		stampId?: string,
+		stampSvg?: string,
+		width: number = 48,
+		height: number = 48
+	) {
+		await this.ensureInitialized();
+		if (!this.isInitialized || !Konva) return;
+
+		// Import drawing store functions to get current stamp
+		const { drawingState, getStampById } = await import('../stores/drawingStore');
+		const drawingStateValue = drawingState;
+		let currentStampValue: any;
+		drawingStateValue.subscribe((value) => {
+			currentStampValue = value;
+		})();
+		const currentStampId = stampId || currentStampValue?.stampId || 'star';
+		const stampData = getStampById(currentStampId);
+
+		if (!stampData) {
+			console.warn('No stamp data found for stampId:', currentStampId);
+			return;
+		}
+
+		// Create a group to hold the stamp
+		const stampGroup = new Konva.Group({
+			x: x - width / 2, // Center the stamp on the click position
+			y: y - height / 2,
+			width,
+			height,
+			draggable: true,
+			id: `stamp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+		});
+
+		// Parse the SVG and create Konva shapes
+		const svgString = stampSvg || stampData.svg;
+		const parser = new DOMParser();
+		const svgDoc = parser.parseFromString(svgString, 'image/svg+xml');
+		const svgElement = svgDoc.documentElement;
+
+		// Get viewBox or use default dimensions
+		const viewBox = svgElement.getAttribute('viewBox');
+		let svgWidth = 100;
+		let svgHeight = 100;
+
+		if (viewBox) {
+			const [, , w, h] = viewBox.split(' ').map(Number);
+			svgWidth = w;
+			svgHeight = h;
+		}
+
+		// Calculate scale to fit desired size
+		const scaleX = width / svgWidth;
+		const scaleY = height / svgHeight;
+		const scale = Math.min(scaleX, scaleY);
+
+		// Convert SVG elements to Konva shapes
+		const convertSvgElement = (element: Element, parentGroup: any) => {
+			switch (element.tagName.toLowerCase()) {
+				case 'rect': {
+					const rect = new Konva.Rect({
+						x: parseFloat(element.getAttribute('x') || '0') * scale,
+						y: parseFloat(element.getAttribute('y') || '0') * scale,
+						width: parseFloat(element.getAttribute('width') || '0') * scale,
+						height: parseFloat(element.getAttribute('height') || '0') * scale,
+						fill: element.getAttribute('fill') || 'black',
+						stroke: element.getAttribute('stroke') || undefined,
+						strokeWidth: parseFloat(element.getAttribute('stroke-width') || '0') * scale,
+						cornerRadius: parseFloat(element.getAttribute('rx') || '0') * scale
+					});
+					parentGroup.add(rect);
+					break;
+				}
+				case 'circle': {
+					const circle = new Konva.Circle({
+						x: parseFloat(element.getAttribute('cx') || '0') * scale,
+						y: parseFloat(element.getAttribute('cy') || '0') * scale,
+						radius: parseFloat(element.getAttribute('r') || '0') * scale,
+						fill: element.getAttribute('fill') || 'black',
+						stroke: element.getAttribute('stroke') || undefined,
+						strokeWidth: parseFloat(element.getAttribute('stroke-width') || '0') * scale
+					});
+					parentGroup.add(circle);
+					break;
+				}
+				case 'ellipse': {
+					const ellipse = new Konva.Ellipse({
+						x: parseFloat(element.getAttribute('cx') || '0') * scale,
+						y: parseFloat(element.getAttribute('cy') || '0') * scale,
+						radiusX: parseFloat(element.getAttribute('rx') || '0') * scale,
+						radiusY: parseFloat(element.getAttribute('ry') || '0') * scale,
+						fill: element.getAttribute('fill') || 'black',
+						stroke: element.getAttribute('stroke') || undefined,
+						strokeWidth: parseFloat(element.getAttribute('stroke-width') || '0') * scale
+					});
+					parentGroup.add(ellipse);
+					break;
+				}
+				case 'path': {
+					const pathData = element.getAttribute('d') || '';
+					// For simple paths, we'll use Konva's Path shape
+					const path = new Konva.Path({
+						data: pathData,
+						fill: element.getAttribute('fill') || 'black',
+						stroke: element.getAttribute('stroke') || undefined,
+						strokeWidth: parseFloat(element.getAttribute('stroke-width') || '0') * scale,
+						scaleX: scale,
+						scaleY: scale
+					});
+					parentGroup.add(path);
+					break;
+				}
+				default:
+					// Skip unsupported elements like defs, filter, etc.
+					break;
+			}
+		};
+
+		// Process all child elements
+		const processChildren = (parent: Element, konvaGroup: any) => {
+			Array.from(parent.children).forEach((child) => {
+				convertSvgElement(child, konvaGroup);
+				// Recursively process children
+				if (child.children.length > 0) {
+					processChildren(child, konvaGroup);
+				}
+			});
+		};
+
+		processChildren(svgElement, stampGroup);
+
+		// Store stamp metadata
+		stampGroup.stampId = currentStampId;
+		stampGroup.stampSvg = svgString;
+
+		this.layer.add(stampGroup);
+
+		// Auto-select new stamp
+		this.transformer.nodes([stampGroup]);
+
+		// Trigger save event
+		if (this.onShapeAdded) {
+			this.onShapeAdded(this.serializeShape(stampGroup));
+		}
+
+		return stampGroup;
+	}
+
 	private editText(textNode: any) {
 		if (!this.stage) return;
 		const textPosition = textNode.getAbsolutePosition();
@@ -509,6 +716,7 @@ export class KonvaShapeEngine {
 		input.style.fontFamily = textNode.fontFamily();
 		input.style.border = '2px solid #4A90E2';
 		input.style.background = 'white';
+		input.style.color = '#2D3748';
 		input.style.outline = 'none';
 		input.style.zIndex = '1000';
 
@@ -591,6 +799,7 @@ export class KonvaShapeEngine {
 		textarea.style.fontFamily = textNode.fontFamily();
 		textarea.style.border = '2px solid #4A90E2';
 		textarea.style.background = '#FFF59D';
+		textarea.style.color = '#2D3748';
 		textarea.style.outline = 'none';
 		textarea.style.resize = 'none';
 		textarea.style.zIndex = '1000';
@@ -765,6 +974,18 @@ export class KonvaShapeEngine {
 				stroke: backgroundNode.stroke(),
 				strokeWidth: backgroundNode.strokeWidth()
 			};
+		} else if (shape instanceof Konva.Group && shape.stampId) {
+			// This is a stamp group
+			return {
+				...baseObject,
+				type: 'stamp' as const,
+				width: shape.width(),
+				height: shape.height(),
+				relativeWidth: shape.width() / stageWidth,
+				relativeHeight: shape.height() / stageHeight,
+				stampId: shape.stampId,
+				stampSvg: shape.stampSvg
+			};
 		}
 
 		// Handle unknown shape types more gracefully
@@ -792,7 +1013,10 @@ export class KonvaShapeEngine {
 		// Clear existing shapes
 		this.layer.find('.shape, .text').forEach((node: any) => node.destroy());
 
-		shapes.forEach((shapeData) => {
+		// Process regular shapes first
+		for (const shapeData of shapes) {
+			if (shapeData.type === 'stamp') continue; // Handle stamps separately
+
 			let shape: any;
 
 			switch (shapeData.type) {
@@ -907,11 +1131,32 @@ export class KonvaShapeEngine {
 					shape.backgroundNode = noteBackground;
 					break;
 				default:
-					return;
+					continue;
 			}
 
 			this.layer.add(shape);
-		});
+		}
+
+		// Process stamps separately with async handling
+		for (const shapeData of shapes) {
+			if (shapeData.type !== 'stamp') continue;
+
+			// Recreate stamp from saved data
+			const stampGroup = await this.addStamp(
+				shapeData.x + (shapeData.width || 48) / 2, // Convert back from centered position
+				shapeData.y + (shapeData.height || 48) / 2,
+				shapeData.stampId,
+				shapeData.stampSvg,
+				shapeData.width || 48,
+				shapeData.height || 48
+			);
+			// Set the correct ID and position for loaded stamp
+			if (stampGroup) {
+				stampGroup.id(shapeData.id);
+				stampGroup.x(shapeData.x);
+				stampGroup.y(shapeData.y);
+			}
+		}
 	}
 
 	async resize(width: number, height: number) {

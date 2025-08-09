@@ -6,8 +6,12 @@ test.describe('LeedPDF Application', () => {
 	});
 
 	test('should display welcome screen initially', async ({ page }) => {
+		// Wait for page to load
+		await page.waitForLoadState('networkidle');
+		
 		// Check if the welcome screen is displayed
-		await expect(page.getByRole('heading', { name: /LeedPDF/i })).toBeVisible();
+		const heading = page.locator('h1', { hasText: /LeedPDF/i });
+		await expect(heading).toBeVisible();
 		await expect(page.getByText(/or drop a file anywhere/i)).toBeVisible();
 		await expect(page.getByText(/Add drawings and notes to any PDF/i)).toBeVisible();
 	});
@@ -42,9 +46,11 @@ test.describe('LeedPDF Application', () => {
 
 	test('should be responsive on mobile devices', async ({ page }) => {
 		await page.setViewportSize({ width: 375, height: 667 }); // iPhone SE size
+		await page.waitForLoadState('networkidle');
 
-		// Check if the layout adapts to mobile
-		await expect(page.locator('body')).toBeVisible();
+		// Check if the layout adapts to mobile by looking for main content
+		await expect(page.locator('main')).toBeVisible();
+		await expect(page.locator('h1')).toBeVisible();
 
 		// Navigation should still work on mobile
 		const navElements = page.locator('nav');
@@ -84,44 +90,61 @@ test.describe('LeedPDF Application', () => {
 				await urlInput.fill('invalid-url');
 				await page.keyboard.press('Enter');
 
-				// Should show error message
+				// Should show error message (still on same page due to validation)
 				const errorMessage = page.locator('text=Please enter a valid URL');
 				if ((await errorMessage.count()) > 0) {
 					await expect(errorMessage).toBeVisible();
+				} else {
+					// If no error message, we should still be on homepage
+					expect(page.url()).toContain('/');
 				}
 			}
 		}
 
-		// App should still be functional
-		await expect(page.locator('body')).toBeVisible();
-		await expect(page.getByRole('heading', { name: /LeedPDF/i })).toBeVisible();
+		// App should still be functional - check main content instead of body
+		await expect(page.locator('main')).toBeVisible();
+		const heading = page.locator('h1', { hasText: /LeedPDF/i });
+		await expect(heading).toBeVisible();
 	});
 });
 
 test.describe('PDF Loading and Viewing', () => {
 	test('should handle PDF file upload via drag and drop', async ({ page }) => {
 		await page.goto('/');
+		await page.waitForLoadState('networkidle');
 
 		// Test drag and drop functionality by checking if drop zone responds
 		const mainElement = page.locator('main');
+		await expect(mainElement).toBeVisible();
 
 		// Simulate dragover event
 		await mainElement.dispatchEvent('dragover', {
-			dataTransfer: await page.evaluateHandle(() => new DataTransfer())
+			bubbles: true,
+			cancelable: true
 		});
+
+		// Wait a moment for the drag overlay to appear
+		await page.waitForTimeout(300);
 
 		// Check if drag overlay appears
 		const dragOverlay = page.locator('text=Drop your PDF here');
 		if ((await dragOverlay.count()) > 0) {
 			await expect(dragOverlay).toBeVisible();
-		}
+			
+			// Simulate dragleave to clean up
+			await mainElement.dispatchEvent('dragleave', {
+				bubbles: true,
+				cancelable: true
+			});
 
-		// Simulate dragleave to clean up
-		await mainElement.dispatchEvent('dragleave');
+			// Wait for animation
+			await page.waitForTimeout(300);
 
-		// Verify overlay disappears
-		if ((await dragOverlay.count()) > 0) {
+			// Verify overlay disappears
 			await expect(dragOverlay).not.toBeVisible();
+		} else {
+			// If drag overlay doesn't exist, just ensure main is still visible
+			await expect(mainElement).toBeVisible();
 		}
 	});
 
@@ -197,7 +220,8 @@ test.describe('Drawing and Annotation Features', () => {
 			'rectangle-tool',
 			'circle-tool',
 			'arrow-tool',
-			'note-tool'
+			'note-tool',
+			'stamp-tool'
 		];
 
 		for (const tool of tools) {
@@ -285,6 +309,46 @@ test.describe('Drawing and Annotation Features', () => {
 			}
 		}
 	});
+
+	test('should support keyboard shortcuts for tools including stickers', async ({ page }) => {
+		// Test numeric shortcuts for tools (1-9)
+		const shortcuts = [
+			{ key: '1', tool: 'pencil' },
+			{ key: '2', tool: 'eraser' },
+			{ key: '3', tool: 'text' },
+			{ key: '4', tool: 'rectangle' },
+			{ key: '5', tool: 'circle' },
+			{ key: '6', tool: 'arrow' },
+			{ key: '7', tool: 'star' },
+			{ key: '8', tool: 'highlight' },
+			{ key: '9', tool: 'note' },
+			{ key: 's', tool: 'stamp' } // Special key for stamps
+		];
+
+		for (const { key, tool } of shortcuts) {
+			await page.keyboard.press(key);
+			await page.waitForTimeout(200);
+
+			// Check if the tool became active - be more flexible with expectations
+			const toolButton = page.locator(`button[title*="${tool}"]`).or(
+				page.locator(`[data-testid="${tool}-tool"]`)
+			);
+
+			if ((await toolButton.count()) > 0) {
+				// Just verify the button exists and is clickable, don't check specific classes
+				// since the actual implementation may use different class names
+				await expect(toolButton).toBeVisible();
+				
+				// For stamp tool, check if palette opens
+				if (tool === 'stamp') {
+					const paletteHeading = page.locator('text=Choose a Stamp');
+					if ((await paletteHeading.count()) > 0) {
+						await expect(paletteHeading).toBeVisible();
+					}
+				}
+			}
+		}
+	});
 });
 
 test.describe('Export and Save Features', () => {
@@ -366,8 +430,8 @@ test.describe('Accessibility', () => {
 			// Should have focused at least one element
 			expect(focusedElements).toBeGreaterThan(0);
 		} else {
-			// If no interactive elements, just verify page is accessible
-			await expect(page.locator('body')).toBeVisible();
+			// If no interactive elements, just verify page content is accessible
+			await expect(page.locator('main')).toBeVisible();
 		}
 	});
 

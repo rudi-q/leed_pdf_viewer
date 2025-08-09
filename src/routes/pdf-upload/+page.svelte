@@ -15,21 +15,17 @@
   import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
   import { redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
-  import { isDarkMode } from '$lib/stores/themeStore';
 
   const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
 
   let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
   let dragOver = false;
-  let showWelcome = true;
   let showShortcuts = false;
   let isFullscreen = false;
   let showThumbnails = false;
-  let showUrlInput = false;
-  let urlInput = '';
-  let urlError = '';
   let focusMode = false;
+  let isLoading = true;
 
   // Debug variables
   let debugVisible = false;
@@ -41,13 +37,113 @@
   let maxFileLoadingAttempts = 10;
   let fileLoadingTimer: number | null = null;
 
-  // Redirect from /?pdf=URL to /pdf/URL for better URL structure
+  // Check if we have a file from the previous page or URL parameters
   $: if (browser && $page && $page.url) {
     const pdfUrl = $page.url.searchParams.get('pdf');
-    if (pdfUrl) {
-      console.log('[PDF URL] Redirecting to new URL structure:', pdfUrl);
-      const encodedUrl = encodeURIComponent(pdfUrl);
-      goto(`/pdf/${encodedUrl}`);
+    if (pdfUrl && !currentFile) {
+      console.log('[PDF Upload Route] Found PDF parameter:', pdfUrl);
+      handlePdfUrlLoad(pdfUrl);
+    }
+  }
+
+  // Check for uploaded file data from sessionStorage
+  onMount(() => {
+    // Check if we have file data in sessionStorage
+    const tempFileData = sessionStorage.getItem('tempPdfFile');
+    if (tempFileData) {
+      console.log('Found uploaded file in sessionStorage');
+      try {
+        const fileData = JSON.parse(tempFileData);
+        // Reconstruct File object from stored data
+        const uint8Array = new Uint8Array(fileData.data);
+        const reconstructedFile = new File([uint8Array], fileData.name, {
+          type: fileData.type
+        });
+        
+        currentFile = reconstructedFile;
+        isLoading = false;
+        
+        // Set current PDF for auto-save functionality
+        setCurrentPDF(reconstructedFile.name, reconstructedFile.size);
+        
+        // Clear the temporary data
+        sessionStorage.removeItem('tempPdfFile');
+        console.log('File loaded successfully from sessionStorage');
+      } catch (error) {
+        console.error('Error parsing file data from sessionStorage:', error);
+        goto('/');
+      }
+    } else {
+      // If no file, redirect back to home
+      console.log('No file found in sessionStorage, redirecting to home');
+      goto('/');
+    }
+
+    // Setup all the event listeners and handlers
+    setupEventListeners();
+    
+    return cleanup;
+  });
+
+  function setupEventListeners() {
+    console.log('[PDF Upload Route] Setting up event listeners');
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    // Strategy 1: Immediate checks for Tauri file associations
+    if (isTauri) {
+      console.log('Starting immediate file checks...');
+      checkForPendingFiles();
+      checkFileAssociations();
+    }
+
+    // Strategy 2: Event listeners for Tauri
+    if (isTauri) {
+      console.log('Setting up Tauri event listeners...');
+
+      const unlistenFileOpened = listen('file-opened', (event) => {
+        console.log('*** FILE-OPENED EVENT RECEIVED ***');
+        console.log('Event payload:', event.payload);
+        handleFileFromCommandLine(event.payload as string);
+      });
+
+      const unlistenStartupReady = listen('startup-file-ready', (event) => {
+        console.log('*** STARTUP-FILE-READY EVENT RECEIVED ***');
+        console.log('Event payload:', event.payload);
+        handleFileFromCommandLine(event.payload as string);
+      });
+
+      const unlistenDebug = listen('debug-info', (event) => {
+        console.log('TAURI DEBUG:', event.payload);
+      });
+
+      registerDeepLinkHandler();
+
+      // Store cleanup functions for later
+      window.__pdfUploadCleanup = {
+        unlistenFileOpened,
+        unlistenStartupReady,
+        unlistenDebug
+      };
+    }
+
+    console.log('✅ All file loading strategies initialized');
+  }
+
+  function cleanup() {
+    console.log('[PDF Upload Route] Cleaning up');
+    document.removeEventListener('fullscreenchange', handleFullscreenChange);
+
+    if (fileLoadingTimer) {
+      clearInterval(fileLoadingTimer);
+    }
+
+    // Clean up Tauri event listeners
+    if (window.__pdfUploadCleanup) {
+      const { unlistenFileOpened, unlistenStartupReady, unlistenDebug } = window.__pdfUploadCleanup;
+      unlistenFileOpened.then((fn: () => void) => fn()).catch(console.error);
+      unlistenStartupReady.then((fn: () => void) => fn()).catch(console.error);
+      unlistenDebug.then((fn: () => void) => fn()).catch(console.error);
+      delete window.__pdfUploadCleanup;
     }
   }
 
@@ -68,22 +164,13 @@
       return;
     }
 
-    console.log('Storing file and navigating to pdf-upload route');
-    // Store file in sessionStorage temporarily
-    const fileReader = new FileReader();
-    fileReader.onload = (e) => {
-      const arrayBuffer = e.target?.result as ArrayBuffer;
-      const fileData = {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        data: Array.from(new Uint8Array(arrayBuffer)) // Convert to array for JSON storage
-      };
-      sessionStorage.setItem('tempPdfFile', JSON.stringify(fileData));
-      console.log('File stored in sessionStorage, navigating...');
-      goto('/pdf-upload');
-    };
-    fileReader.readAsArrayBuffer(file);
+    console.log('Setting currentFile');
+    currentFile = file;
+    isLoading = false;
+
+    // Set current PDF for auto-save functionality
+    setCurrentPDF(file.name, file.size);
+    console.log('Updated state:', { currentFile: !!currentFile });
   }
 
   function isValidPdfUrl(url: string): boolean {
@@ -122,20 +209,8 @@
 
   async function handleDeepLinkFile(filePath: string) {
     console.log('Handling deep link file:', filePath);
-
-    // For now, we'll just show an alert with the file path
-    // In a real implementation, you might want to:
-    // 1. Check if the file exists
-    // 2. Validate it's a PDF
-    // 3. Load it into your PDF viewer
-
     await message(`Deep link received for file: ${filePath}`, 'LeedPDF - Deep Link');
-
-    // You could potentially navigate to a URL with the file path
-    // or implement file reading logic here
   }
-
-  // Replace your handleFileFromCommandLine function with this enhanced debug version
 
   async function handleFileFromCommandLine(filePath: string): Promise<boolean> {
     console.log('*** HANDLING FILE FROM COMMAND LINE ***');
@@ -160,7 +235,7 @@
       debugResults += `\n✅ Step 2: Cleaned path: ${cleanPath}`;
 
       // Step 3: Extract filename
-      const fileName = cleanPath.split(/[\\/]/).pop() || 'document.pdf';
+      const fileName = cleanPath.split(/[\\\/]/).pop() || 'document.pdf';
       debugResults += `\n✅ Step 3: Extracted filename: ${fileName}`;
 
       // Step 4: Check if it's a PDF
@@ -170,7 +245,7 @@
       }
       debugResults += '\n✅ Step 4: PDF file check passed';
 
-      // Step 5: Try to read the file (this is probably where it fails)
+      // Step 5: Try to read the file
       debugResults += '\n🔄 Step 5: Reading file...';
       let fileData: Uint8Array;
       try {
@@ -231,10 +306,10 @@
       }
       debugResults += '\n✅ Step 8: Size check passed';
 
-      // Step 9: Set state (this should hide welcome screen and show PDF)
+      // Step 9: Set state
       debugResults += '\n🔄 Step 9: Setting application state...';
       currentFile = file;
-      showWelcome = false;
+      isLoading = false;
       debugResults += '\n✅ Step 9: State updated';
 
       // Step 10: Set PDF for auto-save
@@ -350,9 +425,9 @@
     const fixedUrl = fixDropboxUrl(url);
     console.log('Fixed URL:', fixedUrl);
 
-    console.log('Setting currentFile and hiding welcome');
+    console.log('Setting currentFile');
     currentFile = fixedUrl;
-    showWelcome = false;
+    isLoading = false;
 
     // Set current PDF for auto-save functionality
     const filename = extractFilenameFromUrl(fixedUrl);
@@ -520,17 +595,17 @@
           event.preventDefault();
           focusMode = !focusMode;
           break;
-		case 's':
-		case 'S':
-		  event.preventDefault();
-		  setTool('stamp');
-		  // Also open the stamp palette
-		  // Dispatch event to the toolbar to show stamp palette
-		  const stampButton = document.querySelector('.stamp-palette-container button');
-		  if (stampButton) {
-		    (stampButton as HTMLButtonElement).click();
-		  }
-		  break;
+        case 's':
+        case 'S':
+          event.preventDefault();
+          setTool('stamp');
+          // Also open the stamp palette
+          // Dispatch event to the toolbar to show stamp palette
+          const stampButton = document.querySelector('.stamp-palette-container button');
+          if (stampButton) {
+            (stampButton as HTMLButtonElement).click();
+          }
+          break;
         case 'F11':
           event.preventDefault();
           toggleFullscreen();
@@ -636,115 +711,9 @@
     isFullscreen = !!document.fullscreenElement;
   }
 
-  function handleViewFromLink() {
-    showUrlInput = true;
-    urlError = '';
-    urlInput = '';
+  function goHome() {
+    goto('/');
   }
-
-  function handleUrlSubmit() {
-    const trimmedUrl = urlInput.trim();
-    if (!trimmedUrl) {
-      urlError = 'Please enter a URL';
-      return;
-    }
-
-    if (!isValidPdfUrl(trimmedUrl)) {
-      urlError = 'Please enter a valid URL starting with http:// or https://';
-      return;
-    }
-
-    // Navigate to the new PDF route structure
-    goto(`/pdf/${encodeURIComponent(trimmedUrl)}`);
-  }
-
-  function handleUrlCancel() {
-    showUrlInput = false;
-    urlInput = '';
-    urlError = '';
-  }
-
-  function handleUrlKeydown(event: KeyboardEvent) {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      handleUrlSubmit();
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      handleUrlCancel();
-    }
-  }
-
-  async function handleCreateBlankPDF() {
-    try {
-      console.log('Creating blank PDF...');
-      const blankPdfFile = await createBlankPDF();
-      console.log('Blank PDF created:', blankPdfFile.name, blankPdfFile.size, 'bytes');
-      
-      console.log('Storing blank PDF and navigating to pdf-upload route');
-      // Store file in sessionStorage temporarily
-      const arrayBuffer = await blankPdfFile.arrayBuffer();
-      const fileData = {
-        name: blankPdfFile.name,
-        size: blankPdfFile.size,
-        type: blankPdfFile.type,
-        data: Array.from(new Uint8Array(arrayBuffer))
-      };
-      sessionStorage.setItem('tempPdfFile', JSON.stringify(fileData));
-      console.log('Blank PDF stored in sessionStorage, navigating...');
-      goto('/pdf-upload');
-    } catch (error) {
-      console.error('Failed to create blank PDF:', error);
-      alert('Failed to create blank PDF. Please try again.');
-    }
-  }
-
-  // Enhanced onMount with comprehensive file loading
-  onMount(() => {
-    console.log('[onMount] Component mounted - setting up comprehensive file loading');
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-
-    // Strategy 1: Immediate checks
-    console.log('Starting immediate file checks...');
-    checkForPendingFiles();
-    checkFileAssociations();
-
-    // Strategy 2: Event listeners
-    console.log('Setting up event listeners...');
-
-    const unlistenFileOpened = listen('file-opened', (event) => {
-      console.log('*** FILE-OPENED EVENT RECEIVED ***');
-      console.log('Event payload:', event.payload);
-      handleFileFromCommandLine(event.payload as string);
-    });
-
-    const unlistenStartupReady = listen('startup-file-ready', (event) => {
-      console.log('*** STARTUP-FILE-READY EVENT RECEIVED ***');
-      console.log('Event payload:', event.payload);
-      handleFileFromCommandLine(event.payload as string);
-    });
-
-    const unlistenDebug = listen('debug-info', (event) => {
-      console.log('TAURI DEBUG:', event.payload);
-    });
-
-    registerDeepLinkHandler();
-
-    console.log('✅ All file loading strategies initialized');
-
-    return () => {
-      console.log('[onDestroy] Cleaning up file loading systems');
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-
-      if (fileLoadingTimer) {
-        clearInterval(fileLoadingTimer);
-      }
-
-      // Clean up all event listeners
-      unlistenFileOpened.then(fn => fn()).catch(console.error);
-      unlistenStartupReady.then(fn => fn()).catch(console.error);
-      unlistenDebug.then(fn => fn()).catch(console.error);
-    };
-  });
 </script>
 
 <svelte:window on:keydown={handleKeyboard} on:wheel={handleWheel} />
@@ -756,180 +725,31 @@
   on:dragover={handleDragOver}
   on:dragleave={handleDragLeave}
 >
-  {#if !focusMode}
-    <Toolbar
-      onFileUpload={handleFileUpload}
-      onPreviousPage={() => pdfViewer?.previousPage()}
-      onNextPage={() => pdfViewer?.nextPage()}
-      onZoomIn={() => pdfViewer?.zoomIn()}
-      onZoomOut={() => pdfViewer?.zoomOut()}
-      onResetZoom={() => pdfViewer?.resetZoom()}
-      onFitToWidth={() => pdfViewer?.fitToWidth()}
-      onFitToHeight={() => pdfViewer?.fitToHeight()}
-      onExportPDF={handleExportPDF}
-      {showThumbnails}
-      onToggleThumbnails={handleToggleThumbnails}
-    />
-  {/if}
-
-  <div class="w-full h-full" class:pt-12={!focusMode}>
-    {#if showWelcome}
-      <div class="h-full flex flex-col">
-        <!-- Peerlist embed at the very top -->
-        <div class="flex justify-center pt-8 pb-4">
-          <a href="https://peerlist.io/rudik/project/leedpdf" target="_blank" rel="noreferrer">
-            <img
-              src={`https://peerlist.io/api/v1/projects/embed/PRJHBARD8EREAG6RM1B78ODJOGA68D?showUpvote=true&theme=${$isDarkMode ? 'dark' : 'light'}`}
-              alt="LeedPDF"
-              style="width: auto; height: 72px;"
-              class="mx-auto"
-            />
-          </a>
-        </div>
-        
-        <!-- Main content, centered in remaining space -->
-        <div class="flex-1 flex items-center justify-center">
-          <div class="text-center max-w-md mx-auto px-6">
-            <div class="mb-6 animate-bounce-soft">
-            <img src="/logo.png" alt="LeedPDF" class="w-24 h-24 mx-auto dark:hidden object-contain" />
-            <img src="/logo-dark.png" alt="LeedPDF" class="w-24 h-24 mx-auto hidden dark:block object-contain" />
-          </div>
-
-          <h1 class="text-4xl text-charcoal dark:text-gray-100 mb-4" style="font-family: 'Dancing Script', cursive; font-weight: 600;">LeedPDF - Free PDF Annotation Tool</h1>
-          <h2 class="text-lg text-slate dark:text-gray-300 mb-6 font-normal">
-            Add drawings and notes to any PDF. <br />
-            <i>Works with mouse, touch, or stylus - completely free and private.</i>
-          </h2>
-
-          <div class="space-y-4 flex flex-col items-center">
-            <div class="flex flex-col sm:flex-row gap-4 justify-center">
-              <button
-                class="primary-button text-lg px-6 py-4 w-56 h-16 flex items-center justify-center"
-                on:click={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
-              >
-                Choose PDF File
-              </button>
-
-              <button
-                class="secondary-button text-lg px-6 py-4 w-56 h-16 flex items-center justify-center"
-                on:click={handleCreateBlankPDF}
-                title="Create a blank PDF page to start drawing and taking notes"
-              >
-                Start Fresh
-              </button>
-            </div>
-
-            <!-- DEBUG BUTTON -->
-           <!-- <button
-              class="secondary-button text-sm px-4 py-2 bg-yellow-200 border-yellow-400"
-              on:click={async () => {
-                debugVisible = true;
-                debugResults = 'Testing...';
-
-                try {
-                  // Test 1: Check if invoke works
-                  debugResults = 'Step 1: Testing invoke function...';
-
-                  const pdfFiles = await invoke('check_file_associations') as string[];
-                  debugResults = `Step 2: SUCCESS! Found files: ${JSON.stringify(pdfFiles)}`;
-
-                  if (pdfFiles && pdfFiles.length > 0) {
-                    // Test 2: Try to load the file
-                    debugResults += '\nStep 3: Trying to load file...';
-                    await handleFileFromCommandLine(pdfFiles[0]);
-                    debugResults += '\nStep 4: File loading attempted!';
-                  } else {
-                    debugResults += '\nStep 3: No files found to load';
-                  }
-
-                } catch (error: unknown) {
-                  const errorMessage = error instanceof Error ? error.message : String(error);
-                  debugResults = `ERROR: ${errorMessage}`;
-                }
-              }}
-            >
-              🔧 DEBUG: Test File Loading
-            </button>-->
-
-            <div class="text-sm text-slate">
-              <span>or</span>
-            </div>
-
-            {#if !showUrlInput}
-            <div class="flex flex-col sm:flex-row gap-4 justify-center">
-              <button
-                class="secondary-button text-lg px-6 py-4 w-56 h-16 flex items-center justify-center"
-                on:click={handleViewFromLink}
-              >
-                Open from URL
-              </button>
-              {#if browser && !isTauri}
-                <a
-                  href="/downloads"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="secondary-button text-lg px-6 py-4 w-56 h-16 flex items-center justify-center text-center no-underline"
-                >
-                  Download LeedPDF
-                </a>
-              {/if}
-            </div>
-            {:else}
-              <div class="space-y-3 animate-slide-up">
-                <div class="flex gap-2">
-                  <input
-                    type="url"
-                    bind:value={urlInput}
-                    on:keydown={handleUrlKeydown}
-                    placeholder="Paste PDF URL (Dropbox links supported)"
-                    class="flex-1 px-4 py-3 rounded-xl border border-charcoal/20 bg-white/80 text-charcoal placeholder-slate focus:outline-none focus:ring-2 focus:ring-sage/50 focus:border-sage transition-all"
-                  />
-                </div>
-                <div class="flex gap-2 justify-center">
-                  <button
-                    class="primary-button px-6 py-2"
-                    on:click={handleUrlSubmit}
-                  >
-                    Load PDF
-                  </button>
-                  <button
-                    class="secondary-button px-6 py-2"
-                    on:click={handleUrlCancel}
-                  >
-                    Cancel
-                  </button>
-                </div>
-                {#if urlError}
-                  <p class="text-sm text-red-600 text-center animate-fade-in">
-                    {urlError}
-                  </p>
-                {/if}
-              </div>
-            {/if}
-
-            <p class="text-lg text-slate dark:text-gray-300 font-medium">
-              or drop a file anywhere
-            </p>
-
-            <!-- Debug results display -->
-            {#if debugVisible}
-              <div class="mt-4 p-4 bg-gray-100 rounded-lg text-sm max-w-md mx-auto">
-                <h4 class="font-bold mb-2">Debug Results:</h4>
-                <pre class="whitespace-pre-wrap text-xs">{debugResults}</pre>
-                <button
-                  class="mt-2 text-xs px-2 py-1 bg-gray-300 rounded"
-                  on:click={() => debugVisible = false}
-                >
-                  Close
-                </button>
-              </div>
-            {/if}
-          </div>
-
-        </div>
+  {#if isLoading}
+    <div class="h-full flex items-center justify-center">
+      <div class="text-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-sage mx-auto mb-4"></div>
+        <p class="text-lg text-charcoal dark:text-gray-300">Loading PDF...</p>
       </div>
     </div>
-    {:else}
+  {:else if currentFile}
+    {#if !focusMode}
+      <Toolbar
+        onFileUpload={handleFileUpload}
+        onPreviousPage={() => pdfViewer?.previousPage()}
+        onNextPage={() => pdfViewer?.nextPage()}
+        onZoomIn={() => pdfViewer?.zoomIn()}
+        onZoomOut={() => pdfViewer?.zoomOut()}
+        onResetZoom={() => pdfViewer?.resetZoom()}
+        onFitToWidth={() => pdfViewer?.fitToWidth()}
+        onFitToHeight={() => pdfViewer?.fitToHeight()}
+        onExportPDF={handleExportPDF}
+        {showThumbnails}
+        onToggleThumbnails={handleToggleThumbnails}
+      />
+    {/if}
+
+    <div class="w-full h-full" class:pt-12={!focusMode}>
       <div class="flex h-full">
         {#if showThumbnails}
           <PageThumbnails
@@ -942,37 +762,48 @@
           <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} />
         </div>
       </div>
-    {/if}
-  </div>
+    </div>
 
-  {#if dragOver}
-    <div class="absolute inset-0 bg-sage/20 backdrop-blur-sm flex items-center justify-center z-40">
-      <div class="text-center">
-        <div class="text-6xl mb-4">📄</div>
-        <h3 class="text-2xl font-bold text-charcoal mb-2">Drop your PDF here</h3>
-        <p class="text-slate">Release to start drawing</p>
+    {#if dragOver}
+      <div class="absolute inset-0 bg-sage/20 backdrop-blur-sm flex items-center justify-center z-40">
+        <div class="text-center">
+          <div class="text-6xl mb-4">📄</div>
+          <h3 class="text-2xl font-bold text-charcoal mb-2">Drop your new PDF here</h3>
+          <p class="text-slate">Release to replace current PDF</p>
+        </div>
       </div>
-    </div>
-  {/if}
+    {/if}
 
-  {#if !focusMode}
-    <div class="absolute bottom-4 right-4 text-xs text-charcoal/60 dark:text-gray-300 flex items-center gap-2">
-      <span>Made by Rudi K</span>
-      <a aria-label="Credit" href="https://github.com/rudi-q/leed_pdf_viewer" class="text-charcoal/60 dark:text-gray-300 hover:text-sage dark:hover:text-sage transition-colors" target="_blank" rel="noopener" title="View on GitHub">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.30 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+    {#if !focusMode}
+      <div class="absolute bottom-4 right-4 text-xs text-charcoal/60 dark:text-gray-300 flex items-center gap-2">
+        <span>Made by Rudi K</span>
+        <a aria-label="Credit" href="https://github.com/rudi-q/leed_pdf_viewer" class="text-charcoal/60 dark:text-gray-300 hover:text-sage dark:hover:text-sage transition-colors" target="_blank" rel="noopener" title="View on GitHub">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.30 3.297-1.30.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+        </a>
+      </div>
+
+      <button
+        class="absolute bottom-4 left-4 text-xs text-charcoal/60 dark:text-gray-300 hover:text-charcoal dark:hover:text-white transition-colors flex items-center gap-1 bg-white/50 hover:bg-white/80 px-2 py-1 rounded-lg backdrop-blur-sm"
+        on:click={() => showShortcuts = true}
+        title="Show keyboard shortcuts (? or F1)"
+      >
+        <span>?</span>
+        <span>Help</span>
+      </button>
+
+      <button
+        class="absolute top-16 left-4 text-sm text-charcoal/60 dark:text-gray-300 hover:text-charcoal dark:hover:text-white transition-colors flex items-center gap-2 bg-white/50 hover:bg-white/80 px-3 py-2 rounded-lg backdrop-blur-sm"
+        on:click={goHome}
+        title="Go back to home"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z"/>
         </svg>
-      </a>
-    </div>
-
-    <button
-      class="absolute bottom-4 left-4 text-xs text-charcoal/60 dark:text-gray-300 hover:text-charcoal dark:hover:text-white transition-colors flex items-center gap-1 bg-white/50 hover:bg-white/80 px-2 py-1 rounded-lg backdrop-blur-sm"
-      on:click={() => showShortcuts = true}
-      title="Show keyboard shortcuts (? or F1)"
-    >
-      <span>?</span>
-      <span>Help</span>
-    </button>
+        <span>Home</span>
+      </button>
+    {/if}
   {/if}
 </main>
 
