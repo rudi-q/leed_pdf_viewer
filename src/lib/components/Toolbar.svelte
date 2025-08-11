@@ -32,6 +32,7 @@
     Layout,
     RectangleHorizontal,
     Redo2,
+    Search,
     Square,
     Star,
     Sticker,
@@ -480,6 +481,14 @@
         >
           <Redo2 size={12} />
         </button>
+
+        <a
+          href="/search"
+          class="tool-button flex items-center justify-center group"
+          title="Search PDF documents"
+        >
+          <Search size={14} class="group-hover:text-blue-600" />
+        </a>
 
         <button
           class="tool-button text-red-500 hover:bg-red-50"

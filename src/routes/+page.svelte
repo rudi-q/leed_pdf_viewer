@@ -666,10 +666,18 @@
 
   function handleUrlKeydown(event: KeyboardEvent) {
     if (event.key === 'Enter') {
-      event.preventDefault();
+      try {
+        event.preventDefault();
+      } catch (e) {
+        // Ignore passive event listener errors
+      }
       handleUrlSubmit();
     } else if (event.key === 'Escape') {
-      event.preventDefault();
+      try {
+        event.preventDefault();
+      } catch (e) {
+        // Ignore passive event listener errors
+      }
       handleUrlCancel();
     }
   }
@@ -862,6 +870,14 @@
               >
                 Open from URL
               </button>
+              
+              <a
+                href="/search"
+                class="secondary-button text-lg px-6 py-4 w-56 h-16 flex items-center justify-center text-center no-underline"
+              >
+                Search PDFs
+              </a>
+              
               {#if browser && !isTauri}
                 <a
                   href="/downloads"
