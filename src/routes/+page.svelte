@@ -775,8 +775,7 @@
   <div class="w-full h-full" class:pt-12={!focusMode}>
     {#if showWelcome}
       <div class="h-full flex flex-col">
-        <!-- Peerlist embed at the very top -->
-        <div class="flex justify-center pt-8 pb-4">
+      <!--  <div class="flex justify-center pt-8 pb-4">
           <a href="https://peerlist.io/rudik/project/leedpdf" target="_blank" rel="noreferrer">
             <img
               src={`https://peerlist.io/api/v1/projects/embed/PRJHBARD8EREAG6RM1B78ODJOGA68D?showUpvote=true&theme=${$isDarkMode ? 'dark' : 'light'}`}
@@ -785,7 +784,7 @@
               class="mx-auto"
             />
           </a>
-        </div>
+        </div>-->
         
         <!-- Main content, centered in remaining space -->
         <div class="flex-1 flex items-center justify-center">
