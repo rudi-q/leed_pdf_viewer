@@ -18,6 +18,7 @@
     undoStack
   } from '../stores/drawingStore';
   import { isDarkMode, toggleTheme } from '../stores/themeStore';
+  import { handleSearchLinkClick } from '../utils/navigationUtils';
   import StampPalette from './StampPalette.svelte';
   // Feather Icons
   import {
@@ -486,6 +487,7 @@
           href="/search"
           class="tool-button flex items-center justify-center group"
           title="Search PDF documents"
+          on:click={handleSearchLinkClick}
         >
           <Search size={14} class="group-hover:text-blue-600" />
         </a>

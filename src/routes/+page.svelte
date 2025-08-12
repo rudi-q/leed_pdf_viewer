@@ -16,6 +16,7 @@
   import { redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
   import { isDarkMode } from '$lib/stores/themeStore';
+  import { handleSearchLinkClick } from '$lib/utils/navigationUtils';
 
   const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
 
@@ -874,6 +875,7 @@
               <a
                 href="/search"
                 class="secondary-button text-lg px-6 py-4 w-56 h-16 flex items-center justify-center text-center no-underline"
+                on:click={handleSearchLinkClick}
               >
                 Search PDFs
               </a>

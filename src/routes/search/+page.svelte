@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
   import { Search, FileText, ExternalLink, Loader2, AlertCircle } from 'lucide-svelte';
+  import { isDarkMode } from '$lib/stores/themeStore';
 
   // Search state
   let searchQuery = '';
@@ -142,114 +143,111 @@
   <meta name="description" content="Search for PDF documents online using LeedPDF's powerful search engine. Find and view PDFs directly in your browser." />
 </svelte:head>
 
-<main class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-  <div class="container mx-auto px-4 py-8 max-w-4xl">
-    <!-- Header -->
-    <div class="text-center mb-8">
-      <div class="flex items-center justify-center mb-4">
-        <img src="/logo.png" alt="LeedPDF" class="w-12 h-12 mr-3 dark:hidden" />
-        <img src="/logo-dark.png" alt="LeedPDF" class="w-12 h-12 mr-3 hidden dark:block" />
-        <h1 class="text-3xl font-bold text-gray-800 dark:text-white">PDF Search</h1>
+<main class="w-full">
+  <!-- Header -->
+  <div class="header">
+    <div class="container">
+      <div class="header-content">
+        <img src="/favicon.png" alt="LeedPDF" class="logo dark:hidden" />
+        <img src="/logo-dark.png" alt="LeedPDF" class="logo hidden dark:block" />
+        <h1 class="title">PDF Search</h1>
+        <p class="subtitle">Search for PDF documents across the web and open them directly in LeedPDF</p>
       </div>
-      <p class="text-gray-600 dark:text-gray-300">Search for PDF documents across the web and open them directly in LeedPDF</p>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="container content">
+    <!-- Search Box -->
+    <div class="search-section">
+      <div class="search-container">
+        <Search class="search-icon" size={20} />
+        <input
+          type="text"
+          bind:value={searchQuery}
+          on:keydown={handleKeydown}
+          placeholder="Search for PDF documents..."
+          class="search-input"
+          disabled={isLoading}
+        />
+        <button
+          on:click={handleSearchSubmit}
+          disabled={isLoading || !searchQuery.trim()}
+          class="search-button"
+        >
+          {#if isLoading}
+            <Loader2 class="animate-spin" size={16} />
+          {:else}
+            Search
+          {/if}
+        </button>
+      </div>
     </div>
 
-    <!-- Search Box -->
-    <div class="mb-8">
-      <div class="relative max-w-2xl mx-auto">
-        <div class="relative">
-          <Search class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-          <input
-            type="text"
-            bind:value={searchQuery}
-            on:keydown={handleKeydown}
-            placeholder="Search for PDF documents..."
-            class="w-full pl-12 pr-32 py-4 text-lg border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white shadow-lg"
-            disabled={isLoading}
-          />
-          <button
-            on:click={handleSearchSubmit}
-            disabled={isLoading || !searchQuery.trim()}
-            class="absolute right-2 top-1/2 transform -translate-y-1/2 px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
-          >
-            {#if isLoading}
-              <Loader2 class="animate-spin" size={16} />
-            {:else}
-              Search
-            {/if}
-          </button>
-        </div>
-      </div>
-    </div>
 
     <!-- Search Results -->
     {#if error}
-      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-        <div class="flex items-center">
-          <AlertCircle class="text-red-600 dark:text-red-400 mr-2" size={20} />
-          <span class="text-red-800 dark:text-red-200">{error}</span>
-        </div>
+      <div class="error-card">
+        <div class="error-icon">⚠️</div>
+        <h2>Search Error</h2>
+        <p>{error}</p>
       </div>
     {/if}
 
     {#if hasSearched && !isLoading && !error}
       <!-- Results Summary -->
-      <div class="flex items-center justify-between mb-6 text-sm text-gray-600 dark:text-gray-400">
-        <div>
+      <div class="results-summary">
+        <div class="results-count">
           About {totalResults.toLocaleString()} results ({searchTime}ms)
         </div>
         {#if totalResults > 10}
-          <div>
+          <div class="results-pagination-info">
             Page {currentPage} of {Math.ceil(totalResults / 10)}
           </div>
         {/if}
       </div>
 
-      <!-- Results List -->
-      <div class="space-y-6">
+      <!-- Results Grid -->
+      <div class="results-grid">
         {#each searchResults as result}
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-6">
-            <div class="flex items-start justify-between">
-              <div class="flex-1">
-                <div class="flex items-center mb-2">
-                  <FileText class="text-red-600 mr-2" size={16} />
-                  <h3 class="text-lg font-semibold text-gray-900 dark:text-white line-clamp-2">
-                    {result.title || 'PDF Document'}
-                  </h3>
-                </div>
-                
-                <p class="text-gray-600 dark:text-gray-300 mb-3 line-clamp-3">
-                  {result.description || result.snippet || 'PDF document available for viewing'}
-                </p>
-                
-                <div class="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-3">
-                  <span class="mr-4">{extractDomain(result.url)}</span>
-                  <span class="mr-4">{formatFileSize(result.url)}</span>
-                  {#if result.date}
-                    <span>{new Date(result.date).toLocaleDateString()}</span>
-                  {/if}
-                </div>
-                
-                <div class="flex items-center space-x-3">
-                  <button
-                    on:click={() => openPDF(result.url)}
-                    class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-                  >
-                    <FileText size={16} class="mr-2" />
-                    Open in LeedPDF
-                  </button>
-                  
-                  <a
-                    href={result.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="inline-flex items-center px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-medium transition-colors"
-                  >
-                    <ExternalLink size={16} class="mr-2" />
-                    Open Original
-                  </a>
-                </div>
-              </div>
+          <div class="result-card">
+            <div class="result-header">
+              <FileText class="result-icon" size={16} />
+              <h3 class="result-title line-clamp-2">
+                {result.title || 'PDF Document'}
+              </h3>
+            </div>
+            
+            <p class="result-description line-clamp-3">
+              {result.description || result.snippet || 'PDF document available for viewing'}
+            </p>
+            
+            <div class="result-meta">
+              <span class="result-domain">{extractDomain(result.url)}</span>
+              <span class="result-size">{formatFileSize(result.url)}</span>
+              {#if result.date}
+                <span class="result-date">{new Date(result.date).toLocaleDateString()}</span>
+              {/if}
+            </div>
+            
+            <div class="result-actions">
+              <button
+                on:click={() => openPDF(result.url)}
+                class="primary-button button-with-icon"
+              >
+                <FileText size={16} />
+                Open in LeedPDF
+              </button>
+              
+              <a
+                href={result.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="secondary-button button-with-icon"
+              >
+                <ExternalLink size={16} />
+                Open Original
+              </a>
             </div>
           </div>
         {/each}
@@ -257,23 +255,25 @@
 
       <!-- Pagination -->
       {#if totalResults > 10}
-        <div class="flex items-center justify-center mt-8 space-x-4">
+        <div class="pagination">
           <button
             on:click={handlePreviousPage}
             disabled={currentPage <= 1 || isLoading}
-            class="px-4 py-2 bg-gray-200 hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed text-gray-800 rounded-lg font-medium transition-colors"
+            class="pagination-button"
+            class:disabled={currentPage <= 1 || isLoading}
           >
             Previous
           </button>
           
-          <span class="text-gray-600 dark:text-gray-400">
+          <span class="pagination-info">
             Page {currentPage} of {Math.ceil(totalResults / 10)}
           </span>
           
           <button
             on:click={handleNextPage}
             disabled={currentPage * 10 >= totalResults || isLoading}
-            class="px-4 py-2 bg-gray-200 hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed text-gray-800 rounded-lg font-medium transition-colors"
+            class="pagination-button"
+            class:disabled={currentPage * 10 >= totalResults || isLoading}
           >
             Next
           </button>
@@ -282,29 +282,26 @@
 
       <!-- No Results -->
       {#if searchResults.length === 0 && !isLoading}
-        <div class="text-center py-12">
-          <FileText class="mx-auto mb-4 text-gray-400" size={64} />
-          <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">No PDFs found</h3>
-          <p class="text-gray-600 dark:text-gray-300">Try different keywords or check your spelling</p>
+        <div class="no-results">
+          <div class="no-results-icon">📄</div>
+          <h3 class="no-results-title">No PDFs found</h3>
+          <p class="no-results-description">Try different keywords or check your spelling</p>
         </div>
       {/if}
     {/if}
 
     <!-- Loading State -->
     {#if isLoading}
-      <div class="text-center py-12">
-        <Loader2 class="mx-auto mb-4 animate-spin text-blue-600" size={48} />
-        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Searching...</h3>
-        <p class="text-gray-600 dark:text-gray-300">Finding PDF documents for "{searchQuery}"</p>
+      <div class="loading">
+        <div class="spinner"></div>
+        <h3 class="loading-title">Searching...</h3>
+        <p class="loading-description">Finding PDF documents for "{searchQuery}"</p>
       </div>
     {/if}
 
     <!-- Back to Home -->
-    <div class="text-center mt-12">
-      <a
-        href="/"
-        class="inline-flex items-center px-6 py-3 bg-gray-800 hover:bg-gray-900 text-white rounded-lg font-medium transition-colors"
-      >
+    <div class="back-section">
+      <a href="/" class="back-button">
         ← Back to LeedPDF
       </a>
     </div>
@@ -312,6 +309,445 @@
 </main>
 
 <style>
+  :global(html) {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto !important;
+  }
+
+  :global(body) {
+    margin: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    height: auto;
+    min-height: 100%;
+    overflow: visible !important;
+  }
+
+  main {
+    background: linear-gradient(135deg, #FDF6E3 0%, #F7F3E9 50%, #F0EFEB 100%);
+    min-height: 100vh;
+    width: 100%;
+  }
+
+  :global(.dark) main {
+    background: linear-gradient(135deg, #111827 0%, #1f2937 50%, #374151 100%);
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  .header {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(52, 73, 94, 0.1);
+    padding: 2rem 0;
+  }
+
+  :global(.dark) .header {
+    background: rgba(31, 41, 55, 0.8);
+    border-bottom: 1px solid rgba(107, 114, 128, 0.1);
+  }
+
+  .header-content {
+    text-align: center;
+  }
+
+  .logo {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 1rem;
+  }
+
+  .title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #34495e;
+    margin: 0 0 0.5rem 0;
+  }
+
+  :global(.dark) .title {
+    color: #f9fafb;
+  }
+
+  .subtitle {
+    font-size: 1.2rem;
+    color: #7f8c8d;
+    margin: 0;
+  }
+
+  :global(.dark) .subtitle {
+    color: #d1d5db;
+  }
+
+  .content {
+    padding: 3rem 0;
+  }
+
+  .search-section {
+    margin-bottom: 3rem;
+  }
+
+  .search-container {
+    position: relative;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  :global(.search-icon) {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #7f8c8d;
+    z-index: 10;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 1rem 6rem 1rem 3rem;
+    font-size: 1.1rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    color: #34495e;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: #87A96B;
+    box-shadow: 0 0 0 4px rgba(135, 169, 107, 0.1);
+  }
+
+  :global(.dark) .search-input {
+    background: rgba(31, 41, 55, 0.8);
+    border-color: rgba(107, 114, 128, 0.3);
+    color: #f9fafb;
+  }
+
+  .search-button {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 0.75rem 1.5rem;
+    background: #87A96B;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .search-button:hover:not(:disabled) {
+    background: #759157;
+    transform: translateY(-50%) translateY(-1px);
+  }
+
+  .search-button:disabled {
+    background: #95a5a6;
+    cursor: not-allowed;
+  }
+
+  .results-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    font-size: 0.9rem;
+    color: #7f8c8d;
+  }
+
+  :global(.dark) .results-summary {
+    color: #d1d5db;
+  }
+
+  .results-grid {
+    display: grid;
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+  }
+
+  .result-card {
+    background: white;
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+  }
+
+  .result-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    border-color: #87A96B;
+  }
+
+  :global(.dark) .result-card {
+    background: #374151;
+    border-color: transparent;
+  }
+
+  :global(.dark) .result-card:hover {
+    border-color: #87A96B;
+  }
+
+  .result-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  :global(.result-icon) {
+    color: #e74c3c;
+    margin-top: 0.25rem;
+    flex-shrink: 0;
+  }
+
+  .result-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #34495e;
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  :global(.dark) .result-title {
+    color: #f9fafb;
+  }
+
+  .result-description {
+    color: #5a6c7d;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+  }
+
+  :global(.dark) .result-description {
+    color: #d1d5db;
+  }
+
+  .result-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.875rem;
+    color: #95a5a6;
+    margin-bottom: 1.5rem;
+  }
+
+  :global(.dark) .result-meta {
+    color: #9ca3af;
+  }
+
+  .result-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .button-with-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 3rem;
+  }
+
+  .pagination-button {
+    padding: 0.75rem 1.5rem;
+    background: white;
+    color: #34495e;
+    border: 2px solid rgba(52, 73, 94, 0.1);
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .pagination-button:hover:not(.disabled) {
+    background: #87A96B;
+    color: white;
+    border-color: #87A96B;
+    transform: translateY(-1px);
+  }
+
+  .pagination-button.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  :global(.dark) .pagination-button {
+    background: #374151;
+    color: #f9fafb;
+    border-color: rgba(107, 114, 128, 0.3);
+  }
+
+  .pagination-info {
+    color: #7f8c8d;
+    font-weight: 500;
+  }
+
+  :global(.dark) .pagination-info {
+    color: #d1d5db;
+  }
+
+  .no-results {
+    text-align: center;
+    padding: 4rem 0;
+  }
+
+  .no-results-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  .no-results-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #34495e;
+    margin: 0 0 0.5rem 0;
+  }
+
+  :global(.dark) .no-results-title {
+    color: #f9fafb;
+  }
+
+  .no-results-description {
+    color: #7f8c8d;
+    margin: 0;
+  }
+
+  :global(.dark) .no-results-description {
+    color: #d1d5db;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 4rem 0;
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(135, 169, 107, 0.3);
+    border-left: 4px solid #87A96B;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .loading-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #34495e;
+    margin: 0 0 0.5rem 0;
+  }
+
+  :global(.dark) .loading-title {
+    color: #f9fafb;
+  }
+
+  .loading-description {
+    color: #7f8c8d;
+    margin: 0;
+  }
+
+  :global(.dark) .loading-description {
+    color: #d1d5db;
+  }
+
+  .error-card {
+    background: white;
+    border-radius: 16px;
+    padding: 3rem;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    max-width: 500px;
+    margin: 0 auto 3rem;
+    border: 2px solid #e74c3c;
+  }
+
+  :global(.dark) .error-card {
+    background: #374151;
+    border-color: #ef4444;
+  }
+
+  .error-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+
+  .error-card h2 {
+    color: #34495e;
+    margin-bottom: 1rem;
+  }
+
+  :global(.dark) .error-card h2 {
+    color: #f9fafb;
+  }
+
+  .error-card p {
+    color: #7f8c8d;
+    margin-bottom: 0;
+  }
+
+  :global(.dark) .error-card p {
+    color: #d1d5db;
+  }
+
+  .back-section {
+    text-align: center;
+    margin-top: 3rem;
+  }
+
+  .back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #34495e;
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 16px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.2s ease;
+  }
+
+  .back-button:hover {
+    background: #2c3e50;
+    transform: translateY(-1px);
+  }
+
+  :global(.dark) .back-button {
+    background: #4b5563;
+  }
+
+  :global(.dark) .back-button:hover {
+    background: #374151;
+  }
+
   .line-clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -326,5 +762,24 @@
     line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+
+  @media (max-width: 768px) {
+    .container {
+      padding: 0 1rem;
+    }
+
+    .title {
+      font-size: 2rem;
+    }
+
+    .result-actions {
+      flex-direction: column;
+    }
+
+    .pagination {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
   }
 </style>
