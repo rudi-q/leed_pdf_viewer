@@ -31,6 +31,18 @@ function validateOriginAndGetCorsHeaders(request: Request): { valid: boolean; he
     };
   }
   
+  // Allow Vercel deployments (same-origin requests from Vercel domains)
+  if (origin.includes('leed.my')) {
+    return {
+      valid: true,
+      headers: {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      }
+    };
+  }
+  
   // Cross-origin request - check against allowlist
   if (!ALLOWED_ORIGINS.includes(origin)) {
     return { valid: false };
