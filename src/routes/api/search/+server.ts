@@ -31,8 +31,8 @@ function validateOriginAndGetCorsHeaders(request: Request): { valid: boolean; he
     };
   }
   
-  // Allow Vercel deployments (same-origin requests from Vercel domains)
-  if (origin.includes('.vercel.app') || origin.includes('leed.my')) {
+  // Allow Vercel deployments for main domain
+  if (origin.includes('https://leed.my')) {
     return {
       valid: true,
       headers: {
