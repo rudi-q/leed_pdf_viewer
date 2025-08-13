@@ -5,6 +5,48 @@ import type { RequestHandler } from './$types';
 // You'll need to set this environment variable
 const BRAVE_API_KEY = env.BRAVE_SEARCH_API_KEY || '';
 
+// CORS configuration - allowed origins from environment variable
+const ALLOWED_ORIGINS = env.ALLOWED_ORIGINS 
+  ? env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+  : ['http://localhost:5173', 'http://localhost:4173']; // Default SvelteKit dev/preview ports
+
+// Helper function to validate origin and get CORS headers
+function validateOriginAndGetCorsHeaders(request: Request): { valid: boolean; headers?: Record<string, string> } {
+  const origin = request.headers.get('origin');
+  
+  // Same-origin request (no origin header) - always allowed
+  if (!origin) {
+    return { valid: true };
+  }
+  
+  // In development, allow any localhost origin
+  if (env.NODE_ENV === 'development' && origin.startsWith('http://localhost:')) {
+    return {
+      valid: true,
+      headers: {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      }
+    };
+  }
+  
+  // Cross-origin request - check against allowlist
+  if (!ALLOWED_ORIGINS.includes(origin)) {
+    return { valid: false };
+  }
+  
+  // Valid cross-origin request - return CORS headers
+  return {
+    valid: true,
+    headers: {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    }
+  };
+}
+
 interface BraveSearchResponse {
   web?: {
     results?: Array<{
@@ -27,6 +69,13 @@ interface SearchResult {
 }
 
 export const POST: RequestHandler = async ({ request }) => {
+  // Validate origin for CORS
+  const corsValidation = validateOriginAndGetCorsHeaders(request);
+  
+  if (!corsValidation.valid) {
+    return new Response(null, { status: 403 });
+  }
+  
   try {
     const { query, page = 1 } = await request.json();
 
@@ -117,12 +166,19 @@ export const POST: RequestHandler = async ({ request }) => {
       }))
       .slice(0, 10); // Ensure we don't exceed 10 results
 
-    return json({
+    const responseData = {
       results: pdfResults,
       totalResults: data.web.total_results || pdfResults.length,
       query: query.trim(),
       page
-    });
+    };
+    
+    // Include CORS headers if needed
+    if (corsValidation.headers) {
+      return json(responseData, { headers: corsValidation.headers });
+    }
+    
+    return json(responseData);
 
   } catch (error) {
     console.error('Search API error:', error);
@@ -133,14 +189,15 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 };
 
-// Allow CORS for development
-export const OPTIONS: RequestHandler = async () => {
+export const OPTIONS: RequestHandler = async ({ request }) => {
+  const corsValidation = validateOriginAndGetCorsHeaders(request);
+  
+  if (!corsValidation.valid) {
+    return new Response(null, { status: 403 });
+  }
+  
   return new Response(null, {
     status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
+    headers: corsValidation.headers || {},
   });
 };
