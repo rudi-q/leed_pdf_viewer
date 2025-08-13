@@ -1,7 +1,7 @@
 [package]
 name = "leed-pdf"
 version = "1.4.0"
-description = "A Tauri App"
+description = "A Lightweight, Opensource and Free PDF Viewer"
 authors = ["Rudi K <rudi@doubl.one>"]
 license = "MIT"
 repository = "https://github.com/rudi-q/leed_pdf_viewer"
