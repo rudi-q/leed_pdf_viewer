@@ -5,10 +5,11 @@
   import { browser } from '$app/environment';
   import { Search, FileText, ExternalLink, Loader2, AlertCircle } from 'lucide-svelte';
   import { isDarkMode } from '$lib/stores/themeStore';
+  import type { SearchResult, SearchResponse } from '$lib/types/search';
 
   // Search state
   let searchQuery = '';
-  let searchResults: any[] = [];
+  let searchResults: SearchResult[] = [];
   let isLoading = false;
   let error = '';
   let hasSearched = false;
@@ -63,10 +64,10 @@
         throw new Error(`Search failed: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const data: SearchResponse = await response.json();
       
-      if (data.error) {
-        throw new Error(data.error);
+      if ('error' in data) {
+        throw new Error((data as any).error);
       }
 
       searchResults = data.results || [];

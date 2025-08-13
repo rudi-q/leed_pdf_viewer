@@ -47,6 +47,8 @@ function validateOriginAndGetCorsHeaders(request: Request): { valid: boolean; he
   };
 }
 
+import type { SearchResult, SearchResponse } from '$lib/types/search';
+
 interface BraveSearchResponse {
   web?: {
     results?: Array<{
@@ -58,14 +60,6 @@ interface BraveSearchResponse {
     }>;
     total_results?: number;
   };
-}
-
-interface SearchResult {
-  title: string;
-  url: string;
-  description: string;
-  date?: string;
-  snippet?: string;
 }
 
 export const POST: RequestHandler = async ({ request }) => {
