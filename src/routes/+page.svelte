@@ -876,10 +876,10 @@
                 href="/search"
                 class="secondary-button text-lg px-6 py-4 w-56 h-16 flex items-center justify-center text-center no-underline"
                 on:click={handleSearchLinkClick}
+                aria-label="Search PDFs"
               >
                 Search PDFs
               </a>
-              
               {#if browser && !isTauri}
                 <a
                   href="/downloads"

@@ -64,7 +64,8 @@ export const POST: RequestHandler = async ({ request }) => {
       headers: {
         'Accept': 'application/json',
         'X-Subscription-Token': BRAVE_API_KEY
-      }
+      },
+      signal: AbortSignal.timeout(10000) // 10 second timeout
     });
 
     if (!response.ok) {

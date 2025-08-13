@@ -23,7 +23,11 @@ async function invokeCommand(command: string, payload?: any): Promise<any> {
     const { invoke } = await import('@tauri-apps/api/core');
     return await invoke(command, payload);
   } catch (error) {
-    throw new Error(`Failed to invoke Tauri command: ${error}`);
+    throw new Error(
+      `Failed to invoke Tauri command "${command}": ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
   }
 }
 
