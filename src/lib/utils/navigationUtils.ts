@@ -59,11 +59,9 @@ export async function openSearchPage(): Promise<void> {
       }
     }
   } else {
-    // In web environment, open in new tab
-    try {
-      window.open(searchUrl, '_blank', 'noopener,noreferrer');
-    } catch (error) {
-      // Fallback to same window navigation
+    // In web environment, open in new tab; popup blockers return null instead of throwing
+    const newTab = window.open(searchUrl, '_blank', 'noopener,noreferrer');
+    if (!newTab) {
       await goto('/search');
     }
   }
