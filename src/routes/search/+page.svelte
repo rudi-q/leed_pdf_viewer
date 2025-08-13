@@ -99,6 +99,17 @@
   }
 
   function openPDF(url: string) {
+    // Validate URL
+    try {
+      const parsedUrl = new URL(url);
+      // Only allow HTTP(S) protocols
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        throw new Error('Invalid protocol');
+      }
+    } catch (error) {
+      console.error('Invalid PDF URL:', error);
+      return;
+    }
     // Navigate to the PDF viewer with the URL
     const encodedUrl = encodeURIComponent(url);
     goto(`/pdf/${encodedUrl}`);
