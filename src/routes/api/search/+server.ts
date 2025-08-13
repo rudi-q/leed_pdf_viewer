@@ -6,7 +6,7 @@ import type { RequestHandler } from './$types';
 const BRAVE_API_KEY = env.BRAVE_SEARCH_API_KEY || '';
 
 // CORS configuration - allowed origins from environment variable
-const ALLOWED_ORIGINS = env.ALLOWED_ORIGINS 
+const ALLOWED_ORIGINS = env.ALLOWED_ORIGINS
   ? env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
   : ['http://localhost:5173', 'http://localhost:4173']; // Default SvelteKit dev/preview ports
 
@@ -32,7 +32,7 @@ function validateOriginAndGetCorsHeaders(request: Request): { valid: boolean; he
   }
   
   // Allow Vercel deployments (same-origin requests from Vercel domains)
-  if (origin.includes('leed.my')) {
+  if (origin.includes('.vercel.app') || origin.includes('leed.my')) {
     return {
       valid: true,
       headers: {
