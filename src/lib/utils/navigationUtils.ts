@@ -61,18 +61,17 @@ export async function openSearchPage(): Promise<void> {
   } else {
     // In web environment, open in new tab; popup blockers return null instead of throwing
     const newTab = window.open(searchUrl, '_blank', 'noopener,noreferrer');
-    if (!newTab) {
-      await goto('/search');
-    }
   }
 }
 
 /**
  * Handles search link clicks with proper target behavior
  */
-export function handleSearchLinkClick(event: MouseEvent): void {
-  // Prevent default link behavior
-  event.preventDefault();
+export function handleSearchLinkClick(event?: MouseEvent): void {
+  // Prevent default link behavior if event is provided
+  if (event) {
+    event.preventDefault();
+  }
   
   // Use our custom navigation function
   openSearchPage();

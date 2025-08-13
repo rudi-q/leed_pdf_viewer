@@ -483,14 +483,13 @@
           <Redo2 size={12} />
         </button>
 
-        <a
-          href="/search"
+        <button
           class="tool-button flex items-center justify-center group"
           title="Search PDF documents"
           on:click={handleSearchLinkClick}
         >
           <Search size={14} class="group-hover:text-blue-600" />
-        </a>
+        </button>
 
         <button
           class="tool-button text-red-500 hover:bg-red-50"
