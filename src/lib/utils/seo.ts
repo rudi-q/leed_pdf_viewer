@@ -304,6 +304,7 @@ export const pageSEOData: Record<string, Partial<SEOData>> = {
   '/search': {
     title: 'Search PDF Documents - LeedPDF',
     description: 'Search for PDF documents across the web and open them directly in LeedPDF. Find academic papers, research documents, manuals and more.',
-    url: 'https://leed.my/search'
+    url: 'https://leed.my/search',
+    robots: 'noindex, nofollow'
   },
 };
