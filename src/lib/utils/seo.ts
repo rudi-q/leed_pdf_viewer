@@ -301,4 +301,10 @@ export const pageSEOData: Record<string, Partial<SEOData>> = {
     description: 'Complete help documentation for LeedPDF. Learn how to annotate PDFs, use drawing tools, keyboard shortcuts, and advanced features.',
     url: 'https://leed.my/help'
   },
+  '/search': {
+    title: 'Search PDF Documents - LeedPDF',
+    description: 'Search for PDF documents across the web and open them directly in LeedPDF. Find academic papers, research documents, manuals and more.',
+    url: 'https://leed.my/search',
+    robots: 'noindex, nofollow'
+  },
 };

@@ -3,7 +3,7 @@
   "productName": "LeedPDF",
   "identifier": "my.leed.pdf",
   "build": {
-    "frontendDist": "../build",
+    "frontendDist": "../.vercel/output/static",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "pnpm dev",
     "beforeBuildCommand": "pnpm build"

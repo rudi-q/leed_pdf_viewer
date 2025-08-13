@@ -18,6 +18,7 @@
     undoStack
   } from '../stores/drawingStore';
   import { isDarkMode, toggleTheme } from '../stores/themeStore';
+  import { handleSearchLinkClick } from '../utils/navigationUtils';
   import StampPalette from './StampPalette.svelte';
   // Feather Icons
   import {
@@ -32,6 +33,7 @@
     Layout,
     RectangleHorizontal,
     Redo2,
+    Search,
     Square,
     Star,
     Sticker,
@@ -480,6 +482,15 @@
         >
           <Redo2 size={12} />
         </button>
+
+        <a
+          href="/search"
+          class="tool-button flex items-center justify-center group"
+          title="Search PDF documents"
+          on:click={handleSearchLinkClick}
+        >
+          <Search size={14} class="group-hover:text-blue-600" />
+        </a>
 
         <button
           class="tool-button text-red-500 hover:bg-red-50"
