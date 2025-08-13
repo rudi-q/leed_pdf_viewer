@@ -1,6 +1,6 @@
 [package]
 name = "leed-pdf"
-version = "1.4.0"
+version = "1.5.0"
 description = "A Lightweight, Opensource and Free PDF Viewer"
 authors = ["Rudi K <rudi@doubl.one>"]
 license = "MIT"
