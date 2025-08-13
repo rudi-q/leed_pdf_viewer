@@ -30,9 +30,9 @@ export const POST: RequestHandler = async ({ request }) => {
   try {
     const { query, page = 1 } = await request.json();
 
-    console.log('Search API called with query:', query, 'page:', page);
-    console.log('API Key configured:', !!BRAVE_API_KEY);
-    console.log('API Key length:', BRAVE_API_KEY ? BRAVE_API_KEY.length : 0);
+		if (env.NODE_ENV === 'development') {
+			console.log('Search API called with query:', query, 'page:', page);
+		}
 
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
       console.log('Invalid query provided');
