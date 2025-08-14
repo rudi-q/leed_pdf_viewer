@@ -1,14 +1,22 @@
+<div align="center">
+  <img src="static/logo.png" alt="LeedPDF Logo" width="160" height="160">
+</div>
+
 # LeedPDF ✏️
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-87A96B.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Commercial License](https://img.shields.io/badge/Commercial%20License-Available-87A96B.svg)](https://buy.polar.sh/polar_cl_tPmQ3d72uYwrYvzzIUM4R7cku7hg2kmEQqruI1its5c)
+[![Free for Personal Use](https://img.shields.io/badge/Free-Personal%20Use-87A96B.svg)](#-agpl-30-free--open-source)
+[![GitHub Stars](https://img.shields.io/github/stars/rudi-q/leed_pdf_viewer?color=87A96B&style=flat&logo=github)](https://github.com/rudi-q/leed_pdf_viewer/stargazers)
+[![Downloads](https://img.shields.io/github/downloads/rudi-q/leed_pdf_viewer/total?label=Downloads&logo=github&color=87A96B)](https://github.com/rudi-q/leed_pdf_viewer/releases)
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-FF3E00?style=flat&logo=svelte&logoColor=white)](https://kit.svelte.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![PDF.js](https://img.shields.io/badge/PDF.js-000000?style=flat&logo=mozilla&logoColor=white)](https://mozilla.github.io/pdf.js/)
 [![Konva.js](https://img.shields.io/badge/Konva.js-00D1B2?style=flat&logo=konva&logoColor=white)](https://konvajs.org/)
+[![Brave Search API](https://img.shields.io/badge/Brave%20Search-FF6B35?style=flat&logo=brave&logoColor=white)](https://api.search.brave.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Tauri](https://img.shields.io/badge/Tauri-FFC131?style=flat&logo=tauri&logoColor=black)](https://tauri.app/)
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![GitHub Stars](https://img.shields.io/github/stars/rudi-q/leed_pdf_viewer?style=social)](https://github.com/rudi-q/leed_pdf_viewer/stargazers)
-[![Downloads](https://img.shields.io/github/downloads/rudi-q/leed_pdf_viewer/total?label=Downloads&logo=github)](https://github.com/rudi-q/leed_pdf_viewer/releases)
 
 **A modern, open-source PDF annotation tool that runs entirely in your browser**
 
@@ -17,6 +25,14 @@ Transform any PDF into an interactive canvas. Draw, annotate, and collaborate wi
 [**Try it now →**](https://leed.my) | [**Report Issues**](https://github.com/rudi-q/leed_pdf_viewer/issues) | [**Contribute**](https://github.com/rudi-q/leed_pdf_viewer/blob/main/CONTRIBUTING.md)
 
 ## ✨ Features
+
+### 🔍 **PDF Search & Discovery**
+- **Web-wide PDF search** powered by Brave Search API
+- **Direct PDF opening** from search results
+- **Smart filtering** for PDF documents only
+- **Pagination** through search results
+- **Real-time search** with instant results
+- **Setup guide**: See [docs/SEARCH_FEATURE.md](docs/SEARCH_FEATURE.md) for configuration
 
 ### 🎨 **Drawing & Annotation**
 - **Freehand drawing** with customizable pencil and highlighter tools
@@ -147,15 +163,78 @@ We welcome contributions! Here's how to get started:
 - Update documentation for new features
 - Keep commits atomic and well-described
 
+## 💬 Community & Feedback
+
+We'd love to hear from you! Join our community discussions:
+
+- **💚 [Wall of Love](https://github.com/rudi-q/leed_pdf_viewer/discussions/categories/wall-of-love)** - Share your feedback about what you loved about LeedPDF and why
+- **🙏 [Q&A](https://github.com/rudi-q/leed_pdf_viewer/discussions/categories/q-a)** - Ask any questions you may have
+- **🗳️ [Polls](https://github.com/rudi-q/leed_pdf_viewer/discussions/categories/polls)** - Poll on ideas
+- **💡 [Ideas](https://github.com/rudi-q/leed_pdf_viewer/discussions/categories/ideas)** - Share new ideas
+- **🙌 [Show and Tell](https://github.com/rudi-q/leed_pdf_viewer/discussions/categories/show-and-tell)** - Show us how you're using LeedPDF
+
+You can also use [GitHub Issues](https://github.com/rudi-q/leed_pdf_viewer/issues) for bug reports.
+
 ## 📄 License
 
-MIT License - see the [LICENSE](LICENSE) file for details.
+LeedPDF is **dual-licensed** to give you flexibility:
+
+### 🆓 **AGPL-3.0 (Free & Open Source)**
+Perfect for:
+- ✅ Personal projects and learning
+- ✅ Educational and research use
+- ✅ Non-commercial applications
+- ✅ Internal company tools (no external service)
+- ✅ Contributing back to the community
+
+### 💼 **Commercial License (Paid)**
+Required for:
+- 🏢 Commercial products and services
+- 🏢 Proprietary software integration
+- 🏢 SaaS applications and hosted services
+- 🏢 Client work and consulting projects
+- 🏢 Removing AGPL-3.0 obligations
+
+---
+
+## 💳 **Commercial Licensing Options**
+
+**[🛒 Get Commercial License](https://buy.polar.sh/polar_cl_tPmQ3d72uYwrYvzzIUM4R7cku7hg2kmEQqruI1its5c)**
+
+Available options:
+- **Individual License** - Solo developers and small companies
+- **Team License** - Growing teams and agencies (up to 10 developers)
+- **Enterprise License** - Large organizations with custom terms
+
+*For Enterprise licensing and custom requirements, contact [reach@rudi.engineer](mailto:reach@rudi.engineer)*
+
+### 🤝 **What You Get With Commercial License:**
+- ✅ Remove AGPL-3.0 copyleft requirements
+- ✅ Use in proprietary/commercial applications
+- ✅ No source code disclosure obligations
+- ✅ Distribute without open-sourcing your app
+- ✅ Remove attribution requirements
+- ✅ Email support for integration questions
+- ✅ Perpetual license (no expiration)
+
+### ❓ **Need Help Choosing?**
+- **Personal project?** → Use AGPL-3.0 (free)
+- **Building a commercial product?** → Individual License ($99)
+- **Team of developers?** → Team License ($399)
+- **Large company/custom terms?** → Enterprise License ($1,299+)
+
+**Questions about licensing?** Contact us: [reach@rudi.engineer](mailto:reach@rudi.engineer)
+
+---
+
+*By using LeedPDF, you agree to comply with the terms of your chosen license. The AGPL-3.0 license requires that any network-accessible modifications be open-sourced.*
 
 ## 🙏 Acknowledgments
 
 - **PDF.js** - Mozilla's excellent PDF rendering engine
 - **SvelteKit** - The framework that makes this possible
 - **Konva.js** - Powerful 2D canvas library
+- **Brave Search API** - Powering our web-wide PDF search functionality
 - **Vite** - Lightning-fast build tool
 - **Tauri** - For building lightweight desktop apps
 - **Tailwind CSS** - Utility-first CSS framework

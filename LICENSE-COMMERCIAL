@@ -1,0 +1,82 @@
+LeedPDF Commercial License Agreement
+==========================================
+
+Copyright (c) 2025 DoublOne Studios
+
+This Commercial License Agreement ("Agreement") is entered into between DoublOne Studios ("Licensor") and the purchaser ("Licensee") of the LeedPDF Commercial License.
+
+## 1. GRANT OF LICENSE
+
+Subject to the terms and conditions of this Agreement, Licensor hereby grants to Licensee a perpetual, worldwide, non-exclusive, non-transferable license to:
+
+a) Use, modify, and distribute the LeedPDF software ("Software") in commercial applications and services
+b) Integrate the Software into proprietary software products without source code disclosure requirements
+c) Remove all AGPL-3.0 license obligations and restrictions
+d) Use the Software in Software-as-a-Service (SaaS) applications and hosted services
+e) Distribute modified versions of the Software without open-source requirements
+
+## 2. SCOPE OF LICENSE
+
+### Individual License:
+- Covers use by a single commercial entity or organization
+- Unlimited internal developers within the licensed entity
+- Unlimited end-user deployments and distributions
+
+### Team License:
+- Covers use by up to 10 named developers within the licensed entity
+- Multiple commercial projects and applications
+- White-label and rebranding permissions
+- Client work and consulting project usage
+
+### Enterprise License:
+- Unlimited developers within the licensed entity and subsidiaries
+- Custom terms and service level agreements as separately agreed
+- Enhanced support and indemnification as separately agreed
+
+## 3. RESTRICTIONS
+
+Licensee may not:
+a) Redistribute or sublicense the Software as a standalone product
+b) Transfer this license to third parties without Licensor's written consent
+c) Use Licensor's trademarks or brand names without permission
+d) Reverse engineer the Software for competitive purposes
+
+## 4. INTELLECTUAL PROPERTY
+
+Licensor retains all right, title, and interest in and to the Software and any modifications made by Licensor. Licensee retains ownership of any applications built using the Software.
+
+## 5. WARRANTY DISCLAIMER
+
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+## 6. LIMITATION OF LIABILITY
+
+IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+## 7. SUPPORT
+
+Commercial license includes:
+- Email support for integration questions
+- Access to commercial license documentation
+- Priority consideration for bug fixes affecting commercial use
+
+Enhanced support terms may apply for Team and Enterprise licenses as separately agreed.
+
+## 8. TERMINATION
+
+This license remains in effect until terminated. Licensor may terminate this license if Licensee breaches any terms of this Agreement. Upon termination, Licensee must cease all use of the Software, but may continue to distribute applications built prior to termination.
+
+## 9. GOVERNING LAW
+
+This Agreement shall be governed by and construed in accordance with the laws of the United Kingdom, without regard to its conflict of law principles.
+
+## 10. ENTIRE AGREEMENT
+
+This Agreement constitutes the entire agreement between the parties and supersedes all prior agreements and understandings relating to the subject matter hereof.
+
+---
+
+For questions about this license, contact: reach@rudi.engineer
+
+License Version: 1.0
+Effective Date: [DATE OF PURCHASE]
