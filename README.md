@@ -1,8 +1,13 @@
 <div align="center">
   <img src="static/logo.png" alt="LeedPDF Logo" width="160" height="160">
+  
+  # LeedPDF - Free PDF Annotation Tool
+  
+  **Add drawings and notes to any PDF.**
+  
+  *Works with mouse, touch, or stylus - completely free and private.*
 </div>
-
-# LeedPDF ✏️
+<br>
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-87A96B.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Commercial License](https://img.shields.io/badge/Commercial%20License-Available-87A96B.svg)](https://buy.polar.sh/polar_cl_tPmQ3d72uYwrYvzzIUM4R7cku7hg2kmEQqruI1its5c)
@@ -65,9 +70,9 @@ Transform any PDF into an interactive canvas. Draw, annotate, and collaborate wi
 Visit [leed.my](https://leed.my) and start annotating immediately.
 
 ### Option 2: Load from URL
-Share annotated PDFs by adding `?pdf=` to any URL:
+Share annotated PDFs by adding `/pdf/` to any URL:
 ```
-https://leed.my?pdf=https://example.com/document.pdf
+https://leed.my/pdf/https://example.com/document.pdf
 ```
 
 ### Option 3: Run Locally
@@ -78,7 +83,7 @@ pnpm install
 pnpm build && pnpm preview
 ```
 
-Open `http://localhost:5173` in your browser.
+Open `http://localhost:4173` in your browser.
 
 ## 🛠️ Tech Stack
 
@@ -93,7 +98,7 @@ Open `http://localhost:5173` in your browser.
 
 ### Basic Controls
 - **Upload**: Drag & drop a PDF or click the folder icon
-- **Draw**: Select pencil tool and start drawing
+- **Draw**: Select the pencil tool and start drawing
 - **Navigate**: Use arrow keys or toolbar buttons
 - **Zoom**: Ctrl + scroll wheel or toolbar buttons
 - **Pan**: Ctrl + drag (or just drag outside PDF area)
