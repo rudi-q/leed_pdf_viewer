@@ -14,6 +14,7 @@ export interface ShapeObject {
 	height?: number;
 	text?: string;
 	fontSize?: number;
+	fontFamily?: string; // Font family for text elements
 	fill?: string;
 	stroke?: string;
 	strokeWidth?: number;
@@ -457,7 +458,7 @@ export class KonvaShapeEngine {
 			y,
 			text: text || 'Click to edit', // Placeholder text
 			fontSize,
-			fontFamily: 'Inter, Arial, sans-serif',
+		fontFamily: 'ReenieBeanie, Inter, Arial, sans-serif',
 			fill: '#2D3748',
 			draggable: true,
 			id: `text_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -518,7 +519,7 @@ export class KonvaShapeEngine {
 			height: 64, // Leave 8px padding top and bottom
 			text: text || 'Click to edit',
 			fontSize: 12,
-			fontFamily: 'Inter, Arial, sans-serif',
+			fontFamily: 'ReenieBeanie, Inter, Arial, sans-serif',
 			fill: '#2D3748',
 			wrap: 'word',
 			verticalAlign: 'top'
@@ -907,6 +908,7 @@ export class KonvaShapeEngine {
 				type: 'text' as const,
 				text: shape.text(),
 				fontSize: shape.fontSize(),
+				fontFamily: shape.fontFamily(),
 				fill: shape.fill()
 			};
 		} else if (shape instanceof Konva.Rect) {
@@ -1028,7 +1030,7 @@ export class KonvaShapeEngine {
 						text: shapeData.text || 'Text',
 						fontSize: shapeData.fontSize || 16,
 						fill: shapeData.fill || '#2D3748',
-						fontFamily: 'Inter, Arial, sans-serif',
+					fontFamily: shapeData.fontFamily || 'ReenieBeanie, Inter, Arial, sans-serif',
 						draggable: true
 					});
 					break;

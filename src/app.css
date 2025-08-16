@@ -5,6 +5,15 @@
 /* Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+/* Custom Font for Text Tool */
+@font-face {
+  font-family: 'ReenieBeanie';
+  src: url('/fonts/ReenieBeanie.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
