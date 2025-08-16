@@ -585,6 +585,9 @@
 
 <style>
   .drag-over {
-    @apply bg-blue-50 dark:bg-blue-900/10;
+    background-color: rgb(239 246 255); /* bg-blue-50 */
+  }
+  :global(.dark) .drag-over {
+    background-color: rgb(30 58 138 / 0.1); /* dark:bg-blue-900/10 */
   }
 </style>
