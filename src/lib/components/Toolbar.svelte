@@ -19,6 +19,7 @@
   } from '../stores/drawingStore';
   import { isDarkMode, toggleTheme } from '../stores/themeStore';
   import { handleSearchLinkClick } from '../utils/navigationUtils';
+  import { goto } from '$app/navigation';
   import StampPalette from './StampPalette.svelte';
   // Feather Icons
   import {
@@ -123,6 +124,10 @@
     }
   }
 
+  function handleLogoClick() {
+    goto('/');
+  }
+
   // Close dropdowns when clicking outside
   function handleClickOutside(event: Event) {
     const target = event.target as HTMLElement;
@@ -149,7 +154,14 @@
       <!-- Left section: Branding and file operations -->
       <div class="flex items-center space-x-2">
         <!-- Logo -->
-        <img src="/favicon.png" alt="LeedPDF" class="w-4 h-4 mr-1" />
+        <button
+          class="flex items-center hover:opacity-80 transition-opacity cursor-pointer"
+          on:click={handleLogoClick}
+          title="Go to homepage"
+          aria-label="Go to homepage"
+        >
+          <img src="/favicon.png" alt="LeedPDF" class="w-4 h-4 mr-1" />
+        </button>
         
         <div class="h-4 w-px bg-charcoal/20"></div>
         

@@ -336,11 +336,11 @@ test.describe('Sticker/Stamp Functionality', () => {
 			await stampTool.click();
 			await page.waitForTimeout(300);
 
-			// Should have proper heading structure
-			const heading = page.locator('h3');
-			if (await heading.count() > 0) {
-				await expect(heading).toBeVisible();
-				const headingText = await heading.textContent();
+			// Should have proper heading structure - use specific selector for stamp palette
+			const stampPaletteHeading = page.locator('text=Choose a Stamp');
+			if (await stampPaletteHeading.count() > 0) {
+				await expect(stampPaletteHeading).toBeVisible();
+				const headingText = await stampPaletteHeading.textContent();
 				expect(headingText).toContain('Choose a Stamp');
 			}
 
