@@ -59,8 +59,23 @@
 
   async function handleFileUpload(files: FileList) {
     console.log('handleFileUpload called with:', files);
+    
+    // Early guard: Check if FileList is empty or no file selected
+    if (files.length === 0) {
+      console.log('No files in FileList');
+      toastStore.error('No File Selected', 'No file selected — please choose a PDF to upload.');
+      return;
+    }
+    
     const file = files[0];
     console.log('Selected file:', file?.name, 'Type:', file?.type, 'Size:', file?.size);
+    
+    // Additional guard: Check if file is undefined/null
+    if (!file) {
+      console.log('File is undefined or null');
+      toastStore.error('No File Selected', 'No file selected — please choose a PDF to upload.');
+      return;
+    }
 
     if (!isValidPDFFile(file)) {
       console.log('Invalid PDF file');
