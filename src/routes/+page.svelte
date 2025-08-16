@@ -18,6 +18,8 @@
   import { isDarkMode } from '$lib/stores/themeStore';
   import { handleSearchLinkClick } from '$lib/utils/navigationUtils';
   import TemplatePicker from '$lib/components/TemplatePicker.svelte';
+  import { toastStore } from '$lib/stores/toastStore';
+  import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
 
   const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
 
@@ -55,39 +57,27 @@
     }
   }
 
-  function handleFileUpload(files: FileList) {
+  async function handleFileUpload(files: FileList) {
     console.log('handleFileUpload called with:', files);
     const file = files[0];
     console.log('Selected file:', file?.name, 'Type:', file?.type, 'Size:', file?.size);
 
     if (!isValidPDFFile(file)) {
       console.log('Invalid PDF file');
-      alert('Please choose a valid PDF file.');
-      return;
-    }
-
-    if (file.size > 50 * 1024 * 1024) { // 50MB limit
-      console.log('File too large');
-      alert('File too large. Please choose a file under 50MB.');
+      toastStore.error('Invalid File', 'Please choose a valid PDF file.');
       return;
     }
 
     console.log('Storing file and navigating to pdf-upload route');
-    // Store file in sessionStorage temporarily
-    const fileReader = new FileReader();
-    fileReader.onload = (e) => {
-      const arrayBuffer = e.target?.result as ArrayBuffer;
-      const fileData = {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        data: Array.from(new Uint8Array(arrayBuffer)) // Convert to array for JSON storage
-      };
-      sessionStorage.setItem('tempPdfFile', JSON.stringify(fileData));
-      console.log('File stored in sessionStorage, navigating...');
-      goto('/pdf-upload');
-    };
-    fileReader.readAsArrayBuffer(file);
+    
+    // Use new IndexedDB storage system
+    const result = await storeUploadedFile(file);
+    
+    if (result.success && result.id) {
+      // Navigate with the file ID
+      goto(`/pdf-upload?fileId=${result.id}`);
+    }
+    // Error handling is done in the storage utility via toasts
   }
 
   function isValidPdfUrl(url: string): boolean {
@@ -693,20 +683,19 @@
       console.log('Blank PDF created:', blankPdfFile.name, blankPdfFile.size, 'bytes');
       
       console.log('Storing blank PDF and navigating to pdf-upload route');
-      // Store file in sessionStorage temporarily
-      const arrayBuffer = await blankPdfFile.arrayBuffer();
-      const fileData = {
-        name: blankPdfFile.name,
-        size: blankPdfFile.size,
-        type: blankPdfFile.type,
-        data: Array.from(new Uint8Array(arrayBuffer))
-      };
-      sessionStorage.setItem('tempPdfFile', JSON.stringify(fileData));
-      console.log('Blank PDF stored in sessionStorage, navigating...');
-      goto('/pdf-upload');
+      
+      // Use new IndexedDB storage system
+      const result = await storeUploadedFile(blankPdfFile);
+      
+      if (result.success && result.id) {
+        // Navigate with the file ID
+        goto(`/pdf-upload?fileId=${result.id}`);
+      } else {
+        toastStore.error('Storage Error', 'Failed to store blank PDF. Please try again.');
+      }
     } catch (error) {
       console.error('Failed to create blank PDF:', error);
-      alert('Failed to create blank PDF. Please try again.');
+      toastStore.error('PDF Creation Error', 'Failed to create blank PDF. Please try again.');
     }
   }
 
