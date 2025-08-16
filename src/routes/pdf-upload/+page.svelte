@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
@@ -15,6 +15,8 @@
   import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
   import { redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
+  import { toastStore } from '$lib/stores/toastStore';
+  import { retrieveUploadedFile } from '$lib/utils/fileStorageUtils';
 
   const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
 
@@ -46,43 +48,71 @@
     }
   }
 
-  // Check for uploaded file data from sessionStorage
-  onMount(() => {
-    // Check if we have file data in sessionStorage
-    const tempFileData = sessionStorage.getItem('tempPdfFile');
-    if (tempFileData) {
-      console.log('Found uploaded file in sessionStorage');
+  // Check for uploaded file data from URL parameters or IndexedDB
+  onMount(async () => {
+    // Check for file ID in URL parameters
+    const fileId = $page.url.searchParams.get('fileId');
+    
+    if (fileId) {
+      console.log('Found file ID in URL parameters:', fileId);
       try {
-        const fileData = JSON.parse(tempFileData);
-        // Reconstruct File object from stored data
-        const uint8Array = new Uint8Array(fileData.data);
-        const reconstructedFile = new File([uint8Array], fileData.name, {
-          type: fileData.type
-        });
+        const result = await retrieveUploadedFile(fileId);
         
-        currentFile = reconstructedFile;
-        isLoading = false;
-        
-        // Set current PDF for auto-save functionality
-        setCurrentPDF(reconstructedFile.name, reconstructedFile.size);
-        
-        // Clear the temporary data
-        sessionStorage.removeItem('tempPdfFile');
-        console.log('File loaded successfully from sessionStorage');
+        if (result.success && result.file) {
+          currentFile = result.file;
+          isLoading = false;
+          
+          // Set current PDF for auto-save functionality
+          setCurrentPDF(result.file.name, result.file.size);
+          console.log('File loaded successfully from IndexedDB');
+        } else {
+          console.error('Failed to retrieve file from IndexedDB:', result.error);
+          toastStore.error('File Not Found', 'The uploaded file could not be found. Please try uploading again.');
+          goto('/');
+        }
       } catch (error) {
-        console.error('Error parsing file data from sessionStorage:', error);
+        console.error('Error retrieving file from IndexedDB:', error);
+        toastStore.error('Storage Error', 'Could not load the uploaded file. Please try again.');
         goto('/');
       }
     } else {
-      // If no file, redirect back to home
-      console.log('No file found in sessionStorage, redirecting to home');
-      goto('/');
+      // Fallback: Check sessionStorage for backward compatibility
+      const tempFileData = sessionStorage.getItem('tempPdfFile');
+      if (tempFileData) {
+        console.log('Found uploaded file in sessionStorage (legacy)');
+        try {
+          const fileData = JSON.parse(tempFileData);
+          const uint8Array = new Uint8Array(fileData.data);
+          const reconstructedFile = new File([uint8Array], fileData.name, {
+            type: fileData.type
+          });
+          
+          currentFile = reconstructedFile;
+          isLoading = false;
+          
+          setCurrentPDF(reconstructedFile.name, reconstructedFile.size);
+          sessionStorage.removeItem('tempPdfFile');
+          console.log('File loaded successfully from sessionStorage');
+        } catch (error) {
+          console.error('Error parsing file data from sessionStorage:', error);
+          toastStore.error('File Error', 'Could not load the uploaded file. Please try uploading again.');
+          goto('/');
+        }
+      } else {
+        // If no file, redirect back to home
+        console.log('No file found, redirecting to home');
+        toastStore.info('No File', 'No file was found to load. Please upload a PDF first.');
+        goto('/');
+      }
     }
 
     // Setup all the event listeners and handlers
     setupEventListeners();
-    
-    return cleanup;
+  });
+
+  // Separate cleanup on destroy
+  onDestroy(() => {
+    cleanup();
   });
 
   function setupEventListeners() {
