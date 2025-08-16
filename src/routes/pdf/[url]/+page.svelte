@@ -786,7 +786,9 @@
       </button>
 
       <button
-        class="absolute top-16 left-4 text-sm text-charcoal/60 dark:text-gray-300 hover:text-charcoal dark:hover:text-white transition-colors flex items-center gap-2 bg-white/50 hover:bg-white/80 px-3 py-2 rounded-lg backdrop-blur-sm"
+        class="absolute top-16 text-sm text-charcoal/60 dark:text-gray-300 hover:text-charcoal dark:hover:text-white transition-colors flex items-center gap-2 bg-white/50 hover:bg-white/80 px-3 py-2 rounded-lg backdrop-blur-sm"
+        class:left-4={!showThumbnails}
+        class:left-52={showThumbnails}
         on:click={goHome}
         title="Go back to home"
       >

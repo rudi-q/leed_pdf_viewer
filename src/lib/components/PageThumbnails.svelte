@@ -151,8 +151,8 @@
 {#if isVisible}
   <div class="thumbnail-panel">
     <div class="thumbnail-header">
-      <h3 class="text-sm font-medium text-charcoal mb-3">Page Navigator</h3>
-      <div class="text-xs text-slate mb-4">
+      <h3 class="text-sm font-medium text-charcoal dark:text-gray-200 mb-3">Page Navigator</h3>
+      <div class="text-xs text-slate dark:text-gray-400 mb-4">
         {$pdfState.totalPages} pages • Click to jump
       </div>
     </div>
@@ -189,7 +189,7 @@
                 handleThumbnailClick(pageNumber);
               }}
             >
-              <div class="text-xs text-slate mb-2">Loading...</div>
+              <div class="text-xs text-slate dark:text-gray-400 mb-2">Loading...</div>
               <div class="loading-spinner"></div>
             </button>
           {/if}
@@ -213,10 +213,19 @@
     padding: 16px;
   }
 
+  :global(.dark) .thumbnail-panel {
+    background: #1f2937;
+    border-right: 1px solid #374151;
+  }
+
   .thumbnail-header {
     border-bottom: 1px solid #f1f5f9;
     padding-bottom: 12px;
     margin-bottom: 16px;
+  }
+
+  :global(.dark) .thumbnail-header {
+    border-bottom: 1px solid #374151;
   }
 
   .thumbnail-grid {
@@ -237,15 +246,29 @@
     background: #f8fafc;
   }
 
+  :global(.dark) .thumbnail-item {
+    background: #374151;
+  }
+
   .thumbnail-item:hover {
     border-color: #cbd5e1;
     background: #f1f5f9;
   }
 
+  :global(.dark) .thumbnail-item:hover {
+    border-color: #6b7280;
+    background: #4b5563;
+  }
+
   .thumbnail-item.active {
-    border-color: #10b981;
-    background: #ecfdf5;
-    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+    border-color: #87A96B;
+    background: #f0f6ea;
+    box-shadow: 0 2px 4px rgba(135, 169, 107, 0.2);
+  }
+
+  :global(.dark) .thumbnail-item.active {
+    background: #3a4834;
+    box-shadow: 0 2px 4px rgba(135, 169, 107, 0.3);
   }
 
   .thumbnail-canvas-container {
@@ -258,6 +281,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  :global(.dark) .thumbnail-canvas-container {
+    border: 1px solid #4b5563;
+    background: white; /* Keep white for PDF content visibility */
   }
 
   .thumbnail-placeholder {
@@ -273,18 +301,33 @@
     cursor: pointer;
   }
 
+  :global(.dark) .thumbnail-placeholder {
+    border: 1px solid #4b5563;
+    background: #374151;
+  }
+
   .thumbnail-placeholder:hover {
     background: #f1f5f9;
     border-color: #cbd5e1;
+  }
+
+  :global(.dark) .thumbnail-placeholder:hover {
+    background: #4b5563;
+    border-color: #6b7280;
   }
 
   .loading-spinner {
     width: 20px;
     height: 20px;
     border: 2px solid #e2e8f0;
-    border-top: 2px solid #10b981;
+    border-top: 2px solid #87A96B;
     border-radius: 50%;
     animation: spin 1s linear infinite;
+  }
+
+  :global(.dark) .loading-spinner {
+    border: 2px solid #4b5563;
+    border-top: 2px solid #87A96B;
   }
 
   .thumbnail-label {
@@ -294,11 +337,19 @@
     color: #64748b;
   }
 
+  :global(.dark) .thumbnail-label {
+    color: #9ca3af;
+  }
+
   .thumbnail-item.active .thumbnail-label {
-    color: #10b981;
+    color: #87A96B;
     font-weight: 600;
   }
 
+  :global(.dark) .thumbnail-item.active .thumbnail-label {
+    color: #87A96B;
+    font-weight: 600;
+  }
 
   @keyframes spin {
     0% { transform: rotate(0deg); }
