@@ -106,12 +106,13 @@ class FileStorageManager {
   /**
    * Check if a file can be stored
    */
-  async canStoreFile(fileSize: number): Promise<{ canStore: boolean; warning?: string; error?: string }> {
+  async canStoreFile(fileSize: number): Promise<{ canStore: boolean; warning?: string; error?: string; errorCode?: string }> {
     // Check file size limits
     if (fileSize > this.MAX_FILE_SIZE) {
       return {
         canStore: false,
-        error: `File size (${this.formatBytes(fileSize)}) exceeds maximum limit of ${this.formatBytes(this.MAX_FILE_SIZE)}`
+        error: `File size (${this.formatBytes(fileSize)}) exceeds maximum limit of ${this.formatBytes(this.MAX_FILE_SIZE)}`,
+        errorCode: 'FILE_TOO_LARGE'
       };
     }
 
@@ -120,7 +121,8 @@ class FileStorageManager {
     if (estimate && fileSize > estimate.available * 0.9) { // Leave 10% buffer
       return {
         canStore: false,
-        error: `Not enough storage space. File needs ${this.formatBytes(fileSize)} but only ${this.formatBytes(estimate.available)} is available`
+        error: `Not enough storage space. File needs ${this.formatBytes(fileSize)} but only ${this.formatBytes(estimate.available)} is available`,
+        errorCode: 'QUOTA_EXCEEDED'
       };
     }
 
@@ -144,12 +146,18 @@ class FileStorageManager {
       const storageCheck = await this.canStoreFile(file.size);
       
       if (!storageCheck.canStore) {
+        // Use the errorCode from canStoreFile, fallback to FILE_TOO_LARGE if absent
+        const errorCode = (storageCheck.errorCode as 'QUOTA_EXCEEDED' | 'FILE_TOO_LARGE') || 'FILE_TOO_LARGE';
+        
         const error = new FileStorageError(
           storageCheck.error || 'File cannot be stored',
-          'FILE_TOO_LARGE'
+          errorCode
         );
         
-        toastStore.error('File Too Large', storageCheck.error || 'File cannot be stored');
+        // Determine toast title based on error code
+        const toastTitle = storageCheck.errorCode === 'QUOTA_EXCEEDED' ? 'Quota Exceeded' : 'File Too Large';
+        
+        toastStore.error(toastTitle, storageCheck.error || 'File cannot be stored');
         return { success: false, error };
       }
 

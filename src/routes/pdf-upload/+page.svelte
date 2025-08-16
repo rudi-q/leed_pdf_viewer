@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
@@ -108,8 +108,11 @@
 
     // Setup all the event listeners and handlers
     setupEventListeners();
-    
-    return cleanup;
+  });
+
+  // Separate cleanup on destroy
+  onDestroy(() => {
+    cleanup();
   });
 
   function setupEventListeners() {
