@@ -17,6 +17,7 @@
   import { PDFExporter } from '$lib/utils/pdfExport';
   import { isDarkMode } from '$lib/stores/themeStore';
   import { handleSearchLinkClick } from '$lib/utils/navigationUtils';
+  import TemplatePicker from '$lib/components/TemplatePicker.svelte';
 
   const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
 
@@ -31,6 +32,7 @@
   let urlInput = '';
   let urlError = '';
   let focusMode = false;
+  let showTemplatePicker = false;
   let showDownloadCard = true;
 
   // Debug variables
@@ -879,7 +881,14 @@
               >
                 Start Fresh
               </button>
-              
+
+              <button
+                class="secondary-button text-lg px-6 py-4 w-56 h-16 flex items-center justify-center text-center"
+                on:click={() => showTemplatePicker = true}
+              >
+                Browse Templates
+              </button>
+
               <button
                 class="secondary-button text-lg px-6 py-4 w-56 h-16 flex items-center justify-center text-center"
                 on:click={handleSearchLinkClick}
@@ -887,16 +896,6 @@
               >
                 Search PDFs
               </button>
-              {#if browser && !isTauri}
-                <a
-                  href="/downloads"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="secondary-button text-lg px-6 py-4 w-56 h-16 flex items-center justify-center text-center no-underline"
-                >
-                  Download LeedPDF
-                </a>
-              {/if}
             </div>
             {:else}
               <div class="space-y-3 animate-slide-up">
@@ -1053,6 +1052,7 @@
 </main>
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => showShortcuts = false} />
+<TemplatePicker bind:isOpen={showTemplatePicker} on:close={() => showTemplatePicker = false} />
 
 <!-- Hidden file input -->
 <input
