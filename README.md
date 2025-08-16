@@ -17,7 +17,7 @@
 [![GitHub Stars](https://img.shields.io/github/stars/rudi-q/leed_pdf_viewer?color=87A96B&style=flat&logo=github)](https://github.com/rudi-q/leed_pdf_viewer/stargazers)
 [![Downloads](https://img.shields.io/github/downloads/rudi-q/leed_pdf_viewer/total?label=Downloads&logo=github&color=87A96B)](https://github.com/rudi-q/leed_pdf_viewer/releases)
 [![WCAG AAA Compliant](https://img.shields.io/badge/WCAG%20AAA-Compliant-87A96B?style=flat&logo=accessibilityalt&logoColor=white)](https://www.w3.org/WAI/WCAG2AAA-Conformance)
-[![Accessibility Score](https://img.shields.io/badge/Accessibility-7.06:1%20Contrast-87A96B?style=flat&logo=eyeopen&logoColor=white)](#%EF%B8%8F-accessibility-first)
+[![Accessibility Score](https://img.shields.io/badge/Accessibility-7.06:1-87A96B?style=flat&logo=eyeopen&logoColor=white)](#%EF%B8%8F-accessibility-first)
 
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-FF3E00?style=flat&logo=svelte&logoColor=white)](https://kit.svelte.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -27,7 +27,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Tauri](https://img.shields.io/badge/Tauri-FFC131?style=flat&logo=tauri&logoColor=black)](https://tauri.app/)
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![CodeRabbit](https://img.shields.io/badge/CodeRabbit-AI%20Reviews-FF6B9D?style=flat&logo=rabbitmq&logoColor=white)](https://coderabbit.ai/)
+[![CodeRabbit](https://img.shields.io/badge/CodeRabbit-AI-FF6B9D?style=flat&logo=rabbitmq&logoColor=white)](https://coderabbit.ai/)
 [![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat&logo=vercel&logoColor=white)](https://vercel.com/)
 
 </div>
