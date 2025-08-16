@@ -173,46 +173,8 @@ class FileStorageManager {
         timestamp: Date.now()
       };
 
-      // Store in IndexedDB
-      return new Promise((resolve) => {
-        const transaction = db.transaction([this.storeName], 'readwrite');
-        const store = transaction.objectStore(this.storeName);
-        const request = store.put(fileData);
-
-        request.onsuccess = () => {
-          console.log(`Successfully stored file "${file.name}" (${this.formatBytes(file.size)}) in IndexedDB`);
-          
-          toastStore.success(
-            'File Uploaded',
-            `${file.name} (${this.formatBytes(file.size)}) ready for processing`
-          );
-          
-          resolve({ success: true, id: fileId });
-        };
-
-        request.onerror = () => {
-          const error = new FileStorageError(
-            'Failed to store file in database',
-            'UNKNOWN',
-            request.error || undefined
-          );
-          
-          toastStore.error('Storage Failed', 'Could not store file. Please try again.');
-          resolve({ success: false, error });
-        };
-
-        transaction.onerror = () => {
-          const error = new FileStorageError(
-            'Database transaction failed',
-            'UNKNOWN',
-            transaction.error || undefined
-          );
-          
-          toastStore.error('Storage Failed', 'Database error occurred. Please try again.');
-          resolve({ success: false, error });
-        };
-      });
-
+      // Store in IndexedDB with quota error handling
+      return this.putFileWithQuotaHandling(db, fileData, file, fileId);
     } catch (error) {
       const storageError = new FileStorageError(
         'Unexpected error while storing file',
@@ -223,6 +185,150 @@ class FileStorageManager {
       toastStore.error('Storage Error', 'An unexpected error occurred. Please try again.');
       return { success: false, error: storageError };
     }
+  }
+
+  /**
+   * Helper method to put a file in IndexedDB with quota error handling
+   * Includes handling for QuotaExceededError and retry logic
+   */
+  private async putFileWithQuotaHandling(
+    db: IDBDatabase, 
+    fileData: StoredFileData, 
+    file: File, 
+    fileId: string, 
+    isRetry: boolean = false
+  ): Promise<{ success: boolean; id?: string; error?: FileStorageError }> {
+    return new Promise((resolve) => {
+      const transaction = db.transaction([this.storeName], 'readwrite');
+      const store = transaction.objectStore(this.storeName);
+      const request = store.put(fileData);
+
+      // Track whether we've already resolved the promise
+      let isResolved = false;
+
+      // Ensure we only resolve once and after transaction completes
+      const safeResolve = (result: { success: boolean; id?: string; error?: FileStorageError }) => {
+        if (!isResolved) {
+          isResolved = true;
+          resolve(result);
+        }
+      };
+
+      // Handle successful put operation
+      request.onsuccess = () => {
+        // Wait for transaction to complete before resolving
+        transaction.oncomplete = () => {
+          console.log(`Successfully stored file "${file.name}" (${this.formatBytes(file.size)}) in IndexedDB`);
+          
+          toastStore.success(
+            'File Uploaded',
+            `${file.name} (${this.formatBytes(file.size)}) ready for processing`
+          );
+          
+          safeResolve({ success: true, id: fileId });
+        };
+      };
+
+      // Handle quota exceeded errors
+      const handleQuotaError = async (err: DOMException | null | undefined) => {
+        if (isRetry) {
+          // We already tried once, don't retry again
+          const error = new FileStorageError(
+            'Storage quota exceeded after cleanup attempt',
+            'QUOTA_EXCEEDED',
+            err as Error
+          );
+          
+          toastStore.error(
+            'Storage Full', 
+            'Not enough storage space available. Please free up browser storage or use smaller files.'
+          );
+          
+          safeResolve({ success: false, error });
+          return;
+        }
+
+        // Abort current transaction
+        try {
+          transaction.abort();
+        } catch (e) {
+          console.warn('Failed to abort transaction:', e);
+        }
+
+        // Try to clean up old files
+        console.log('Storage quota exceeded. Attempting cleanup...');
+        const cleanedCount = await this.cleanupOldFiles();
+        console.log(`Cleaned up ${cleanedCount} old files`);
+        
+        if (cleanedCount > 0) {
+          // Retry the operation once with the isRetry flag set
+          const retryResult = await this.putFileWithQuotaHandling(db, fileData, file, fileId, true);
+          safeResolve(retryResult);
+        } else {
+          // No files were cleaned up, likely still out of space
+          const error = new FileStorageError(
+            'Storage quota exceeded and no files available for cleanup',
+            'QUOTA_EXCEEDED',
+            err as Error
+          );
+          
+          toastStore.error(
+            'Storage Full', 
+            'Not enough storage space available. Please free up browser storage or use smaller files.'
+          );
+          
+          safeResolve({ success: false, error });
+        }
+      };
+
+      // Handle errors in the request
+      request.onerror = () => {
+        const err = request.error;
+        
+        // Check for quota errors
+        if (err && (
+          err.name === 'QuotaExceededError' || 
+          (err instanceof DOMException && err.code === 22) || // QUOTA_EXCEEDED_ERR
+          err.message?.includes('quota')
+        )) {
+          handleQuotaError(err);
+        } else {
+          // Handle other errors
+          transaction.abort();
+          const error = new FileStorageError(
+            'Failed to store file in database',
+            'UNKNOWN',
+            err || undefined
+          );
+          
+          toastStore.error('Storage Failed', 'Could not store file. Please try again.');
+          safeResolve({ success: false, error });
+        }
+      };
+
+      // Handle transaction errors
+      transaction.onerror = () => {
+        const err = transaction.error;
+        
+        // Check for quota errors
+        if (err && (
+          err.name === 'QuotaExceededError' || 
+          (err instanceof DOMException && err.code === 22) || // QUOTA_EXCEEDED_ERR
+          err.message?.includes('quota')
+        )) {
+          handleQuotaError(err);
+        } else {
+          const error = new FileStorageError(
+            'Database transaction failed',
+            'UNKNOWN',
+            err || undefined
+          );
+          
+          toastStore.error('Storage Failed', 'Database error occurred. Please try again.');
+          safeResolve({ success: false, error });
+        }
+      };
+    });
   }
 
   /**
