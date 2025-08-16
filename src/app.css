@@ -64,8 +64,9 @@
   }
   
   .primary-button {
-    @apply smooth-button bg-sage text-white hover:bg-sage/90;
+    @apply smooth-button bg-sage hover:bg-sage/90;
     @apply shadow-lg hover:shadow-xl;
+    color: #121212;
   }
   
   .secondary-button {

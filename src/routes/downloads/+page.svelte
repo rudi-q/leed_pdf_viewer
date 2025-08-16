@@ -382,7 +382,7 @@
     width: 40px;
     height: 40px;
     border: 4px solid #e8f5e8;
-    border-left: 4px solid #27ae60;
+    border-left: 4px solid #87A96B;
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin: 0 auto 1rem;
@@ -422,8 +422,8 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    background: #27ae60;
-    color: white;
+    background: #87A96B;
+    color: #121212;
     padding: 0.75rem 1.5rem;
     border-radius: 12px;
     text-decoration: none;
@@ -432,7 +432,7 @@
   }
 
   .primary-button:hover {
-    background: #219a52;
+    background: #7a9960;
     transform: translateY(-1px);
   }
 
@@ -458,15 +458,15 @@
   }
 
   .release-card.latest {
-    border-color: #27ae60;
-    box-shadow: 0 4px 20px rgba(39, 174, 96, 0.15);
+    border-color: #87A96B;
+    box-shadow: 0 4px 20px rgba(135, 169, 107, 0.15);
   }
 
   .latest-badge {
     position: absolute;
     top: -10px;
     right: 1rem;
-    background: #27ae60;
+    background: #87A96B;
     color: white;
     padding: 0.25rem 0.75rem;
     border-radius: 12px;
@@ -531,7 +531,7 @@
   }
 
   .release-notes summary {
-    color: #27ae60;
+    color: #87A96B;
     cursor: pointer;
     font-weight: 500;
   }
@@ -570,7 +570,7 @@
 
   .download-item:hover {
     background: #e8f5e8;
-    border-color: #27ae60;
+    border-color: #87A96B;
     transform: translateX(4px);
   }
 
@@ -608,7 +608,7 @@
   }
 
   :global(.download-arrow) {
-    color: #27ae60;
+    color: #87A96B;
     transition: transform 0.2s ease;
   }
 
@@ -622,8 +622,8 @@
     border-radius: 20px;
     padding: 2.5rem;
     margin-bottom: 3rem;
-    box-shadow: 0 8px 30px rgba(39, 174, 96, 0.15);
-    border: 2px solid #27ae60;
+    box-shadow: 0 8px 30px rgba(135, 169, 107, 0.15);
+    border: 2px solid #87A96B;
     text-align: center;
   }
 
@@ -644,21 +644,21 @@
     display: inline-flex;
     align-items: center;
     gap: 1.5rem;
-    background: linear-gradient(135deg, #27ae60, #2ecc71);
-    color: white;
+    background: linear-gradient(135deg, #87A96B, #95b377);
+    color: #121212;
     padding: 1.5rem 2rem;
     border-radius: 16px;
     text-decoration: none;
     font-weight: 600;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 20px rgba(39, 174, 96, 0.3);
+    box-shadow: 0 4px 20px rgba(135, 169, 107, 0.3);
     min-width: 350px;
   }
 
   .recommended-button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(39, 174, 96, 0.4);
-    background: linear-gradient(135deg, #219a52, #27ae60);
+    box-shadow: 0 8px 30px rgba(135, 169, 107, 0.4);
+    background: linear-gradient(135deg, #7a9960, #87A96B);
   }
 
   .recommended-icon {

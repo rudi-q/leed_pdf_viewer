@@ -1041,7 +1041,7 @@
     </div>
 
     <button
-      class="absolute bottom-4 left-4 text-xs text-charcoal/60 dark:text-gray-300 hover:text-charcoal dark:hover:text-white transition-colors flex items-center gap-1 bg-white/50 hover:bg-white/80 px-2 py-1 rounded-lg backdrop-blur-sm"
+      class="absolute bottom-4 left-4 text-xs text-charcoal dark:text-gray-100 hover:text-sage dark:hover:text-sage transition-colors flex items-center gap-1 bg-white/80 hover:bg-white/90 dark:bg-gray-800/80 dark:hover:bg-gray-700/90 px-2 py-1 rounded-lg backdrop-blur-sm border border-charcoal/10 dark:border-gray-600/20"
       on:click={() => showShortcuts = true}
       title="Show keyboard shortcuts (? or F1)"
     >
