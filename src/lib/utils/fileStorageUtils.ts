@@ -36,6 +36,9 @@ class FileStorageManager {
   private readonly MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
   private readonly WARNING_FILE_SIZE = 15 * 1024 * 1024; // 15MB
   private readonly MAX_STORAGE_TIME = 2 * 60 * 60 * 1000; // 2 hours
+  
+  // SessionStorage fallback limits
+  private readonly SESSION_MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB for sessionStorage fallback
 
   /**
    * Initialize the IndexedDB database
@@ -138,7 +141,7 @@ class FileStorageManager {
   }
 
   /**
-   * Store a file in IndexedDB
+   * Store a file in IndexedDB with sessionStorage fallback
    */
   async storeFile(file: File, id?: string): Promise<{ success: boolean; id?: string; error?: FileStorageError }> {
     try {
@@ -166,11 +169,19 @@ class FileStorageManager {
         toastStore.warning('Large File', storageCheck.warning);
       }
 
-      const db = await this.initDB();
+      // Generate fileId and convert to ArrayBuffer early for potential fallback
       const fileId = id || crypto.randomUUID();
-      
-      // Convert file to ArrayBuffer
       const arrayBuffer = await file.arrayBuffer();
+
+      // Try IndexedDB first
+      let db: IDBDatabase;
+      try {
+        db = await this.initDB();
+      } catch (initError) {
+        // IndexedDB initialization failed, try sessionStorage fallback
+        console.warn('IndexedDB unavailable, attempting sessionStorage fallback:', initError);
+        return this.storeInSessionStorage(file, arrayBuffer, fileId);
+      }
       
       const fileData: StoredFileData = {
         id: fileId,
@@ -192,6 +203,63 @@ class FileStorageManager {
       
       toastStore.error('Storage Error', 'An unexpected error occurred. Please try again.');
       return { success: false, error: storageError };
+    }
+  }
+
+  /**
+   * Store file in sessionStorage as fallback when IndexedDB is unavailable
+   */
+  private storeInSessionStorage(
+    file: File, 
+    arrayBuffer: ArrayBuffer, 
+    fileId: string
+  ): { success: boolean; id: string; error?: FileStorageError } {
+    // Check if file fits within sessionStorage limits
+    if (file.size > this.SESSION_MAX_FILE_SIZE) {
+      const error = new FileStorageError(
+        `File size (${this.formatBytes(file.size)}) exceeds sessionStorage limit of ${this.formatBytes(this.SESSION_MAX_FILE_SIZE)}`,
+        'FILE_TOO_LARGE'
+      );
+      
+      toastStore.error('File Too Large', error.message);
+      return { success: false, id: fileId, error };
+    }
+
+    try {
+      // Convert ArrayBuffer to base64 for storage
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
+      const base64Data = btoa(binaryString);
+      
+      const sessionData = {
+        id: fileId,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        data: base64Data,
+        timestamp: Date.now()
+      };
+      
+      const sessionKey = `session_file_${fileId}`;
+      sessionStorage.setItem(sessionKey, JSON.stringify(sessionData));
+      
+      console.log(`Successfully stored file "${file.name}" (${this.formatBytes(file.size)}) in sessionStorage`);
+      
+      toastStore.warning(
+        'Limited Storage',
+        `${file.name} stored temporarily. File will be lost when tab is closed.`
+      );
+      
+      return { success: true, id: fileId };
+    } catch (error) {
+      const storageError = new FileStorageError(
+        'Failed to store file in sessionStorage',
+        'STORAGE_UNAVAILABLE',
+        error as Error
+      );
+      
+      toastStore.error('Storage Failed', 'Could not store file temporarily. Please try again.');
+      return { success: false, id: fileId, error: storageError };
     }
   }
 
@@ -340,9 +408,10 @@ class FileStorageManager {
   }
 
   /**
-   * Retrieve a file from IndexedDB
+   * Retrieve a file from IndexedDB with sessionStorage fallback
    */
   async retrieveFile(id: string, autoDelete: boolean = true): Promise<{ success: boolean; file?: File; error?: FileStorageError }> {
+    // Try IndexedDB first
     try {
       const db = await this.initDB();
 
@@ -355,11 +424,9 @@ class FileStorageManager {
           const result = request.result as StoredFileData | undefined;
           
           if (!result) {
-            const error = new FileStorageError(
-              'File not found in storage',
-              'NOT_FOUND'
-            );
-            resolve({ success: false, error });
+            // Not found in IndexedDB, try sessionStorage fallback
+            const sessionResult = this.retrieveFromSessionStorage(id, autoDelete);
+            resolve(sessionResult);
             return;
           }
 
@@ -379,18 +446,62 @@ class FileStorageManager {
         };
 
         request.onerror = () => {
-          const error = new FileStorageError(
-            'Failed to retrieve file from database',
-            'UNKNOWN',
-            request.error || undefined
-          );
-          resolve({ success: false, error });
+          // IndexedDB error, try sessionStorage fallback
+          const sessionResult = this.retrieveFromSessionStorage(id, autoDelete);
+          resolve(sessionResult);
         };
       });
 
     } catch (error) {
+      // IndexedDB unavailable, try sessionStorage fallback
+      console.warn('IndexedDB unavailable for retrieval, trying sessionStorage:', error);
+      return this.retrieveFromSessionStorage(id, autoDelete);
+    }
+  }
+
+  /**
+   * Retrieve file from sessionStorage as fallback
+   */
+  private retrieveFromSessionStorage(
+    id: string, 
+    autoDelete: boolean = true
+  ): { success: boolean; file?: File; error?: FileStorageError } {
+    try {
+      const sessionKey = `session_file_${id}`;
+      const sessionDataJson = sessionStorage.getItem(sessionKey);
+      
+      if (!sessionDataJson) {
+        const error = new FileStorageError(
+          'File not found in storage',
+          'NOT_FOUND'
+        );
+        return { success: false, error };
+      }
+      
+      const sessionData = JSON.parse(sessionDataJson);
+      
+      // Convert base64 back to ArrayBuffer
+      const binaryString = atob(sessionData.data);
+      const uint8Array = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        uint8Array[i] = binaryString.charCodeAt(i);
+      }
+      
+      const file = new File([uint8Array], sessionData.name, {
+        type: sessionData.type,
+        lastModified: sessionData.timestamp
+      });
+      
+      // Auto-delete after retrieval if requested
+      if (autoDelete) {
+        sessionStorage.removeItem(sessionKey);
+      }
+      
+      console.log(`Retrieved file "${sessionData.name}" from sessionStorage`);
+      return { success: true, file };
+    } catch (error) {
       const storageError = new FileStorageError(
-        'Unexpected error while retrieving file',
+        'Failed to retrieve file from sessionStorage',
         'UNKNOWN',
         error as Error
       );
