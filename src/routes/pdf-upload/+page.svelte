@@ -13,7 +13,7 @@
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
   import PageThumbnails from '$lib/components/PageThumbnails.svelte';
   import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
-  import { redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
+  import { redo, setCurrentPDF, setTool, undo, pdfState, forceSaveAllAnnotations } from '$lib/stores/drawingStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
   import { toastStore } from '$lib/stores/toastStore';
   import { retrieveUploadedFile } from '$lib/utils/fileStorageUtils';
@@ -570,25 +570,13 @@
           break;
         case '4':
           event.preventDefault();
-          setTool('rectangle');
+          setTool('arrow');
           break;
         case '5':
           event.preventDefault();
-          setTool('circle');
-          break;
-        case '6':
-          event.preventDefault();
-          setTool('arrow');
-          break;
-        case '7':
-          event.preventDefault();
-          setTool('star');
-          break;
-        case '8':
-          event.preventDefault();
           setTool('highlight');
           break;
-        case '9':
+        case '6':
           event.preventDefault();
           setTool('note');
           break;
@@ -692,6 +680,12 @@
     }
 
     try {
+      console.log('Starting multi-page PDF export with annotations...');
+      
+      // Force save all annotations to localStorage before export
+      forceSaveAllAnnotations();
+      console.log('✅ All annotations force-saved to localStorage before export');
+      
       let pdfBytes: Uint8Array;
       let originalName: string;
 
@@ -713,16 +707,36 @@
       const exporter = new PDFExporter();
       exporter.setOriginalPDF(pdfBytes);
 
-      const mergedCanvas = await pdfViewer.getMergedCanvas();
-      if (mergedCanvas) {
-        exporter.setPageCanvas(1, mergedCanvas);
+      // Export ALL pages that have annotations
+      console.log('Checking all pages for annotations...');
+      const totalPages = $pdfState.totalPages;
+      let pagesWithAnnotations = 0;
+      
+      for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+        const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
+        
+        if (hasAnnotations) {
+          console.log(`📄 Page ${pageNumber} has annotations - creating merged canvas`);
+          const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
+          if (mergedCanvas) {
+            exporter.setPageCanvas(pageNumber, mergedCanvas);
+            pagesWithAnnotations++;
+            console.log(`✅ Added merged canvas for page ${pageNumber}`);
+          } else {
+            console.warn(`❌ Failed to create merged canvas for page ${pageNumber}`);
+          }
+        } else {
+          console.log(`📄 Page ${pageNumber} has no annotations - will preserve original page`);
+        }
       }
+      
+      console.log(`📊 Export summary: ${pagesWithAnnotations} pages with annotations out of ${totalPages} total pages`);
 
       const annotatedPdfBytes = await exporter.exportToPDF();
       const filename = `${originalName}_annotated.pdf`;
 
       PDFExporter.downloadFile(annotatedPdfBytes, filename, 'application/pdf');
-      console.log('PDF exported successfully:', filename);
+      console.log('🎉 Multi-page PDF exported successfully:', filename);
     } catch (error) {
       console.error('Export failed:', error);
       alert('Export failed. Please try again.');

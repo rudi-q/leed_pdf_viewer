@@ -2,9 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { get } from 'svelte/store';
 import {
 	addDrawingPath,
-	addShapeObject,
 	clearAllDrawings,
-	deleteShapeObject,
 	type DrawingPath,
 	drawingPaths,
 	drawingState,
@@ -16,10 +14,7 @@ import {
 	setEraserSize,
 	setLineWidth,
 	setTool,
-	type ShapeObject,
-	shapeObjects,
-	undo,
-	updateShapeObject
+	undo
 } from '../../../src/lib/stores/drawingStore';
 
 describe('DrawingStore', () => {
@@ -32,30 +27,28 @@ describe('DrawingStore', () => {
 		// Reset stores to initial state
 		clearAllDrawings();
 		drawingPaths.set(new Map());
-		shapeObjects.set(new Map());
 	});
 
 	afterEach(() => {
 		// Clear state after each test to prevent test pollution
 		clearAllDrawings();
 		drawingPaths.set(new Map());
-		shapeObjects.set(new Map());
 	});
 
 	describe('Initial State', () => {
 		it('should have correct initial drawing state', () => {
 			const state = get(drawingState);
-			expect(state).toEqual({
-				tool: 'pencil',
-				color: '#2D3748',
-				lineWidth: 2,
-				eraserSize: 8,
-				highlightColor: '#FFEB3B',
-				highlightOpacity: 0.4,
-				noteColor: '#FFF59D',
-				stampId: 'star',
-				isDrawing: false
-			});
+		expect(state).toEqual({
+			tool: 'pencil',
+			color: '#2D3748',
+			lineWidth: 2,
+			eraserSize: 8,
+			highlightColor: '#FFEB3B',
+			highlightOpacity: 0.4,
+			noteColor: '#FFF59D',
+			stampId: 'star',
+			isDrawing: false
+		});
 		});
 
 		it('should have correct initial PDF state', () => {
@@ -74,10 +67,6 @@ describe('DrawingStore', () => {
 			expect(paths.size).toBe(0);
 		});
 
-		it('should initialize with empty shape objects', () => {
-			const shapes = get(shapeObjects);
-			expect(shapes.size).toBe(0);
-		});
 	});
 
 	describe('Drawing State Updates', () => {
@@ -179,75 +168,6 @@ describe('DrawingStore', () => {
 		});
 	});
 
-	describe('Shape Objects Management', () => {
-		const mockShape: ShapeObject = {
-			id: 'shape_123',
-			type: 'rectangle',
-			pageNumber: 1,
-			x: 100,
-			y: 100,
-			width: 200,
-			height: 150,
-			relativeX: 0.1,
-			relativeY: 0.1,
-			relativeWidth: 0.2,
-			relativeHeight: 0.15,
-			stroke: '#000000',
-			strokeWidth: 2,
-			fill: 'transparent'
-		};
-
-		it('should add shape objects correctly', () => {
-			addShapeObject(mockShape);
-
-			const shapes = get(shapeObjects);
-			const pageShapes = shapes.get(1);
-
-			expect(pageShapes).toBeDefined();
-			expect(pageShapes?.length).toBe(1);
-			expect(pageShapes?.[0]).toEqual(mockShape);
-		});
-
-		it('should update shape objects correctly', () => {
-			addShapeObject(mockShape);
-
-			const updatedShape = { ...mockShape, x: 150, y: 150 };
-			updateShapeObject(updatedShape);
-
-			const shapes = get(shapeObjects);
-			const pageShapes = shapes.get(1);
-
-			expect(pageShapes?.[0].x).toBe(150);
-			expect(pageShapes?.[0].y).toBe(150);
-		});
-
-		it('should delete shape objects correctly', () => {
-			addShapeObject(mockShape);
-
-			let shapes = get(shapeObjects);
-			expect(shapes.get(1)?.length).toBe(1);
-
-			deleteShapeObject('shape_123', 1);
-
-			shapes = get(shapeObjects);
-			expect(shapes.get(1)?.length).toBe(0);
-		});
-
-		it('should handle multiple shapes on the same page', () => {
-			const shape1 = { ...mockShape, id: 'shape_1' };
-			const shape2 = { ...mockShape, id: 'shape_2' };
-
-			addShapeObject(shape1);
-			addShapeObject(shape2);
-
-			const shapes = get(shapeObjects);
-			const pageShapes = shapes.get(1);
-
-			expect(pageShapes?.length).toBe(2);
-			expect(pageShapes?.some((s) => s.id === 'shape_1')).toBe(true);
-			expect(pageShapes?.some((s) => s.id === 'shape_2')).toBe(true);
-		});
-	});
 
 	describe('PDF Management', () => {
 		it('should set current PDF and store info in localStorage', () => {
@@ -300,18 +220,7 @@ describe('DrawingStore', () => {
 				pageNumber: 1
 			};
 
-			const mockShape: ShapeObject = {
-				id: 'shape_123',
-				type: 'rectangle',
-				pageNumber: 1,
-				x: 100,
-				y: 100,
-				relativeX: 0.1,
-				relativeY: 0.1
-			};
-
 			addDrawingPath(mockPath);
-			addShapeObject(mockShape);
 		});
 
 		it('should clear all drawings and localStorage', () => {

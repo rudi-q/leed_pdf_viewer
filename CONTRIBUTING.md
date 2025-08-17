@@ -37,8 +37,7 @@ src/
 │   │   └── drawingStore.ts  # Drawing tools, PDF state, auto-save
 │   └── utils/               # Core utilities
 │       ├── pdfUtils.ts      # PDF.js integration
-│       ├── drawingUtils.ts  # Canvas drawing engine
-│       └── konvaShapeEngine.ts # Shape tools (text, rectangles, etc.)
+│       └── drawingUtils.ts  # Canvas drawing engine
 ├── routes/                  # SvelteKit routes
 └── static/                  # Static assets (cursors, icons)
 ```
@@ -70,7 +69,7 @@ pnpm check
 
 #### Drawing System
 - **Freehand tools** (pencil, eraser, highlighter) use HTML5 Canvas via `DrawingEngine`
-- **Shape tools** (text, rectangles, arrows) use Konva.js via `KonvaShapeEngine`
+- **Annotation tools** (text, sticky notes, stamps, arrows) use custom SVG-based overlay components
 - **Coordinate system** uses relative positioning (0-1 range) for zoom-independent drawing
 
 #### State Management
