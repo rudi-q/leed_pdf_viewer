@@ -231,15 +231,15 @@
 		border-radius: 8px;
 		transition: all 0.1s ease;
 		z-index: 100;
-		background: rgba(255, 255, 255, 0.1);
+		background: transparent;
 		border: 2px solid transparent;
 		pointer-events: auto;
 	}
 
 	.stamp-annotation:hover {
-		background: rgba(255, 255, 255, 0.2);
-		border-color: rgba(139, 69, 19, 0.3);
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+		background: rgba(255, 255, 255, 0.05);
+		border-color: rgba(139, 69, 19, 0.2);
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 		transform: scale(1.05) rotate(var(--rotation, 0deg));
 	}
 
@@ -367,12 +367,12 @@
 
 	/* Dark mode adjustments */
 	:global(.dark) .stamp-annotation {
-		background: rgba(0, 0, 0, 0.1);
+		background: transparent;
 	}
 
 	:global(.dark) .stamp-annotation:hover {
-		background: rgba(0, 0, 0, 0.2);
-		border-color: rgba(139, 69, 19, 0.5);
+		background: rgba(0, 0, 0, 0.05);
+		border-color: rgba(139, 69, 19, 0.3);
 	}
 
 	/* Mobile responsiveness */
@@ -401,7 +401,8 @@
 		}
 
 		.stamp-annotation {
-			border-color: rgba(139, 69, 19, 0.2);
+			background: transparent;
+			border-color: rgba(139, 69, 19, 0.1);
 		}
 	}
 </style>
