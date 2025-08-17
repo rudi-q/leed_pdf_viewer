@@ -48,7 +48,7 @@
 ## **X. Drawing Tools & Shape Support** ✅ COMPLETED
 - **Description**: Complete drawing system with multiple tools.
 - **Implementation**:
-  - ✅ Hybrid drawing system (Canvas + Konva.js)
+  - ✅ Hybrid drawing system (Canvas + overlays)
   - ✅ Pencil tool with custom SVG cursor
   - ✅ Eraser tool with custom SVG cursor and shape erasure
   - ✅ Text tool with inline editing and auto-cleanup

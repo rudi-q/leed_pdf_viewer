@@ -295,7 +295,7 @@ import ArrowOverlay from './ArrowOverlay.svelte';
         canvas: pdfCanvas
       });
 
-      // Sync drawing canvas and Konva stage sizes with PDF canvas
+      // Sync drawing canvas sizes with PDF canvas
       if (drawingCanvas) {
         drawingCanvas.width = viewport.width;
         drawingCanvas.height = viewport.height;
@@ -358,7 +358,7 @@ function handlePointerDown(event: PointerEvent) {
     
     // Only handle freehand drawing tools (pencil, eraser, highlight) here
     // Text and note tools are handled by overlay components
-    // Arrow and stamp tools are handled by Konva
+      // Arrow and stamp tools are handled by overlay components
     if (!['pencil', 'eraser', 'highlight'].includes($drawingState.tool)) {
       console.log('Non-freehand tool detected:', $drawingState.tool);
       

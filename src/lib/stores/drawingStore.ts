@@ -50,7 +50,7 @@ export interface DrawingPath {
 }
 
 
-// Text annotation interface (custom text solution, not using KonvaJS)
+// Text annotation interface (custom text solution)
 export interface TextAnnotation {
 	id: string;
 	pageNumber: number;
@@ -64,7 +64,7 @@ export interface TextAnnotation {
 	relativeY: number; // 0-1 range for scaling
 }
 
-// Sticky Note annotation interface (custom solution, not using KonvaJS)
+// Sticky Note annotation interface (custom solution)
 export interface StickyNoteAnnotation {
 	id: string;
 	pageNumber: number;
@@ -81,7 +81,7 @@ export interface StickyNoteAnnotation {
 	relativeHeight: number; // 0-1 range for scaling
 }
 
-// Stamp annotation interface (custom solution, not using KonvaJS)
+// Stamp annotation interface (custom solution)
 export interface StampAnnotation {
 	id: string;
 	pageNumber: number;
@@ -97,7 +97,7 @@ export interface StampAnnotation {
 	relativeSize: number; // 0-1 range for scaling
 }
 
-// Arrow annotation interface (custom solution, not using KonvaJS)
+// Arrow annotation interface (custom solution)
 export interface ArrowAnnotation {
 	id: string;
 	pageNumber: number;
@@ -270,16 +270,16 @@ if (typeof window !== 'undefined') {
 // Drawing paths store - stores all drawing data per page
 export const drawingPaths = writable<Map<number, DrawingPath[]>>(new Map());
 
-// Text annotations store - stores all text annotations per page (custom implementation, not KonvaJS)
+// Text annotations store - stores all text annotations per page (custom implementation)
 export const textAnnotations = writable<Map<number, TextAnnotation[]>>(new Map());
 
-// Sticky note annotations store - stores all sticky note annotations per page (custom implementation, not KonvaJS)
+// Sticky note annotations store - stores all sticky note annotations per page (custom implementation)
 export const stickyNoteAnnotations = writable<Map<number, StickyNoteAnnotation[]>>(new Map());
 
-// Stamp annotations store - stores all stamp annotations per page (custom implementation, not KonvaJS)
+// Stamp annotations store - stores all stamp annotations per page (custom implementation)
 export const stampAnnotations = writable<Map<number, StampAnnotation[]>>(new Map());
 
-// Arrow annotations store - stores all arrow annotations per page (custom implementation, not KonvaJS)
+// Arrow annotations store - stores all arrow annotations per page (custom implementation)
 export const arrowAnnotations = writable<Map<number, ArrowAnnotation[]>>(new Map());
 
 // Auto-save functionality

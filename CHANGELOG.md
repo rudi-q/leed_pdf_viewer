@@ -93,7 +93,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 - **Hybrid Drawing System**
   - Canvas-based freehand drawing (pencil, eraser)
-  - Konva.js-based shape tools (rectangle, circle, arrow, text)
+  - Overlay-based shape tools (rectangle, circle, arrow, text)
   - Full undo/redo system for all tools
   - Tool-specific event handling and optimization
 
@@ -139,7 +139,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Updated footer**: Merged open-source info with attribution and added GitHub icon link
 
 ### Technical
-- Improved Canvas and Konva.js integration
+- Improved Canvas and drawing system integration
 - Better event handling for different drawing tools
 - Enhanced coordinate system synchronization
 - PDF-specific drawing storage prevents mixing drawings between different documents

@@ -271,9 +271,9 @@ test.describe('Sticker/Stamp Functionality', () => {
 				await stampButtons.first().click();
 				await page.waitForTimeout(300);
 
-				// Look for Konva container (where stamps would be placed)
-				const konvaContainer = page.locator('div').filter({
-					hasText: /drawing area|konva/i
+				// Look for drawing container (where stamps would be placed)
+				const drawingContainer = page.locator('div').filter({
+					hasText: /drawing area/i
 				}).first();
 				
 				// Or look for any canvas element

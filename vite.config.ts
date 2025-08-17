@@ -64,23 +64,7 @@ export default defineConfig({
 			mangle: {
 				keep_classnames: true,
 				keep_fnames: true,
-				reserved: [
-					'Konva',
-					'Stage',
-					'Layer',
-					'Shape',
-					'Circle',
-					'Rect',
-					'Text',
-					'Group',
-					'Image',
-					'Line',
-					'Path',
-					'Sprite',
-					'Transformer',
-					'Node',        // Base class for Konva objects
-					'Container',   // Base class for Stage, Layer, Group
-				],
+			reserved: []
 			},
 		}
 	},

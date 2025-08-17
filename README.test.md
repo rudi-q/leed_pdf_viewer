@@ -9,7 +9,6 @@ The test suite is organized into several categories:
 ### 1. Unit Tests (`src/**/*.test.ts`)
 - **PDF Utilities Tests** (`src/lib/utils/pdfUtils.test.ts`)
 - **Drawing Store Tests** (`src/lib/stores/drawingStore.test.ts`)
-- **Konva Shape Engine Tests** (`src/lib/utils/konvaShapeEngine.test.ts`)
 - **Drawing Utils Tests** (`src/lib/utils/drawingUtils.test.ts`)
 
 ### 2. End-to-End Tests (`tests/e2e/`)
@@ -102,15 +101,6 @@ The test suite aims for the following coverage targets:
 - ✅ Auto-save functionality
 - ✅ Constants and configuration arrays
 
-#### Konva Shape Engine (`konvaShapeEngine.test.ts`)
-- ✅ Engine initialization and setup
-- ✅ Tool switching and cursor management
-- ✅ Text and sticky note creation
-- ✅ Shape serialization and deserialization
-- ✅ Canvas operations (resize, clear, export)
-- ✅ Event callback system
-- ✅ Multiple shape type support
-- ✅ Error handling and memory management
 
 #### Drawing Utils (`drawingUtils.test.ts`)
 - ✅ Drawing engine initialization
@@ -153,7 +143,6 @@ The test suite uses extensive mocking to isolate functionality:
 ### Global Mocks (`src/test/setup.ts`)
 - **Tauri APIs**: `invoke`, `message`, `readFile`
 - **PDF.js**: PDF loading and rendering
-- **Konva**: Canvas drawing and shape management
 - **Canvas Context**: 2D drawing operations
 - **File API**: File upload and handling
 - **LocalStorage**: Data persistence
@@ -176,10 +165,6 @@ pnpm test src/lib/utils/pdfUtils.test.ts
 pnpm test src/lib/stores/drawingStore.test.ts
 ```
 
-### Run Konva engine tests only:
-```bash
-pnpm test src/lib/utils/konvaShapeEngine.test.ts
-```
 
 ### Run drawing utils tests only:
 ```bash

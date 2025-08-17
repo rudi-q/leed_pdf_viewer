@@ -85,7 +85,7 @@ LeedPDF operates entirely within the user's browser, eliminating server-side att
 ### Technology Stack Security
 - **SvelteKit Framework**: Provides built-in XSS protection through automatic escaping
 - **PDF.js Engine**: Mozilla's JavaScript-based PDF renderer
-- **Konva.js Canvas**: 2D drawing library for annotations
+- **HTML5 Canvas**: 2D drawing for annotations
 - **Vite Build Tool**: Modern bundler with security-focused defaults
 
 ### Security Boundaries
@@ -249,7 +249,6 @@ Key dependencies that require security attention:
 ```json
 {
   "pdfjs-dist": "5.4.54",
-  "konva": "^9.3.22", 
   "svelte": "^5.38.1",
   "pdf-lib": "^1.17.1"
 }

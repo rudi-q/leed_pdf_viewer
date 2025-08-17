@@ -28,7 +28,6 @@ const testCategories = {
   'pdf': 'src/lib/utils/pdfUtils.test.ts',
   'drawing': 'src/lib/utils/drawingUtils.test.ts', 
   'store': 'src/lib/stores/drawingStore.test.ts',
-  'konva': 'src/lib/utils/konvaShapeEngine.test.ts',
   'components': 'src/lib/components/**/*.test.ts'
 };
 
@@ -111,7 +110,6 @@ Test Categories (for targeted testing):
   pdf                 PDF utilities tests
   drawing             Drawing engine tests
   store               State management tests
-  konva               Konva shape engine tests
   components          Component tests
 
 Examples:

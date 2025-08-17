@@ -21,7 +21,6 @@
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-FF3E00?style=flat&logo=svelte&logoColor=white)](https://kit.svelte.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![PDF.js](https://img.shields.io/badge/PDF.js-000000?style=flat&logo=mozilla&logoColor=white)](https://mozilla.github.io/pdf.js/)
-[![Konva.js](https://img.shields.io/badge/Konva.js-00D1B2?style=flat&logo=konva&logoColor=white)](https://konvajs.org/)
 [![Brave Search API](https://img.shields.io/badge/Brave%20Search-FF6B35?style=flat&logo=brave&logoColor=white)](https://api.search.brave.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Tauri](https://img.shields.io/badge/Tauri-FFC131?style=flat&logo=tauri&logoColor=black)](https://tauri.app/)
@@ -109,7 +108,7 @@ Open `http://localhost:4173` in your browser.
 
 - **Framework**: SvelteKit + TypeScript
 - **PDF Rendering**: PDF.js
-- **Drawing Engine**: HTML5 Canvas + Konva.js
+- **Drawing Engine**: HTML5 Canvas
 - **Styling**: Tailwind CSS
 - **Build**: Vite
 - **PWA**: @vite-pwa/sveltekit
@@ -259,7 +258,6 @@ Available options:
 
 - **PDF.js** - Mozilla's excellent PDF rendering engine
 - **SvelteKit** - The framework that makes this possible
-- **Konva.js** - Powerful 2D canvas library
 - **Brave Search API** - Powering our web-wide PDF search functionality
 - **Vite** - Lightning-fast build tool
 - **Tauri** - For building lightweight desktop apps
