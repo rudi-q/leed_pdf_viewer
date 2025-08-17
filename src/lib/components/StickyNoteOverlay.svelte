@@ -152,6 +152,11 @@
 		pointer-events: auto;
 	}
 
+	/* Allow interaction with individual sticky notes regardless of current tool */
+	.sticky-note-overlay :global(.sticky-note) {
+		pointer-events: auto;
+	}
+
 	.note-tool-hint {
 		position: absolute;
 		top: 50%;
