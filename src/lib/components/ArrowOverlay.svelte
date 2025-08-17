@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import type { ArrowAnnotation } from '../stores/drawingStore';
 	import { currentPageArrowAnnotations, addArrowAnnotation, updateArrowAnnotation, deleteArrowAnnotation, drawingState, pdfState } from '$lib/stores/drawingStore';
 	import ArrowAnnotationComponent from './ArrowAnnotation.svelte';
@@ -20,7 +20,7 @@
 	let startY = 0;
 
 	const handleContainerMouseDown = (event: MouseEvent) => {
-		if (!isArrowTool || isCreatingArrow) return;
+		if (!isArrowTool) return;
 
 		// Don't create new arrows if clicking on existing arrow elements
 		const target = event.target as Element;
@@ -28,13 +28,19 @@
 			return;
 		}
 
+		// Reset flag to ensure we can create multiple arrows
+		isCreatingArrow = false;
+
+		event.preventDefault();
+		event.stopPropagation();
+
 		const rect = overlayElement.getBoundingClientRect();
 		startX = event.clientX - rect.left;
 		startY = event.clientY - rect.top;
 
 		isCreatingArrow = true;
 
-		// Temporary new arrow to be created
+		// Create new arrow immediately
 		const newArrow: ArrowAnnotation = {
 			id: `arrow-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
 			pageNumber: $pdfState.currentPage,
@@ -80,6 +86,42 @@
 	const handleContainerMouseUp = (event: MouseEvent) => {
 		if (isCreatingArrow) {
 			isCreatingArrow = false;
+			// Clean up document event listeners
+			document.removeEventListener('mousemove', handleDocumentMouseMove);
+			document.removeEventListener('mouseup', handleDocumentMouseUp);
+		}
+	};
+
+	// Document-level mouse handlers for better tracking during arrow creation
+	const handleDocumentMouseMove = (event: MouseEvent) => {
+		if (!isCreatingArrow || !overlayElement) return;
+
+		const rect = overlayElement.getBoundingClientRect();
+		const currentX = event.clientX - rect.left;
+		const currentY = event.clientY - rect.top;
+
+		// Update last created arrow with new end coordinates
+		const arrows = $currentPageArrowAnnotations;
+		const arrow = arrows[arrows.length - 1];
+		if (!arrow) return;
+
+		const updatedArrow = {
+			...arrow,
+			x2: Math.min(containerWidth, Math.max(0, currentX)),
+			y2: Math.min(containerHeight, Math.max(0, currentY)),
+			relativeX2: Math.min(containerWidth, Math.max(0, currentX)) / containerWidth,
+			relativeY2: Math.min(containerHeight, Math.max(0, currentY)) / containerHeight
+		};
+
+		updateArrowAnnotation(updatedArrow);
+	};
+
+	const handleDocumentMouseUp = (event: MouseEvent) => {
+		if (isCreatingArrow) {
+			isCreatingArrow = false;
+			// Clean up document event listeners
+			document.removeEventListener('mousemove', handleDocumentMouseMove);
+			document.removeEventListener('mouseup', handleDocumentMouseUp);
 		}
 	};
 
@@ -118,6 +160,14 @@
 		}
 	});
 
+	// Clean up event listeners on destroy
+	onDestroy(() => {
+		if (isCreatingArrow) {
+			document.removeEventListener('mousemove', handleDocumentMouseMove);
+			document.removeEventListener('mouseup', handleDocumentMouseUp);
+		}
+	});
+
 	// Update cursor style based on tool
 	$: {
 		if (overlayElement) {
@@ -127,13 +177,32 @@
 
 	// Update pointer events based on tool
 	$: pointerEventsClass = isArrowTool ? 'pointer-events-auto' : 'pointer-events-none';
+
+	// Reactive update when container size changes
+	$: if (containerWidth > 0 && containerHeight > 0) {
+		// Update arrow positions when container dimensions change
+		const arrows = $currentPageArrowAnnotations;
+		arrows.forEach(arrow => {
+			const updatedArrow = {
+				...arrow,
+				x1: arrow.relativeX1 * containerWidth,
+				y1: arrow.relativeY1 * containerHeight,
+				x2: arrow.relativeX2 * containerWidth,
+				y2: arrow.relativeY2 * containerHeight
+			};
+			if (updatedArrow.x1 !== arrow.x1 || updatedArrow.y1 !== arrow.y1 || 
+			    updatedArrow.x2 !== arrow.x2 || updatedArrow.y2 !== arrow.y2) {
+				updateArrowAnnotation(updatedArrow);
+			}
+		});
+	}
 </script>
 
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 <div 
 	bind:this={overlayElement}
 	class="arrow-overlay absolute top-0 left-0 {pointerEventsClass}"
-	style="width: {containerWidth}px; height: {containerHeight}px; z-index: 6;"
+	style="width: {containerWidth}px; height: {containerHeight}px; z-index: 3;"
 	on:mousedown={handleContainerMouseDown}
 	on:mousemove={handleContainerMouseMove}
 	on:mouseup={handleContainerMouseUp}
@@ -145,8 +214,8 @@
 		<ArrowAnnotationComponent
 			{arrow}
 			scale={1}
-			containerWidth={overlayElement?.clientWidth || 0}
-			containerHeight={overlayElement?.clientHeight || 0}
+			{containerWidth}
+			{containerHeight}
 			on:update={handleArrowUpdate}
 			on:delete={handleArrowDelete}
 		/>
@@ -168,12 +237,8 @@
 		cursor: default;
 	}
 
-	/* Only enable pointer events for arrow annotations when arrow tool is not active */
-	.pointer-events-none :global(.arrow-annotation) {
-		pointer-events: none;
-	}
-
-	.pointer-events-auto :global(.arrow-annotation) {
+	/* Allow interaction with individual arrows regardless of current tool */
+	.arrow-overlay :global(.arrow-annotation) {
 		pointer-events: auto;
 	}
 </style>

@@ -41,6 +41,9 @@
 
 	// Determine if handles should be visible (arrow tool selected or hovering)
 	$: handlesVisible = $drawingState.tool === 'arrow' || isHovering;
+	
+	// Determine if arrow should respond to pointer events (only when arrow tool is active or hovering)
+	$: pointerEventsEnabled = $drawingState.tool === 'arrow' || isHovering;
 
 	const handleStartMouseDown = (event: MouseEvent) => {
 		event.preventDefault();
@@ -188,11 +191,11 @@
 	style="left: 0; top: 0; width: {containerWidth}px; height: {containerHeight}px; pointer-events: none;"
 	aria-label="Arrow annotation"
 >
-	<svg
+		<svg
 		width={containerWidth}
 		height={containerHeight}
 		class="arrow-svg"
-		style="pointer-events: auto;"
+		style="pointer-events: {pointerEventsEnabled ? 'auto' : 'none'};"
 	>
 		<!-- Arrow line with marker -->
 		<defs>
@@ -271,7 +274,7 @@
 	<button
 		class="delete-btn"
 		class:visible={isHovering}
-		style="left: {arrowMidX - 12}px; top: {arrowMidY - 12}px;"
+		style="left: {arrowMidX - 12}px; top: {arrowMidY - 12}px; pointer-events: {pointerEventsEnabled ? 'auto' : 'none'};"
 		on:click|stopPropagation={handleDelete}
 		on:mouseenter={() => isHovering = true}
 		on:mouseleave={() => isHovering = false}
@@ -343,7 +346,6 @@
 		align-items: center;
 		justify-content: center;
 		transition: all 0.2s ease;
-		pointer-events: auto;
 		z-index: 12;
 		opacity: 0;
 	}
