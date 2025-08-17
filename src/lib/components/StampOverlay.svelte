@@ -60,7 +60,9 @@ import {
 			pageNumber: $pdfState.currentPage,
 			x: constrainedX,
 			y: constrainedY,
-			stamp: selectedStamp.svg, // Store the SVG string instead of emoji
+			stampId: selectedStampId, // Store the stamp ID instead of SVG
+			width: defaultSize,
+			height: defaultSize,
 			size: defaultSize,
 			rotation: 0,
 			relativeX: constrainedX / containerWidth,

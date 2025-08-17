@@ -86,7 +86,9 @@ export interface StampAnnotation {
 	pageNumber: number;
 	x: number;
 	y: number;
-	stamp: string; // Emoji or symbol
+	stampId: string; // ID of the stamp definition
+	width?: number; // Optional width for export
+	height?: number; // Optional height for export
 	size: number;
 	rotation: number;
 	relativeX: number; // 0-1 range for scaling

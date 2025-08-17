@@ -2,16 +2,53 @@
   import { onDestroy, onMount, tick } from 'svelte';
   import {
     addDrawingPath,
+    arrowAnnotations,
+    currentPageArrowAnnotations,
     currentPagePaths,
+    currentPageStampAnnotations,
+    currentPageStickyNotes,
     currentPageTextAnnotations,
     type DrawingPath,
     drawingPaths,
     drawingState,
+    getStampById,
     pdfState,
-    type Point
+    type Point,
+    stampAnnotations,
+    stickyNoteAnnotations,
+    textAnnotations
   } from '../stores/drawingStore';
   import { PDFManager } from '../utils/pdfUtils';
   import { DrawingEngine } from '../utils/drawingUtils';
+
+  // Helper function to convert SVG string to image
+  async function svgToImage(svgString: string, width: number, height: number): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      img.onload = () => {
+        resolve(img);
+      };
+      img.onerror = (err) => {
+        reject(err);
+      };
+      
+      // Create a data URL from the SVG string
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      
+      // Clean up the object URL after image loads
+      const cleanup = () => {
+        URL.revokeObjectURL(url);
+      };
+      
+      img.addEventListener('load', cleanup, { once: true });
+      img.addEventListener('error', cleanup, { once: true });
+      
+      img.src = url;
+    });
+  }
 import TextOverlay from './TextOverlay.svelte';
 import StickyNoteOverlay from './StickyNoteOverlay.svelte';
 import StampOverlay from './StampOverlay.svelte';
@@ -666,6 +703,369 @@ function handlePointerUp(event: PointerEvent) {
     }
   }
 
+  // Function to get merged canvas for a specific page
+  // Helper function to check if a page has any annotations
+  export async function pageHasAnnotations(pageNumber: number): Promise<boolean> {
+    // Get current values from all annotation stores
+    let hasDrawingPaths = false;
+    let hasTextAnnotations = false;
+    let hasArrowAnnotations = false;
+    let hasStampAnnotations = false;
+    let hasStickyNotes = false;
+    
+    // Check drawing paths
+    const unsubscribePaths = drawingPaths.subscribe(paths => {
+      const pagePaths = paths.get(pageNumber) || [];
+      hasDrawingPaths = pagePaths.length > 0;
+    });
+    unsubscribePaths();
+    
+    // Check text annotations
+    const unsubscribeText = textAnnotations.subscribe(annotations => {
+      const pageTexts = annotations.get(pageNumber) || [];
+      hasTextAnnotations = pageTexts.length > 0;
+    });
+    unsubscribeText();
+    
+    // Check arrow annotations
+    const unsubscribeArrows = arrowAnnotations.subscribe(annotations => {
+      const pageArrows = annotations.get(pageNumber) || [];
+      hasArrowAnnotations = pageArrows.length > 0;
+    });
+    unsubscribeArrows();
+    
+    // Check stamp annotations
+    const unsubscribeStamps = stampAnnotations.subscribe(annotations => {
+      const pageStamps = annotations.get(pageNumber) || [];
+      hasStampAnnotations = pageStamps.length > 0;
+    });
+    unsubscribeStamps();
+    
+    // Check sticky note annotations
+    const unsubscribeStickyNotes = stickyNoteAnnotations.subscribe(annotations => {
+      const pageStickyNotes = annotations.get(pageNumber) || [];
+      hasStickyNotes = pageStickyNotes.length > 0;
+    });
+    unsubscribeStickyNotes();
+    
+    const hasAnyAnnotations = hasDrawingPaths || hasTextAnnotations || hasArrowAnnotations || hasStampAnnotations || hasStickyNotes;
+    
+    console.log(`Page ${pageNumber} annotations check:`, {
+      hasDrawingPaths,
+      hasTextAnnotations, 
+      hasArrowAnnotations,
+      hasStampAnnotations,
+      hasStickyNotes,
+      hasAnyAnnotations
+    });
+    
+    return hasAnyAnnotations;
+  }
+
+  // Function to get merged canvas for a specific page
+  export async function getMergedCanvasForPage(pageNumber: number): Promise<HTMLCanvasElement | null> {
+    if (!$pdfState.document) {
+      console.error('No PDF document loaded');
+      return null;
+    }
+
+    try {
+      // Create temporary canvases for this page
+      const tempPdfCanvas = document.createElement('canvas');
+      const tempDrawingCanvas = document.createElement('canvas');
+      
+      const page = await $pdfState.document.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: 1.0 }); // Use scale 1 for consistent export
+      const outputScale = 2; // Higher resolution for export
+      
+      // Set canvas dimensions
+      tempPdfCanvas.width = Math.floor(viewport.width * outputScale);
+      tempPdfCanvas.height = Math.floor(viewport.height * outputScale);
+      tempDrawingCanvas.width = viewport.width;
+      tempDrawingCanvas.height = viewport.height;
+      
+      // Render PDF to temporary canvas
+      const pdfContext = tempPdfCanvas.getContext('2d');
+      if (pdfContext) {
+        await pdfManager.renderPageToCanvas(page, {
+          scale: 1, // Use scale 1 since the canvas is already sized with outputScale
+          canvas: tempPdfCanvas
+        });
+      }
+      
+      // Render drawing paths to temporary canvas
+      const drawingContext = tempDrawingCanvas.getContext('2d');
+      if (drawingContext && drawingEngine) {
+        // Get drawing paths for this specific page
+        let pagePaths: any[] = [];
+        const unsubscribePaths = drawingPaths.subscribe(paths => {
+          pagePaths = paths.get(pageNumber) || [];
+        });
+        unsubscribePaths();
+        
+        // Create temporary drawing engine for this canvas
+        const tempEngine = new DrawingEngine(tempDrawingCanvas);
+        tempEngine.renderPaths(pagePaths);
+      }
+      
+      // Now create the merged canvas with all annotations
+      return await createMergedCanvasWithAnnotations(
+        tempPdfCanvas, 
+        tempDrawingCanvas, 
+        pageNumber,
+        viewport.width,
+        viewport.height,
+        outputScale
+      );
+    } catch (error) {
+      console.error(`Error creating merged canvas for page ${pageNumber}:`, error);
+      return null;
+    }
+  }
+
+  // Helper function to create merged canvas with all annotations
+  async function createMergedCanvasWithAnnotations(
+    pdfCanvas: HTMLCanvasElement,
+    drawingCanvas: HTMLCanvasElement,
+    pageNumber: number,
+    canvasWidth: number,
+    canvasHeight: number,
+    outputScale: number
+  ): Promise<HTMLCanvasElement | null> {
+    const mergedCanvas = document.createElement('canvas');
+    const ctx = mergedCanvas.getContext('2d');
+    if (!ctx) {
+      console.error('Could not get 2D context for merged canvas');
+      return null;
+    }
+
+    // Set canvas size to match PDF canvas
+    mergedCanvas.width = pdfCanvas.width;
+    mergedCanvas.height = pdfCanvas.height;
+
+    // Draw PDF canvas first (background)
+    ctx.drawImage(pdfCanvas, 0, 0);
+
+    // Scale the drawing canvas to match the PDF canvas scaling
+    const scaleX = pdfCanvas.width / drawingCanvas.width;
+    const scaleY = pdfCanvas.height / drawingCanvas.height;
+
+    // Draw drawing canvas scaled to match PDF resolution
+    ctx.save();
+    ctx.scale(scaleX, scaleY);
+    ctx.drawImage(drawingCanvas, 0, 0);
+    ctx.restore();
+
+    // Get all annotation types for this specific page
+    let pageTextAnnotations: any[] = [];
+    let pageArrowAnnotations: any[] = [];
+    let pageStampAnnotations: any[] = [];
+    let pageStickyNotes: any[] = [];
+    
+    // Subscribe to get annotations for this specific page
+    const unsubscribeText = textAnnotations.subscribe(annotations => {
+      pageTextAnnotations = annotations.get(pageNumber) || [];
+    });
+    const unsubscribeArrows = arrowAnnotations.subscribe(annotations => {
+      pageArrowAnnotations = annotations.get(pageNumber) || [];
+    });
+    const unsubscribeStamps = stampAnnotations.subscribe(annotations => {
+      pageStampAnnotations = annotations.get(pageNumber) || [];
+    });
+    const unsubscribeStickyNotes = stickyNoteAnnotations.subscribe(annotations => {
+      pageStickyNotes = annotations.get(pageNumber) || [];
+    });
+    
+    // Clean up subscriptions
+    unsubscribeText();
+    unsubscribeArrows();
+    unsubscribeStamps();
+    unsubscribeStickyNotes();
+
+    // Draw text annotations
+    if (pageTextAnnotations.length > 0) {
+      ctx.save();
+      ctx.scale(scaleX, scaleY);
+      
+      pageTextAnnotations.forEach(annotation => {
+        const x = annotation.relativeX * canvasWidth;
+        const y = annotation.relativeY * canvasHeight;
+        
+        ctx.font = `${annotation.fontSize}px ${annotation.fontFamily}`;
+        ctx.fillStyle = annotation.color;
+        ctx.textBaseline = 'top';
+        
+        const lines = annotation.text.split('\n');
+        lines.forEach((line: string, index: number) => {
+          ctx.fillText(line, x, y + (index * annotation.fontSize * 1.2));
+        });
+      });
+      
+      ctx.restore();
+    }
+
+    // Draw arrow annotations (same logic as in getMergedCanvas)
+    if (pageArrowAnnotations.length > 0) {
+      ctx.save();
+      ctx.scale(scaleX, scaleY);
+      
+      pageArrowAnnotations.forEach(arrow => {
+        const x1 = arrow.relativeX1 * canvasWidth;
+        const y1 = arrow.relativeY1 * canvasHeight;
+        const x2 = arrow.relativeX2 * canvasWidth;
+        const y2 = arrow.relativeY2 * canvasHeight;
+        
+        ctx.strokeStyle = arrow.stroke;
+        ctx.lineWidth = arrow.strokeWidth;
+        ctx.lineCap = 'round';
+        
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        
+        if (arrow.arrowHead) {
+          const angle = Math.atan2(y2 - y1, x2 - x1);
+          const headLength = 10;
+          
+          ctx.fillStyle = arrow.stroke;
+          ctx.beginPath();
+          ctx.moveTo(x2, y2);
+          ctx.lineTo(
+            x2 - headLength * Math.cos(angle - Math.PI / 6),
+            y2 - headLength * Math.sin(angle - Math.PI / 6)
+          );
+          ctx.lineTo(
+            x2 - headLength * Math.cos(angle + Math.PI / 6),
+            y2 - headLength * Math.sin(angle + Math.PI / 6)
+          );
+          ctx.closePath();
+          ctx.fill();
+        }
+      });
+      
+      ctx.restore();
+    }
+
+    // Draw stamp annotations
+    if (pageStampAnnotations.length > 0) {
+      console.log(`Rendering ${pageStampAnnotations.length} stamp annotations for export`);
+      ctx.save();
+      ctx.scale(scaleX, scaleY);
+      
+      // Load all stamp images in parallel and wait for them
+        const stampPromises = pageStampAnnotations.map(async (stampAnnotation) => {
+        // Handle backward compatibility: check if stamp has stampId or old SVG format
+        let svgString: string;
+        let stampName: string;
+        
+        if (stampAnnotation.stampId) {
+          // New format: get SVG from stamp definition
+          const stamp = getStampById(stampAnnotation.stampId);
+          if (!stamp) {
+            console.warn('Stamp not found:', stampAnnotation.stampId);
+            return null;
+          }
+          svgString = stamp.svg;
+          stampName = stamp.name;
+        } else {
+          // Old format: SVG is stored directly in stamp property  
+          svgString = (stampAnnotation as any).stamp;
+          stampName = 'Legacy Stamp';
+          if (!svgString) {
+            console.warn('No SVG found for legacy stamp:', stampAnnotation);
+            return null;
+          }
+        }
+        
+        const x = stampAnnotation.relativeX * canvasWidth;
+        const y = stampAnnotation.relativeY * canvasHeight;
+        // Calculate stamp size the same way as StampAnnotation component
+        const MIN_SIZE = 16;
+        const MAX_SIZE = 120;
+        const calculatedSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, stampAnnotation.relativeSize * Math.min(canvasWidth, canvasHeight)));
+        const stampWidth = calculatedSize;
+        const stampHeight = calculatedSize;
+        
+        try {
+          // Convert SVG string to image
+          const img = await svgToImage(svgString, stampWidth, stampHeight);
+          
+          console.log(`Drawing stamp "${stampName}" at (${x}, ${y}) size ${stampWidth}x${stampHeight}`);
+          ctx.drawImage(img, x, y, stampWidth, stampHeight);
+          
+          return { success: true, stamp: stampName };
+        } catch (error) {
+          console.warn('Failed to convert SVG to image for export:', stampName, error);
+          
+          // Draw fallback rectangle
+          ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+          ctx.fillRect(x, y, stampWidth, stampHeight);
+          ctx.fillStyle = '#000';
+          ctx.font = '12px Arial';
+          ctx.fillText(stampName, x + 5, y + 20);
+          
+          return { success: false, stamp: stampName, error };
+        }
+      });
+      
+      // Wait for all stamps to be processed
+      const results = await Promise.all(stampPromises);
+      console.log('Stamp rendering results:', results);
+      
+      ctx.restore();
+    }
+
+    // Draw sticky note annotations
+    if (pageStickyNotes.length > 0) {
+      ctx.save();
+      ctx.scale(scaleX, scaleY);
+      
+      pageStickyNotes.forEach(note => {
+        const x = note.relativeX * canvasWidth;
+        const y = note.relativeY * canvasHeight;
+        const width = note.width || 200;
+        const height = note.height || 150;
+        
+        ctx.fillStyle = note.color || '#FFF59D';
+        ctx.fillRect(x, y, width, height);
+        
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, width, height);
+        
+        ctx.fillStyle = '#000';
+        ctx.font = `${note.fontSize || 14}px Arial`;
+        
+        const words = note.text.split(' ');
+        const lines: string[] = [];
+        let currentLine = '';
+        const maxWidth = width - 20;
+        
+        words.forEach((word: string) => {
+          const testLine = currentLine + word + ' ';
+          const metrics = ctx.measureText(testLine);
+          if (metrics.width > maxWidth && currentLine !== '') {
+            lines.push(currentLine);
+            currentLine = word + ' ';
+          } else {
+            currentLine = testLine;
+          }
+        });
+        lines.push(currentLine);
+        
+        const lineHeight = (note.fontSize || 14) * 1.2;
+        lines.forEach((line, index) => {
+          ctx.fillText(line.trim(), x + 10, y + 20 + (index * lineHeight));
+        });
+      });
+      
+      ctx.restore();
+    }
+
+    return mergedCanvas;
+  }
+
   export async function getMergedCanvas(): Promise<HTMLCanvasElement | null> {
     if (!pdfCanvas || !drawingCanvas) {
       console.error('Canvases not available for export');
@@ -742,8 +1142,189 @@ function handlePointerUp(event: PointerEvent) {
         ctx.restore();
       }
 
-      // Note: Arrow annotations would need to be rendered here for export
-      // For now, they are handled by ArrowOverlay component
+      // Draw arrow annotations scaled to match PDF resolution
+      let currentArrowAnnotations: any[] = [];
+      const unsubscribeArrows = currentPageArrowAnnotations.subscribe(annotations => {
+        currentArrowAnnotations = annotations;
+      });
+      unsubscribeArrows();
+      
+      if (currentArrowAnnotations.length > 0) {
+        ctx.save();
+        ctx.scale(scaleX, scaleY);
+        
+        currentArrowAnnotations.forEach(arrow => {
+          const x1 = arrow.relativeX1 * canvasWidth;
+          const y1 = arrow.relativeY1 * canvasHeight;
+          const x2 = arrow.relativeX2 * canvasWidth;
+          const y2 = arrow.relativeY2 * canvasHeight;
+          
+          // Draw arrow line
+          ctx.strokeStyle = arrow.stroke;
+          ctx.lineWidth = arrow.strokeWidth;
+          ctx.lineCap = 'round';
+          
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+          
+          // Draw arrowhead if enabled
+          if (arrow.arrowHead) {
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            const headLength = 10;
+            
+            ctx.fillStyle = arrow.stroke;
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(
+              x2 - headLength * Math.cos(angle - Math.PI / 6),
+              y2 - headLength * Math.sin(angle - Math.PI / 6)
+            );
+            ctx.lineTo(
+              x2 - headLength * Math.cos(angle + Math.PI / 6),
+              y2 - headLength * Math.sin(angle + Math.PI / 6)
+            );
+            ctx.closePath();
+            ctx.fill();
+          }
+        });
+        
+        ctx.restore();
+      }
+
+      // Draw stamp annotations scaled to match PDF resolution
+      let currentStampAnnotations: any[] = [];
+      const unsubscribeStamps = currentPageStampAnnotations.subscribe(annotations => {
+        currentStampAnnotations = annotations;
+      });
+      unsubscribeStamps();
+      
+      if (currentStampAnnotations.length > 0) {
+        console.log(`Rendering ${currentStampAnnotations.length} current page stamp annotations for export`);
+        ctx.save();
+        ctx.scale(scaleX, scaleY);
+        
+        // Load all stamp images in parallel and wait for them
+        const stampPromises = currentStampAnnotations.map(async (stampAnnotation) => {
+          // Handle backward compatibility: check if stamp has stampId or old SVG format
+          let svgString: string;
+          let stampName: string;
+          
+          if (stampAnnotation.stampId) {
+            // New format: get SVG from stamp definition
+            const stamp = getStampById(stampAnnotation.stampId);
+            if (!stamp) {
+              console.warn('Current page stamp not found:', stampAnnotation.stampId);
+              return null;
+            }
+            svgString = stamp.svg;
+            stampName = stamp.name;
+          } else {
+            // Old format: SVG is stored directly in stamp property  
+            svgString = (stampAnnotation as any).stamp;
+            stampName = 'Legacy Stamp';
+            if (!svgString) {
+              console.warn('No SVG found for current page legacy stamp:', stampAnnotation);
+              return null;
+            }
+          }
+          
+          const x = stampAnnotation.relativeX * canvasWidth;
+          const y = stampAnnotation.relativeY * canvasHeight;
+          // Calculate stamp size the same way as StampAnnotation component
+          const MIN_SIZE = 16;
+          const MAX_SIZE = 120;
+          const calculatedSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, stampAnnotation.relativeSize * Math.min(canvasWidth, canvasHeight)));
+          const stampWidth = calculatedSize;
+          const stampHeight = calculatedSize;
+          
+          try {
+            // Convert SVG string to image
+            const img = await svgToImage(svgString, stampWidth, stampHeight);
+            
+            console.log(`Drawing current page stamp "${stampName}" at (${x}, ${y}) size ${stampWidth}x${stampHeight}`);
+            ctx.drawImage(img, x, y, stampWidth, stampHeight);
+            
+            return { success: true, stamp: stampName };
+          } catch (error) {
+            console.warn('Failed to convert SVG to image for current page export:', stampName, error);
+            
+            // Draw fallback rectangle
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+            ctx.fillRect(x, y, stampWidth, stampHeight);
+            ctx.fillStyle = '#000';
+            ctx.font = '12px Arial';
+            ctx.fillText(stampName, x + 5, y + 20);
+            
+            return { success: false, stamp: stampName, error };
+          }
+        });
+        
+        // Wait for all stamps to be processed
+        const results = await Promise.all(stampPromises);
+        console.log('Current page stamp rendering results:', results);
+        
+        ctx.restore();
+      }
+
+      // Draw sticky note annotations scaled to match PDF resolution
+      let currentStickyNotes: any[] = [];
+      const unsubscribeStickyNotes = currentPageStickyNotes.subscribe(annotations => {
+        currentStickyNotes = annotations;
+      });
+      unsubscribeStickyNotes();
+      
+      if (currentStickyNotes.length > 0) {
+        ctx.save();
+        ctx.scale(scaleX, scaleY);
+        
+        currentStickyNotes.forEach(note => {
+          const x = note.relativeX * canvasWidth;
+          const y = note.relativeY * canvasHeight;
+          const width = note.width || 200;
+          const height = note.height || 150;
+          
+          // Draw sticky note background
+          ctx.fillStyle = note.color || '#FFF59D';
+          ctx.fillRect(x, y, width, height);
+          
+          // Draw sticky note border
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x, y, width, height);
+          
+          // Draw sticky note text
+          ctx.fillStyle = '#000';
+          ctx.font = `${note.fontSize || 14}px Arial`;
+          
+          // Handle multi-line text with word wrapping
+          const words = note.text.split(' ');
+          const lines: string[] = [];
+          let currentLine = '';
+          const maxWidth = width - 20;
+          
+          words.forEach((word: string) => {
+            const testLine = currentLine + word + ' ';
+            const metrics = ctx.measureText(testLine);
+            if (metrics.width > maxWidth && currentLine !== '') {
+              lines.push(currentLine);
+              currentLine = word + ' ';
+            } else {
+              currentLine = testLine;
+            }
+          });
+          lines.push(currentLine);
+          
+          // Draw lines with proper spacing
+          const lineHeight = (note.fontSize || 14) * 1.2;
+          lines.forEach((line, index) => {
+            ctx.fillText(line.trim(), x + 10, y + 20 + (index * lineHeight));
+          });
+        });
+        
+        ctx.restore();
+      }
 
       console.log('Merged canvas created successfully:', mergedCanvas.width, 'x', mergedCanvas.height);
       return mergedCanvas;

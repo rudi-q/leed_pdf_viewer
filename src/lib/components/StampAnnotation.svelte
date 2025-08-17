@@ -1,9 +1,15 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
 	import type { StampAnnotation } from '../stores/drawingStore';
+	import { getStampById } from '../stores/drawingStore';
 
 	export let stamp: StampAnnotation;
 	export const scale: number = 1; // For future scaling features
+
+	// Get the stamp definition to display SVG
+	// Handle backward compatibility: stamps might have either stampId OR stamp (SVG string)
+	$: stampDefinition = stamp.stampId ? getStampById(stamp.stampId) : null;
+	$: stampSvg = stampDefinition?.svg || (stamp as any).stamp || '';
 	export let containerWidth: number = 0;
 	export let containerHeight: number = 0;
 
@@ -191,7 +197,7 @@
 	on:contextmenu={handleContextMenu}
 	role="button"
 	tabindex="0"
-	aria-label="Stamp: {stamp.stamp}"
+	aria-label="Stamp: {stampDefinition?.name || 'Unknown stamp'}"
 	title="Drag to move, scroll to rotate, right-click to delete"
 >
 	<!-- Delete button -->
@@ -206,7 +212,7 @@
 
 	<!-- Stamp content -->
 	<div class="stamp-content">
-		{@html stamp.stamp}
+		{@html stampSvg}
 	</div>
 
 	<!-- Resize handle -->

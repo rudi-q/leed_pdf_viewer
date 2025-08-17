@@ -605,10 +605,24 @@
       const exporter = new PDFExporter();
       exporter.setOriginalPDF(pdfBytes);
 
-      const mergedCanvas = await pdfViewer.getMergedCanvas();
-      if (mergedCanvas) {
-        // Use the current page number instead of hardcoding 1
-        exporter.setPageCanvas($pdfState.currentPage, mergedCanvas);
+      // Export all pages with annotations
+      console.log('Exporting PDF with', $pdfState.totalPages, 'pages');
+      
+      for (let pageNum = 1; pageNum <= $pdfState.totalPages; pageNum++) {
+        console.log(`Processing page ${pageNum} for export...`);
+        
+        // Check if this page has any annotations
+        const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNum);
+        
+        // Always try to create merged canvas for all pages to debug the issue
+        console.log(`Page ${pageNum} has annotations: ${hasAnnotations}. Creating merged canvas anyway...`);
+        const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNum);
+        if (mergedCanvas) {
+          exporter.setPageCanvas(pageNum, mergedCanvas);
+          console.log(`Added merged canvas for page ${pageNum}`);
+        } else {
+          console.log(`Failed to create merged canvas for page ${pageNum}`);
+        }
       }
 
       const annotatedPdfBytes = await exporter.exportToPDF();

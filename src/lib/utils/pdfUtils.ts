@@ -239,6 +239,40 @@ export class PDFManager {
 		}
 	}
 
+	// Render a page proxy directly to a canvas (used for exports)
+	async renderPageToCanvas(pageProxy: PDFPageProxy, options: RenderOptions): Promise<void> {
+		if (!pageProxy) {
+			throw new Error('No page proxy provided');
+		}
+
+		try {
+			// Get viewport with scale 1 as the context scaling is already handled externally
+			const viewport = pageProxy.getViewport({ scale: 1 });
+
+			// Set canvas dimensions
+			const canvas = options.canvas;
+			const context = canvas.getContext('2d');
+			if (!context) {
+				throw new Error('Unable to get canvas context');
+			}
+
+			// Don't clear canvas or modify size as it might already be set for export scaling
+			// The context might already have scaling applied
+
+			// Render the page with the base viewport (scaling handled by existing context transform)
+			const renderContext = {
+				canvasContext: context,
+				viewport: viewport,
+				canvas: canvas
+			};
+
+			await pageProxy.render(renderContext).promise;
+		} catch (error) {
+			console.error('Error rendering page to canvas:', error);
+			throw new Error('Failed to render page to canvas');
+		}
+	}
+
 	getPageCount(): number {
 		return this.document?.numPages || 0;
 	}
