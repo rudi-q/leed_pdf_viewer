@@ -50,11 +50,11 @@ describe('KonvaShapeEngine', () => {
 	});
 
 	describe('Tool Setting', () => {
-	it('should set tool correctly', async () => {
-		await engine.setTool('text');
-		// Tool setting should not throw errors
-		expect(true).toBe(true);
-	});
+		it('should set tool correctly', async () => {
+			await engine.setTool('arrow');
+			// Tool setting should not throw errors
+			expect(true).toBe(true);
+		});
 
 		it('should handle invalid tools gracefully', async () => {
 			await engine.setTool('invalid' as any);
@@ -62,74 +62,13 @@ describe('KonvaShapeEngine', () => {
 		});
 
 		it('should set cursor based on tool', async () => {
-			await engine.setTool('text');
+			await engine.setTool('arrow');
 			// Cursor changes are tested through DOM mutations
 			expect(true).toBe(true);
 		});
 	});
 
-	describe('Text Management', () => {
-		it('should add text at specified coordinates', async () => {
-			const onShapeAdded = vi.fn();
-			engine.onShapeAdded = onShapeAdded;
-
-			const textNode = await engine.addText(100, 100, 'Test Text', 16);
-
-			// Should have called the callback
-			expect(textNode).toBeDefined();
-		});
-
-		it('should add text with default parameters', async () => {
-			const textNode = await engine.addText(50, 50);
-			expect(textNode).toBeDefined();
-		});
-
-		it('should handle text editing', async () => {
-			// This would test the private editText method indirectly
-			const textNode = await engine.addText(100, 100, 'Test Text');
-			expect(textNode).toBeDefined();
-		});
-	});
-
-	describe('Sticky Note Management', () => {
-		it('should add sticky note at specified coordinates', async () => {
-			const onShapeAdded = vi.fn();
-			engine.onShapeAdded = onShapeAdded;
-
-			const noteGroup = await engine.addStickyNote(150, 150, 'Note text');
-
-			expect(noteGroup).toBeDefined();
-		});
-
-		it('should add sticky note with default parameters', async () => {
-			const noteGroup = await engine.addStickyNote(75, 75);
-			expect(noteGroup).toBeDefined();
-		});
-
-		it('should create sticky note with custom color', async () => {
-			const noteGroup = await engine.addStickyNote(200, 200, 'Custom note', '#FFB6C1');
-			expect(noteGroup).toBeDefined();
-		});
-	});
-
 	describe('Shape Serialization', () => {
-		it('should serialize text shapes correctly', async () => {
-			const textNode = await engine.addText(100, 100, 'Test Text', 16);
-
-			// Mock the serialization by accessing the private method through type assertion
-			const serialized = (engine as any).serializeShape(textNode);
-
-			// In test environment, we get mock functions, so just verify we get an object back
-			expect(serialized).toBeDefined();
-			expect(typeof serialized).toBe('object');
-
-			// Basic properties should exist in some form
-			expect(serialized).toHaveProperty('type');
-			expect(serialized).toHaveProperty('id');
-			expect(serialized).toHaveProperty('x');
-			expect(serialized).toHaveProperty('y');
-		});
-
 		it('should handle serialization errors', async () => {
 			const invalidShape = {
 				constructor: { name: 'UnknownShape' },
@@ -150,34 +89,14 @@ describe('KonvaShapeEngine', () => {
 	describe('Shape Loading', () => {
 		const mockShapes: ShapeObject[] = [
 			{
-				id: 'text_1',
-				type: 'text',
+				id: 'arrow_1',
+				type: 'arrow',
 				pageNumber: 1,
 				x: 100,
 				y: 100,
-				text: 'Test Text',
-				fontSize: 16,
-				fill: '#000000',
+				points: [0, 0, 100, 50],
 				relativeX: 0.125,
 				relativeY: 0.167
-			},
-			{
-				id: 'note_1',
-				type: 'note',
-				pageNumber: 1,
-				x: 400,
-				y: 400,
-				width: 120,
-				height: 80,
-				text: 'Sticky note text',
-				fontSize: 12,
-				fill: '#FFF59D',
-				stroke: '#E6B800',
-				strokeWidth: 1,
-				relativeX: 0.5,
-				relativeY: 0.667,
-				relativeWidth: 0.15,
-				relativeHeight: 0.133
 			}
 		];
 
@@ -199,12 +118,12 @@ describe('KonvaShapeEngine', () => {
 			// Load different shapes
 			const newShapes: ShapeObject[] = [
 				{
-					id: 'new_text',
-					type: 'text',
+					id: 'new_arrow',
+					type: 'arrow',
 					pageNumber: 1,
 					x: 50,
 					y: 50,
-					text: 'New Text',
+					points: [0, 0, 75, 25],
 					relativeX: 0.0625,
 					relativeY: 0.083
 				}
@@ -225,9 +144,6 @@ describe('KonvaShapeEngine', () => {
 		});
 
 		it('should clear canvas correctly', async () => {
-			// Add some shapes first
-			await engine.addText(100, 100, 'Test');
-
 			// Clear should not throw
 			await engine.clear();
 			expect(true).toBe(true);
@@ -257,15 +173,12 @@ describe('KonvaShapeEngine', () => {
 	});
 
 	describe('Event Callbacks', () => {
-		it('should call onShapeAdded callback', async () => {
+		it('should call onShapeAdded callback', () => {
 			const onShapeAdded = vi.fn();
 			engine.onShapeAdded = onShapeAdded;
 
-			await engine.addText(100, 100, 'Test Text');
-
-			// The callback might be called depending on implementation
-			// This test ensures the callback system works
-			expect(true).toBe(true);
+			// The callback system should be defined and ready to use
+			expect(onShapeAdded).toBeDefined();
 		});
 
 		it('should call onShapeUpdated callback', () => {
@@ -346,7 +259,7 @@ describe('KonvaShapeEngine', () => {
 			const uninitializedEngine = new KonvaShapeEngine(document.createElement('div'));
 
 			// These operations should handle uninitialized state gracefully
-			await uninitializedEngine.setTool('text');
+			await uninitializedEngine.setTool('arrow');
 			await uninitializedEngine.resize(800, 600);
 			await uninitializedEngine.clear();
 

@@ -1,0 +1,425 @@
+<script lang="ts">
+	import { createEventDispatcher, onMount } from 'svelte';
+	import type { StickyNoteAnnotation } from '$lib/stores/drawingStore';
+
+	export let note: StickyNoteAnnotation;
+	export let scale: number = 1; // Used for future scaling calculations
+	export let containerWidth: number = 0;
+	export let containerHeight: number = 0;
+
+	const dispatch = createEventDispatcher<{
+		update: StickyNoteAnnotation;
+		delete: string;
+	}>();
+
+	let isEditing = false;
+	let isDragging = false;
+	let isResizing = false;
+	let dragStartX = 0;
+	let dragStartY = 0;
+	let resizeStartX = 0;
+	let resizeStartY = 0;
+	let resizeStartWidth = 0;
+	let resizeStartHeight = 0;
+	let textareaRef: HTMLTextAreaElement;
+	let noteElement: HTMLDivElement;
+
+	// Minimum dimensions
+	const MIN_WIDTH = 120;
+	const MIN_HEIGHT = 80;
+	const MAX_WIDTH = 400;
+	const MAX_HEIGHT = 300;
+
+	// Calculate actual position and size based on scale and relative coordinates
+	$: actualX = note.relativeX * containerWidth;
+	$: actualY = note.relativeY * containerHeight;
+	$: actualWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, note.relativeWidth * containerWidth));
+	$: actualHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, note.relativeHeight * containerHeight));
+
+	// Auto-resize textarea to fit content
+	const autoResizeTextarea = () => {
+		if (textareaRef) {
+			textareaRef.style.height = 'auto';
+			const scrollHeight = textareaRef.scrollHeight;
+			const minHeight = 60; // Minimum textarea height
+			textareaRef.style.height = `${Math.max(minHeight, scrollHeight)}px`;
+		}
+	};
+
+	// Handle text changes
+	const handleTextChange = (event: Event) => {
+		const target = event.target as HTMLTextAreaElement;
+		const updatedNote: StickyNoteAnnotation = {
+			...note,
+			text: target.value,
+		};
+		dispatch('update', updatedNote);
+		autoResizeTextarea();
+	};
+
+	// Handle double-click to start editing
+	const handleDoubleClick = () => {
+		if (!isEditing) {
+			isEditing = true;
+			setTimeout(() => {
+				if (textareaRef) {
+					textareaRef.focus();
+					textareaRef.select();
+				}
+			}, 0);
+		}
+	};
+
+	// Handle blur to stop editing
+	const handleBlur = () => {
+		isEditing = false;
+	};
+
+	// Handle key events
+	const handleKeydown = (event: KeyboardEvent) => {
+		if (event.key === 'Escape') {
+			isEditing = false;
+			if (textareaRef) {
+				textareaRef.blur();
+			}
+		} else if (event.key === 'Enter' && event.ctrlKey) {
+			isEditing = false;
+			if (textareaRef) {
+				textareaRef.blur();
+			}
+		}
+	};
+
+	// Handle mouse down for dragging
+	const handleMouseDown = (event: MouseEvent) => {
+		if (isEditing) return;
+
+		event.preventDefault();
+		event.stopPropagation();
+
+		isDragging = true;
+		dragStartX = event.clientX - actualX;
+		dragStartY = event.clientY - actualY;
+
+		document.addEventListener('mousemove', handleMouseMove);
+		document.addEventListener('mouseup', handleMouseUp);
+	};
+
+	// Handle mouse move for dragging
+	const handleMouseMove = (event: MouseEvent) => {
+		if (isDragging) {
+			const newX = event.clientX - dragStartX;
+			const newY = event.clientY - dragStartY;
+
+			// Constrain to container bounds
+			const constrainedX = Math.max(0, Math.min(containerWidth - actualWidth, newX));
+			const constrainedY = Math.max(0, Math.min(containerHeight - actualHeight, newY));
+
+			const updatedNote: StickyNoteAnnotation = {
+				...note,
+				x: constrainedX,
+				y: constrainedY,
+				relativeX: constrainedX / containerWidth,
+				relativeY: constrainedY / containerHeight,
+			};
+			dispatch('update', updatedNote);
+		} else if (isResizing) {
+			const deltaX = event.clientX - resizeStartX;
+			const deltaY = event.clientY - resizeStartY;
+
+			const newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, resizeStartWidth + deltaX));
+			const newHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, resizeStartHeight + deltaY));
+
+			const updatedNote: StickyNoteAnnotation = {
+				...note,
+				width: newWidth,
+				height: newHeight,
+				relativeWidth: newWidth / containerWidth,
+				relativeHeight: newHeight / containerHeight,
+			};
+			dispatch('update', updatedNote);
+		}
+	};
+
+	// Handle mouse up
+	const handleMouseUp = () => {
+		isDragging = false;
+		isResizing = false;
+		document.removeEventListener('mousemove', handleMouseMove);
+		document.removeEventListener('mouseup', handleMouseUp);
+	};
+
+	// Handle resize handle mouse down
+	const handleResizeMouseDown = (event: MouseEvent) => {
+		event.preventDefault();
+		event.stopPropagation();
+
+		isResizing = true;
+		resizeStartX = event.clientX;
+		resizeStartY = event.clientY;
+		resizeStartWidth = actualWidth;
+		resizeStartHeight = actualHeight;
+
+		document.addEventListener('mousemove', handleMouseMove);
+		document.addEventListener('mouseup', handleMouseUp);
+	};
+
+	// Handle delete
+	const handleDelete = () => {
+		dispatch('delete', note.id);
+	};
+
+	// Handle right-click context menu
+	const handleContextMenu = (event: MouseEvent) => {
+		event.preventDefault();
+		// Could add a context menu here in the future
+		handleDelete();
+	};
+
+	onMount(() => {
+		if (isEditing && textareaRef) {
+			textareaRef.focus();
+			autoResizeTextarea();
+		}
+	});
+
+	// Auto-resize when text changes
+	$: if (textareaRef && note.text) {
+		setTimeout(autoResizeTextarea, 0);
+	}
+</script>
+
+	<!-- svelte-ignore a11y-no-noninteractive-tabindex -->
+	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+	<div
+		bind:this={noteElement}
+		class="sticky-note"
+		style:left="{actualX}px"
+		style:top="{actualY}px"
+		style:width="{actualWidth}px"
+		style:height="{actualHeight}px"
+		style:background-color={note.backgroundColor}
+		style:font-size="{note.fontSize}px"
+		class:editing={isEditing}
+		class:dragging={isDragging}
+		class:resizing={isResizing}
+		on:mousedown={handleMouseDown}
+		on:dblclick={handleDoubleClick}
+		on:contextmenu={handleContextMenu}
+		role="button"
+		tabindex="0"
+		aria-label="Sticky note: {note.text || 'Empty note'}"
+	>
+	<!-- Delete button -->
+	<button
+		class="delete-btn"
+		on:click|stopPropagation={handleDelete}
+		title="Delete sticky note"
+		aria-label="Delete sticky note"
+	>
+		×
+	</button>
+
+	<!-- Content area -->
+	{#if isEditing}
+		<textarea
+			bind:this={textareaRef}
+			class="note-textarea"
+			value={note.text}
+			on:input={handleTextChange}
+			on:blur={handleBlur}
+			on:keydown={handleKeydown}
+			placeholder="Type your note..."
+			style:font-size="{note.fontSize}px"
+		></textarea>
+	{:else}
+		<div
+			class="note-content"
+			style:font-size="{note.fontSize}px"
+		>
+			{#if note.text.trim()}
+				{note.text}
+			{:else}
+				<span class="placeholder">Double-click to edit</span>
+			{/if}
+		</div>
+	{/if}
+
+		<!-- Resize handle -->
+		<!-- svelte-ignore a11y-no-static-element-interactions -->
+		<div
+			class="resize-handle"
+			on:mousedown|stopPropagation={handleResizeMouseDown}
+			title="Drag to resize"
+			role="button"
+			aria-label="Resize sticky note"
+		></div>
+</div>
+
+<style>
+	.sticky-note {
+		position: absolute;
+		border: 1px solid rgba(0, 0, 0, 0.2);
+		border-radius: 8px;
+		box-shadow: 
+			0 2px 4px rgba(0, 0, 0, 0.1),
+			0 4px 8px rgba(0, 0, 0, 0.05);
+		cursor: move;
+		user-select: none;
+		overflow: hidden;
+		transition: all 0.1s ease;
+		padding: 8px;
+		box-sizing: border-box;
+		font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+		line-height: 1.4;
+		z-index: 100;
+		background: linear-gradient(135deg, var(--bg-color) 0%, var(--bg-color) 100%);
+	}
+
+	.sticky-note:hover {
+		box-shadow: 
+			0 4px 8px rgba(0, 0, 0, 0.15),
+			0 8px 16px rgba(0, 0, 0, 0.1);
+		transform: translateY(-1px);
+	}
+
+	.sticky-note.editing {
+		cursor: default;
+		border-color: #3B82F6;
+		box-shadow: 
+			0 0 0 2px rgba(59, 130, 246, 0.2),
+			0 4px 8px rgba(0, 0, 0, 0.15);
+	}
+
+	.sticky-note.dragging {
+		cursor: grabbing;
+		transform: rotate(2deg) scale(1.02);
+		z-index: 101;
+	}
+
+	.sticky-note.resizing {
+		cursor: nw-resize;
+	}
+
+	.delete-btn {
+		position: absolute;
+		top: 4px;
+		right: 4px;
+		width: 20px;
+		height: 20px;
+		border: none;
+		background: rgba(239, 68, 68, 0.8);
+		color: white;
+		border-radius: 50%;
+		cursor: pointer;
+		font-size: 12px;
+		font-weight: bold;
+		line-height: 1;
+		opacity: 0;
+		transition: opacity 0.2s ease;
+		z-index: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.sticky-note:hover .delete-btn {
+		opacity: 1;
+	}
+
+	.delete-btn:hover {
+		background: rgba(239, 68, 68, 1);
+		transform: scale(1.1);
+	}
+
+	.note-textarea {
+		width: 100%;
+		height: calc(100% - 16px);
+		border: none;
+		background: transparent;
+		font-family: inherit;
+		font-size: inherit;
+		line-height: inherit;
+		resize: none;
+		outline: none;
+		padding: 0;
+		margin: 0;
+		color: #2D3748;
+		overflow-y: auto;
+		min-height: 60px;
+	}
+
+	.note-textarea::placeholder {
+		color: #9CA3AF;
+		font-style: italic;
+	}
+
+	.note-content {
+		width: 100%;
+		height: calc(100% - 16px);
+		color: #2D3748;
+		white-space: pre-wrap;
+		word-wrap: break-word;
+		overflow-y: auto;
+		padding-right: 24px; /* Space for delete button */
+	}
+
+	.placeholder {
+		color: #9CA3AF;
+		font-style: italic;
+		font-size: 0.9em;
+	}
+
+	.resize-handle {
+		position: absolute;
+		bottom: 0;
+		right: 0;
+		width: 16px;
+		height: 16px;
+		cursor: nw-resize;
+		background: linear-gradient(-45deg, transparent 0%, transparent 40%, #9CA3AF 40%, #9CA3AF 60%, transparent 60%);
+		opacity: 0.5;
+	}
+
+	.sticky-note:hover .resize-handle {
+		opacity: 1;
+	}
+
+	/* Add some visual texture to mimic real sticky notes */
+	.sticky-note::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: 
+			radial-gradient(circle at 20% 80%, rgba(255,255,255,0.3) 0%, transparent 15%),
+			radial-gradient(circle at 80% 20%, rgba(255,255,255,0.2) 0%, transparent 15%),
+			radial-gradient(circle at 40% 40%, rgba(255,255,255,0.1) 0%, transparent 15%);
+		pointer-events: none;
+		border-radius: inherit;
+	}
+
+	/* Scrollbar styling for webkit browsers */
+	.note-textarea::-webkit-scrollbar,
+	.note-content::-webkit-scrollbar {
+		width: 4px;
+	}
+
+	.note-textarea::-webkit-scrollbar-track,
+	.note-content::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	.note-textarea::-webkit-scrollbar-thumb,
+	.note-content::-webkit-scrollbar-thumb {
+		background: rgba(0, 0, 0, 0.2);
+		border-radius: 2px;
+	}
+
+	.note-textarea::-webkit-scrollbar-thumb:hover,
+	.note-content::-webkit-scrollbar-thumb:hover {
+		background: rgba(0, 0, 0, 0.3);
+	}
+</style>

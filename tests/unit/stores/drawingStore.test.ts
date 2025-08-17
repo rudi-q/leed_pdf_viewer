@@ -182,15 +182,13 @@ describe('DrawingStore', () => {
 	describe('Shape Objects Management', () => {
 	const mockShape: ShapeObject = {
 		id: 'shape_123',
-		type: 'text',
+		type: 'arrow',
 		pageNumber: 1,
 		x: 100,
 		y: 100,
-		text: 'Test text',
-		fontSize: 16,
+		points: [0, 0, 50, 50],
 		relativeX: 0.1,
-		relativeY: 0.1,
-		fill: '#000000'
+		relativeY: 0.1
 	};
 
 		it('should add shape objects correctly', () => {
@@ -298,15 +296,13 @@ describe('DrawingStore', () => {
 
 		const mockShape: ShapeObject = {
 			id: 'shape_123',
-			type: 'text',
+			type: 'arrow',
 			pageNumber: 1,
 			x: 100,
 			y: 100,
-			text: 'Test text',
-			fontSize: 16,
+			points: [0, 0, 50, 50],
 			relativeX: 0.1,
-			relativeY: 0.1,
-			fill: '#000000'
+			relativeY: 0.1
 		};
 
 			addDrawingPath(mockPath);

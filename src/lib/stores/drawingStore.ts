@@ -65,6 +65,23 @@ export interface TextAnnotation {
 	relativeY: number; // 0-1 range for scaling
 }
 
+// Sticky Note annotation interface (custom solution, not using KonvaJS)
+export interface StickyNoteAnnotation {
+	id: string;
+	pageNumber: number;
+	x: number;
+	y: number;
+	text: string;
+	fontSize: number;
+	backgroundColor: string;
+	width: number;
+	height: number;
+	relativeX: number; // 0-1 range for scaling
+	relativeY: number; // 0-1 range for scaling
+	relativeWidth: number; // 0-1 range for scaling
+	relativeHeight: number; // 0-1 range for scaling
+}
+
 // Stamp definitions
 export interface StampDefinition {
 	id: string;
@@ -210,10 +227,14 @@ export const shapeObjects = writable<Map<number, any[]>>(new Map());
 // Text annotations store - stores all text annotations per page (custom implementation, not KonvaJS)
 export const textAnnotations = writable<Map<number, TextAnnotation[]>>(new Map());
 
+// Sticky note annotations store - stores all sticky note annotations per page (custom implementation, not KonvaJS)
+export const stickyNoteAnnotations = writable<Map<number, StickyNoteAnnotation[]>>(new Map());
+
 // Auto-save functionality
 const STORAGE_KEY = 'leedpdf_drawings';
 const STORAGE_KEY_SHAPES = 'leedpdf_shapes';
 const STORAGE_KEY_TEXT = 'leedpdf_text_annotations';
+const STORAGE_KEY_STICKY_NOTES = 'leedpdf_sticky_note_annotations';
 const STORAGE_KEY_PDF_INFO = 'leedpdf_current_pdf';
 
 // Track current PDF to associate drawings with specific files
@@ -238,10 +259,11 @@ export const setCurrentPDF = (fileName: string, fileSize: number) => {
 		}
 	}
 
-	// Load drawings, shapes, and text annotations for this specific PDF
+	// Load drawings, shapes, text annotations, and sticky notes for this specific PDF
 	loadDrawingsForCurrentPDF();
 	loadShapesForCurrentPDF();
 	loadTextAnnotationsForCurrentPDF();
+	loadStickyNotesForCurrentPDF();
 };
 
 // Load drawings for current PDF
@@ -325,6 +347,33 @@ const loadTextAnnotationsForCurrentPDF = () => {
 	}
 };
 
+// Load sticky notes for current PDF
+const loadStickyNotesForCurrentPDF = () => {
+	if (!currentPDFKey || typeof window === 'undefined') return;
+
+	try {
+		const savedStickyNotes = localStorage.getItem(`${STORAGE_KEY_STICKY_NOTES}_${currentPDFKey}`);
+		if (savedStickyNotes) {
+			const parsedStickyNotes = JSON.parse(savedStickyNotes);
+			const stickyNotesMap = new Map();
+
+			Object.entries(parsedStickyNotes).forEach(([pageNum, notes]) => {
+				stickyNotesMap.set(parseInt(pageNum), notes as StickyNoteAnnotation[]);
+			});
+
+			stickyNoteAnnotations.set(stickyNotesMap);
+			console.log(`Loaded sticky notes for PDF ${currentPDFKey}:`, stickyNotesMap);
+		} else {
+			// No saved sticky notes for this PDF, start fresh
+			stickyNoteAnnotations.set(new Map());
+			console.log(`No saved sticky notes found for PDF ${currentPDFKey}`);
+		}
+	} catch (error) {
+		console.error('Error loading sticky notes for current PDF:', error);
+		stickyNoteAnnotations.set(new Map());
+	}
+};
+
 // Load last PDF info on initialization
 if (typeof window !== 'undefined') {
 	try {
@@ -335,6 +384,7 @@ if (typeof window !== 'undefined') {
 			loadDrawingsForCurrentPDF();
 			loadShapesForCurrentPDF();
 			loadTextAnnotationsForCurrentPDF();
+			loadStickyNotesForCurrentPDF();
 		}
 	} catch (error) {
 		console.error('Error loading PDF info from localStorage:', error);
@@ -403,6 +453,28 @@ if (typeof window !== 'undefined') {
 			console.log(`Auto-saved text annotations for PDF ${currentPDFKey}`);
 		} catch (error) {
 			console.error('Error saving text annotations to localStorage:', error);
+		}
+	});
+}
+
+// Save sticky note annotations to localStorage whenever they change (PDF-specific)
+if (typeof window !== 'undefined') {
+	stickyNoteAnnotations.subscribe((notes) => {
+		if (!currentPDFKey) return;
+
+		try {
+			// Convert Map to object for JSON serialization
+			const notesObject: Record<string, StickyNoteAnnotation[]> = {};
+			notes.forEach((noteList, pageNum) => {
+				if (noteList.length > 0) {
+					notesObject[pageNum.toString()] = noteList;
+				}
+			});
+
+			localStorage.setItem(`${STORAGE_KEY_STICKY_NOTES}_${currentPDFKey}`, JSON.stringify(notesObject));
+			console.log(`Auto-saved sticky notes for PDF ${currentPDFKey}`);
+		} catch (error) {
+			console.error('Error saving sticky notes to localStorage:', error);
 		}
 	});
 }
@@ -671,4 +743,39 @@ export const deleteTextAnnotation = (annotationId: string, pageNumber: number) =
 // Derived store for current page text annotations
 export const currentPageTextAnnotations = derived([textAnnotations, pdfState], ([$textAnnotations, $pdfState]) => {
 	return $textAnnotations.get($pdfState.currentPage) || [];
+});
+
+// Sticky note annotation management functions
+export const addStickyNoteAnnotation = (annotation: StickyNoteAnnotation) => {
+	stickyNoteAnnotations.update((notes) => {
+		const currentNotes = notes.get(annotation.pageNumber) || [];
+		const newNotes = [...currentNotes, annotation];
+		notes.set(annotation.pageNumber, newNotes);
+		return new Map(notes);
+	});
+};
+
+export const updateStickyNoteAnnotation = (updatedAnnotation: StickyNoteAnnotation) => {
+	stickyNoteAnnotations.update((notes) => {
+		const currentNotes = notes.get(updatedAnnotation.pageNumber) || [];
+		const newNotes = currentNotes.map((note) =>
+			note.id === updatedAnnotation.id ? updatedAnnotation : note
+		);
+		notes.set(updatedAnnotation.pageNumber, newNotes);
+		return new Map(notes);
+	});
+};
+
+export const deleteStickyNoteAnnotation = (annotationId: string, pageNumber: number) => {
+	stickyNoteAnnotations.update((notes) => {
+		const currentNotes = notes.get(pageNumber) || [];
+		const newNotes = currentNotes.filter((note) => note.id !== annotationId);
+		notes.set(pageNumber, newNotes);
+		return new Map(notes);
+	});
+};
+
+// Derived store for current page sticky note annotations
+export const currentPageStickyNotes = derived([stickyNoteAnnotations, pdfState], ([$stickyNoteAnnotations, $pdfState]) => {
+	return $stickyNoteAnnotations.get($pdfState.currentPage) || [];
 });

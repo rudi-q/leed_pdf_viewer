@@ -18,6 +18,7 @@
   import { DrawingEngine } from '../utils/drawingUtils';
   import { KonvaShapeEngine } from '../utils/konvaShapeEngine';
   import TextOverlay from './TextOverlay.svelte';
+  import StickyNoteOverlay from './StickyNoteOverlay.svelte';
 
   export let pdfFile: File | string | null = null;
 
@@ -76,18 +77,20 @@
   // Update cursor and tool when drawing state changes
   $: if ($drawingState.tool && containerDiv) {
     console.log('TOOL CHANGED:', $drawingState.tool);
-    console.log('Shape tools includes this tool:', ['rectangle', 'circle', 'arrow', 'star', 'stamp'].includes($drawingState.tool));
+    console.log('Konva shape tools includes this tool:', ['arrow', 'stamp'].includes($drawingState.tool));
     updateCursor();
     
-    // Update Konva tool (exclude text tool as it's now handled by TextOverlay)
-    if (konvaEngine && $drawingState.tool !== 'text') {
-      console.log('Setting Konva tool to:', $drawingState.tool);
-      konvaEngine.setTool($drawingState.tool);
-    } else if ($drawingState.tool === 'text') {
-      console.log('Text tool selected - handled by TextOverlay component');
-    } else {
-      console.log('Konva engine not available yet');
-    }
+	// Update Konva tool (only arrow and stamp tools are handled by Konva)
+	if (konvaEngine && ['arrow', 'stamp'].includes($drawingState.tool)) {
+		console.log('Setting Konva tool to:', $drawingState.tool);
+		konvaEngine.setTool($drawingState.tool);
+	} else if (['text', 'note'].includes($drawingState.tool)) {
+		console.log(`${$drawingState.tool} tool selected - handled by overlay component`);
+	} else if (['pencil', 'eraser', 'highlight'].includes($drawingState.tool)) {
+		console.log(`${$drawingState.tool} tool selected - handled by drawing canvas`);
+	} else {
+		console.log('Konva engine not available yet or unsupported tool');
+	}
   }
 
   onMount(async () => {
@@ -355,19 +358,24 @@ function handlePointerDown(event: PointerEvent) {
     }
     
     // Only handle freehand drawing tools (pencil, eraser, highlight) here
-    // Text tool is handled by TextOverlay component
-    // Other shape tools (rectangle, circle, arrow) are handled by Konva
+    // Text and note tools are handled by overlay components
+    // Arrow and stamp tools are handled by Konva
     if (!['pencil', 'eraser', 'highlight'].includes($drawingState.tool)) {
-      console.log('Shape tool detected:', $drawingState.tool);
+      console.log('Non-freehand tool detected:', $drawingState.tool);
       
-      // Text tool is now handled by TextOverlay component, not here
-      if ($drawingState.tool === 'text') {
-        console.log('Text tool click ignored - handled by TextOverlay component');
+      // Text and note tools are now handled by overlay components, not here
+      if (['text', 'note'].includes($drawingState.tool)) {
+        console.log(`${$drawingState.tool} tool click ignored - handled by overlay component`);
         return;
       }
       
-      // Other shape tools should be handled by Konva
-      console.warn('Non-freehand tool event reached drawing canvas - this should be handled by Konva');
+      // Arrow and stamp tools should be handled by Konva
+      if (['arrow', 'stamp'].includes($drawingState.tool)) {
+        console.log(`${$drawingState.tool} tool click ignored - handled by Konva`);
+        return;
+      }
+      
+      console.warn('Unknown tool event reached drawing canvas:', $drawingState.tool);
       return;
     }
     
@@ -812,13 +820,13 @@ function handlePointerUp(event: PointerEvent) {
         style="z-index: 2;"
       ></canvas>
       
-      <!-- Konva Container for Shapes (excluding text) -->
+      <!-- Konva Container for Shapes (arrow and stamp only) -->
       <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
       <div
         bind:this={konvaContainer}
         class="absolute top-0 left-0 w-full h-full"
         class:hidden={!$pdfState.document}
-        class:pointer-events-none={!['rectangle', 'circle', 'arrow', 'star', 'note', 'stamp'].includes($drawingState.tool)}
+        class:pointer-events-none={!['arrow', 'stamp'].includes($drawingState.tool)}
         style="z-index: 3;"
         on:click={() => console.log('Konva container clicked, current tool:', $drawingState.tool)}
         on:keydown={(e) => e.key === 'Enter' && console.log('Konva container activated')}
@@ -832,6 +840,15 @@ function handlePointerUp(event: PointerEvent) {
         <TextOverlay 
           canvasWidth={pdfCanvas.style.width ? parseFloat(pdfCanvas.style.width) : 0}
           canvasHeight={pdfCanvas.style.height ? parseFloat(pdfCanvas.style.height) : 0}
+        />
+      {/if}
+      
+      <!-- Sticky Note Overlay for Custom Sticky Note Annotations -->
+      {#if $pdfState.document && pdfCanvas}
+        <StickyNoteOverlay 
+          containerWidth={pdfCanvas.style.width ? parseFloat(pdfCanvas.style.width) : 0}
+          containerHeight={pdfCanvas.style.height ? parseFloat(pdfCanvas.style.height) : 0}
+          scale={$pdfState.scale}
         />
       {/if}
       

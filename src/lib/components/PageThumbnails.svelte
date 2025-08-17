@@ -211,6 +211,8 @@
     border-right: 1px solid #e2e8f0;
     overflow-y: auto;
     padding: 16px;
+    z-index: 10;
+    position: relative;
   }
 
   :global(.dark) .thumbnail-panel {
