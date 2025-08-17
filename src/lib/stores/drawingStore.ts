@@ -46,6 +46,7 @@ export interface DrawingPath {
 	pageNumber: number;
 	highlightColor?: string;
 	highlightOpacity?: number;
+	viewerScale?: number; // Store the viewer scale when the path was drawn
 }
 
 

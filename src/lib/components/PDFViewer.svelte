@@ -477,7 +477,8 @@ function handlePointerUp(event: PointerEvent) {
           color: color,
           lineWidth: $drawingState.lineWidth,
           points: finalPath,
-          pageNumber: $pdfState.currentPage
+          pageNumber: $pdfState.currentPage,
+          viewerScale: $pdfState.scale  // Store the viewer scale when the path was drawn
         };
         addDrawingPath(drawingPath);
       }
@@ -818,12 +819,17 @@ function handlePointerUp(event: PointerEvent) {
       }
       
       // Now create the merged canvas with all annotations
+      // IMPORTANT: Use base viewport dimensions (scale 1.0) for consistent coordinate transformation
+      // Annotations should be calculated relative to the base document dimensions
+      const actualCanvasWidth = viewport.width;
+      const actualCanvasHeight = viewport.height;
+      
       return await createMergedCanvasWithAnnotations(
         tempPdfCanvas, 
         tempDrawingCanvas, 
         pageNumber,
-        viewport.width,
-        viewport.height,
+        actualCanvasWidth,
+        actualCanvasHeight,
         outputScale
       );
     } catch (error) {
@@ -905,7 +911,8 @@ function handlePointerUp(event: PointerEvent) {
       pdfCanvasSize: [pdfCanvas.width, pdfCanvas.height],
       drawingCanvasSize: [drawingCanvas.width, drawingCanvas.height],
       referenceCanvasSize: [canvasWidth, canvasHeight],
-      outputScale
+      outputScale,
+      currentViewerScale: $pdfState.scale
     });
     
     const mergedCanvas = document.createElement('canvas');
@@ -924,6 +931,75 @@ function handlePointerUp(event: PointerEvent) {
 
     // Since both canvases now have the same dimensions, draw directly without scaling
     ctx.drawImage(drawingCanvas, 0, 0);
+    
+    // FIXED: Also render drawing paths directly for this specific page (same as getMergedCanvas)
+    // Get drawing paths for this specific page and render them with proper coordinate transformation
+    let pageDrawingPaths: any[] = [];
+    const unsubscribePageDrawingPaths = drawingPaths.subscribe(paths => {
+      pageDrawingPaths = paths.get(pageNumber) || [];
+    });
+    unsubscribePageDrawingPaths();
+    
+    if (pageDrawingPaths.length > 0) {
+      console.log(`Rendering ${pageDrawingPaths.length} drawing paths directly for page ${pageNumber} export`);
+      
+      ctx.save();
+      // Use the same scaling as other annotations (output scale only)
+      ctx.scale(outputScale, outputScale);
+      
+      // Render each drawing path directly onto the export canvas
+      pageDrawingPaths.forEach(path => {
+        if (path.points && path.points.length > 1) {
+          ctx.strokeStyle = path.color || '#000000';
+          ctx.lineWidth = path.lineWidth || 2;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          
+          // Set blend mode for highlight tool
+          if (path.tool === 'highlight') {
+            ctx.globalCompositeOperation = 'multiply';
+            ctx.globalAlpha = 0.3;
+          } else {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 1.0;
+          }
+          
+          // FIXED: The drawing paths were created at the drawing canvas size but at the current viewer scale
+          // We need to transform them to the export canvas coordinate system
+          // First, get the scale that was used when the paths were drawn (stored in the path or use current scale)
+          const pathViewerScale = path.viewerScale || $pdfState.scale;
+          
+          // Transform coordinates: drawing canvas -> base viewport -> export canvas
+          // Step 1: Scale from drawing canvas to base viewport (accounting for viewer scale)
+          // Use the base viewport dimensions for coordinate transformation
+          // The drawing paths were created relative to the original drawing canvas size (which matches canvasWidth/canvasHeight)
+          const drawingToBaseScaleX = (canvasWidth / pathViewerScale) / canvasWidth;
+          const drawingToBaseScaleY = (canvasHeight / pathViewerScale) / canvasHeight;
+          
+          console.log(`Page ${pageNumber} Drawing path coordinate transform: pathViewerScale=${pathViewerScale}, drawingToBaseScale=(${drawingToBaseScaleX}, ${drawingToBaseScaleY})`);
+          
+          ctx.beginPath();
+          const transformedX = path.points[0].x * drawingToBaseScaleX;
+          const transformedY = path.points[0].y * drawingToBaseScaleY;
+          ctx.moveTo(transformedX, transformedY);
+          
+          for (let i = 1; i < path.points.length; i++) {
+            const transformedX = path.points[i].x * drawingToBaseScaleX;
+            const transformedY = path.points[i].y * drawingToBaseScaleY;
+            ctx.lineTo(transformedX, transformedY);
+          }
+          
+          ctx.stroke();
+          
+          // Reset blend mode and alpha
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = 1.0;
+        }
+      });
+      
+      ctx.restore();
+      console.log(`Successfully rendered ${pageDrawingPaths.length} drawing paths for page ${pageNumber} export`);
+    }
 
     // Get all annotation types for this specific page from localStorage
     const { pageTextAnnotations, pageArrowAnnotations, pageStampAnnotations, pageStickyNotes } = getAnnotationsFromStorage(pageNumber);
@@ -934,18 +1010,56 @@ function handlePointerUp(event: PointerEvent) {
       stampAnnotations: pageStampAnnotations.length,
       stickyNotes: pageStickyNotes.length
     });
+    
+    // Debug: Show sample annotation data
+    if (pageTextAnnotations.length > 0) {
+      console.log('Sample text annotation data:', {
+        relativeX: pageTextAnnotations[0].relativeX,
+        relativeY: pageTextAnnotations[0].relativeY,
+        x: pageTextAnnotations[0].x,
+        y: pageTextAnnotations[0].y,
+        text: pageTextAnnotations[0].text
+      });
+    }
+    
+    // Debug: Show sample annotation data
+    if (pageTextAnnotations.length > 0) {
+      console.log('Sample text annotation:', pageTextAnnotations[0]);
+    }
+    
+    // The correct canvas dimensions for coordinate transformation
+    // Annotations were saved using relative coordinates based on the actual CSS canvas size
+    // canvasWidth and canvasHeight are now already the actual canvas dimensions used during annotation saving
+    // No additional scaling needed since we're passing the correct dimensions from getMergedCanvasForPage
+    
+    console.log('Canvas dimensions for coordinate transformation:', {
+      passedCanvasSize: [canvasWidth, canvasHeight],
+      viewerScale: $pdfState.scale
+    });
 
     // Draw text annotations - Apply outputScale to match the scaled canvas
     if (pageTextAnnotations.length > 0) {
-      console.log('Drawing text annotations with dimensions:', { canvasWidth, canvasHeight });
+      console.log('Drawing text annotations with passed canvas dimensions:', { 
+        canvasSize: [canvasWidth, canvasHeight]
+      });
       ctx.save();
       ctx.scale(outputScale, outputScale);
       
       pageTextAnnotations.forEach(annotation => {
-        const x = annotation.relativeX * canvasWidth;
-        const y = annotation.relativeY * canvasHeight;
-        
-        console.log(`Text annotation: relativeX=${annotation.relativeX}, relativeY=${annotation.relativeY}, computed x=${x}, y=${y}`);
+        // FIXED: Use the stored absolute coordinates when they exist instead of computing from relative
+        // This ensures annotations appear exactly where they were placed originally
+        let x, y;
+        if (annotation.x !== undefined && annotation.y !== undefined) {
+          // Use absolute coordinates directly - these were stored at annotation creation time
+          x = annotation.x;
+          y = annotation.y;
+          console.log(`Text annotation: Using absolute coordinates x=${x}, y=${y}`);
+        } else {
+          // Fallback to relative coordinates if absolute ones aren't available
+          x = annotation.relativeX * canvasWidth;
+          y = annotation.relativeY * canvasHeight;
+          console.log(`Text annotation: Using computed relative coordinates - relativeX=${annotation.relativeX}, relativeY=${annotation.relativeY}, computed x=${x}, y=${y}`);
+        }
         
         ctx.font = `${annotation.fontSize}px ${annotation.fontFamily}`;
         ctx.fillStyle = annotation.color;
@@ -1011,35 +1125,35 @@ function handlePointerUp(event: PointerEvent) {
       
       // Load all stamp images in parallel and wait for them
         const stampPromises = pageStampAnnotations.map(async (stampAnnotation) => {
-        // Handle backward compatibility: check if stamp has stampId or old SVG format
-        let svgString: string;
-        let stampName: string;
-        
-        if (stampAnnotation.stampId) {
-          // New format: get SVG from stamp definition
-          const stamp = getStampById(stampAnnotation.stampId);
-          if (!stamp) {
-            console.warn('Stamp not found:', stampAnnotation.stampId);
-            return null;
+          // Handle backward compatibility: check if stamp has stampId or old SVG format
+          let svgString: string;
+          let stampName: string;
+          
+          if (stampAnnotation.stampId) {
+            // New format: get SVG from stamp definition
+            const stamp = getStampById(stampAnnotation.stampId);
+            if (!stamp) {
+              console.warn('Stamp not found:', stampAnnotation.stampId);
+              return null;
+            }
+            svgString = stamp.svg;
+            stampName = stamp.name;
+          } else {
+            // Old format: SVG is stored directly in stamp property  
+            svgString = (stampAnnotation as any).stamp;
+            stampName = 'Legacy Stamp';
+            if (!svgString) {
+              console.warn('No SVG found for legacy stamp:', stampAnnotation);
+              return null;
+            }
           }
-          svgString = stamp.svg;
-          stampName = stamp.name;
-        } else {
-          // Old format: SVG is stored directly in stamp property  
-          svgString = (stampAnnotation as any).stamp;
-          stampName = 'Legacy Stamp';
-          if (!svgString) {
-            console.warn('No SVG found for legacy stamp:', stampAnnotation);
-            return null;
-          }
-        }
-        
-        const x = stampAnnotation.relativeX * canvasWidth;
-        const y = stampAnnotation.relativeY * canvasHeight;
-        // Calculate stamp size the same way as StampAnnotation component
-        const MIN_SIZE = 16;
-        const MAX_SIZE = 120;
-        const calculatedSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, stampAnnotation.relativeSize * Math.min(canvasWidth, canvasHeight)));
+          
+          const x = stampAnnotation.relativeX * canvasWidth;
+          const y = stampAnnotation.relativeY * canvasHeight;
+          // Calculate stamp size the same way as StampAnnotation component
+          const MIN_SIZE = 16;
+          const MAX_SIZE = 120;
+          const calculatedSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, stampAnnotation.relativeSize * Math.min(canvasWidth, canvasHeight)));
         const stampWidth = calculatedSize;
         const stampHeight = calculatedSize;
         
@@ -1158,17 +1272,101 @@ function handlePointerUp(event: PointerEvent) {
         scale: [scaleX, scaleY],
         outputScale 
       });
-
-      // Draw drawing canvas scaled to match PDF resolution
-      ctx.save();
-      ctx.scale(scaleX, scaleY);
-      ctx.drawImage(drawingCanvas, 0, 0);
-      ctx.restore();
-
-      // Draw text annotations scaled to match PDF resolution
+      
+      // Calculate canvas dimensions for coordinate transformation
       const canvasWidth = parseFloat(pdfCanvas.style.width) || pdfCanvas.width / outputScale;
       const canvasHeight = parseFloat(pdfCanvas.style.height) || pdfCanvas.height / outputScale;
+
+      // FIXED: Instead of scaling the drawing canvas (which causes misalignment),
+      // render the drawing paths directly at the correct coordinates, same as other annotations
+      // The drawing paths are stored with coordinates relative to the canvas size when they were created
       
+      // Get current page drawing paths and render them directly
+      let currentPageDrawingPaths: any[] = [];
+      const unsubscribeDrawingPaths = currentPagePaths.subscribe(paths => {
+        currentPageDrawingPaths = paths;
+      });
+      unsubscribeDrawingPaths();
+      
+      if (currentPageDrawingPaths.length > 0) {
+        console.log(`Rendering ${currentPageDrawingPaths.length} drawing paths directly for export`);
+        console.log('Drawing path coordinate debugging:', {
+          canvasWidth,
+          canvasHeight,
+          outputScale,
+          scaleX,
+          scaleY,
+          currentViewerScale: $pdfState.scale,
+          drawingCanvasSize: [drawingCanvas.width, drawingCanvas.height],
+          pdfCanvasStyleSize: [parseFloat(pdfCanvas.style.width), parseFloat(pdfCanvas.style.height)]
+        });
+        
+        // Show sample drawing path coordinates
+        if (currentPageDrawingPaths[0] && currentPageDrawingPaths[0].points && currentPageDrawingPaths[0].points[0]) {
+          console.log('Sample drawing path first point:', currentPageDrawingPaths[0].points[0]);
+        }
+        
+        // FIXED: Don't use scaleX/scaleY - use the same coordinate logic as text annotations
+        // Drawing paths were created with coordinates relative to the CSS canvas size
+        // We need to scale them the same way as other annotations
+        
+        ctx.save();
+        // Use the same scaling as text annotations (device pixel ratio only)
+        ctx.scale(outputScale, outputScale);
+        
+        // Render each drawing path directly onto the export canvas
+        currentPageDrawingPaths.forEach(path => {
+          if (path.points && path.points.length > 1) {
+            ctx.strokeStyle = path.color || '#000000';
+            ctx.lineWidth = path.lineWidth || 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            // Set blend mode for highlight tool
+            if (path.tool === 'highlight') {
+              ctx.globalCompositeOperation = 'multiply';
+              ctx.globalAlpha = 0.3;
+            } else {
+              ctx.globalCompositeOperation = 'source-over';
+              ctx.globalAlpha = 1.0;
+            }
+            
+            // FIXED: The drawing paths were created at the drawing canvas size but at the current viewer scale
+            // We need to transform them to the export canvas coordinate system
+            // First, get the scale that was used when the paths were drawn (stored in the path or use current scale)
+            const pathViewerScale = path.viewerScale || $pdfState.scale;
+            
+            // Transform coordinates: drawing canvas -> base viewport -> export canvas
+            // Step 1: Scale from drawing canvas to base viewport (accounting for viewer scale)
+            const drawingToBaseScaleX = (canvasWidth / pathViewerScale) / drawingCanvas.width;
+            const drawingToBaseScaleY = (canvasHeight / pathViewerScale) / drawingCanvas.height;
+            
+            console.log(`Drawing path coordinate transform: pathViewerScale=${pathViewerScale}, drawingToBaseScale=(${drawingToBaseScaleX}, ${drawingToBaseScaleY})`);
+            
+            ctx.beginPath();
+            const transformedX = path.points[0].x * drawingToBaseScaleX;
+            const transformedY = path.points[0].y * drawingToBaseScaleY;
+            ctx.moveTo(transformedX, transformedY);
+            
+            for (let i = 1; i < path.points.length; i++) {
+              const transformedX = path.points[i].x * drawingToBaseScaleX;
+              const transformedY = path.points[i].y * drawingToBaseScaleY;
+              ctx.lineTo(transformedX, transformedY);
+            }
+            
+            ctx.stroke();
+            
+            // Reset blend mode and alpha
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 1.0;
+          }
+        });
+        
+        ctx.restore();
+        console.log(`Successfully rendered ${currentPageDrawingPaths.length} drawing paths for export`);
+      }
+
+      // Draw text annotations scaled to match PDF resolution
       // Get current page text annotations from the store
       let currentTextAnnotations: any[] = [];
       const unsubscribe = currentPageTextAnnotations.subscribe(annotations => {
