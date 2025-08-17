@@ -82,6 +82,20 @@ export interface StickyNoteAnnotation {
 	relativeHeight: number; // 0-1 range for scaling
 }
 
+// Stamp annotation interface (custom solution, not using KonvaJS)
+export interface StampAnnotation {
+	id: string;
+	pageNumber: number;
+	x: number;
+	y: number;
+	stamp: string; // Emoji or symbol
+	size: number;
+	rotation: number;
+	relativeX: number; // 0-1 range for scaling
+	relativeY: number; // 0-1 range for scaling
+	relativeSize: number; // 0-1 range for scaling
+}
+
 // Stamp definitions
 export interface StampDefinition {
 	id: string;
@@ -162,6 +176,23 @@ export const availableStamps: StampDefinition[] = [
 			<path d="M50 75 C50 75 28 58 28 42 C28 32 36 25 45 28 C47 29 49 31 50 33 C51 31 53 29 55 28 C64 25 72 32 72 42 C72 58 50 75 50 75 Z" fill="#E53E3E" stroke="#C53030" stroke-width="1.5"/>
 		</svg>`
 	},
+	// Checkmarks
+	{
+		id: 'checkmark',
+		name: 'Checkmark',
+		category: 'checkmarks',
+		svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+			<defs>
+				<filter id="check-shadow" x="-30%" y="-30%" width="160%" height="160%">
+					<feDropShadow dx="2" dy="2" stdDeviation="2" flood-opacity="0.2"/>
+				</filter>
+			</defs>
+			<!-- White sticker border following checkmark shape -->
+			<path d="M25 52 L40 67 L75 32" fill="none" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" filter="url(#check-shadow)"/>
+			<!-- Actual checkmark -->
+			<path d="M25 52 L40 67 L75 32" fill="none" stroke="#38A169" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+		</svg>`
+	},
 	// Thumbs Up
 	{
 		id: 'thumbs-up',
@@ -193,7 +224,7 @@ export const drawingState = writable<DrawingState>({
 	highlightOpacity: 0.4,
 	noteColor: '#FFF59D', // light yellow
 	isDrawing: false,
-	stampId: 'x-mark' // default stamp
+	stampId: 'star' // default stamp
 });
 
 // PDF state store
@@ -230,11 +261,15 @@ export const textAnnotations = writable<Map<number, TextAnnotation[]>>(new Map()
 // Sticky note annotations store - stores all sticky note annotations per page (custom implementation, not KonvaJS)
 export const stickyNoteAnnotations = writable<Map<number, StickyNoteAnnotation[]>>(new Map());
 
+// Stamp annotations store - stores all stamp annotations per page (custom implementation, not KonvaJS)
+export const stampAnnotations = writable<Map<number, StampAnnotation[]>>(new Map());
+
 // Auto-save functionality
 const STORAGE_KEY = 'leedpdf_drawings';
 const STORAGE_KEY_SHAPES = 'leedpdf_shapes';
 const STORAGE_KEY_TEXT = 'leedpdf_text_annotations';
 const STORAGE_KEY_STICKY_NOTES = 'leedpdf_sticky_note_annotations';
+const STORAGE_KEY_STAMP_ANNOTATIONS = 'leedpdf_stamp_annotations';
 const STORAGE_KEY_PDF_INFO = 'leedpdf_current_pdf';
 
 // Track current PDF to associate drawings with specific files
@@ -259,11 +294,12 @@ export const setCurrentPDF = (fileName: string, fileSize: number) => {
 		}
 	}
 
-	// Load drawings, shapes, text annotations, and sticky notes for this specific PDF
+	// Load drawings, shapes, text annotations, sticky notes, and stamps for this specific PDF
 	loadDrawingsForCurrentPDF();
 	loadShapesForCurrentPDF();
 	loadTextAnnotationsForCurrentPDF();
 	loadStickyNotesForCurrentPDF();
+	loadStampAnnotationsForCurrentPDF();
 };
 
 // Load drawings for current PDF
@@ -374,6 +410,33 @@ const loadStickyNotesForCurrentPDF = () => {
 	}
 };
 
+// Load stamp annotations for current PDF
+const loadStampAnnotationsForCurrentPDF = () => {
+	if (!currentPDFKey || typeof window === 'undefined') return;
+
+	try {
+		const savedStampAnnotations = localStorage.getItem(`${STORAGE_KEY_STAMP_ANNOTATIONS}_${currentPDFKey}`);
+		if (savedStampAnnotations) {
+			const parsedStampAnnotations = JSON.parse(savedStampAnnotations);
+			const stampAnnotationsMap = new Map();
+
+			Object.entries(parsedStampAnnotations).forEach(([pageNum, stamps]) => {
+				stampAnnotationsMap.set(parseInt(pageNum), stamps as StampAnnotation[]);
+			});
+
+			stampAnnotations.set(stampAnnotationsMap);
+			console.log(`Loaded stamp annotations for PDF ${currentPDFKey}:`, stampAnnotationsMap);
+		} else {
+			// No saved stamp annotations for this PDF, start fresh
+			stampAnnotations.set(new Map());
+			console.log(`No saved stamp annotations found for PDF ${currentPDFKey}`);
+		}
+	} catch (error) {
+		console.error('Error loading stamp annotations for current PDF:', error);
+		stampAnnotations.set(new Map());
+	}
+};
+
 // Load last PDF info on initialization
 if (typeof window !== 'undefined') {
 	try {
@@ -385,6 +448,7 @@ if (typeof window !== 'undefined') {
 			loadShapesForCurrentPDF();
 			loadTextAnnotationsForCurrentPDF();
 			loadStickyNotesForCurrentPDF();
+			loadStampAnnotationsForCurrentPDF();
 		}
 	} catch (error) {
 		console.error('Error loading PDF info from localStorage:', error);
@@ -475,6 +539,28 @@ if (typeof window !== 'undefined') {
 			console.log(`Auto-saved sticky notes for PDF ${currentPDFKey}`);
 		} catch (error) {
 			console.error('Error saving sticky notes to localStorage:', error);
+		}
+	});
+}
+
+// Save stamp annotations to localStorage whenever they change (PDF-specific)
+if (typeof window !== 'undefined') {
+	stampAnnotations.subscribe((stamps) => {
+		if (!currentPDFKey) return;
+
+		try {
+			// Convert Map to object for JSON serialization
+			const stampsObject: Record<string, StampAnnotation[]> = {};
+			stamps.forEach((stampList, pageNum) => {
+				if (stampList.length > 0) {
+					stampsObject[pageNum.toString()] = stampList;
+				}
+			});
+
+			localStorage.setItem(`${STORAGE_KEY_STAMP_ANNOTATIONS}_${currentPDFKey}`, JSON.stringify(stampsObject));
+			console.log(`Auto-saved stamp annotations for PDF ${currentPDFKey}`);
+		} catch (error) {
+			console.error('Error saving stamp annotations to localStorage:', error);
 		}
 	});
 }
@@ -778,4 +864,39 @@ export const deleteStickyNoteAnnotation = (annotationId: string, pageNumber: num
 // Derived store for current page sticky note annotations
 export const currentPageStickyNotes = derived([stickyNoteAnnotations, pdfState], ([$stickyNoteAnnotations, $pdfState]) => {
 	return $stickyNoteAnnotations.get($pdfState.currentPage) || [];
+});
+
+// Stamp annotation management functions
+export const addStampAnnotation = (annotation: StampAnnotation) => {
+	stampAnnotations.update((stamps) => {
+		const currentStamps = stamps.get(annotation.pageNumber) || [];
+		const newStamps = [...currentStamps, annotation];
+		stamps.set(annotation.pageNumber, newStamps);
+		return new Map(stamps);
+	});
+};
+
+export const updateStampAnnotation = (updatedAnnotation: StampAnnotation) => {
+	stampAnnotations.update((stamps) => {
+		const currentStamps = stamps.get(updatedAnnotation.pageNumber) || [];
+		const newStamps = currentStamps.map((stamp) =>
+			stamp.id === updatedAnnotation.id ? updatedAnnotation : stamp
+		);
+		stamps.set(updatedAnnotation.pageNumber, newStamps);
+		return new Map(stamps);
+	});
+};
+
+export const deleteStampAnnotation = (annotationId: string, pageNumber: number) => {
+	stampAnnotations.update((stamps) => {
+		const currentStamps = stamps.get(pageNumber) || [];
+		const newStamps = currentStamps.filter((stamp) => stamp.id !== annotationId);
+		stamps.set(pageNumber, newStamps);
+		return new Map(stamps);
+	});
+};
+
+// Derived store for current page stamp annotations
+export const currentPageStampAnnotations = derived([stampAnnotations, pdfState], ([$stampAnnotations, $pdfState]) => {
+	return $stampAnnotations.get($pdfState.currentPage) || [];
 });

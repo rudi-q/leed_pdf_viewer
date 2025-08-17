@@ -17,8 +17,9 @@
   import { PDFManager } from '../utils/pdfUtils';
   import { DrawingEngine } from '../utils/drawingUtils';
   import { KonvaShapeEngine } from '../utils/konvaShapeEngine';
-  import TextOverlay from './TextOverlay.svelte';
-  import StickyNoteOverlay from './StickyNoteOverlay.svelte';
+import TextOverlay from './TextOverlay.svelte';
+import StickyNoteOverlay from './StickyNoteOverlay.svelte';
+import StampOverlay from './StampOverlay.svelte';
 
   export let pdfFile: File | string | null = null;
 
@@ -77,14 +78,14 @@
   // Update cursor and tool when drawing state changes
   $: if ($drawingState.tool && containerDiv) {
     console.log('TOOL CHANGED:', $drawingState.tool);
-    console.log('Konva shape tools includes this tool:', ['arrow', 'stamp'].includes($drawingState.tool));
+    console.log('Konva shape tools includes this tool:', ['arrow'].includes($drawingState.tool));
     updateCursor();
     
-	// Update Konva tool (only arrow and stamp tools are handled by Konva)
-	if (konvaEngine && ['arrow', 'stamp'].includes($drawingState.tool)) {
+	// Update Konva tool (only arrow tool is handled by Konva)
+	if (konvaEngine && ['arrow'].includes($drawingState.tool)) {
 		console.log('Setting Konva tool to:', $drawingState.tool);
 		konvaEngine.setTool($drawingState.tool);
-	} else if (['text', 'note'].includes($drawingState.tool)) {
+	} else if (['text', 'note', 'stamp'].includes($drawingState.tool)) {
 		console.log(`${$drawingState.tool} tool selected - handled by overlay component`);
 	} else if (['pencil', 'eraser', 'highlight'].includes($drawingState.tool)) {
 		console.log(`${$drawingState.tool} tool selected - handled by drawing canvas`);
@@ -369,9 +370,15 @@ function handlePointerDown(event: PointerEvent) {
         return;
       }
       
-      // Arrow and stamp tools should be handled by Konva
-      if (['arrow', 'stamp'].includes($drawingState.tool)) {
+      // Arrow tool should be handled by Konva
+      if (['arrow'].includes($drawingState.tool)) {
         console.log(`${$drawingState.tool} tool click ignored - handled by Konva`);
+        return;
+      }
+      
+      // Stamp tool is handled by overlay
+      if (['stamp'].includes($drawingState.tool)) {
+        console.log(`${$drawingState.tool} tool click ignored - handled by stamp overlay`);
         return;
       }
       
@@ -820,13 +827,13 @@ function handlePointerUp(event: PointerEvent) {
         style="z-index: 2;"
       ></canvas>
       
-      <!-- Konva Container for Shapes (arrow and stamp only) -->
+      <!-- Konva Container for Shapes (arrow only) -->
       <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
       <div
         bind:this={konvaContainer}
         class="absolute top-0 left-0 w-full h-full"
         class:hidden={!$pdfState.document}
-        class:pointer-events-none={!['arrow', 'stamp'].includes($drawingState.tool)}
+        class:pointer-events-none={!['arrow'].includes($drawingState.tool)}
         style="z-index: 3;"
         on:click={() => console.log('Konva container clicked, current tool:', $drawingState.tool)}
         on:keydown={(e) => e.key === 'Enter' && console.log('Konva container activated')}
@@ -846,6 +853,15 @@ function handlePointerUp(event: PointerEvent) {
       <!-- Sticky Note Overlay for Custom Sticky Note Annotations -->
       {#if $pdfState.document && pdfCanvas}
         <StickyNoteOverlay 
+          containerWidth={pdfCanvas.style.width ? parseFloat(pdfCanvas.style.width) : 0}
+          containerHeight={pdfCanvas.style.height ? parseFloat(pdfCanvas.style.height) : 0}
+          scale={$pdfState.scale}
+        />
+      {/if}
+      
+      <!-- Stamp Overlay for Custom Stamp Annotations -->
+      {#if $pdfState.document && pdfCanvas}
+        <StampOverlay 
           containerWidth={pdfCanvas.style.width ? parseFloat(pdfCanvas.style.width) : 0}
           containerHeight={pdfCanvas.style.height ? parseFloat(pdfCanvas.style.height) : 0}
           scale={$pdfState.scale}
