@@ -778,24 +778,33 @@ function handlePointerUp(event: PointerEvent) {
       const viewport = page.getViewport({ scale: 1.0 }); // Use scale 1 for consistent export
       const outputScale = 2; // Higher resolution for export
       
-      // Set canvas dimensions
-      tempPdfCanvas.width = Math.floor(viewport.width * outputScale);
-      tempPdfCanvas.height = Math.floor(viewport.height * outputScale);
-      tempDrawingCanvas.width = viewport.width;
-      tempDrawingCanvas.height = viewport.height;
+      // Set BOTH canvases to the same scaled dimensions for consistency
+      const scaledWidth = Math.floor(viewport.width * outputScale);
+      const scaledHeight = Math.floor(viewport.height * outputScale);
       
-      // Render PDF to temporary canvas
+      tempPdfCanvas.width = scaledWidth;
+      tempPdfCanvas.height = scaledHeight;
+      tempDrawingCanvas.width = scaledWidth;  // Same as PDF canvas
+      tempDrawingCanvas.height = scaledHeight; // Same as PDF canvas
+      
+      // Render PDF to temporary canvas with proper scaling
       const pdfContext = tempPdfCanvas.getContext('2d');
       if (pdfContext) {
+        // Scale the context to match the output scaling
+        pdfContext.scale(outputScale, outputScale);
+        
         await pdfManager.renderPageToCanvas(page, {
-          scale: 1, // Use scale 1 since the canvas is already sized with outputScale
+          scale: 1, // Base scale since scaling is handled by context transform
           canvas: tempPdfCanvas
         });
       }
       
-      // Render drawing paths to temporary canvas
+      // Render drawing paths to temporary canvas at the same scale
       const drawingContext = tempDrawingCanvas.getContext('2d');
       if (drawingContext && drawingEngine) {
+        // Scale the drawing context to match the PDF canvas scaling
+        drawingContext.scale(outputScale, outputScale);
+        
         // Get drawing paths for this specific page
         let pagePaths: any[] = [];
         const unsubscribePaths = drawingPaths.subscribe(paths => {
@@ -823,6 +832,66 @@ function handlePointerUp(event: PointerEvent) {
     }
   }
 
+  // Helper function to get annotations from localStorage for export
+  function getAnnotationsFromStorage(pageNumber: number) {
+    // Get current PDF key
+    let currentPDFKey: string | null = null;
+    try {
+      const savedPDFInfo = localStorage.getItem('leedpdf_current_pdf');
+      if (savedPDFInfo) {
+        const { pdfKey } = JSON.parse(savedPDFInfo);
+        currentPDFKey = pdfKey;
+      }
+    } catch (error) {
+      console.error('Error reading PDF info from localStorage:', error);
+      return { pageTextAnnotations: [], pageArrowAnnotations: [], pageStampAnnotations: [], pageStickyNotes: [] };
+    }
+
+    if (!currentPDFKey) {
+      return { pageTextAnnotations: [], pageArrowAnnotations: [], pageStampAnnotations: [], pageStickyNotes: [] };
+    }
+
+    // Load all annotation types from localStorage
+    let pageTextAnnotations: any[] = [];
+    let pageArrowAnnotations: any[] = [];
+    let pageStampAnnotations: any[] = [];
+    let pageStickyNotes: any[] = [];
+
+    try {
+      // Load text annotations
+      const savedTextAnnotations = localStorage.getItem(`leedpdf_text_annotations_${currentPDFKey}`);
+      if (savedTextAnnotations) {
+        const parsedTextAnnotations = JSON.parse(savedTextAnnotations);
+        pageTextAnnotations = parsedTextAnnotations[pageNumber.toString()] || [];
+      }
+
+      // Load arrow annotations
+      const savedArrowAnnotations = localStorage.getItem(`leedpdf_arrow_annotations_${currentPDFKey}`);
+      if (savedArrowAnnotations) {
+        const parsedArrowAnnotations = JSON.parse(savedArrowAnnotations);
+        pageArrowAnnotations = parsedArrowAnnotations[pageNumber.toString()] || [];
+      }
+
+      // Load stamp annotations
+      const savedStampAnnotations = localStorage.getItem(`leedpdf_stamp_annotations_${currentPDFKey}`);
+      if (savedStampAnnotations) {
+        const parsedStampAnnotations = JSON.parse(savedStampAnnotations);
+        pageStampAnnotations = parsedStampAnnotations[pageNumber.toString()] || [];
+      }
+
+      // Load sticky note annotations
+      const savedStickyNotes = localStorage.getItem(`leedpdf_sticky_note_annotations_${currentPDFKey}`);
+      if (savedStickyNotes) {
+        const parsedStickyNotes = JSON.parse(savedStickyNotes);
+        pageStickyNotes = parsedStickyNotes[pageNumber.toString()] || [];
+      }
+    } catch (error) {
+      console.error('Error loading annotations from localStorage:', error);
+    }
+
+    return { pageTextAnnotations, pageArrowAnnotations, pageStampAnnotations, pageStickyNotes };
+  }
+
   // Helper function to create merged canvas with all annotations
   async function createMergedCanvasWithAnnotations(
     pdfCanvas: HTMLCanvasElement,
@@ -832,6 +901,13 @@ function handlePointerUp(event: PointerEvent) {
     canvasHeight: number,
     outputScale: number
   ): Promise<HTMLCanvasElement | null> {
+    console.log(`Creating merged canvas for page ${pageNumber}:`, {
+      pdfCanvasSize: [pdfCanvas.width, pdfCanvas.height],
+      drawingCanvasSize: [drawingCanvas.width, drawingCanvas.height],
+      referenceCanvasSize: [canvasWidth, canvasHeight],
+      outputScale
+    });
+    
     const mergedCanvas = document.createElement('canvas');
     const ctx = mergedCanvas.getContext('2d');
     if (!ctx) {
@@ -846,50 +922,30 @@ function handlePointerUp(event: PointerEvent) {
     // Draw PDF canvas first (background)
     ctx.drawImage(pdfCanvas, 0, 0);
 
-    // Scale the drawing canvas to match the PDF canvas scaling
-    const scaleX = pdfCanvas.width / drawingCanvas.width;
-    const scaleY = pdfCanvas.height / drawingCanvas.height;
-
-    // Draw drawing canvas scaled to match PDF resolution
-    ctx.save();
-    ctx.scale(scaleX, scaleY);
+    // Since both canvases now have the same dimensions, draw directly without scaling
     ctx.drawImage(drawingCanvas, 0, 0);
-    ctx.restore();
 
-    // Get all annotation types for this specific page
-    let pageTextAnnotations: any[] = [];
-    let pageArrowAnnotations: any[] = [];
-    let pageStampAnnotations: any[] = [];
-    let pageStickyNotes: any[] = [];
+    // Get all annotation types for this specific page from localStorage
+    const { pageTextAnnotations, pageArrowAnnotations, pageStampAnnotations, pageStickyNotes } = getAnnotationsFromStorage(pageNumber);
     
-    // Subscribe to get annotations for this specific page
-    const unsubscribeText = textAnnotations.subscribe(annotations => {
-      pageTextAnnotations = annotations.get(pageNumber) || [];
+    console.log(`Page ${pageNumber} annotation counts:`, {
+      textAnnotations: pageTextAnnotations.length,
+      arrowAnnotations: pageArrowAnnotations.length,
+      stampAnnotations: pageStampAnnotations.length,
+      stickyNotes: pageStickyNotes.length
     });
-    const unsubscribeArrows = arrowAnnotations.subscribe(annotations => {
-      pageArrowAnnotations = annotations.get(pageNumber) || [];
-    });
-    const unsubscribeStamps = stampAnnotations.subscribe(annotations => {
-      pageStampAnnotations = annotations.get(pageNumber) || [];
-    });
-    const unsubscribeStickyNotes = stickyNoteAnnotations.subscribe(annotations => {
-      pageStickyNotes = annotations.get(pageNumber) || [];
-    });
-    
-    // Clean up subscriptions
-    unsubscribeText();
-    unsubscribeArrows();
-    unsubscribeStamps();
-    unsubscribeStickyNotes();
 
-    // Draw text annotations
+    // Draw text annotations - Apply outputScale to match the scaled canvas
     if (pageTextAnnotations.length > 0) {
+      console.log('Drawing text annotations with dimensions:', { canvasWidth, canvasHeight });
       ctx.save();
-      ctx.scale(scaleX, scaleY);
+      ctx.scale(outputScale, outputScale);
       
       pageTextAnnotations.forEach(annotation => {
         const x = annotation.relativeX * canvasWidth;
         const y = annotation.relativeY * canvasHeight;
+        
+        console.log(`Text annotation: relativeX=${annotation.relativeX}, relativeY=${annotation.relativeY}, computed x=${x}, y=${y}`);
         
         ctx.font = `${annotation.fontSize}px ${annotation.fontFamily}`;
         ctx.fillStyle = annotation.color;
@@ -904,10 +960,10 @@ function handlePointerUp(event: PointerEvent) {
       ctx.restore();
     }
 
-    // Draw arrow annotations (same logic as in getMergedCanvas)
+    // Draw arrow annotations - Apply outputScale to match the scaled canvas
     if (pageArrowAnnotations.length > 0) {
       ctx.save();
-      ctx.scale(scaleX, scaleY);
+      ctx.scale(outputScale, outputScale);
       
       pageArrowAnnotations.forEach(arrow => {
         const x1 = arrow.relativeX1 * canvasWidth;
@@ -947,11 +1003,11 @@ function handlePointerUp(event: PointerEvent) {
       ctx.restore();
     }
 
-    // Draw stamp annotations
+    // Draw stamp annotations - Apply outputScale to match the scaled canvas
     if (pageStampAnnotations.length > 0) {
       console.log(`Rendering ${pageStampAnnotations.length} stamp annotations for export`);
       ctx.save();
-      ctx.scale(scaleX, scaleY);
+      ctx.scale(outputScale, outputScale);
       
       // Load all stamp images in parallel and wait for them
         const stampPromises = pageStampAnnotations.map(async (stampAnnotation) => {
@@ -1016,10 +1072,10 @@ function handlePointerUp(event: PointerEvent) {
       ctx.restore();
     }
 
-    // Draw sticky note annotations
+    // Draw sticky note annotations - Apply outputScale to match the scaled canvas  
     if (pageStickyNotes.length > 0) {
       ctx.save();
-      ctx.scale(scaleX, scaleY);
+      ctx.scale(outputScale, outputScale);
       
       pageStickyNotes.forEach(note => {
         const x = note.relativeX * canvasWidth;

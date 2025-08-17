@@ -29,14 +29,17 @@ export class PDFExporter {
 			const pages = pdfDoc.getPages();
 			console.log('Total pages in document:', pages.length);
 
-			// Embed images from canvases into PDF
-			for (let pageNumber = 1; pageNumber <= pages.length; pageNumber++) {
-				const canvas = this.canvasElements.get(pageNumber);
-				if (canvas) {
-					console.log('Adding canvas annotations to page', pageNumber);
-					await this.embedCanvasInPage(pdfDoc, pages[pageNumber - 1], canvas);
-				}
+		// Embed images from canvases into PDF
+		// Process ALL pages to ensure they're preserved, even without annotations
+		for (let pageNumber = 1; pageNumber <= pages.length; pageNumber++) {
+			const canvas = this.canvasElements.get(pageNumber);
+			if (canvas) {
+				// Page has annotations - overlay the canvas
+				await this.embedCanvasInPage(pdfDoc, pages[pageNumber - 1], canvas);
 			}
+			// Pages without canvases are automatically preserved as-is by pdf-lib
+			// No action needed - the original page content remains intact
+		}
 
 			console.log('Saving annotated PDF');
 			return await pdfDoc.save();

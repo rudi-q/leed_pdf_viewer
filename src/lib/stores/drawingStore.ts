@@ -921,6 +921,76 @@ export const deleteArrowAnnotation = (annotationId: string, pageNumber: number) 
 	});
 };
 
+// Force save all annotation data to localStorage immediately
+// This ensures all pending changes are persisted before operations like export
+export const forceSaveAllAnnotations = (): void => {
+	if (!currentPDFKey || typeof window === 'undefined') {
+		console.warn('Cannot force save: no current PDF key or not in browser environment');
+		return;
+	}
+
+	try {
+		// Force save drawing paths
+		drawingPaths.subscribe((paths) => {
+			const pathsObject: Record<string, DrawingPath[]> = {};
+			paths.forEach((pathList, pageNum) => {
+				if (pathList.length > 0) {
+					pathsObject[pageNum.toString()] = pathList;
+				}
+			});
+			localStorage.setItem(`${STORAGE_KEY}_${currentPDFKey}`, JSON.stringify(pathsObject));
+		})();
+
+		// Force save text annotations
+		textAnnotations.subscribe((texts) => {
+			const textsObject: Record<string, TextAnnotation[]> = {};
+			texts.forEach((textList, pageNum) => {
+				if (textList.length > 0) {
+					textsObject[pageNum.toString()] = textList;
+				}
+			});
+			localStorage.setItem(`${STORAGE_KEY_TEXT}_${currentPDFKey}`, JSON.stringify(textsObject));
+		})();
+
+		// Force save sticky note annotations
+		stickyNoteAnnotations.subscribe((notes) => {
+			const notesObject: Record<string, StickyNoteAnnotation[]> = {};
+			notes.forEach((noteList, pageNum) => {
+				if (noteList.length > 0) {
+					notesObject[pageNum.toString()] = noteList;
+				}
+			});
+			localStorage.setItem(`${STORAGE_KEY_STICKY_NOTES}_${currentPDFKey}`, JSON.stringify(notesObject));
+		})();
+
+		// Force save stamp annotations
+		stampAnnotations.subscribe((stamps) => {
+			const stampsObject: Record<string, StampAnnotation[]> = {};
+			stamps.forEach((stampList, pageNum) => {
+				if (stampList.length > 0) {
+					stampsObject[pageNum.toString()] = stampList;
+				}
+			});
+			localStorage.setItem(`${STORAGE_KEY_STAMP_ANNOTATIONS}_${currentPDFKey}`, JSON.stringify(stampsObject));
+		})();
+
+		// Force save arrow annotations
+		arrowAnnotations.subscribe((arrows) => {
+			const arrowsObject: Record<string, ArrowAnnotation[]> = {};
+			arrows.forEach((arrowList, pageNum) => {
+				if (arrowList.length > 0) {
+					arrowsObject[pageNum.toString()] = arrowList;
+				}
+			});
+			localStorage.setItem(`${STORAGE_KEY_ARROW_ANNOTATIONS}_${currentPDFKey}`, JSON.stringify(arrowsObject));
+		})();
+
+		console.log(`Force saved all annotations for PDF ${currentPDFKey}`);
+	} catch (error) {
+		console.error('Error force saving annotations to localStorage:', error);
+	}
+};
+
 // Derived store for current page arrow annotations
 export const currentPageArrowAnnotations = derived([arrowAnnotations, pdfState], ([$arrowAnnotations, $pdfState]) => {
 	return $arrowAnnotations.get($pdfState.currentPage) || [];
