@@ -13,7 +13,7 @@
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
   import PageThumbnails from '$lib/components/PageThumbnails.svelte';
   import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
-  import { redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
+  import { redo, setCurrentPDF, setTool, undo, pdfState } from '$lib/stores/drawingStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
   import { isDarkMode } from '$lib/stores/themeStore';
   import { handleSearchLinkClick } from '$lib/utils/navigationUtils';
@@ -474,25 +474,13 @@
           break;
         case '4':
           event.preventDefault();
-          setTool('rectangle');
+          setTool('arrow');
           break;
         case '5':
           event.preventDefault();
-          setTool('circle');
-          break;
-        case '6':
-          event.preventDefault();
-          setTool('arrow');
-          break;
-        case '7':
-          event.preventDefault();
-          setTool('star');
-          break;
-        case '8':
-          event.preventDefault();
           setTool('highlight');
           break;
-        case '9':
+        case '6':
           event.preventDefault();
           setTool('note');
           break;
@@ -619,7 +607,8 @@
 
       const mergedCanvas = await pdfViewer.getMergedCanvas();
       if (mergedCanvas) {
-        exporter.setPageCanvas(1, mergedCanvas);
+        // Use the current page number instead of hardcoding 1
+        exporter.setPageCanvas($pdfState.currentPage, mergedCanvas);
       }
 
       const annotatedPdfBytes = await exporter.exportToPDF();

@@ -6,7 +6,7 @@ let Konva: any = null;
 
 export interface ShapeObject {
 	id: string;
-	type: 'text' | 'rectangle' | 'circle' | 'arrow' | 'star' | 'note' | 'stamp';
+	type: 'text' | 'arrow' | 'note' | 'stamp';
 	pageNumber: number;
 	x: number;
 	y: number;
@@ -19,9 +19,6 @@ export interface ShapeObject {
 	stroke?: string;
 	strokeWidth?: number;
 	points?: number[]; // For arrows
-	numPoints?: number; // For stars
-	innerRadius?: number; // For stars
-	outerRadius?: number; // For stars
 	stampId?: string; // For stamps
 	stampSvg?: string; // For stamps
 	relativeX: number; // 0-1 range for scaling
@@ -35,8 +32,7 @@ export class KonvaShapeEngine {
 	private layer: any;
 	private transformer: any;
 	private container: HTMLDivElement;
-	private currentTool: DrawingTool | 'text' | 'rectangle' | 'circle' | 'arrow' | 'star' | 'note' =
-		'text';
+	private currentTool: DrawingTool | 'text' | 'arrow' | 'note' = 'text';
 	private isDrawingShape = false;
 	private startPos = { x: 0, y: 0 };
 	private currentShape: any = null;
@@ -171,7 +167,7 @@ export class KonvaShapeEngine {
 
 			// Only handle if we're using shape tools or clicking on existing shapes
 			if (
-				['text', 'rectangle', 'circle', 'arrow', 'star', 'note'].includes(this.currentTool) ||
+				['text', 'arrow', 'note'].includes(this.currentTool) ||
 				e.target !== this.stage
 			) {
 				if (e.target === this.stage) {
@@ -219,19 +215,19 @@ export class KonvaShapeEngine {
 
 		// Shape drawing events - only when using shape tools
 		this.stage.on('mousedown touchstart', (e: any) => {
-			if (['rectangle', 'circle', 'arrow', 'star'].includes(this.currentTool)) {
+			if (['arrow'].includes(this.currentTool)) {
 				this.handleShapeStart(e);
 			}
 		});
 
 		this.stage.on('mousemove touchmove', (e: any) => {
-			if (['rectangle', 'circle', 'arrow', 'star'].includes(this.currentTool)) {
+			if (['arrow'].includes(this.currentTool)) {
 				this.handleShapeMove(e);
 			}
 		});
 
 		this.stage.on('mouseup touchend', (e: any) => {
-			if (['rectangle', 'circle', 'arrow', 'star'].includes(this.currentTool)) {
+			if (['arrow'].includes(this.currentTool)) {
 				this.handleShapeEnd();
 			}
 		});
@@ -296,7 +292,7 @@ export class KonvaShapeEngine {
 		}
 	}
 
-	async setTool(tool: DrawingTool | 'text' | 'rectangle' | 'circle' | 'arrow' | 'star' | 'note') {
+	async setTool(tool: DrawingTool | 'text' | 'arrow' | 'note') {
 		await this.ensureInitialized();
 		if (!this.isInitialized) return;
 
@@ -305,7 +301,7 @@ export class KonvaShapeEngine {
 		// Change cursor based on tool
 		if (tool === 'text' || tool === 'note') {
 			this.stage.container().style.cursor = 'text';
-		} else if (['rectangle', 'circle', 'arrow', 'star'].includes(tool)) {
+		} else if (tool === 'arrow') {
 			this.stage.container().style.cursor = 'crosshair';
 		} else {
 			this.stage.container().style.cursor = 'default';
@@ -314,7 +310,7 @@ export class KonvaShapeEngine {
 
 	private handleShapeStart(e: any) {
 		// Only handle shape tools
-		if (!['rectangle', 'circle', 'arrow', 'star'].includes(this.currentTool)) {
+		if (this.currentTool !== 'arrow') {
 			return;
 		}
 
@@ -330,55 +326,17 @@ export class KonvaShapeEngine {
 		this.startPos = pos;
 		this.currentShape = null;
 
-		// Create shape based on current tool
-		switch (this.currentTool) {
-			case 'rectangle':
-				this.currentShape = new Konva.Rect({
-					x: pos.x,
-					y: pos.y,
-					width: 0,
-					height: 0,
-					stroke: '#2D3748',
-					strokeWidth: 2,
-					fill: 'transparent',
-					draggable: true
-				});
-				break;
-			case 'circle':
-				this.currentShape = new Konva.Circle({
-					x: pos.x,
-					y: pos.y,
-					radius: 0,
-					stroke: '#2D3748',
-					strokeWidth: 2,
-					fill: 'transparent',
-					draggable: true
-				});
-				break;
-			case 'arrow':
-				this.currentShape = new Konva.Arrow({
-					points: [pos.x, pos.y, pos.x, pos.y],
-					stroke: '#2D3748',
-					strokeWidth: 2,
-					fill: '#2D3748',
-					draggable: true,
-					pointerLength: 10,
-					pointerWidth: 8
-				});
-				break;
-			case 'star':
-				this.currentShape = new Konva.Star({
-					x: pos.x,
-					y: pos.y,
-					numPoints: 5,
-					innerRadius: 0,
-					outerRadius: 0,
-					stroke: '#2D3748',
-					strokeWidth: 2,
-					fill: 'transparent',
-					draggable: true
-				});
-				break;
+		// Create arrow shape
+		if (this.currentTool === 'arrow') {
+			this.currentShape = new Konva.Arrow({
+				points: [pos.x, pos.y, pos.x, pos.y],
+				stroke: '#2D3748',
+				strokeWidth: 2,
+				fill: '#2D3748',
+				draggable: true,
+				pointerLength: 10,
+				pointerWidth: 8
+			});
 		}
 
 		if (this.currentShape) {
@@ -392,27 +350,9 @@ export class KonvaShapeEngine {
 		const pos = this.stage.getPointerPosition();
 		if (!pos) return;
 
-		// Update shape based on type
-		if (this.currentShape instanceof Konva.Rect) {
-			const width = pos.x - this.startPos.x;
-			const height = pos.y - this.startPos.y;
-			this.currentShape.width(Math.abs(width));
-			this.currentShape.height(Math.abs(height));
-			this.currentShape.x(width < 0 ? pos.x : this.startPos.x);
-			this.currentShape.y(height < 0 ? pos.y : this.startPos.y);
-		} else if (this.currentShape instanceof Konva.Circle) {
-			const radius = Math.sqrt(
-				Math.pow(pos.x - this.startPos.x, 2) + Math.pow(pos.y - this.startPos.y, 2)
-			);
-			this.currentShape.radius(radius);
-		} else if (this.currentShape instanceof Konva.Arrow) {
+		// Update arrow shape
+		if (this.currentShape instanceof Konva.Arrow) {
 			this.currentShape.points([this.startPos.x, this.startPos.y, pos.x, pos.y]);
-		} else if (this.currentShape instanceof Konva.Star) {
-			const radius = Math.sqrt(
-				Math.pow(pos.x - this.startPos.x, 2) + Math.pow(pos.y - this.startPos.y, 2)
-			);
-			this.currentShape.outerRadius(radius);
-			this.currentShape.innerRadius(radius * 0.4); // Inner radius is 40% of outer radius
 		}
 	}
 
@@ -421,24 +361,7 @@ export class KonvaShapeEngine {
 
 		this.isDrawingShape = false;
 
-		// Remove very small shapes (accidental clicks)
-		if (this.currentShape instanceof Konva.Rect) {
-			if (this.currentShape.width() < 5 || this.currentShape.height() < 5) {
-				this.currentShape.destroy();
-				return;
-			}
-		} else if (this.currentShape instanceof Konva.Circle) {
-			if (this.currentShape.radius() < 3) {
-				this.currentShape.destroy();
-				return;
-			}
-		} else if (this.currentShape instanceof Konva.Star) {
-			if (this.currentShape.outerRadius() < 3) {
-				this.currentShape.destroy();
-				return;
-			}
-		}
-
+		// No need to check for small arrows since they're drawn by dragging
 		// Generate unique ID for the shape
 		this.currentShape.id(`shape_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
 
@@ -912,50 +835,11 @@ export class KonvaShapeEngine {
 				fontFamily: shape.fontFamily(),
 				fill: shape.fill()
 			};
-		} else if (shape instanceof Konva.Rect) {
-			return {
-				...baseObject,
-				type: 'rectangle' as const,
-				width: shape.width(),
-				height: shape.height(),
-				relativeWidth: shape.width() / stageWidth,
-				relativeHeight: shape.height() / stageHeight,
-				stroke: shape.stroke(),
-				strokeWidth: shape.strokeWidth(),
-				fill: shape.fill()
-			};
-		} else if (shape instanceof Konva.Circle) {
-			return {
-				...baseObject,
-				type: 'circle' as const,
-				width: shape.radius() * 2,
-				height: shape.radius() * 2,
-				relativeWidth: (shape.radius() * 2) / stageWidth,
-				relativeHeight: (shape.radius() * 2) / stageHeight,
-				stroke: shape.stroke(),
-				strokeWidth: shape.strokeWidth(),
-				fill: shape.fill()
-			};
 		} else if (shape instanceof Konva.Arrow) {
 			return {
 				...baseObject,
 				type: 'arrow' as const,
 				points: shape.points(),
-				stroke: shape.stroke(),
-				strokeWidth: shape.strokeWidth(),
-				fill: shape.fill()
-			};
-		} else if (shape instanceof Konva.Star) {
-			return {
-				...baseObject,
-				type: 'star' as const,
-				width: shape.outerRadius() * 2,
-				height: shape.outerRadius() * 2,
-				relativeWidth: (shape.outerRadius() * 2) / stageWidth,
-				relativeHeight: (shape.outerRadius() * 2) / stageHeight,
-				numPoints: shape.numPoints(),
-				innerRadius: shape.innerRadius(),
-				outerRadius: shape.outerRadius(),
 				stroke: shape.stroke(),
 				strokeWidth: shape.strokeWidth(),
 				fill: shape.fill()
@@ -1032,63 +916,24 @@ export class KonvaShapeEngine {
 						fontSize: shapeData.fontSize || 16,
 						fill: shapeData.fill || '#2D3748',
 					fontFamily: shapeData.fontFamily || 'ReenieBeanie, Inter, Arial, sans-serif',
-						draggable: true
-					});
-					break;
-				case 'rectangle':
-					shape = new Konva.Rect({
-						id: shapeData.id,
-						x: shapeData.x,
-						y: shapeData.y,
-						width: shapeData.width || 100,
-						height: shapeData.height || 60,
-						stroke: shapeData.stroke || '#2D3748',
-						strokeWidth: shapeData.strokeWidth || 2,
-						fill: shapeData.fill || 'transparent',
-						draggable: true
-					});
-					break;
-				case 'circle':
-					shape = new Konva.Circle({
-						id: shapeData.id,
-						x: shapeData.x,
-						y: shapeData.y,
-						radius: (shapeData.width || 60) / 2,
-						stroke: shapeData.stroke || '#2D3748',
-						strokeWidth: shapeData.strokeWidth || 2,
-						fill: shapeData.fill || 'transparent',
-						draggable: true
-					});
-					break;
-				case 'arrow':
-					shape = new Konva.Arrow({
-						id: shapeData.id,
-						x: shapeData.x,
-						y: shapeData.y,
-						points: shapeData.points || [0, 0, 50, 50],
-						stroke: shapeData.stroke || '#2D3748',
-						strokeWidth: shapeData.strokeWidth || 2,
-						fill: shapeData.fill || '#2D3748',
-						draggable: true,
-						pointerLength: 10,
-						pointerWidth: 8
-					});
-					break;
-				case 'star':
-					shape = new Konva.Star({
-						id: shapeData.id,
-						x: shapeData.x,
-						y: shapeData.y,
-						numPoints: shapeData.numPoints || 5,
-						innerRadius: shapeData.innerRadius || 20,
-						outerRadius: shapeData.outerRadius || 40,
-						stroke: shapeData.stroke || '#2D3748',
-						strokeWidth: shapeData.strokeWidth || 2,
-						fill: shapeData.fill || 'transparent',
-						draggable: true
-					});
-					break;
-				case 'note':
+					draggable: true
+				});
+				break;
+			case 'arrow':
+				shape = new Konva.Arrow({
+					id: shapeData.id,
+					x: shapeData.x,
+					y: shapeData.y,
+					points: shapeData.points || [0, 0, 50, 50],
+					stroke: shapeData.stroke || '#2D3748',
+					strokeWidth: shapeData.strokeWidth || 2,
+					fill: shapeData.fill || '#2D3748',
+					draggable: true,
+					pointerLength: 10,
+					pointerWidth: 8
+				});
+				break;
+			case 'note':
 					// Recreate sticky note group
 					shape = new Konva.Group({
 						id: shapeData.id,
@@ -1213,7 +1058,7 @@ export class KonvaShapeEngine {
 		return this.currentPage;
 	}
 
-	// Event callbacks - set these from parent component
+	// Event callbacks - set these from the parent component
 	onShapeAdded?: (shape: ShapeObject) => void;
 	onShapeUpdated?: (shape: ShapeObject) => void;
 	onShapeDeleted?: (shapeId: string) => void;

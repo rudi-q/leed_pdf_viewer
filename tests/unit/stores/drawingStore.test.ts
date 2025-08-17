@@ -45,17 +45,17 @@ describe('DrawingStore', () => {
 	describe('Initial State', () => {
 		it('should have correct initial drawing state', () => {
 			const state = get(drawingState);
-			expect(state).toEqual({
-				tool: 'pencil',
-				color: '#2D3748',
-				lineWidth: 2,
-				eraserSize: 8,
-				highlightColor: '#FFEB3B',
-				highlightOpacity: 0.4,
-				noteColor: '#FFF59D',
-				stampId: 'star',
-				isDrawing: false
-			});
+		expect(state).toEqual({
+			tool: 'pencil',
+			color: '#2D3748',
+			lineWidth: 2,
+			eraserSize: 8,
+			highlightColor: '#FFEB3B',
+			highlightOpacity: 0.4,
+			noteColor: '#FFF59D',
+			stampId: 'x-mark',
+			isDrawing: false
+		});
 		});
 
 		it('should have correct initial PDF state', () => {
@@ -180,22 +180,18 @@ describe('DrawingStore', () => {
 	});
 
 	describe('Shape Objects Management', () => {
-		const mockShape: ShapeObject = {
-			id: 'shape_123',
-			type: 'rectangle',
-			pageNumber: 1,
-			x: 100,
-			y: 100,
-			width: 200,
-			height: 150,
-			relativeX: 0.1,
-			relativeY: 0.1,
-			relativeWidth: 0.2,
-			relativeHeight: 0.15,
-			stroke: '#000000',
-			strokeWidth: 2,
-			fill: 'transparent'
-		};
+	const mockShape: ShapeObject = {
+		id: 'shape_123',
+		type: 'text',
+		pageNumber: 1,
+		x: 100,
+		y: 100,
+		text: 'Test text',
+		fontSize: 16,
+		relativeX: 0.1,
+		relativeY: 0.1,
+		fill: '#000000'
+	};
 
 		it('should add shape objects correctly', () => {
 			addShapeObject(mockShape);
@@ -300,15 +296,18 @@ describe('DrawingStore', () => {
 				pageNumber: 1
 			};
 
-			const mockShape: ShapeObject = {
-				id: 'shape_123',
-				type: 'rectangle',
-				pageNumber: 1,
-				x: 100,
-				y: 100,
-				relativeX: 0.1,
-				relativeY: 0.1
-			};
+		const mockShape: ShapeObject = {
+			id: 'shape_123',
+			type: 'text',
+			pageNumber: 1,
+			x: 100,
+			y: 100,
+			text: 'Test text',
+			fontSize: 16,
+			relativeX: 0.1,
+			relativeY: 0.1,
+			fill: '#000000'
+		};
 
 			addDrawingPath(mockPath);
 			addShapeObject(mockShape);

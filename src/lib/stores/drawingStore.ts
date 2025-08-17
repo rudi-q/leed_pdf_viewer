@@ -5,10 +5,7 @@ export type DrawingTool =
 	| 'pencil'
 	| 'eraser'
 	| 'text'
-	| 'rectangle'
-	| 'circle'
 	| 'arrow'
-	| 'star'
 	| 'highlight'
 	| 'note'
 	| 'stamp';
@@ -179,7 +176,7 @@ export const drawingState = writable<DrawingState>({
 	highlightOpacity: 0.4,
 	noteColor: '#FFF59D', // light yellow
 	isDrawing: false,
-	stampId: 'star' // default stamp
+	stampId: 'x-mark' // default stamp
 });
 
 // PDF state store

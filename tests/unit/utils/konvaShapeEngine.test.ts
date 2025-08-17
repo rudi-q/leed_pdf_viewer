@@ -50,11 +50,11 @@ describe('KonvaShapeEngine', () => {
 	});
 
 	describe('Tool Setting', () => {
-		it('should set tool correctly', async () => {
-			await engine.setTool('rectangle');
-			// Tool setting should not throw errors
-			expect(true).toBe(true);
-		});
+	it('should set tool correctly', async () => {
+		await engine.setTool('text');
+		// Tool setting should not throw errors
+		expect(true).toBe(true);
+	});
 
 		it('should handle invalid tools gracefully', async () => {
 			await engine.setTool('invalid' as any);
@@ -160,38 +160,6 @@ describe('KonvaShapeEngine', () => {
 				fill: '#000000',
 				relativeX: 0.125,
 				relativeY: 0.167
-			},
-			{
-				id: 'rect_1',
-				type: 'rectangle',
-				pageNumber: 1,
-				x: 200,
-				y: 200,
-				width: 150,
-				height: 100,
-				stroke: '#000000',
-				strokeWidth: 2,
-				fill: 'transparent',
-				relativeX: 0.25,
-				relativeY: 0.333,
-				relativeWidth: 0.1875,
-				relativeHeight: 0.167
-			},
-			{
-				id: 'circle_1',
-				type: 'circle',
-				pageNumber: 1,
-				x: 300,
-				y: 300,
-				width: 100,
-				height: 100,
-				stroke: '#0000FF',
-				strokeWidth: 3,
-				fill: 'transparent',
-				relativeX: 0.375,
-				relativeY: 0.5,
-				relativeWidth: 0.125,
-				relativeHeight: 0.167
 			},
 			{
 				id: 'note_1',
@@ -318,43 +286,6 @@ describe('KonvaShapeEngine', () => {
 	});
 
 	describe('Shape Types', () => {
-		it('should handle rectangle shapes', async () => {
-			const shapes: ShapeObject[] = [
-				{
-					id: 'rect_test',
-					type: 'rectangle',
-					pageNumber: 1,
-					x: 100,
-					y: 100,
-					width: 200,
-					height: 150,
-					relativeX: 0.125,
-					relativeY: 0.167
-				}
-			];
-
-			await engine.loadShapes(shapes);
-			expect(true).toBe(true);
-		});
-
-		it('should handle circle shapes', async () => {
-			const shapes: ShapeObject[] = [
-				{
-					id: 'circle_test',
-					type: 'circle',
-					pageNumber: 1,
-					x: 200,
-					y: 200,
-					width: 100,
-					height: 100,
-					relativeX: 0.25,
-					relativeY: 0.333
-				}
-			];
-
-			await engine.loadShapes(shapes);
-			expect(true).toBe(true);
-		});
 
 		it('should handle arrow shapes', async () => {
 			const shapes: ShapeObject[] = [
@@ -374,25 +305,6 @@ describe('KonvaShapeEngine', () => {
 			expect(true).toBe(true);
 		});
 
-		it('should handle star shapes', async () => {
-			const shapes: ShapeObject[] = [
-				{
-					id: 'star_test',
-					type: 'star',
-					pageNumber: 1,
-					x: 400,
-					y: 400,
-					numPoints: 5,
-					innerRadius: 30,
-					outerRadius: 60,
-					relativeX: 0.5,
-					relativeY: 0.667
-				}
-			];
-
-			await engine.loadShapes(shapes);
-			expect(true).toBe(true);
-		});
 
 		it('should skip unknown shape types', async () => {
 			const shapes: ShapeObject[] = [

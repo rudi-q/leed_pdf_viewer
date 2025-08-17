@@ -26,17 +26,14 @@
     ArrowRight,
     ChevronLeft,
     ChevronRight,
-    Circle,
     Download,
     Edit3,
     Folder,
     Highlighter,
     Layout,
-    RectangleHorizontal,
     Redo2,
     Search,
     Square,
-    Star,
     Sticker,
     StickyNote,
     Trash2,
@@ -265,38 +262,11 @@
 
         <button
           class="tool-button"
-          class:active={$drawingState.tool === 'rectangle'}
-          on:click={() => handleToolChange('rectangle')}
-          title="Rectangle (4)"
-        >
-          <RectangleHorizontal size={14} />
-        </button>
-
-        <button
-          class="tool-button"
-          class:active={$drawingState.tool === 'circle'}
-          on:click={() => handleToolChange('circle')}
-          title="Circle (5)"
-        >
-          <Circle size={14} />
-        </button>
-
-        <button
-          class="tool-button"
           class:active={$drawingState.tool === 'arrow'}
           on:click={() => handleToolChange('arrow')}
-          title="Arrow (6)"
+          title="Arrow (4)"
         >
           <ArrowRight size={14} />
-        </button>
-
-        <button
-          class="tool-button"
-          class:active={$drawingState.tool === 'star'}
-          on:click={() => handleToolChange('star')}
-          title="Star (7)"
-        >
-          <Star size={14} />
         </button>
 
         <button
