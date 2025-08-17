@@ -54,6 +54,20 @@ export interface DrawingPath {
 // Import ShapeObject from KonvaShapeEngine
 export type { ShapeObject } from '../utils/konvaShapeEngine';
 
+// Text annotation interface (custom text solution, not using KonvaJS)
+export interface TextAnnotation {
+	id: string;
+	pageNumber: number;
+	x: number;
+	y: number;
+	text: string;
+	fontSize: number;
+	color: string;
+	fontFamily: string;
+	relativeX: number; // 0-1 range for scaling
+	relativeY: number; // 0-1 range for scaling
+}
+
 // Stamp definitions
 export interface StampDefinition {
 	id: string;
@@ -196,8 +210,13 @@ export const drawingPaths = writable<Map<number, DrawingPath[]>>(new Map());
 // Shape objects store - stores all shape data per page
 export const shapeObjects = writable<Map<number, any[]>>(new Map());
 
+// Text annotations store - stores all text annotations per page (custom implementation, not KonvaJS)
+export const textAnnotations = writable<Map<number, TextAnnotation[]>>(new Map());
+
 // Auto-save functionality
 const STORAGE_KEY = 'leedpdf_drawings';
+const STORAGE_KEY_SHAPES = 'leedpdf_shapes';
+const STORAGE_KEY_TEXT = 'leedpdf_text_annotations';
 const STORAGE_KEY_PDF_INFO = 'leedpdf_current_pdf';
 
 // Track current PDF to associate drawings with specific files
@@ -208,7 +227,7 @@ export const generatePDFKey = (fileName: string, fileSize: number): string => {
 	return `${fileName}_${fileSize}`;
 };
 
-// Set current PDF and load its drawings
+// Set current PDF and load its drawings and shapes
 export const setCurrentPDF = (fileName: string, fileSize: number) => {
 	const pdfKey = generatePDFKey(fileName, fileSize);
 	currentPDFKey = pdfKey;
@@ -222,8 +241,10 @@ export const setCurrentPDF = (fileName: string, fileSize: number) => {
 		}
 	}
 
-	// Load drawings for this specific PDF
+	// Load drawings, shapes, and text annotations for this specific PDF
 	loadDrawingsForCurrentPDF();
+	loadShapesForCurrentPDF();
+	loadTextAnnotationsForCurrentPDF();
 };
 
 // Load drawings for current PDF
@@ -253,6 +274,60 @@ const loadDrawingsForCurrentPDF = () => {
 	}
 };
 
+// Load shapes for current PDF
+const loadShapesForCurrentPDF = () => {
+	if (!currentPDFKey || typeof window === 'undefined') return;
+
+	try {
+		const savedShapes = localStorage.getItem(`${STORAGE_KEY_SHAPES}_${currentPDFKey}`);
+		if (savedShapes) {
+			const parsedShapes = JSON.parse(savedShapes);
+			const shapesMap = new Map();
+
+			Object.entries(parsedShapes).forEach(([pageNum, shapes]) => {
+				shapesMap.set(parseInt(pageNum), shapes as any[]);
+			});
+
+			shapeObjects.set(shapesMap);
+			console.log(`Loaded shapes for PDF ${currentPDFKey}:`, shapesMap);
+		} else {
+			// No saved shapes for this PDF, start fresh
+			shapeObjects.set(new Map());
+			console.log(`No saved shapes found for PDF ${currentPDFKey}`);
+		}
+	} catch (error) {
+		console.error('Error loading shapes for current PDF:', error);
+		shapeObjects.set(new Map());
+	}
+};
+
+// Load text annotations for current PDF
+const loadTextAnnotationsForCurrentPDF = () => {
+	if (!currentPDFKey || typeof window === 'undefined') return;
+
+	try {
+		const savedTextAnnotations = localStorage.getItem(`${STORAGE_KEY_TEXT}_${currentPDFKey}`);
+		if (savedTextAnnotations) {
+			const parsedTextAnnotations = JSON.parse(savedTextAnnotations);
+			const textMap = new Map();
+
+			Object.entries(parsedTextAnnotations).forEach(([pageNum, texts]) => {
+				textMap.set(parseInt(pageNum), texts as TextAnnotation[]);
+			});
+
+			textAnnotations.set(textMap);
+			console.log(`Loaded text annotations for PDF ${currentPDFKey}:`, textMap);
+		} else {
+			// No saved text annotations for this PDF, start fresh
+			textAnnotations.set(new Map());
+			console.log(`No saved text annotations found for PDF ${currentPDFKey}`);
+		}
+	} catch (error) {
+		console.error('Error loading text annotations for current PDF:', error);
+		textAnnotations.set(new Map());
+	}
+};
+
 // Load last PDF info on initialization
 if (typeof window !== 'undefined') {
 	try {
@@ -261,6 +336,8 @@ if (typeof window !== 'undefined') {
 			const { pdfKey } = JSON.parse(savedPDFInfo);
 			currentPDFKey = pdfKey;
 			loadDrawingsForCurrentPDF();
+			loadShapesForCurrentPDF();
+			loadTextAnnotationsForCurrentPDF();
 		}
 	} catch (error) {
 		console.error('Error loading PDF info from localStorage:', error);
@@ -285,6 +362,50 @@ if (typeof window !== 'undefined') {
 			console.log(`Auto-saved drawings for PDF ${currentPDFKey}`);
 		} catch (error) {
 			console.error('Error saving drawings to localStorage:', error);
+		}
+	});
+}
+
+// Save shapes to localStorage whenever they change (PDF-specific)
+if (typeof window !== 'undefined') {
+	shapeObjects.subscribe((shapes) => {
+		if (!currentPDFKey) return;
+
+		try {
+			// Convert Map to object for JSON serialization
+			const shapesObject: Record<string, any[]> = {};
+			shapes.forEach((shapeList, pageNum) => {
+				if (shapeList.length > 0) {
+					shapesObject[pageNum.toString()] = shapeList;
+				}
+			});
+
+			localStorage.setItem(`${STORAGE_KEY_SHAPES}_${currentPDFKey}`, JSON.stringify(shapesObject));
+			console.log(`Auto-saved shapes for PDF ${currentPDFKey}`);
+		} catch (error) {
+			console.error('Error saving shapes to localStorage:', error);
+		}
+	});
+}
+
+// Save text annotations to localStorage whenever they change (PDF-specific)
+if (typeof window !== 'undefined') {
+	textAnnotations.subscribe((texts) => {
+		if (!currentPDFKey) return;
+
+		try {
+			// Convert Map to object for JSON serialization
+			const textsObject: Record<string, TextAnnotation[]> = {};
+			texts.forEach((textList, pageNum) => {
+				if (textList.length > 0) {
+					textsObject[pageNum.toString()] = textList;
+				}
+			});
+
+			localStorage.setItem(`${STORAGE_KEY_TEXT}_${currentPDFKey}`, JSON.stringify(textsObject));
+			console.log(`Auto-saved text annotations for PDF ${currentPDFKey}`);
+		} catch (error) {
+			console.error('Error saving text annotations to localStorage:', error);
 		}
 	});
 }
@@ -519,3 +640,38 @@ export const redo = () => {
 
 // Legacy function - keeping for backward compatibility
 export const undoLastPath = undo;
+
+// Text annotation management functions
+export const addTextAnnotation = (annotation: TextAnnotation) => {
+	textAnnotations.update((texts) => {
+		const currentTexts = texts.get(annotation.pageNumber) || [];
+		const newTexts = [...currentTexts, annotation];
+		texts.set(annotation.pageNumber, newTexts);
+		return new Map(texts);
+	});
+};
+
+export const updateTextAnnotation = (updatedAnnotation: TextAnnotation) => {
+	textAnnotations.update((texts) => {
+		const currentTexts = texts.get(updatedAnnotation.pageNumber) || [];
+		const newTexts = currentTexts.map((text) =>
+			text.id === updatedAnnotation.id ? updatedAnnotation : text
+		);
+		texts.set(updatedAnnotation.pageNumber, newTexts);
+		return new Map(texts);
+	});
+};
+
+export const deleteTextAnnotation = (annotationId: string, pageNumber: number) => {
+	textAnnotations.update((texts) => {
+		const currentTexts = texts.get(pageNumber) || [];
+		const newTexts = currentTexts.filter((text) => text.id !== annotationId);
+		texts.set(pageNumber, newTexts);
+		return new Map(texts);
+	});
+};
+
+// Derived store for current page text annotations
+export const currentPageTextAnnotations = derived([textAnnotations, pdfState], ([$textAnnotations, $pdfState]) => {
+	return $textAnnotations.get($pdfState.currentPage) || [];
+});

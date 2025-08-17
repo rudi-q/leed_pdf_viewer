@@ -4,6 +4,7 @@
     addDrawingPath,
     addShapeObject,
     currentPagePaths,
+    currentPageTextAnnotations,
     deleteShapeObject,
     type DrawingPath,
     drawingPaths,
@@ -16,6 +17,7 @@
   import { PDFManager } from '../utils/pdfUtils';
   import { DrawingEngine } from '../utils/drawingUtils';
   import { KonvaShapeEngine } from '../utils/konvaShapeEngine';
+  import TextOverlay from './TextOverlay.svelte';
 
   export let pdfFile: File | string | null = null;
 
@@ -66,16 +68,23 @@
     drawingEngine.renderPaths($currentPagePaths);
   }
   
+  // Update KonvaShapeEngine current page when PDF page changes
+  $: if (konvaEngine && $pdfState.currentPage) {
+    konvaEngine.setCurrentPage($pdfState.currentPage);
+  }
+  
   // Update cursor and tool when drawing state changes
   $: if ($drawingState.tool && containerDiv) {
     console.log('TOOL CHANGED:', $drawingState.tool);
-    console.log('Shape tools includes this tool:', ['text', 'rectangle', 'circle', 'arrow', 'star', 'stamp'].includes($drawingState.tool));
+    console.log('Shape tools includes this tool:', ['rectangle', 'circle', 'arrow', 'star', 'stamp'].includes($drawingState.tool));
     updateCursor();
     
-    // Update Konva tool
-    if (konvaEngine) {
+    // Update Konva tool (exclude text tool as it's now handled by TextOverlay)
+    if (konvaEngine && $drawingState.tool !== 'text') {
       console.log('Setting Konva tool to:', $drawingState.tool);
       konvaEngine.setTool($drawingState.tool);
+    } else if ($drawingState.tool === 'text') {
+      console.log('Text tool selected - handled by TextOverlay component');
     } else {
       console.log('Konva engine not available yet');
     }
@@ -116,12 +125,12 @@
 
         // Set up Konva event handlers
         konvaEngine.onShapeAdded = (shape) => {
-          shape.pageNumber = $pdfState.currentPage;
+          // pageNumber is now correctly set by KonvaShapeEngine.serializeShape()
           addShapeObject(shape);
         };
 
         konvaEngine.onShapeUpdated = (shape) => {
-          shape.pageNumber = $pdfState.currentPage;
+          // pageNumber is now correctly set by KonvaShapeEngine.serializeShape()
           updateShapeObject(shape);
         };
 
@@ -346,20 +355,19 @@ function handlePointerDown(event: PointerEvent) {
     }
     
     // Only handle freehand drawing tools (pencil, eraser, highlight) here
-    // Konva tools (text, rectangle, circle, arrow) are handled by Konva
+    // Text tool is handled by TextOverlay component
+    // Other shape tools (rectangle, circle, arrow) are handled by Konva
     if (!['pencil', 'eraser', 'highlight'].includes($drawingState.tool)) {
       console.log('Shape tool detected:', $drawingState.tool);
-      // Shape tools should be handled by Konva, but if we get here, it means
-      // the Konva container isn't working properly, so we handle text manually
-      if ($drawingState.tool === 'text' && konvaEngine) {
-        const rect = drawingCanvas.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        console.log('Adding text at:', x, y);
-        konvaEngine.addText(x, y);
+      
+      // Text tool is now handled by TextOverlay component, not here
+      if ($drawingState.tool === 'text') {
+        console.log('Text tool click ignored - handled by TextOverlay component');
+        return;
       }
-      // Don't return - this indicates a problem with Konva event handling
-      console.warn('Shape tool event reached drawing canvas - this should not happen');
+      
+      // Other shape tools should be handled by Konva
+      console.warn('Non-freehand tool event reached drawing canvas - this should be handled by Konva');
       return;
     }
     
@@ -725,6 +733,39 @@ function handlePointerUp(event: PointerEvent) {
       ctx.drawImage(drawingCanvas, 0, 0);
       ctx.restore();
 
+      // Draw text annotations scaled to match PDF resolution
+      const canvasWidth = parseFloat(pdfCanvas.style.width) || pdfCanvas.width / outputScale;
+      const canvasHeight = parseFloat(pdfCanvas.style.height) || pdfCanvas.height / outputScale;
+      
+      // Get current page text annotations from the store
+      let currentTextAnnotations: any[] = [];
+      const unsubscribe = currentPageTextAnnotations.subscribe(annotations => {
+        currentTextAnnotations = annotations;
+      });
+      unsubscribe();
+      
+      if (currentTextAnnotations.length > 0) {
+        ctx.save();
+        ctx.scale(scaleX, scaleY);
+        
+        currentTextAnnotations.forEach(annotation => {
+          const x = annotation.relativeX * canvasWidth;
+          const y = annotation.relativeY * canvasHeight;
+          
+          ctx.font = `${annotation.fontSize}px ${annotation.fontFamily}`;
+          ctx.fillStyle = annotation.color;
+          ctx.textBaseline = 'top';
+          
+          // Handle multi-line text
+          const lines = annotation.text.split('\n');
+          lines.forEach((line: string, index: number) => {
+            ctx.fillText(line, x, y + (index * annotation.fontSize * 1.2));
+          });
+        });
+        
+        ctx.restore();
+      }
+
       // Draw Konva shapes scaled to match PDF resolution
       if (konvaEngine) {
         try {
@@ -771,20 +812,28 @@ function handlePointerUp(event: PointerEvent) {
         style="z-index: 2;"
       ></canvas>
       
-      <!-- Konva Container for Shapes/Text -->
+      <!-- Konva Container for Shapes (excluding text) -->
       <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
       <div
         bind:this={konvaContainer}
         class="absolute top-0 left-0 w-full h-full"
         class:hidden={!$pdfState.document}
-        class:pointer-events-none={!['text', 'rectangle', 'circle', 'arrow', 'star', 'note', 'stamp'].includes($drawingState.tool)}
+        class:pointer-events-none={!['rectangle', 'circle', 'arrow', 'star', 'note', 'stamp'].includes($drawingState.tool)}
         style="z-index: 3;"
         on:click={() => console.log('Konva container clicked, current tool:', $drawingState.tool)}
         on:keydown={(e) => e.key === 'Enter' && console.log('Konva container activated')}
         role="application"
         tabindex="-1"
-        aria-label="Drawing area for shapes and text"
+        aria-label="Drawing area for shapes"
       ></div>
+      
+      <!-- Text Overlay for Custom Text Annotations -->
+      {#if $pdfState.document && pdfCanvas}
+        <TextOverlay 
+          canvasWidth={pdfCanvas.style.width ? parseFloat(pdfCanvas.style.width) : 0}
+          canvasHeight={pdfCanvas.style.height ? parseFloat(pdfCanvas.style.height) : 0}
+        />
+      {/if}
       
     </div>
   </div>

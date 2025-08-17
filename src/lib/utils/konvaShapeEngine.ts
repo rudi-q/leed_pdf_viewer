@@ -41,6 +41,7 @@ export class KonvaShapeEngine {
 	private startPos = { x: 0, y: 0 };
 	private currentShape: any = null;
 	private isInitialized = false;
+	private currentPage: number = 1;
 
 	constructor(container: HTMLDivElement) {
 		this.container = container;
@@ -884,7 +885,7 @@ export class KonvaShapeEngine {
 				text: shape.text?.() || 'Test Text',
 				fontSize: shape.fontSize?.() || 16,
 				fill: shape.fill?.() || '#000000',
-				pageNumber: 1,
+				pageNumber: this.currentPage,
 				relativeX: 0.1,
 				relativeY: 0.1
 			};
@@ -895,7 +896,7 @@ export class KonvaShapeEngine {
 
 		const baseObject = {
 			id: shape.id(),
-			pageNumber: 1, // Will be set by parent component
+			pageNumber: this.currentPage, // Use the internal currentPage property
 			x: shape.x(),
 			y: shape.y(),
 			relativeX: shape.x() / stageWidth,
@@ -1200,6 +1201,16 @@ export class KonvaShapeEngine {
 			throw new Error('Konva stage not initialized');
 		}
 		return this.stage.toCanvas();
+	}
+
+	// Set the current page number for proper shape serialization
+	setCurrentPage(pageNumber: number) {
+		this.currentPage = pageNumber;
+	}
+
+	// Get the current page number
+	getCurrentPage(): number {
+		return this.currentPage;
 	}
 
 	// Event callbacks - set these from parent component
