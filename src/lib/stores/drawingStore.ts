@@ -48,8 +48,6 @@ export interface DrawingPath {
 	highlightOpacity?: number;
 }
 
-// Import ShapeObject from KonvaShapeEngine
-export type { ShapeObject } from '../utils/konvaShapeEngine';
 
 // Text annotation interface (custom text solution, not using KonvaJS)
 export interface TextAnnotation {
@@ -94,6 +92,23 @@ export interface StampAnnotation {
 	relativeX: number; // 0-1 range for scaling
 	relativeY: number; // 0-1 range for scaling
 	relativeSize: number; // 0-1 range for scaling
+}
+
+// Arrow annotation interface (custom solution, not using KonvaJS)
+export interface ArrowAnnotation {
+	id: string;
+	pageNumber: number;
+	x1: number; // Start x coordinate
+	y1: number; // Start y coordinate
+	x2: number; // End x coordinate
+	y2: number; // End y coordinate
+	stroke: string;
+	strokeWidth: number;
+	arrowHead: boolean;
+	relativeX1: number; // 0-1 range for scaling
+	relativeY1: number; // 0-1 range for scaling
+	relativeX2: number; // 0-1 range for scaling
+	relativeY2: number; // 0-1 range for scaling
 }
 
 // Stamp definitions
@@ -252,9 +267,6 @@ if (typeof window !== 'undefined') {
 // Drawing paths store - stores all drawing data per page
 export const drawingPaths = writable<Map<number, DrawingPath[]>>(new Map());
 
-// Shape objects store - stores all shape data per page
-export const shapeObjects = writable<Map<number, any[]>>(new Map());
-
 // Text annotations store - stores all text annotations per page (custom implementation, not KonvaJS)
 export const textAnnotations = writable<Map<number, TextAnnotation[]>>(new Map());
 
@@ -264,12 +276,15 @@ export const stickyNoteAnnotations = writable<Map<number, StickyNoteAnnotation[]
 // Stamp annotations store - stores all stamp annotations per page (custom implementation, not KonvaJS)
 export const stampAnnotations = writable<Map<number, StampAnnotation[]>>(new Map());
 
+// Arrow annotations store - stores all arrow annotations per page (custom implementation, not KonvaJS)
+export const arrowAnnotations = writable<Map<number, ArrowAnnotation[]>>(new Map());
+
 // Auto-save functionality
 const STORAGE_KEY = 'leedpdf_drawings';
-const STORAGE_KEY_SHAPES = 'leedpdf_shapes';
 const STORAGE_KEY_TEXT = 'leedpdf_text_annotations';
 const STORAGE_KEY_STICKY_NOTES = 'leedpdf_sticky_note_annotations';
 const STORAGE_KEY_STAMP_ANNOTATIONS = 'leedpdf_stamp_annotations';
+const STORAGE_KEY_ARROW_ANNOTATIONS = 'leedpdf_arrow_annotations';
 const STORAGE_KEY_PDF_INFO = 'leedpdf_current_pdf';
 
 // Track current PDF to associate drawings with specific files
@@ -296,10 +311,10 @@ export const setCurrentPDF = (fileName: string, fileSize: number) => {
 
 	// Load drawings, shapes, text annotations, sticky notes, and stamps for this specific PDF
 	loadDrawingsForCurrentPDF();
-	loadShapesForCurrentPDF();
 	loadTextAnnotationsForCurrentPDF();
 	loadStickyNotesForCurrentPDF();
 	loadStampAnnotationsForCurrentPDF();
+	loadArrowAnnotationsForCurrentPDF();
 };
 
 // Load drawings for current PDF
@@ -329,32 +344,6 @@ const loadDrawingsForCurrentPDF = () => {
 	}
 };
 
-// Load shapes for current PDF
-const loadShapesForCurrentPDF = () => {
-	if (!currentPDFKey || typeof window === 'undefined') return;
-
-	try {
-		const savedShapes = localStorage.getItem(`${STORAGE_KEY_SHAPES}_${currentPDFKey}`);
-		if (savedShapes) {
-			const parsedShapes = JSON.parse(savedShapes);
-			const shapesMap = new Map();
-
-			Object.entries(parsedShapes).forEach(([pageNum, shapes]) => {
-				shapesMap.set(parseInt(pageNum), shapes as any[]);
-			});
-
-			shapeObjects.set(shapesMap);
-			console.log(`Loaded shapes for PDF ${currentPDFKey}:`, shapesMap);
-		} else {
-			// No saved shapes for this PDF, start fresh
-			shapeObjects.set(new Map());
-			console.log(`No saved shapes found for PDF ${currentPDFKey}`);
-		}
-	} catch (error) {
-		console.error('Error loading shapes for current PDF:', error);
-		shapeObjects.set(new Map());
-	}
-};
 
 // Load text annotations for current PDF
 const loadTextAnnotationsForCurrentPDF = () => {
@@ -437,6 +426,33 @@ const loadStampAnnotationsForCurrentPDF = () => {
 	}
 };
 
+// Load arrow annotations for current PDF
+const loadArrowAnnotationsForCurrentPDF = () => {
+	if (!currentPDFKey || typeof window === 'undefined') return;
+
+	try {
+		const savedArrowAnnotations = localStorage.getItem(`${STORAGE_KEY_ARROW_ANNOTATIONS}_${currentPDFKey}`);
+		if (savedArrowAnnotations) {
+			const parsedArrowAnnotations = JSON.parse(savedArrowAnnotations);
+			const arrowAnnotationsMap = new Map();
+
+			Object.entries(parsedArrowAnnotations).forEach(([pageNum, arrows]) => {
+				arrowAnnotationsMap.set(parseInt(pageNum), arrows as ArrowAnnotation[]);
+			});
+
+			arrowAnnotations.set(arrowAnnotationsMap);
+			console.log(`Loaded arrow annotations for PDF ${currentPDFKey}:`, arrowAnnotationsMap);
+		} else {
+			// No saved arrow annotations for this PDF, start fresh
+			arrowAnnotations.set(new Map());
+			console.log(`No saved arrow annotations found for PDF ${currentPDFKey}`);
+		}
+	} catch (error) {
+		console.error('Error loading arrow annotations for current PDF:', error);
+		arrowAnnotations.set(new Map());
+	}
+};
+
 // Load last PDF info on initialization
 if (typeof window !== 'undefined') {
 	try {
@@ -445,10 +461,10 @@ if (typeof window !== 'undefined') {
 			const { pdfKey } = JSON.parse(savedPDFInfo);
 			currentPDFKey = pdfKey;
 			loadDrawingsForCurrentPDF();
-			loadShapesForCurrentPDF();
 			loadTextAnnotationsForCurrentPDF();
 			loadStickyNotesForCurrentPDF();
 			loadStampAnnotationsForCurrentPDF();
+			loadArrowAnnotationsForCurrentPDF();
 		}
 	} catch (error) {
 		console.error('Error loading PDF info from localStorage:', error);
@@ -477,27 +493,6 @@ if (typeof window !== 'undefined') {
 	});
 }
 
-// Save shapes to localStorage whenever they change (PDF-specific)
-if (typeof window !== 'undefined') {
-	shapeObjects.subscribe((shapes) => {
-		if (!currentPDFKey) return;
-
-		try {
-			// Convert Map to object for JSON serialization
-			const shapesObject: Record<string, any[]> = {};
-			shapes.forEach((shapeList, pageNum) => {
-				if (shapeList.length > 0) {
-					shapesObject[pageNum.toString()] = shapeList;
-				}
-			});
-
-			localStorage.setItem(`${STORAGE_KEY_SHAPES}_${currentPDFKey}`, JSON.stringify(shapesObject));
-			console.log(`Auto-saved shapes for PDF ${currentPDFKey}`);
-		} catch (error) {
-			console.error('Error saving shapes to localStorage:', error);
-		}
-	});
-}
 
 // Save text annotations to localStorage whenever they change (PDF-specific)
 if (typeof window !== 'undefined') {
@@ -561,6 +556,28 @@ if (typeof window !== 'undefined') {
 			console.log(`Auto-saved stamp annotations for PDF ${currentPDFKey}`);
 		} catch (error) {
 			console.error('Error saving stamp annotations to localStorage:', error);
+		}
+	});
+}
+
+// Save arrow annotations to localStorage whenever they change (PDF-specific)
+if (typeof window !== 'undefined') {
+	arrowAnnotations.subscribe((arrows) => {
+		if (!currentPDFKey) return;
+
+		try {
+			// Convert Map to object for JSON serialization
+			const arrowsObject: Record<string, ArrowAnnotation[]> = {};
+			arrows.forEach((arrowList, pageNum) => {
+				if (arrowList.length > 0) {
+					arrowsObject[pageNum.toString()] = arrowList;
+				}
+			});
+
+			localStorage.setItem(`${STORAGE_KEY_ARROW_ANNOTATIONS}_${currentPDFKey}`, JSON.stringify(arrowsObject));
+			console.log(`Auto-saved arrow annotations for PDF ${currentPDFKey}`);
+		} catch (error) {
+			console.error('Error saving arrow annotations to localStorage:', error);
 		}
 	});
 }
@@ -689,35 +706,6 @@ export const addDrawingPath = (path: DrawingPath) => {
 	});
 };
 
-// Shape object management functions
-export const addShapeObject = (shape: any) => {
-	shapeObjects.update((shapes) => {
-		const currentShapes = shapes.get(shape.pageNumber) || [];
-		const newShapes = [...currentShapes, shape];
-		shapes.set(shape.pageNumber, newShapes);
-		return new Map(shapes);
-	});
-};
-
-export const updateShapeObject = (updatedShape: any) => {
-	shapeObjects.update((shapes) => {
-		const currentShapes = shapes.get(updatedShape.pageNumber) || [];
-		const newShapes = currentShapes.map((shape) =>
-			shape.id === updatedShape.id ? updatedShape : shape
-		);
-		shapes.set(updatedShape.pageNumber, newShapes);
-		return new Map(shapes);
-	});
-};
-
-export const deleteShapeObject = (shapeId: string, pageNumber: number) => {
-	shapeObjects.update((shapes) => {
-		const currentShapes = shapes.get(pageNumber) || [];
-		const newShapes = currentShapes.filter((shape) => shape.id !== shapeId);
-		shapes.set(pageNumber, newShapes);
-		return new Map(shapes);
-	});
-};
 
 export const clearCurrentPageDrawings = () => {
 	pdfState.subscribe((state) => {
@@ -899,4 +887,39 @@ export const deleteStampAnnotation = (annotationId: string, pageNumber: number) 
 // Derived store for current page stamp annotations
 export const currentPageStampAnnotations = derived([stampAnnotations, pdfState], ([$stampAnnotations, $pdfState]) => {
 	return $stampAnnotations.get($pdfState.currentPage) || [];
+});
+
+// Arrow annotation management functions
+export const addArrowAnnotation = (annotation: ArrowAnnotation) => {
+	arrowAnnotations.update((arrows) => {
+		const currentArrows = arrows.get(annotation.pageNumber) || [];
+		const newArrows = [...currentArrows, annotation];
+		arrows.set(annotation.pageNumber, newArrows);
+		return new Map(arrows);
+	});
+};
+
+export const updateArrowAnnotation = (updatedAnnotation: ArrowAnnotation) => {
+	arrowAnnotations.update((arrows) => {
+		const currentArrows = arrows.get(updatedAnnotation.pageNumber) || [];
+		const newArrows = currentArrows.map((arrow) =>
+			arrow.id === updatedAnnotation.id ? updatedAnnotation : arrow
+		);
+		arrows.set(updatedAnnotation.pageNumber, newArrows);
+		return new Map(arrows);
+	});
+};
+
+export const deleteArrowAnnotation = (annotationId: string, pageNumber: number) => {
+	arrowAnnotations.update((arrows) => {
+		const currentArrows = arrows.get(pageNumber) || [];
+		const newArrows = currentArrows.filter((arrow) => arrow.id !== annotationId);
+		arrows.set(pageNumber, newArrows);
+		return new Map(arrows);
+	});
+};
+
+// Derived store for current page arrow annotations
+export const currentPageArrowAnnotations = derived([arrowAnnotations, pdfState], ([$arrowAnnotations, $pdfState]) => {
+	return $arrowAnnotations.get($pdfState.currentPage) || [];
 });

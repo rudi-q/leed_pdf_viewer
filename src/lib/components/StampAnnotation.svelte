@@ -3,7 +3,7 @@
 	import type { StampAnnotation } from '../stores/drawingStore';
 
 	export let stamp: StampAnnotation;
-	export let scale: number = 1;
+	export const scale: number = 1; // For future scaling features
 	export let containerWidth: number = 0;
 	export let containerHeight: number = 0;
 
@@ -216,6 +216,7 @@
 		on:mousedown|stopPropagation={handleResizeMouseDown}
 		title="Drag to resize"
 		role="button"
+		tabindex="0"
 		aria-label="Resize stamp"
 	></div>
 </div>

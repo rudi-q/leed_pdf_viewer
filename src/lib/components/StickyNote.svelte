@@ -3,7 +3,7 @@
 	import type { StickyNoteAnnotation } from '$lib/stores/drawingStore';
 
 	export let note: StickyNoteAnnotation;
-	export let scale: number = 1; // Used for future scaling calculations
+	export const scale: number = 1; // Used for future scaling calculations
 	export let containerWidth: number = 0;
 	export let containerHeight: number = 0;
 
@@ -252,6 +252,7 @@
 			on:mousedown|stopPropagation={handleResizeMouseDown}
 			title="Drag to resize"
 			role="button"
+			tabindex="0"
 			aria-label="Resize sticky note"
 		></div>
 </div>

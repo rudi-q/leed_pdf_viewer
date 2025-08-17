@@ -2,35 +2,29 @@
   import { onDestroy, onMount, tick } from 'svelte';
   import {
     addDrawingPath,
-    addShapeObject,
     currentPagePaths,
     currentPageTextAnnotations,
-    deleteShapeObject,
     type DrawingPath,
     drawingPaths,
     drawingState,
     pdfState,
-    type Point,
-    shapeObjects,
-    updateShapeObject
+    type Point
   } from '../stores/drawingStore';
   import { PDFManager } from '../utils/pdfUtils';
   import { DrawingEngine } from '../utils/drawingUtils';
-  import { KonvaShapeEngine } from '../utils/konvaShapeEngine';
 import TextOverlay from './TextOverlay.svelte';
 import StickyNoteOverlay from './StickyNoteOverlay.svelte';
 import StampOverlay from './StampOverlay.svelte';
+import ArrowOverlay from './ArrowOverlay.svelte';
 
   export let pdfFile: File | string | null = null;
 
   let pdfCanvas: HTMLCanvasElement;
   let drawingCanvas: HTMLCanvasElement;
-  let konvaContainer: HTMLDivElement;
   let containerDiv: HTMLDivElement;
   
   let pdfManager: PDFManager;
   let drawingEngine: DrawingEngine;
-  let konvaEngine: KonvaShapeEngine;
   let isDrawing = false;
   let isPanning = false;
   let currentDrawingPath: Point[] = [];
@@ -70,27 +64,16 @@ import StampOverlay from './StampOverlay.svelte';
     drawingEngine.renderPaths($currentPagePaths);
   }
   
-  // Update KonvaShapeEngine current page when PDF page changes
-  $: if (konvaEngine && $pdfState.currentPage) {
-    konvaEngine.setCurrentPage($pdfState.currentPage);
-  }
   
   // Update cursor and tool when drawing state changes
   $: if ($drawingState.tool && containerDiv) {
     console.log('TOOL CHANGED:', $drawingState.tool);
-    console.log('Konva shape tools includes this tool:', ['arrow'].includes($drawingState.tool));
     updateCursor();
     
-	// Update Konva tool (only arrow tool is handled by Konva)
-	if (konvaEngine && ['arrow'].includes($drawingState.tool)) {
-		console.log('Setting Konva tool to:', $drawingState.tool);
-		konvaEngine.setTool($drawingState.tool);
-	} else if (['text', 'note', 'stamp'].includes($drawingState.tool)) {
+	if (['text', 'note', 'stamp', 'arrow'].includes($drawingState.tool)) {
 		console.log(`${$drawingState.tool} tool selected - handled by overlay component`);
 	} else if (['pencil', 'eraser', 'highlight'].includes($drawingState.tool)) {
 		console.log(`${$drawingState.tool} tool selected - handled by drawing canvas`);
-	} else {
-		console.log('Konva engine not available yet or unsupported tool');
 	}
   }
 
@@ -119,28 +102,12 @@ import StampOverlay from './StampOverlay.svelte';
   });
 
   async function initializeCanvases() {
-    if (pdfCanvas && drawingCanvas && konvaContainer) {
+    if (pdfCanvas && drawingCanvas) {
       console.log('Initializing canvases...');
       canvasesReady = true;
       
       try {
         drawingEngine = new DrawingEngine(drawingCanvas);
-        konvaEngine = new KonvaShapeEngine(konvaContainer);
-
-        // Set up Konva event handlers
-        konvaEngine.onShapeAdded = (shape) => {
-          // pageNumber is now correctly set by KonvaShapeEngine.serializeShape()
-          addShapeObject(shape);
-        };
-
-        konvaEngine.onShapeUpdated = (shape) => {
-          // pageNumber is now correctly set by KonvaShapeEngine.serializeShape()
-          updateShapeObject(shape);
-        };
-
-        konvaEngine.onShapeDeleted = (shapeId) => {
-          deleteShapeObject(shapeId, $pdfState.currentPage);
-        };
 
         setupDrawingEvents();
         console.log('Drawing engines initialized successfully');
@@ -154,12 +121,12 @@ import StampOverlay from './StampOverlay.svelte';
         console.error('Error initializing drawing engines:', error);
       }
     } else {
-      console.log('Canvases not ready yet:', { pdfCanvas: !!pdfCanvas, drawingCanvas: !!drawingCanvas, konvaContainer: !!konvaContainer });
+      console.log('Canvases not ready yet:', { pdfCanvas: !!pdfCanvas, drawingCanvas: !!drawingCanvas });
     }
   }
 
   // Monitor canvas binding
-  $: if (pdfCanvas && drawingCanvas && konvaContainer && !canvasesReady) {
+  $: if (pdfCanvas && drawingCanvas && !canvasesReady) {
     console.log('Canvases bound, initializing...');
     initializeCanvases();
   }
@@ -304,12 +271,6 @@ import StampOverlay from './StampOverlay.svelte';
         }
       }
 
-      if (konvaEngine) {
-        // Sync shape stage size and load shapes for current page
-        konvaEngine.resize(viewport.width, viewport.height);
-        const currentShapes = $shapeObjects.get($pdfState.currentPage) || [];
-        konvaEngine.loadShapes(currentShapes);
-      }
     } catch (error) {
       console.error('Error rendering page:', error);
     } finally {
@@ -370,9 +331,9 @@ function handlePointerDown(event: PointerEvent) {
         return;
       }
       
-      // Arrow tool should be handled by Konva
+      // Arrow tool should be handled by ArrowOverlay
       if (['arrow'].includes($drawingState.tool)) {
-        console.log(`${$drawingState.tool} tool click ignored - handled by Konva`);
+        console.log(`${$drawingState.tool} tool click ignored - handled by ArrowOverlay`);
         return;
       }
       
@@ -781,19 +742,8 @@ function handlePointerUp(event: PointerEvent) {
         ctx.restore();
       }
 
-      // Draw Konva shapes scaled to match PDF resolution
-      if (konvaEngine) {
-        try {
-          const konvaCanvas = konvaEngine.exportAsCanvas();
-          ctx.save();
-          ctx.scale(scaleX, scaleY);
-          ctx.drawImage(konvaCanvas, 0, 0);
-          ctx.restore();
-        } catch (error) {
-          console.warn('Could not export Konva shapes:', error);
-          // Continue without shapes if there's an error
-        }
-      }
+      // Note: Arrow annotations would need to be rendered here for export
+      // For now, they are handled by ArrowOverlay component
 
       console.log('Merged canvas created successfully:', mergedCanvas.width, 'x', mergedCanvas.height);
       return mergedCanvas;
@@ -827,20 +777,6 @@ function handlePointerUp(event: PointerEvent) {
         style="z-index: 2;"
       ></canvas>
       
-      <!-- Konva Container for Shapes (arrow only) -->
-      <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-      <div
-        bind:this={konvaContainer}
-        class="absolute top-0 left-0 w-full h-full"
-        class:hidden={!$pdfState.document}
-        class:pointer-events-none={!['arrow'].includes($drawingState.tool)}
-        style="z-index: 3;"
-        on:click={() => console.log('Konva container clicked, current tool:', $drawingState.tool)}
-        on:keydown={(e) => e.key === 'Enter' && console.log('Konva container activated')}
-        role="application"
-        tabindex="-1"
-        aria-label="Drawing area for shapes"
-      ></div>
       
       <!-- Text Overlay for Custom Text Annotations -->
       {#if $pdfState.document && pdfCanvas}
@@ -862,6 +798,15 @@ function handlePointerUp(event: PointerEvent) {
       <!-- Stamp Overlay for Custom Stamp Annotations -->
       {#if $pdfState.document && pdfCanvas}
         <StampOverlay 
+          containerWidth={pdfCanvas.style.width ? parseFloat(pdfCanvas.style.width) : 0}
+          containerHeight={pdfCanvas.style.height ? parseFloat(pdfCanvas.style.height) : 0}
+          scale={$pdfState.scale}
+        />
+      {/if}
+      
+      <!-- Arrow Overlay for Custom Arrow Annotations -->
+      {#if $pdfState.document && pdfCanvas}
+        <ArrowOverlay 
           containerWidth={pdfCanvas.style.width ? parseFloat(pdfCanvas.style.width) : 0}
           containerHeight={pdfCanvas.style.height ? parseFloat(pdfCanvas.style.height) : 0}
           scale={$pdfState.scale}
