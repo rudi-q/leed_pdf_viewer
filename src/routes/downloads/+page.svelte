@@ -120,6 +120,10 @@
   function findRecommendedAsset(assets: Asset[], os: string): Asset | null {
     if (!assets.length) return null;
     
+    // Filter out JSON files first
+    const filteredAssets = assets.filter(asset => !asset.name.toLowerCase().includes('.json'));
+    if (!filteredAssets.length) return null;
+    
     const osKeywords = {
       'Windows': ['windows', '.exe', '.msi'],
       'macOS': ['mac', 'darwin', '.dmg'],
@@ -127,11 +131,11 @@
     };
     
     const keywords = osKeywords[os as keyof typeof osKeywords];
-    if (!keywords) return assets[0]; // fallback to first asset
+    if (!keywords) return filteredAssets[0]; // fallback to first non-JSON asset
     
-    return assets.find(asset => 
+    return filteredAssets.find(asset => 
       keywords.some(keyword => asset.name.toLowerCase().includes(keyword.toLowerCase()))
-    ) || assets[0];
+    ) || filteredAssets[0];
   }
 
   function renderMarkdown(text: string): string {
@@ -170,9 +174,12 @@
             break;
           }
         }
-        // If no platform-specific asset found, fall back to first asset of latest release
+        // If no platform-specific asset found, fall back to first non-JSON asset of latest release
         if (!recommendedAsset && releases[0].assets.length > 0) {
-          recommendedAsset = releases[0].assets[0];
+          const nonJsonAssets = releases[0].assets.filter(asset => !asset.name.toLowerCase().includes('.json'));
+          if (nonJsonAssets.length > 0) {
+            recommendedAsset = nonJsonAssets[0];
+          }
         }
       }
     } catch (err) {
