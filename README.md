@@ -151,14 +151,23 @@ Open `http://localhost:4173` in your browser.
 # Install dependencies
 pnpm install
 
-# Start development server
-pnpm dev
-
 # Build for production
 pnpm build
 
 # Preview production build
 pnpm preview
+```
+
+### Building the Tauri Desktop App
+```bash
+# 1. Install dependencies
+pnpm install
+
+# 2. Install Rust (if you don't have it)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# 3. Build your native app
+pnpm tauri build
 ```
 
 ### Project Structure
@@ -199,6 +208,22 @@ We'd love to hear from you! Join our community discussions:
 - **🙌 [Show and Tell](https://github.com/rudi-q/leed_pdf_viewer/discussions/categories/show-and-tell)** - Show us how you're using LeedPDF
 
 You can also use [GitHub Issues](https://github.com/rudi-q/leed_pdf_viewer/issues) for bug reports.
+
+## 🌱 Support the Project
+
+Love LeedPDF? Help us keep it free and open source!
+
+### ☕ GitHub Sponsors
+**[💝 Sponsor on GitHub](https://github.com/sponsors/rudi-q)**
+
+Your sponsorship helps us:
+- ✨ Add new features and improvements
+- 🔧 Fix bugs and maintain code quality
+- 📖 Create better documentation and tutorials
+- 🌍 Keep the project free for everyone
+- 🚀 Improve performance and accessibility
+
+*Every contribution, big or small, makes a difference!*
 
 ## 📄 License
 
