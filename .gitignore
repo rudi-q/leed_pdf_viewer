@@ -18,6 +18,9 @@ src-tauri/latest.json
 src-tauri/myapp.key
 src-tauri/myapp.key.pub
 
+# PowerShell scripts
+*.ps1
+
 # OS
 .DS_Store
 Thumbs.db
