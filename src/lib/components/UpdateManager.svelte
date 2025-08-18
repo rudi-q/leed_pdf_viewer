@@ -42,6 +42,7 @@
       }
     } catch (error) {
       console.error('Error checking for updates:', error);
+      updateStore.setDownloading(false);
       updateStore.setError(`Failed to check for updates: ${error}`);
     }
   }
@@ -67,6 +68,7 @@
             console.log(`Downloaded ${downloaded} from ${contentLength}`);
             break;
           case 'Finished':
+            updateStore.setDownloading(false);
             updateStore.setCompleted(true);
             console.log('Download finished');
             break;
@@ -82,14 +84,15 @@
       
     } catch (error) {
       console.error('Error downloading/installing update:', error);
+      updateStore.setDownloading(false);
       updateStore.setError(`Failed to install update: ${error}`);
     }
   }
 
   onMount(() => {
     if (browser && enableUpdater) {
-      // Check for updates on app start
-      checkPromise = checkForUpdates();
+      // Check for updates on app start using the manual function to maintain single source of truth
+      manualCheckForUpdates();
     }
     
     return () => {
@@ -100,7 +103,10 @@
   // Expose manual check function for external use
   export function manualCheckForUpdates() {
     if (!checkPromise) {
-      checkPromise = checkForUpdates();
+      // Create new promise and attach finalizer to clear it when settled
+      checkPromise = checkForUpdates().finally(() => {
+        checkPromise = null;
+      });
     }
     return checkPromise;
   }
