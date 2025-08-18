@@ -284,7 +284,7 @@
               <div class="downloads">
                 <h3>Downloads</h3>
                 <div class="download-grid">
-                  {#each release.assets as asset}
+                  {#each release.assets.filter(asset => !asset.name.toLowerCase().includes('.json')) as asset}
                     <a href={asset.browser_download_url} class="download-item" target="_blank">
                       <div class="download-icon">
                         {getPlatformIcon(asset.name)}

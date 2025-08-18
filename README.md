@@ -100,6 +100,9 @@ git clone https://github.com/rudi-q/leed_pdf_viewer.git
 cd leed_pdf_viewer
 pnpm install
 pnpm build && pnpm preview
+
+# Or just use the shorthand:
+pnpm prev
 ```
 
 Open `http://localhost:4173` in your browser.
@@ -156,6 +159,9 @@ pnpm build
 
 # Preview production build
 pnpm preview
+
+# Or use the shorthand:
+pnpm prev
 ```
 
 ### Building the Tauri Desktop App
