@@ -155,8 +155,24 @@ jobs:
       - name: Tauri build (Debug)
         run: pnpm tauri:build:debug
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ""
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - name: Upload Tauri artifacts (PR only)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: leedpdf-${{ runner.os }}-${{ github.event.pull_request.head.sha }}
+          path: |
+            src-tauri/target/debug/bundle/msi/*.msi
+            src-tauri/target/debug/bundle/nsis/*.exe
+            src-tauri/target/debug/bundle/dmg/*.dmg
+            src-tauri/target/debug/bundle/macos/*.app
+            src-tauri/target/debug/bundle/deb/*.deb
+            src-tauri/target/debug/bundle/rpm/*.rpm
+            src-tauri/target/debug/bundle/appimage/*.AppImage
+          retention-days: 14
+          if-no-files-found: warn
 
   pr-comment:
     name: PR Summary Comment
@@ -209,9 +225,22 @@ jobs:
               '🎉 **All checks passed!** Your code is ready for review.' : 
               '⚠️ **Some checks need attention.** Please review the failing jobs.';
             
+            const artifactsSection = tauriJob === 'success' ? `
+            
+            ### 📦 Download Test Builds
+            
+            Ready to test? Download the desktop apps built from this PR:
+            
+            - 🪟 **Windows**: [leedpdf-Windows-${context.payload.pull_request.head.sha}](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${{ github.run_id }}) (.exe NSIS installer + .msi)
+            - 🍎 **macOS**: [leedpdf-macOS-${context.payload.pull_request.head.sha}](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${{ github.run_id }}) (.dmg + .app bundle)
+            
+            *Click the links above → scroll to "Artifacts" section at the bottom of the workflow page*
+            
+            ⚠️ **Note**: These are debug builds for testing only. Artifacts auto-delete after 14 days.` : '';
+            
             const comment = `## 🤖 CI Results for PR #${context.issue.number}
             
-            Hey 👋 @${pr.user.login}! ${summary}
+            Hey 👋 @${pr.user.login}! ${summary}${artifactsSection}
             
             ### Detailed Results:
             
