@@ -13,6 +13,11 @@ node_modules
 src-tauri/target/
 src-tauri/gen/
 
+# Tauri updater files
+src-tauri/latest.json
+src-tauri/myapp.key
+src-tauri/myapp.key.pub
+
 # OS
 .DS_Store
 Thumbs.db

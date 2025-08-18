@@ -2,6 +2,8 @@
 	import '../app.css';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
+	import UpdateManager from '$lib/components/UpdateManager.svelte';
+	import UpdateNotification from '$lib/components/UpdateNotification.svelte';
 	import { fileStorage } from '$lib/utils/fileStorageUtils';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
@@ -19,5 +21,7 @@
 </script>
 
 <SEOHead />
+<UpdateManager />
 <slot />
 <ToastContainer />
+<UpdateNotification />
