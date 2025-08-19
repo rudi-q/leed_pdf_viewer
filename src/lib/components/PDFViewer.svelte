@@ -1282,12 +1282,13 @@ function handlePointerUp(event: PointerEvent) {
         ctx.clip();
         
         ctx.fillStyle = '#000';
-        ctx.font = `${note.fontSize || 14}px Arial`;
+        ctx.font = `${note.fontSize || 14}px ${note.fontFamily || 'ReenieBeanie, cursive'}`;
         
         const words = note.text.split(' ');
         const lines: string[] = [];
         let currentLine = '';
-        const maxWidth = width - 20;
+        // Container padding: left 8px + right 8px + note-content padding-right 24px = 32px total
+        const maxWidth = width - 32;
         
         words.forEach((word: string) => {
           const testLine = currentLine + word + ' ';
@@ -1303,7 +1304,9 @@ function handlePointerUp(event: PointerEvent) {
         
         const lineHeight = (note.fontSize || 14) * 1.2;
         lines.forEach((line, index) => {
-          ctx.fillText(line.trim(), x + 10, y + 20 + (index * lineHeight));
+          // Container has 8px padding on all sides, so text starts at (8, 8) from container edge
+          // But we need to match the visual appearance, so let's add more top padding
+          ctx.fillText(line.trim(), x + 8, y + 32 + (index * lineHeight));
         });
         
         // Restore clipping
@@ -1655,13 +1658,14 @@ function handlePointerUp(event: PointerEvent) {
           
           // Draw sticky note text
           ctx.fillStyle = '#000';
-          ctx.font = `${note.fontSize || 14}px Arial`;
+          ctx.font = `${note.fontSize || 14}px ${note.fontFamily || 'ReenieBeanie, cursive'}`;
           
           // Handle multi-line text with word wrapping
           const words = note.text.split(' ');
           const lines: string[] = [];
           let currentLine = '';
-          const maxWidth = width - 20;
+          // Container padding: left 8px + right 8px + note-content padding-right 24px = 32px total
+          const maxWidth = width - 32;
           
           words.forEach((word: string) => {
             const testLine = currentLine + word + ' ';
@@ -1678,7 +1682,9 @@ function handlePointerUp(event: PointerEvent) {
           // Draw lines with proper spacing
           const lineHeight = (note.fontSize || 14) * 1.2;
           lines.forEach((line, index) => {
-            ctx.fillText(line.trim(), x + 10, y + 20 + (index * lineHeight));
+            // Container has 8px padding on all sides, so text starts at (8, 8) from container edge
+            // But we need to match the visual appearance, so let's add more top padding  
+            ctx.fillText(line.trim(), x + 8, y + 32 + (index * lineHeight));
           });
           
           // Restore clipping

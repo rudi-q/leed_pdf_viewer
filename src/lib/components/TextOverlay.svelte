@@ -51,9 +51,9 @@
       x: baseX, // Store at base scale
       y: baseY, // Store at base scale
       text: '',
-      fontSize: 16,
+      fontSize: 24,
       color: $drawingState.color,
-      fontFamily: 'Arial, sans-serif',
+      fontFamily: 'ReenieBeanie, cursive',
       relativeX,
       relativeY
     };
