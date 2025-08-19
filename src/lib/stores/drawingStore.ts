@@ -72,6 +72,7 @@ export interface StickyNoteAnnotation {
 	y: number;
 	text: string;
 	fontSize: number;
+	fontFamily: string;
 	backgroundColor: string;
 	width: number;
 	height: number;

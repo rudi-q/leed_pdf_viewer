@@ -188,10 +188,19 @@
 
 			const baseWidth = containerWidth / scale;
 			const baseHeight = containerHeight / scale;
+			
+			// Calculate new font size with intelligent constraints
+			// Use width-based scaling but cap it to ensure it fits within height
+			const widthBasedSize = newWidth * 0.16;
+			const heightConstraint = newHeight * 0.4; // Max 40% of height
+			const maxFontSize = 32; // Absolute maximum font size
+			const newFontSize = Math.max(8, Math.min(widthBasedSize, heightConstraint, maxFontSize));
+			
 			const updatedNote: StickyNoteAnnotation = {
 				...note,
 				width: newWidth, // Store at base scale
 				height: newHeight, // Store at base scale
+				fontSize: newFontSize, // Update font size proportionally
 				relativeWidth: newWidth / baseWidth,
 				relativeHeight: newHeight / baseHeight,
 			};
@@ -327,9 +336,9 @@
 		user-select: none;
 		overflow: hidden;
 		transition: all 0.1s ease;
-		padding: 8px;
+		padding: 8px 8px 4px 8px;
 		box-sizing: border-box;
-		font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+		font-family: 'ReenieBeanie', cursive;
 		line-height: 1.4;
 		z-index: 100;
 		background: linear-gradient(135deg, var(--bg-color) 0%, var(--bg-color) 100%);
@@ -393,7 +402,7 @@
 
 	.note-textarea {
 		width: 100%;
-		height: calc(100% - 16px);
+		height: calc(100% - 8px);
 		border: none;
 		background: transparent;
 		font-family: inherit;
@@ -415,12 +424,13 @@
 
 	.note-content {
 		width: 100%;
-		height: calc(100% - 16px);
+		height: calc(100% - 4px);
 		color: #2D3748;
 		white-space: pre-wrap;
 		word-wrap: break-word;
 		overflow-y: auto;
 		padding-right: 24px; /* Space for delete button */
+		padding-bottom: 0;
 	}
 
 	.placeholder {

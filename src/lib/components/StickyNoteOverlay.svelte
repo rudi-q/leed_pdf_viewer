@@ -48,22 +48,30 @@
 		const constrainedX = Math.max(0, Math.min(baseContainerWidth - defaultWidth, baseX));
 		const constrainedY = Math.max(0, Math.min(baseContainerHeight - defaultHeight, baseY));
 
-		// Create new sticky note
-		const newNote: StickyNoteAnnotation = {
-			id: `sticky-note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-			pageNumber: $pdfState.currentPage,
-			x: constrainedX,
-			y: constrainedY,
-			text: '',
-			fontSize: 14,
-			backgroundColor: $drawingState.noteColor,
-			width: defaultWidth,
-			height: defaultHeight,
-			relativeX: constrainedX / baseContainerWidth,
-			relativeY: constrainedY / baseContainerHeight,
-			relativeWidth: defaultWidth / baseContainerWidth,
-			relativeHeight: defaultHeight / baseContainerHeight,
-		};
+		// Calculate font size with intelligent constraints (base scale)
+		// Use width-based scaling but cap it to ensure it fits within height
+		const widthBasedSize = defaultWidth * 0.16;
+		const heightConstraint = defaultHeight * 0.4; // Max 40% of height
+		const maxFontSize = 32; // Absolute maximum font size
+		const relativeFontSize = Math.max(10, Math.min(widthBasedSize, heightConstraint, maxFontSize));
+
+	// Create new sticky note
+	const newNote: StickyNoteAnnotation = {
+		id: `sticky-note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+		pageNumber: $pdfState.currentPage,
+		x: constrainedX,
+		y: constrainedY,
+		text: '',
+		fontSize: relativeFontSize,
+		fontFamily: 'ReenieBeanie, cursive',
+		backgroundColor: $drawingState.noteColor,
+		width: defaultWidth,
+		height: defaultHeight,
+		relativeX: constrainedX / baseContainerWidth,
+		relativeY: constrainedY / baseContainerHeight,
+		relativeWidth: defaultWidth / baseContainerWidth,
+		relativeHeight: defaultHeight / baseContainerHeight,
+	};
 
 		isCreatingNote = true;
 		addStickyNoteAnnotation(newNote);
