@@ -73,6 +73,19 @@ import ArrowOverlay from './ArrowOverlay.svelte';
   let isRendering = false;
   let isCtrlPressed = false;
   let cursorOverCanvas = false;
+  
+  // Canvas dimensions for overlays - will be updated manually
+  let canvasDisplayWidth = 0;
+  let canvasDisplayHeight = 0;
+  
+  // Debug canvas dimensions
+  $: if (canvasDisplayWidth > 0 && canvasDisplayHeight > 0) {
+    console.log('Canvas display dimensions updated:', {
+      width: canvasDisplayWidth,
+      height: canvasDisplayHeight,
+      scale: $pdfState.scale
+    });
+  }
 
   // Helper function to extract filename from URL
   function extractFilenameFromUrl(url: string): string {
@@ -254,10 +267,31 @@ import ArrowOverlay from './ArrowOverlay.svelte';
       // Reset pan offset to center the PDF
       panOffset = { x: 0, y: 0 };
       
-      await renderCurrentPage();
-      
+      // Calculate the proper scale BEFORE first render to avoid position jumps
       // Auto-fit to height on first load for better initial view
-      await fitToHeight();
+      if (containerDiv) {
+        const page = await document.getPage(1);
+        const viewport = page.getViewport({ scale: 1 });
+        const containerHeight = containerDiv.clientHeight - 100; // Account for toolbar and page info
+        const fitHeightScale = containerHeight / viewport.height;
+        
+        // Update scale without rendering yet
+        pdfState.update(state => ({ ...state, scale: fitHeightScale }));
+        console.log('Initial scale set to fit height:', fitHeightScale);
+        
+        // Pre-calculate canvas dimensions at the new scale to avoid position jumps
+        const scaledViewport = page.getViewport({ scale: fitHeightScale });
+        canvasDisplayWidth = scaledViewport.width;
+        canvasDisplayHeight = scaledViewport.height;
+        console.log('Initial canvas dimensions set:', {
+          width: canvasDisplayWidth,
+          height: canvasDisplayHeight,
+          scale: fitHeightScale
+        });
+      }
+      
+      // Now render with the correct scale from the start
+      await renderCurrentPage();
       
       console.log('PDF render completed successfully');
     } catch (error) {
@@ -269,13 +303,15 @@ import ArrowOverlay from './ArrowOverlay.svelte';
     }
   }
 
-  async function renderCurrentPage() {
+  async function renderCurrentPage(newScale?: number) {
     if (!pdfCanvas || !$pdfState.document || isRendering) return;
 
     isRendering = true;
     try {
+      const scaleToRender = newScale !== undefined ? newScale : $pdfState.scale;
+      
       const page = await $pdfState.document.getPage($pdfState.currentPage);
-      const viewport = page.getViewport({ scale: $pdfState.scale });
+      const viewport = page.getViewport({ scale: scaleToRender });
       const outputScale = window.devicePixelRatio || 1;
       
       // Set canvas dimensions to match the scaled viewport and device pixel ratio for crisp rendering
@@ -291,7 +327,7 @@ import ArrowOverlay from './ArrowOverlay.svelte';
       }
       
       await pdfManager.renderPage($pdfState.currentPage, {
-        scale: $pdfState.scale * outputScale,
+        scale: scaleToRender * outputScale,
         canvas: pdfCanvas
       });
 
@@ -304,9 +340,18 @@ import ArrowOverlay from './ArrowOverlay.svelte';
         
         // Re-render drawing paths for current page
         if (drawingEngine) {
-          drawingEngine.renderPaths($currentPagePaths, $pdfState.scale);
+          drawingEngine.renderPaths($currentPagePaths, scaleToRender);
         }
       }
+      
+      // Update canvas display dimensions for overlays
+      canvasDisplayWidth = viewport.width;
+      canvasDisplayHeight = viewport.height;
+      console.log('Canvas dimensions set after render:', {
+        width: canvasDisplayWidth,
+        height: canvasDisplayHeight,
+        scale: scaleToRender
+      });
 
     } catch (error) {
       console.error('Error rendering page:', error);
@@ -633,7 +678,7 @@ function handlePointerUp(event: PointerEvent) {
     }
   }
 
-  function handleWheel(event: WheelEvent) {
+  async function handleWheel(event: WheelEvent) {
     // Only handle wheel events when Ctrl is pressed (for zooming)
     if (event.ctrlKey) {
       event.preventDefault();
@@ -641,16 +686,17 @@ function handlePointerUp(event: PointerEvent) {
       // Fix zoom direction: deltaY < 0 means scroll up (zoom in)
       const zoomIn = event.deltaY < 0;
       
+      let newScale: number;
       if (zoomIn) {
-        const newScale = Math.min($pdfState.scale * 1.1, 10); // Allow much more zoom in
-        pdfState.update(state => ({ ...state, scale: newScale }));
+        newScale = Math.min($pdfState.scale * 1.1, 10); // Allow much more zoom in
       } else {
-        const newScale = Math.max($pdfState.scale / 1.1, 0.1); // Allow much more zoom out
-        pdfState.update(state => ({ ...state, scale: newScale }));
+        newScale = Math.max($pdfState.scale / 1.1, 0.1); // Allow much more zoom out
       }
       
-      // Re-render at new scale
-      renderCurrentPage();
+      // CRITICAL: Render FIRST, update state AFTER
+      // This ensures canvas dimensions are updated before overlays re-render
+      await renderCurrentPage(newScale);
+      pdfState.update(state => ({ ...state, scale: newScale }));
     }
   }
 
@@ -671,21 +717,25 @@ function handlePointerUp(event: PointerEvent) {
 
   export async function zoomIn() {
     const newScale = Math.min($pdfState.scale * 1.2, 10); // Allow much more zoom in
+    // CRITICAL: Render FIRST, update state AFTER
+    await renderCurrentPage(newScale);
     pdfState.update(state => ({ ...state, scale: newScale }));
-    await renderCurrentPage();
   }
 
   export async function zoomOut() {
     const newScale = Math.max($pdfState.scale / 1.2, 0.1); // Allow much more zoom out
+    // CRITICAL: Render FIRST, update state AFTER
+    await renderCurrentPage(newScale);
     pdfState.update(state => ({ ...state, scale: newScale }));
-    await renderCurrentPage();
   }
 
-  export function resetZoom() {
+  export async function resetZoom() {
     // Reset both zoom and pan position to center the PDF
     panOffset = { x: 0, y: 0 };
-    pdfState.update(state => ({ ...state, scale: 1.2 }));
-    renderCurrentPage();
+    const newScale = 1.2;
+    // CRITICAL: Render FIRST, update state AFTER
+    await renderCurrentPage(newScale);
+    pdfState.update(state => ({ ...state, scale: newScale }));
   }
 
   export async function fitToWidth() {
@@ -698,8 +748,9 @@ function handlePointerUp(event: PointerEvent) {
       const newScale = containerWidth / viewport.width;
       
       panOffset = { x: 0, y: 0 };
+      // CRITICAL: Render FIRST, update state AFTER
+      await renderCurrentPage(newScale);
       pdfState.update(state => ({ ...state, scale: newScale }));
-      await renderCurrentPage();
     } catch (error) {
       console.error('Error fitting to width:', error);
     }
@@ -715,8 +766,9 @@ function handlePointerUp(event: PointerEvent) {
       const newScale = containerHeight / viewport.height;
       
       panOffset = { x: 0, y: 0 };
+      // CRITICAL: Render FIRST, update state AFTER
+      await renderCurrentPage(newScale);
       pdfState.update(state => ({ ...state, scale: newScale }));
-      await renderCurrentPage();
     } catch (error) {
       console.error('Error fitting to height:', error);
     }
@@ -1670,36 +1722,37 @@ function handlePointerUp(event: PointerEvent) {
       
       
       <!-- Text Overlay for Custom Text Annotations -->
-      {#if $pdfState.document && pdfCanvas}
+      {#if $pdfState.document && canvasDisplayWidth > 0 && canvasDisplayHeight > 0}
         <TextOverlay 
-          canvasWidth={pdfCanvas.style.width ? parseFloat(pdfCanvas.style.width) : 0}
-          canvasHeight={pdfCanvas.style.height ? parseFloat(pdfCanvas.style.height) : 0}
+          canvasWidth={canvasDisplayWidth}
+          canvasHeight={canvasDisplayHeight}
+          currentScale={$pdfState.scale}
         />
       {/if}
       
       <!-- Sticky Note Overlay for Custom Sticky Note Annotations -->
-      {#if $pdfState.document && pdfCanvas}
+      {#if $pdfState.document && canvasDisplayWidth > 0 && canvasDisplayHeight > 0}
         <StickyNoteOverlay 
-          containerWidth={pdfCanvas.style.width ? parseFloat(pdfCanvas.style.width) : 0}
-          containerHeight={pdfCanvas.style.height ? parseFloat(pdfCanvas.style.height) : 0}
+          containerWidth={canvasDisplayWidth}
+          containerHeight={canvasDisplayHeight}
           scale={$pdfState.scale}
         />
       {/if}
       
       <!-- Stamp Overlay for Custom Stamp Annotations -->
-      {#if $pdfState.document && pdfCanvas}
+      {#if $pdfState.document && canvasDisplayWidth > 0 && canvasDisplayHeight > 0}
         <StampOverlay 
-          containerWidth={pdfCanvas.style.width ? parseFloat(pdfCanvas.style.width) : 0}
-          containerHeight={pdfCanvas.style.height ? parseFloat(pdfCanvas.style.height) : 0}
+          containerWidth={canvasDisplayWidth}
+          containerHeight={canvasDisplayHeight}
           scale={$pdfState.scale}
         />
       {/if}
       
       <!-- Arrow Overlay for Custom Arrow Annotations -->
-      {#if $pdfState.document && pdfCanvas}
+      {#if $pdfState.document && canvasDisplayWidth > 0 && canvasDisplayHeight > 0}
         <ArrowOverlay 
-          containerWidth={pdfCanvas.style.width ? parseFloat(pdfCanvas.style.width) : 0}
-          containerHeight={pdfCanvas.style.height ? parseFloat(pdfCanvas.style.height) : 0}
+          containerWidth={canvasDisplayWidth}
+          containerHeight={canvasDisplayHeight}
           scale={$pdfState.scale}
         />
       {/if}

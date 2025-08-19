@@ -772,13 +772,13 @@
   });
 </script>
 
-<svelte:window on:keydown={handleKeyboard} on:wheel={handleWheel} />
+<svelte:window on:keydown|nonpassive={handleKeyboard} on:wheel|nonpassive|preventDefault={handleWheel} />
 
 <main
   class="w-screen h-screen relative overflow-hidden"
   class:drag-over={dragOver}
-  on:drop={handleDrop}
-  on:dragover={handleDragOver}
+  on:drop|nonpassive={handleDrop}
+  on:dragover|nonpassive={handleDragOver}
   on:dragleave={handleDragLeave}
 >
   {#if !focusMode}
@@ -910,7 +910,7 @@
                   <input
                     type="url"
                     bind:value={urlInput}
-                    on:keydown={handleUrlKeydown}
+                    on:keydown|nonpassive={handleUrlKeydown}
                     placeholder="Paste PDF URL (Dropbox links supported)"
                     class="flex-1 px-4 py-3 rounded-xl border border-charcoal/20 bg-white/80 text-charcoal placeholder-slate focus:outline-none focus:ring-2 focus:ring-sage/50 focus:border-sage transition-all"
                   />

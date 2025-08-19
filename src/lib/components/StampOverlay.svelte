@@ -13,9 +13,9 @@ import {
 } from '../stores/drawingStore';
 	import type { StampAnnotation as StampAnnotationType } from '../stores/drawingStore';
 
-	export let containerWidth: number = 0;
-	export let containerHeight: number = 0;
-	export let scale: number = 1;
+	export let containerWidth: number = 0; // Base viewport width at scale 1.0
+	export let containerHeight: number = 0; // Base viewport height at scale 1.0
+	export let scale: number = 1; // Current zoom scale
 
 	let overlayElement: HTMLDivElement;
 	let isCreatingStamp = false;
@@ -36,13 +36,18 @@ import {
 
 		// Calculate click position relative to the container
 		const rect = overlayElement.getBoundingClientRect();
-		const x = event.clientX - rect.left;
-		const y = event.clientY - rect.top;
+		// Get click position in current scale
+		const scaledX = event.clientX - rect.left;
+		const scaledY = event.clientY - rect.top;
+		
+		// Convert to base viewport coordinates
+		const x = scaledX / scale;
+		const y = scaledY / scale;
 
-		// Default dimensions for new stamps
+		// Default dimensions for new stamps (at base scale)
 		const defaultSize = 32;
 
-		// Ensure the stamp fits within the container
+		// Ensure the stamp fits within the container (at base scale)
 		const constrainedX = Math.max(0, Math.min(containerWidth - defaultSize, x - defaultSize / 2));
 		const constrainedY = Math.max(0, Math.min(containerHeight - defaultSize, y - defaultSize / 2));
 
@@ -58,12 +63,12 @@ import {
 		const newStamp: StampAnnotationType = {
 			id: `stamp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
 			pageNumber: $pdfState.currentPage,
-			x: constrainedX,
-			y: constrainedY,
+			x: constrainedX, // Store at base scale
+			y: constrainedY, // Store at base scale
 			stampId: selectedStampId, // Store the stamp ID instead of SVG
-			width: defaultSize,
-			height: defaultSize,
-			size: defaultSize,
+			width: defaultSize, // Store at base scale
+			height: defaultSize, // Store at base scale
+			size: defaultSize, // Store at base scale
 			rotation: 0,
 			relativeX: constrainedX / containerWidth,
 			relativeY: constrainedY / containerHeight,
@@ -120,8 +125,8 @@ import {
 	bind:this={overlayElement}
 	class="stamp-overlay"
 	class:stamp-tool-active={isStampTool}
-	style:width="{containerWidth}px"
-	style:height="{containerHeight}px"
+	style:width="{containerWidth * scale}px"
+	style:height="{containerHeight * scale}px"
 	on:click={handleContainerClick}
 	role="application"
 	aria-label="Stamps area - click to create new stamp when stamp tool is active"
