@@ -11,9 +11,9 @@
 	} from '$lib/stores/drawingStore';
 	import type { StickyNoteAnnotation } from '$lib/stores/drawingStore';
 
-	export let containerWidth: number = 0;
-	export let containerHeight: number = 0;
-	export let scale: number = 1;
+	export let containerWidth: number = 0; // Actual displayed canvas width
+	export let containerHeight: number = 0; // Actual displayed canvas height
+	export let scale: number = 1; // Current PDF scale
 
 	let overlayElement: HTMLDivElement;
 	let isCreatingNote = false;
@@ -33,14 +33,20 @@
 		const rect = overlayElement.getBoundingClientRect();
 		const x = event.clientX - rect.left;
 		const y = event.clientY - rect.top;
+		
+		// Convert to base scale for storage
+		const baseX = x / scale;
+		const baseY = y / scale;
 
-		// Default dimensions for new sticky notes
+		// Default dimensions at base scale
 		const defaultWidth = 150;
 		const defaultHeight = 100;
 
-		// Ensure the note fits within the container
-		const constrainedX = Math.max(0, Math.min(containerWidth - defaultWidth, x));
-		const constrainedY = Math.max(0, Math.min(containerHeight - defaultHeight, y));
+		// Ensure the note fits within the container (at base scale)
+		const baseContainerWidth = containerWidth / scale;
+		const baseContainerHeight = containerHeight / scale;
+		const constrainedX = Math.max(0, Math.min(baseContainerWidth - defaultWidth, baseX));
+		const constrainedY = Math.max(0, Math.min(baseContainerHeight - defaultHeight, baseY));
 
 		// Create new sticky note
 		const newNote: StickyNoteAnnotation = {
@@ -53,10 +59,10 @@
 			backgroundColor: $drawingState.noteColor,
 			width: defaultWidth,
 			height: defaultHeight,
-			relativeX: constrainedX / containerWidth,
-			relativeY: constrainedY / containerHeight,
-			relativeWidth: defaultWidth / containerWidth,
-			relativeHeight: defaultHeight / containerHeight,
+			relativeX: constrainedX / baseContainerWidth,
+			relativeY: constrainedY / baseContainerHeight,
+			relativeWidth: defaultWidth / baseContainerWidth,
+			relativeHeight: defaultHeight / baseContainerHeight,
 		};
 
 		isCreatingNote = true;
@@ -109,8 +115,8 @@
 		bind:this={overlayElement}
 		class="sticky-note-overlay"
 		class:note-tool-active={isNoteTool}
-		style:width="{containerWidth}px"
-		style:height="{containerHeight}px"
+	style:width="{containerWidth}px"
+	style:height="{containerHeight}px"
 		on:click={handleContainerClick}
 		role="application"
 		aria-label="Sticky notes area - click to create new note when note tool is active"

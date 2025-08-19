@@ -8,7 +8,7 @@
     : 0;
 
   // Auto-hide completed state after 5 seconds
-  let hideTimeout: number;
+  let hideTimeout: ReturnType<typeof setTimeout>;
   $: if (updateState.completed) {
     hideTimeout = setTimeout(() => {
       updateStore.reset();
