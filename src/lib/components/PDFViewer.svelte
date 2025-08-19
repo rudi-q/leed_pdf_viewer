@@ -98,7 +98,7 @@ import ArrowOverlay from './ArrowOverlay.svelte';
 
   // Re-render drawing paths when they change
   $: if (drawingEngine && $currentPagePaths && canvasesReady) {
-    drawingEngine.renderPaths($currentPagePaths);
+    drawingEngine.renderPaths($currentPagePaths, $pdfState.scale);
   }
   
   
@@ -304,7 +304,7 @@ import ArrowOverlay from './ArrowOverlay.svelte';
         
         // Re-render drawing paths for current page
         if (drawingEngine) {
-          drawingEngine.renderPaths($currentPagePaths);
+          drawingEngine.renderPaths($currentPagePaths, $pdfState.scale);
         }
       }
 
@@ -390,18 +390,24 @@ function handlePointerDown(event: PointerEvent) {
     drawingCanvas.setPointerCapture(event.pointerId);
 
     isDrawing = true;
-    const point = drawingEngine.getPointFromEvent(event);
+    // Get point and convert to base viewport coordinates (scale 1.0)
+    const canvasPoint = drawingEngine.getPointFromEvent(event);
+    const basePoint = {
+      x: canvasPoint.x / $pdfState.scale,
+      y: canvasPoint.y / $pdfState.scale,
+      pressure: canvasPoint.pressure
+    };
     
     const size = $drawingState.tool === 'eraser' ? $drawingState.eraserSize : $drawingState.lineWidth;
     const color = $drawingState.tool === 'highlight' ? $drawingState.highlightColor : $drawingState.color;
     drawingEngine.startDrawing(
-      point,
+      canvasPoint, // Use canvas point for immediate visual feedback
       $drawingState.tool,
       color,
       size
     );
     
-    currentDrawingPath = [point];
+    currentDrawingPath = [basePoint]; // Store base viewport coordinates
   }
 
 function handlePointerMove(event: PointerEvent) {
@@ -418,10 +424,16 @@ function handlePointerMove(event: PointerEvent) {
     if (!isDrawing || !drawingEngine) return;
     
     event.preventDefault();
-    const point = drawingEngine.getPointFromEvent(event);
+    // Get point and convert to base viewport coordinates (scale 1.0)
+    const canvasPoint = drawingEngine.getPointFromEvent(event);
+    const basePoint = {
+      x: canvasPoint.x / $pdfState.scale,
+      y: canvasPoint.y / $pdfState.scale,
+      pressure: canvasPoint.pressure
+    };
     
-    drawingEngine.continueDrawing(point);
-    currentDrawingPath.push(point);
+    drawingEngine.continueDrawing(canvasPoint); // Use canvas point for immediate visual feedback
+    currentDrawingPath.push(basePoint); // Store base viewport coordinates
   }
 
 function handlePointerUp(event: PointerEvent) {
@@ -463,7 +475,7 @@ function handlePointerUp(event: PointerEvent) {
           // Force immediate re-render
           setTimeout(() => {
             if (drawingEngine) {
-              drawingEngine.renderPaths(remainingPaths);
+              drawingEngine.renderPaths(remainingPaths, $pdfState.scale);
             }
           }, 0);
 
@@ -472,13 +484,19 @@ function handlePointerUp(event: PointerEvent) {
       } else {
         // Add drawing path (pencil or highlight)
         const color = $drawingState.tool === 'highlight' ? $drawingState.highlightColor : $drawingState.color;
+        // Convert final path points to base viewport coordinates
+        const basePathPoints = finalPath.map(point => ({
+          x: point.x / $pdfState.scale,
+          y: point.y / $pdfState.scale,
+          pressure: point.pressure
+        }));
         const drawingPath: DrawingPath = {
           tool: $drawingState.tool,
           color: color,
           lineWidth: $drawingState.lineWidth,
-          points: finalPath,
-          pageNumber: $pdfState.currentPage,
-          viewerScale: $pdfState.scale  // Store the viewer scale when the path was drawn
+          points: basePathPoints, // Store base viewport coordinates
+          pageNumber: $pdfState.currentPage
+          // No need for viewerScale anymore - all coords are at scale 1.0
         };
         addDrawingPath(drawingPath);
       }
@@ -800,23 +818,8 @@ function handlePointerUp(event: PointerEvent) {
         });
       }
       
-      // Render drawing paths to temporary canvas at the same scale
-      const drawingContext = tempDrawingCanvas.getContext('2d');
-      if (drawingContext && drawingEngine) {
-        // Scale the drawing context to match the PDF canvas scaling
-        drawingContext.scale(outputScale, outputScale);
-        
-        // Get drawing paths for this specific page
-        let pagePaths: any[] = [];
-        const unsubscribePaths = drawingPaths.subscribe(paths => {
-          pagePaths = paths.get(pageNumber) || [];
-        });
-        unsubscribePaths();
-        
-        // Create temporary drawing engine for this canvas
-        const tempEngine = new DrawingEngine(tempDrawingCanvas);
-        tempEngine.renderPaths(pagePaths);
-      }
+      // Skip rendering drawing paths to temporary canvas - we'll render them directly in createMergedCanvasWithAnnotations
+      // This avoids duplication since we render them properly with correct scaling there
       
       // Now create the merged canvas with all annotations
       // IMPORTANT: Use base viewport dimensions (scale 1.0) for consistent coordinate transformation
@@ -964,29 +967,13 @@ function handlePointerUp(event: PointerEvent) {
             ctx.globalAlpha = 1.0;
           }
           
-          // FIXED: The drawing paths were created at the drawing canvas size but at the current viewer scale
-          // We need to transform them to the export canvas coordinate system
-          // First, get the scale that was used when the paths were drawn (stored in the path or use current scale)
-          const pathViewerScale = path.viewerScale || $pdfState.scale;
-          
-          // Transform coordinates: drawing canvas -> base viewport -> export canvas
-          // Step 1: Scale from drawing canvas to base viewport (accounting for viewer scale)
-          // Use the base viewport dimensions for coordinate transformation
-          // The drawing paths were created relative to the original drawing canvas size (which matches canvasWidth/canvasHeight)
-          const drawingToBaseScaleX = (canvasWidth / pathViewerScale) / canvasWidth;
-          const drawingToBaseScaleY = (canvasHeight / pathViewerScale) / canvasHeight;
-          
-          console.log(`Page ${pageNumber} Drawing path coordinate transform: pathViewerScale=${pathViewerScale}, drawingToBaseScale=(${drawingToBaseScaleX}, ${drawingToBaseScaleY})`);
-          
+          // SIMPLIFIED: Drawing paths are now stored at base viewport coordinates (scale 1.0)
+          // No transformation needed - just draw at the stored coordinates
           ctx.beginPath();
-          const transformedX = path.points[0].x * drawingToBaseScaleX;
-          const transformedY = path.points[0].y * drawingToBaseScaleY;
-          ctx.moveTo(transformedX, transformedY);
+          ctx.moveTo(path.points[0].x, path.points[0].y);
           
           for (let i = 1; i < path.points.length; i++) {
-            const transformedX = path.points[i].x * drawingToBaseScaleX;
-            const transformedY = path.points[i].y * drawingToBaseScaleY;
-            ctx.lineTo(transformedX, transformedY);
+            ctx.lineTo(path.points[i].x, path.points[i].y);
           }
           
           ctx.stroke();
@@ -1331,27 +1318,16 @@ function handlePointerUp(event: PointerEvent) {
               ctx.globalAlpha = 1.0;
             }
             
-            // FIXED: The drawing paths were created at the drawing canvas size but at the current viewer scale
-            // We need to transform them to the export canvas coordinate system
-            // First, get the scale that was used when the paths were drawn (stored in the path or use current scale)
-            const pathViewerScale = path.viewerScale || $pdfState.scale;
-            
-            // Transform coordinates: drawing canvas -> base viewport -> export canvas
-            // Step 1: Scale from drawing canvas to base viewport (accounting for viewer scale)
-            const drawingToBaseScaleX = (canvasWidth / pathViewerScale) / drawingCanvas.width;
-            const drawingToBaseScaleY = (canvasHeight / pathViewerScale) / drawingCanvas.height;
-            
-            console.log(`Drawing path coordinate transform: pathViewerScale=${pathViewerScale}, drawingToBaseScale=(${drawingToBaseScaleX}, ${drawingToBaseScaleY})`);
+            // SIMPLIFIED: Drawing paths are now stored at base viewport coordinates (scale 1.0)
+            // We need to scale them for current viewer scale
+            const viewerScale = $pdfState.scale;
             
             ctx.beginPath();
-            const transformedX = path.points[0].x * drawingToBaseScaleX;
-            const transformedY = path.points[0].y * drawingToBaseScaleY;
-            ctx.moveTo(transformedX, transformedY);
+            // Scale from base viewport to current canvas size
+            ctx.moveTo(path.points[0].x * viewerScale, path.points[0].y * viewerScale);
             
             for (let i = 1; i < path.points.length; i++) {
-              const transformedX = path.points[i].x * drawingToBaseScaleX;
-              const transformedY = path.points[i].y * drawingToBaseScaleY;
-              ctx.lineTo(transformedX, transformedY);
+              ctx.lineTo(path.points[i].x * viewerScale, path.points[i].y * viewerScale);
             }
             
             ctx.stroke();
