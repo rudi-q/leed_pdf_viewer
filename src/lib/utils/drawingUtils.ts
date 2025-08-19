@@ -107,7 +107,7 @@ export class DrawingEngine {
 	}
 
 	// Render all paths for a page
-	renderPaths(paths: DrawingPath[]): void {
+	renderPaths(paths: DrawingPath[], currentScale?: number): void {
 		this.clearCanvas();
 
 		// Filter out eraser paths and only render drawing tool paths
@@ -122,25 +122,34 @@ export class DrawingEngine {
 				console.warn('Skipping malformed path:', path);
 				continue;
 			}
-			this.renderPath(path);
+			this.renderPath(path, currentScale);
 		}
 	}
 
 	// Render a single path, scaling coordinates if needed
-	private renderPath(path: DrawingPath): void {
+	private renderPath(path: DrawingPath, currentScale?: number): void {
 		if (path.points.length < 2) return;
 
-		// Scale points to current canvas size if relative coordinates are available
+		// Scale points from base viewport coordinates to current canvas size
+		// If currentScale is provided, use it to transform from base coordinates
 		const scaledPoints = path.points.map((point) => {
-			if (point.relativeX !== undefined && point.relativeY !== undefined) {
-				// Use relative coordinates and scale to current canvas size
+			if (currentScale) {
+				// Points are stored at base viewport (scale 1.0)
+				// Transform to current canvas scale
+				return {
+					x: point.x * currentScale,
+					y: point.y * currentScale,
+					pressure: point.pressure
+				};
+			} else if (point.relativeX !== undefined && point.relativeY !== undefined) {
+				// Legacy: Use relative coordinates and scale to current canvas size
 				return {
 					x: point.relativeX * this.canvas.width,
 					y: point.relativeY * this.canvas.height,
 					pressure: point.pressure
 				};
 			} else {
-				// Fallback to original coordinates
+				// Use coordinates as-is
 				return point;
 			}
 		});

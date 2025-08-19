@@ -3,9 +3,9 @@
 	import type { StickyNoteAnnotation } from '$lib/stores/drawingStore';
 
 	export let note: StickyNoteAnnotation;
-	export const scale: number = 1; // Used for future scaling calculations
-	export let containerWidth: number = 0;
-	export let containerHeight: number = 0;
+	export let scale: number = 1; // Current PDF scale
+	export let containerWidth: number = 0; // Actual displayed canvas width
+	export let containerHeight: number = 0; // Actual displayed canvas height
 
 	const dispatch = createEventDispatcher<{
 		update: StickyNoteAnnotation;
@@ -30,11 +30,51 @@
 	const MAX_WIDTH = 400;
 	const MAX_HEIGHT = 300;
 
-	// Calculate actual position and size based on scale and relative coordinates
-	$: actualX = note.relativeX * containerWidth;
-	$: actualY = note.relativeY * containerHeight;
-	$: actualWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, note.relativeWidth * containerWidth));
-	$: actualHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, note.relativeHeight * containerHeight));
+	// Display position and size variables
+	let displayX: number = 0;
+	let displayY: number = 0;
+	let displayWidth: number = 0;
+	let displayHeight: number = 0;
+
+	// Calculate display position and size
+	// The container dimensions should already be scaled (viewport.width at current scale)
+	// Notes are stored at base scale (scale 1.0), need to scale up for display
+	$: if (containerWidth > 0 && containerHeight > 0 && scale > 0) {
+		// Since containerWidth/Height are the actual displayed dimensions (already at current scale),
+		// we need to be careful about how we calculate positions
+		
+		// Method 1: If we have absolute coordinates, use them directly
+		if (note.x !== undefined && note.y !== undefined) {
+			// These are stored at base scale, multiply by current scale
+			displayX = note.x * scale;
+			displayY = note.y * scale;
+		} else {
+			// Method 2: Use relative coordinates
+			// Container dimensions are already scaled, so use them directly
+			//displayX = note.relativeX * containerWidth;
+			//displayY = note.relativeY * containerHeight;
+		}
+		
+		// Calculate display size
+		if (note.width !== undefined && note.height !== undefined) {
+			// Absolute dimensions stored at base scale
+			displayWidth = note.width * scale;
+			displayHeight = note.height * scale;
+		} else {
+			// Relative dimensions
+			//displayWidth = note.relativeWidth * containerWidth;
+			//displayHeight = note.relativeHeight * containerHeight;
+		}
+		
+		// Debug log
+		console.log('StickyNote display calc:', {
+			containerDims: `${containerWidth}x${containerHeight}`,
+			scale,
+			stored: `pos(${note.x},${note.y}) size(${note.width}x${note.height})`,
+			relative: `pos(${note.relativeX},${note.relativeY}) size(${note.relativeWidth}x${note.relativeHeight})`,
+			display: `pos(${displayX.toFixed(2)},${displayY.toFixed(2)}) size(${displayWidth.toFixed(2)}x${displayHeight.toFixed(2)})`
+		});
+	}
 
 	// Auto-resize textarea to fit content
 	const autoResizeTextarea = () => {
@@ -97,9 +137,9 @@
 		event.preventDefault();
 		event.stopPropagation();
 
-		isDragging = true;
-		dragStartX = event.clientX - actualX;
-		dragStartY = event.clientY - actualY;
+	isDragging = true;
+	dragStartX = event.clientX - displayX;
+	dragStartY = event.clientY - displayY;
 
 		document.addEventListener('mousemove', handleMouseMove);
 		document.addEventListener('mouseup', handleMouseUp);
@@ -108,34 +148,52 @@
 	// Handle mouse move for dragging
 	const handleMouseMove = (event: MouseEvent) => {
 		if (isDragging) {
-			const newX = event.clientX - dragStartX;
-			const newY = event.clientY - dragStartY;
+			// Calculate new display position
+			const newDisplayX = event.clientX - dragStartX;
+			const newDisplayY = event.clientY - dragStartY;
 
-			// Constrain to container bounds
-			const constrainedX = Math.max(0, Math.min(containerWidth - actualWidth, newX));
-			const constrainedY = Math.max(0, Math.min(containerHeight - actualHeight, newY));
+			// Convert display coordinates to base scale for storage
+			const newX = newDisplayX / scale;
+			const newY = newDisplayY / scale;
+
+			// Constrain to container bounds (at base scale)
+			const baseWidth = containerWidth / scale;
+			const baseHeight = containerHeight / scale;
+			const noteWidth = note.width || note.relativeWidth * baseWidth;
+			const noteHeight = note.height || note.relativeHeight * baseHeight;
+			const constrainedX = Math.max(0, Math.min(baseWidth - noteWidth, newX));
+			const constrainedY = Math.max(0, Math.min(baseHeight - noteHeight, newY));
 
 			const updatedNote: StickyNoteAnnotation = {
 				...note,
-				x: constrainedX,
-				y: constrainedY,
-				relativeX: constrainedX / containerWidth,
-				relativeY: constrainedY / containerHeight,
+				x: constrainedX, // Store at base scale
+				y: constrainedY, // Store at base scale
+				relativeX: constrainedX / baseWidth,
+				relativeY: constrainedY / baseHeight,
 			};
 			dispatch('update', updatedNote);
 		} else if (isResizing) {
 			const deltaX = event.clientX - resizeStartX;
 			const deltaY = event.clientY - resizeStartY;
 
-			const newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, resizeStartWidth + deltaX));
-			const newHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, resizeStartHeight + deltaY));
+			// Calculate new dimensions at base scale
+			const baseStartWidth = resizeStartWidth / scale;
+			const baseStartHeight = resizeStartHeight / scale;
+			const baseDeltaX = deltaX / scale;
+			const baseDeltaY = deltaY / scale;
+			
+			// Ensure minimum size at base scale (not absolute minimum)
+			const newWidth = Math.max(50, baseStartWidth + baseDeltaX);
+			const newHeight = Math.max(40, baseStartHeight + baseDeltaY);
 
+			const baseWidth = containerWidth / scale;
+			const baseHeight = containerHeight / scale;
 			const updatedNote: StickyNoteAnnotation = {
 				...note,
-				width: newWidth,
-				height: newHeight,
-				relativeWidth: newWidth / containerWidth,
-				relativeHeight: newHeight / containerHeight,
+				width: newWidth, // Store at base scale
+				height: newHeight, // Store at base scale
+				relativeWidth: newWidth / baseWidth,
+				relativeHeight: newHeight / baseHeight,
 			};
 			dispatch('update', updatedNote);
 		}
@@ -157,8 +215,8 @@
 		isResizing = true;
 		resizeStartX = event.clientX;
 		resizeStartY = event.clientY;
-		resizeStartWidth = actualWidth;
-		resizeStartHeight = actualHeight;
+	resizeStartWidth = displayWidth;
+	resizeStartHeight = displayHeight;
 
 		document.addEventListener('mousemove', handleMouseMove);
 		document.addEventListener('mouseup', handleMouseUp);
@@ -194,12 +252,12 @@
 	<div
 		bind:this={noteElement}
 		class="sticky-note"
-		style:left="{actualX}px"
-		style:top="{actualY}px"
-		style:width="{actualWidth}px"
-		style:height="{actualHeight}px"
-		style:background-color={note.backgroundColor}
-		style:font-size="{note.fontSize}px"
+	style:left="{displayX}px"
+	style:top="{displayY}px"
+	style:width="{displayWidth}px"
+	style:height="{displayHeight}px"
+	style:background-color={note.backgroundColor}
+	style:font-size="{note.fontSize * scale}px"
 		class:editing={isEditing}
 		class:dragging={isDragging}
 		class:resizing={isResizing}
@@ -230,12 +288,12 @@
 			on:blur={handleBlur}
 			on:keydown={handleKeydown}
 			placeholder="Type your note..."
-			style:font-size="{note.fontSize}px"
+			style:font-size="{note.fontSize * scale}px"
 		></textarea>
 	{:else}
 		<div
 			class="note-content"
-			style:font-size="{note.fontSize}px"
+			style:font-size="{note.fontSize * scale}px"
 		>
 			{#if note.text.trim()}
 				{note.text}

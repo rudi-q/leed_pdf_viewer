@@ -10,8 +10,9 @@
     drawingState
   } from '../stores/drawingStore';
 
-  export let canvasWidth: number = 0;
-  export let canvasHeight: number = 0;
+  export let canvasWidth: number = 0; // Actual displayed canvas width
+  export let canvasHeight: number = 0; // Actual displayed canvas height
+  export let currentScale: number = 1; // Current PDF scale
 
   let editingAnnotation: TextAnnotation | null = null;
   let editInput: HTMLTextAreaElement;
@@ -33,16 +34,22 @@
     const rect = overlayContainer.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
+    
+    // Convert to base scale for storage
+    const baseX = x / currentScale;
+    const baseY = y / currentScale;
 
-    // Calculate relative position for scaling
-    const relativeX = canvasWidth > 0 ? x / canvasWidth : 0;
-    const relativeY = canvasHeight > 0 ? y / canvasHeight : 0;
+    // Store as relative position (0-1 range) - relative to base dimensions
+    const baseWidth = canvasWidth / currentScale;
+    const baseHeight = canvasHeight / currentScale;
+    const relativeX = baseWidth > 0 ? baseX / baseWidth : 0;
+    const relativeY = baseHeight > 0 ? baseY / baseHeight : 0;
 
     const newAnnotation: TextAnnotation = {
       id: generateId(),
       pageNumber: $pdfState.currentPage,
-      x,
-      y,
+      x: baseX, // Store at base scale
+      y: baseY, // Store at base scale
       text: '',
       fontSize: 16,
       color: $drawingState.color,
@@ -108,23 +115,34 @@
     }
   }
 
-  // Calculate absolute position from relative position (for scaling)
-  function getAbsolutePosition(annotation: TextAnnotation) {
+  // Calculate display position from stored coordinates
+  function getDisplayPosition(annotation: TextAnnotation) {
+    // Annotations are stored at base scale, need to scale up for current display
+    const baseWidth = canvasWidth / currentScale;
+    const baseHeight = canvasHeight / currentScale;
+    const baseX = annotation.x !== undefined ? annotation.x : annotation.relativeX * baseWidth;
+    const baseY = annotation.y !== undefined ? annotation.y : annotation.relativeY * baseHeight;
     return {
-      x: annotation.relativeX * canvasWidth,
-      y: annotation.relativeY * canvasHeight
+      x: baseX * currentScale,
+      y: baseY * currentScale
     };
   }
 
-  // Update relative position when annotation is moved
-  function updateRelativePosition(annotation: TextAnnotation, newX: number, newY: number) {
-    const relativeX = canvasWidth > 0 ? newX / canvasWidth : annotation.relativeX;
-    const relativeY = canvasHeight > 0 ? newY / canvasHeight : annotation.relativeY;
+  // Update position when annotation is moved
+  function updatePosition(annotation: TextAnnotation, displayX: number, displayY: number) {
+    // Convert from display coordinates to base scale for storage
+    const baseX = displayX / currentScale;
+    const baseY = displayY / currentScale;
+    
+    const baseWidth = canvasWidth / currentScale;
+    const baseHeight = canvasHeight / currentScale;
+    const relativeX = baseWidth > 0 ? baseX / baseWidth : annotation.relativeX;
+    const relativeY = baseHeight > 0 ? baseY / baseHeight : annotation.relativeY;
     
     updateTextAnnotation({
       ...annotation,
-      x: newX,
-      y: newY,
+      x: baseX, // Store at base scale
+      y: baseY, // Store at base scale
       relativeX,
       relativeY
     });
@@ -146,7 +164,7 @@
     
     draggedAnnotation = annotation;
     dragStart = { x: event.clientX, y: event.clientY };
-    const pos = getAbsolutePosition(annotation);
+    const pos = getDisplayPosition(annotation);
     annotationStart = { x: pos.x, y: pos.y };
     
     event.preventDefault();
@@ -161,7 +179,7 @@
     const newX = Math.max(0, Math.min(canvasWidth - 100, annotationStart.x + deltaX));
     const newY = Math.max(0, Math.min(canvasHeight - 20, annotationStart.y + deltaY));
     
-    updateRelativePosition(draggedAnnotation, newX, newY);
+    updatePosition(draggedAnnotation, newX, newY);
   }
 
   function handleMouseUp() {
@@ -178,20 +196,8 @@
     };
   });
 
-  // Scale annotations when canvas size changes
-  $: if (canvasWidth > 0 && canvasHeight > 0) {
-    // Update all annotation positions based on their relative coordinates
-    $currentPageTextAnnotations.forEach(annotation => {
-      const pos = getAbsolutePosition(annotation);
-      if (pos.x !== annotation.x || pos.y !== annotation.y) {
-        updateTextAnnotation({
-          ...annotation,
-          x: pos.x,
-          y: pos.y
-        });
-      }
-    });
-  }
+  // No need to update positions when canvas size changes
+  // Annotations are stored at base scale and displayed at current scale
 </script>
 
 <!-- Text Overlay Container -->
@@ -211,14 +217,14 @@
 >
   <!-- Render all text annotations for current page -->
   {#each $currentPageTextAnnotations as annotation (annotation.id)}
-    {@const pos = getAbsolutePosition(annotation)}
+    {@const pos = getDisplayPosition(annotation)}
     
     <!-- Edit mode -->
     {#if editingAnnotation && editingAnnotation.id === annotation.id}
       <textarea
         bind:this={editInput}
         class="absolute bg-white border-2 border-blue-500 rounded px-2 py-1 font-mono resize-none shadow-lg z-10"
-        style="left: {pos.x}px; top: {pos.y}px; font-size: {annotation.fontSize}px; color: {annotation.color}; font-family: {annotation.fontFamily}; min-width: 200px; min-height: 60px;"
+        style="left: {pos.x}px; top: {pos.y}px; font-size: {annotation.fontSize * currentScale}px; color: {annotation.color}; font-family: {annotation.fontFamily}; min-width: {200 * currentScale}px; min-height: {60 * currentScale}px;"
         value={annotation.text}
         on:blur={saveEdit}
         on:keydown={handleKeyDown}
@@ -229,7 +235,7 @@
       <div
         class="absolute select-none cursor-pointer hover:bg-blue-50 hover:bg-opacity-50 rounded px-1"
         class:opacity-75={$drawingState.tool === 'text'}
-        style="left: {pos.x}px; top: {pos.y}px; font-size: {annotation.fontSize}px; color: {annotation.color}; font-family: {annotation.fontFamily}; white-space: pre-wrap; pointer-events: auto;"
+        style="left: {pos.x}px; top: {pos.y}px; font-size: {annotation.fontSize * currentScale}px; color: {annotation.color}; font-family: {annotation.fontFamily}; white-space: pre-wrap; pointer-events: auto;"
         on:dblclick={() => handleAnnotationDoubleClick(annotation)}
         on:mousedown={(e) => handleMouseDown(e, annotation)}
         role="button"

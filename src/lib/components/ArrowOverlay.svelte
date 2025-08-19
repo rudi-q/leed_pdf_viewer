@@ -4,9 +4,9 @@
 	import { currentPageArrowAnnotations, addArrowAnnotation, updateArrowAnnotation, deleteArrowAnnotation, drawingState, pdfState } from '$lib/stores/drawingStore';
 	import ArrowAnnotationComponent from './ArrowAnnotation.svelte';
 
-	export let containerWidth: number = 0;
-	export let containerHeight: number = 0;
-	export const scale: number = 1; // For future scaling features
+	export let containerWidth: number = 0; // Base viewport width at scale 1.0
+	export let containerHeight: number = 0; // Base viewport height at scale 1.0
+	export let scale: number = 1; // Current zoom scale
 
 	let overlayElement: HTMLDivElement;
 
@@ -35,18 +35,23 @@
 		event.stopPropagation();
 
 		const rect = overlayElement.getBoundingClientRect();
-		startX = event.clientX - rect.left;
-		startY = event.clientY - rect.top;
+		// Get click position in current scale
+		const scaledX = event.clientX - rect.left;
+		const scaledY = event.clientY - rect.top;
+		
+		// Convert to base viewport coordinates
+		startX = scaledX / scale;
+		startY = scaledY / scale;
 
 		isCreatingArrow = true;
 
-		// Create new arrow immediately
+		// Create new arrow immediately (storing at base scale)
 		const newArrow: ArrowAnnotation = {
 			id: `arrow-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
 			pageNumber: $pdfState.currentPage,
-			x1: startX,
-			y1: startY,
-			x2: startX + 50, // Default length
+			x1: startX, // Store at base scale
+			y1: startY, // Store at base scale
+			x2: startX + 50, // Default length at base scale
 			y2: startY + 50,
 			relativeX1: startX / containerWidth,
 			relativeY1: startY / containerHeight,
@@ -64,8 +69,13 @@
 		if (!isCreatingArrow) return;
 
 		const rect = overlayElement.getBoundingClientRect();
-		const currentX = event.clientX - rect.left;
-		const currentY = event.clientY - rect.top;
+		// Get mouse position in current scale
+		const scaledX = event.clientX - rect.left;
+		const scaledY = event.clientY - rect.top;
+		
+		// Convert to base viewport coordinates
+		const currentX = scaledX / scale;
+		const currentY = scaledY / scale;
 
 		// Update last created arrow with new end coordinates
 		const arrows = $currentPageArrowAnnotations;
@@ -74,8 +84,8 @@
 
 		const updatedArrow = {
 			...arrow,
-			x2: Math.min(containerWidth, Math.max(0, currentX)),
-			y2: Math.min(containerHeight, Math.max(0, currentY)),
+			x2: Math.min(containerWidth, Math.max(0, currentX)), // Store at base scale
+			y2: Math.min(containerHeight, Math.max(0, currentY)), // Store at base scale
 			relativeX2: Math.min(containerWidth, Math.max(0, currentX)) / containerWidth,
 			relativeY2: Math.min(containerHeight, Math.max(0, currentY)) / containerHeight
 		};
@@ -97,8 +107,13 @@
 		if (!isCreatingArrow || !overlayElement) return;
 
 		const rect = overlayElement.getBoundingClientRect();
-		const currentX = event.clientX - rect.left;
-		const currentY = event.clientY - rect.top;
+		// Get mouse position in current scale
+		const scaledX = event.clientX - rect.left;
+		const scaledY = event.clientY - rect.top;
+		
+		// Convert to base viewport coordinates
+		const currentX = scaledX / scale;
+		const currentY = scaledY / scale;
 
 		// Update last created arrow with new end coordinates
 		const arrows = $currentPageArrowAnnotations;
@@ -107,8 +122,8 @@
 
 		const updatedArrow = {
 			...arrow,
-			x2: Math.min(containerWidth, Math.max(0, currentX)),
-			y2: Math.min(containerHeight, Math.max(0, currentY)),
+			x2: Math.min(containerWidth, Math.max(0, currentX)), // Store at base scale
+			y2: Math.min(containerHeight, Math.max(0, currentY)), // Store at base scale
 			relativeX2: Math.min(containerWidth, Math.max(0, currentX)) / containerWidth,
 			relativeY2: Math.min(containerHeight, Math.max(0, currentY)) / containerHeight
 		};
@@ -136,28 +151,8 @@
 	};
 
 	onMount(() => {
-		// Scale existing arrows to new container dimensions if needed
-		const updateArrowPositions = () => {
-			const arrows = $currentPageArrowAnnotations;
-			arrows.forEach(arrow => {
-				const updatedArrow = {
-					...arrow,
-					x1: arrow.relativeX1 * containerWidth,
-					y1: arrow.relativeY1 * containerHeight,
-					x2: arrow.relativeX2 * containerWidth,
-					y2: arrow.relativeY2 * containerHeight
-				};
-				if (updatedArrow.x1 !== arrow.x1 || updatedArrow.y1 !== arrow.y1 || 
-				    updatedArrow.x2 !== arrow.x2 || updatedArrow.y2 !== arrow.y2) {
-					updateArrowAnnotation(updatedArrow);
-				}
-			});
-		};
-
-		// Update arrow positions when container size changes
-		if (containerWidth > 0 && containerHeight > 0) {
-			updateArrowPositions();
-		}
+		// No need to update positions on mount - arrows are stored at base scale
+		// and will be displayed at current scale automatically
 	});
 
 	// Clean up event listeners on destroy
@@ -178,31 +173,15 @@
 	// Update pointer events based on tool
 	$: pointerEventsClass = isArrowTool ? 'pointer-events-auto' : 'pointer-events-none';
 
-	// Reactive update when container size changes
-	$: if (containerWidth > 0 && containerHeight > 0) {
-		// Update arrow positions when container dimensions change
-		const arrows = $currentPageArrowAnnotations;
-		arrows.forEach(arrow => {
-			const updatedArrow = {
-				...arrow,
-				x1: arrow.relativeX1 * containerWidth,
-				y1: arrow.relativeY1 * containerHeight,
-				x2: arrow.relativeX2 * containerWidth,
-				y2: arrow.relativeY2 * containerHeight
-			};
-			if (updatedArrow.x1 !== arrow.x1 || updatedArrow.y1 !== arrow.y1 || 
-			    updatedArrow.x2 !== arrow.x2 || updatedArrow.y2 !== arrow.y2) {
-				updateArrowAnnotation(updatedArrow);
-			}
-		});
-	}
+	// No need for reactive updates - arrows are stored at base scale
+	// and displayed at current scale
 </script>
 
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 <div 
 	bind:this={overlayElement}
 	class="arrow-overlay absolute top-0 left-0 {pointerEventsClass}"
-	style="width: {containerWidth}px; height: {containerHeight}px; z-index: 3;"
+	style="width: {containerWidth * scale}px; height: {containerHeight * scale}px; z-index: 3;"
 	on:mousedown={handleContainerMouseDown}
 	on:mousemove={handleContainerMouseMove}
 	on:mouseup={handleContainerMouseUp}
@@ -213,7 +192,7 @@
 	{#each $currentPageArrowAnnotations as arrow (arrow.id)}
 		<ArrowAnnotationComponent
 			{arrow}
-			scale={1}
+			{scale}
 			{containerWidth}
 			{containerHeight}
 			on:update={handleArrowUpdate}

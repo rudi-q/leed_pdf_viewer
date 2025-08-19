@@ -73,6 +73,19 @@ import ArrowOverlay from './ArrowOverlay.svelte';
   let isRendering = false;
   let isCtrlPressed = false;
   let cursorOverCanvas = false;
+  
+  // Canvas dimensions for overlays - will be updated manually
+  let canvasDisplayWidth = 0;
+  let canvasDisplayHeight = 0;
+  
+  // Debug canvas dimensions
+  $: if (canvasDisplayWidth > 0 && canvasDisplayHeight > 0) {
+    console.log('Canvas display dimensions updated:', {
+      width: canvasDisplayWidth,
+      height: canvasDisplayHeight,
+      scale: $pdfState.scale
+    });
+  }
 
   // Helper function to extract filename from URL
   function extractFilenameFromUrl(url: string): string {
@@ -98,7 +111,7 @@ import ArrowOverlay from './ArrowOverlay.svelte';
 
   // Re-render drawing paths when they change
   $: if (drawingEngine && $currentPagePaths && canvasesReady) {
-    drawingEngine.renderPaths($currentPagePaths);
+    drawingEngine.renderPaths($currentPagePaths, $pdfState.scale);
   }
   
   
@@ -254,10 +267,31 @@ import ArrowOverlay from './ArrowOverlay.svelte';
       // Reset pan offset to center the PDF
       panOffset = { x: 0, y: 0 };
       
-      await renderCurrentPage();
-      
+      // Calculate the proper scale BEFORE first render to avoid position jumps
       // Auto-fit to height on first load for better initial view
-      await fitToHeight();
+      if (containerDiv) {
+        const page = await document.getPage(1);
+        const viewport = page.getViewport({ scale: 1 });
+        const containerHeight = containerDiv.clientHeight - 100; // Account for toolbar and page info
+        const fitHeightScale = containerHeight / viewport.height;
+        
+        // Update scale without rendering yet
+        pdfState.update(state => ({ ...state, scale: fitHeightScale }));
+        console.log('Initial scale set to fit height:', fitHeightScale);
+        
+        // Pre-calculate canvas dimensions at the new scale to avoid position jumps
+        const scaledViewport = page.getViewport({ scale: fitHeightScale });
+        canvasDisplayWidth = scaledViewport.width;
+        canvasDisplayHeight = scaledViewport.height;
+        console.log('Initial canvas dimensions set:', {
+          width: canvasDisplayWidth,
+          height: canvasDisplayHeight,
+          scale: fitHeightScale
+        });
+      }
+      
+      // Now render with the correct scale from the start
+      await renderCurrentPage();
       
       console.log('PDF render completed successfully');
     } catch (error) {
@@ -269,13 +303,15 @@ import ArrowOverlay from './ArrowOverlay.svelte';
     }
   }
 
-  async function renderCurrentPage() {
+  async function renderCurrentPage(newScale?: number) {
     if (!pdfCanvas || !$pdfState.document || isRendering) return;
 
     isRendering = true;
     try {
+      const scaleToRender = newScale !== undefined ? newScale : $pdfState.scale;
+      
       const page = await $pdfState.document.getPage($pdfState.currentPage);
-      const viewport = page.getViewport({ scale: $pdfState.scale });
+      const viewport = page.getViewport({ scale: scaleToRender });
       const outputScale = window.devicePixelRatio || 1;
       
       // Set canvas dimensions to match the scaled viewport and device pixel ratio for crisp rendering
@@ -291,7 +327,7 @@ import ArrowOverlay from './ArrowOverlay.svelte';
       }
       
       await pdfManager.renderPage($pdfState.currentPage, {
-        scale: $pdfState.scale * outputScale,
+        scale: scaleToRender * outputScale,
         canvas: pdfCanvas
       });
 
@@ -304,9 +340,18 @@ import ArrowOverlay from './ArrowOverlay.svelte';
         
         // Re-render drawing paths for current page
         if (drawingEngine) {
-          drawingEngine.renderPaths($currentPagePaths);
+          drawingEngine.renderPaths($currentPagePaths, scaleToRender);
         }
       }
+      
+      // Update canvas display dimensions for overlays
+      canvasDisplayWidth = viewport.width;
+      canvasDisplayHeight = viewport.height;
+      console.log('Canvas dimensions set after render:', {
+        width: canvasDisplayWidth,
+        height: canvasDisplayHeight,
+        scale: scaleToRender
+      });
 
     } catch (error) {
       console.error('Error rendering page:', error);
@@ -390,18 +435,24 @@ function handlePointerDown(event: PointerEvent) {
     drawingCanvas.setPointerCapture(event.pointerId);
 
     isDrawing = true;
-    const point = drawingEngine.getPointFromEvent(event);
+    // Get point and convert to base viewport coordinates (scale 1.0)
+    const canvasPoint = drawingEngine.getPointFromEvent(event);
+    const basePoint = {
+      x: canvasPoint.x / $pdfState.scale,
+      y: canvasPoint.y / $pdfState.scale,
+      pressure: canvasPoint.pressure
+    };
     
     const size = $drawingState.tool === 'eraser' ? $drawingState.eraserSize : $drawingState.lineWidth;
     const color = $drawingState.tool === 'highlight' ? $drawingState.highlightColor : $drawingState.color;
     drawingEngine.startDrawing(
-      point,
+      canvasPoint, // Use canvas point for immediate visual feedback
       $drawingState.tool,
       color,
       size
     );
     
-    currentDrawingPath = [point];
+    currentDrawingPath = [basePoint]; // Store base viewport coordinates
   }
 
 function handlePointerMove(event: PointerEvent) {
@@ -418,10 +469,16 @@ function handlePointerMove(event: PointerEvent) {
     if (!isDrawing || !drawingEngine) return;
     
     event.preventDefault();
-    const point = drawingEngine.getPointFromEvent(event);
+    // Get point and convert to base viewport coordinates (scale 1.0)
+    const canvasPoint = drawingEngine.getPointFromEvent(event);
+    const basePoint = {
+      x: canvasPoint.x / $pdfState.scale,
+      y: canvasPoint.y / $pdfState.scale,
+      pressure: canvasPoint.pressure
+    };
     
-    drawingEngine.continueDrawing(point);
-    currentDrawingPath.push(point);
+    drawingEngine.continueDrawing(canvasPoint); // Use canvas point for immediate visual feedback
+    currentDrawingPath.push(basePoint); // Store base viewport coordinates
   }
 
 function handlePointerUp(event: PointerEvent) {
@@ -463,7 +520,7 @@ function handlePointerUp(event: PointerEvent) {
           // Force immediate re-render
           setTimeout(() => {
             if (drawingEngine) {
-              drawingEngine.renderPaths(remainingPaths);
+              drawingEngine.renderPaths(remainingPaths, $pdfState.scale);
             }
           }, 0);
 
@@ -472,13 +529,19 @@ function handlePointerUp(event: PointerEvent) {
       } else {
         // Add drawing path (pencil or highlight)
         const color = $drawingState.tool === 'highlight' ? $drawingState.highlightColor : $drawingState.color;
+        // Convert final path points to base viewport coordinates
+        const basePathPoints = finalPath.map(point => ({
+          x: point.x / $pdfState.scale,
+          y: point.y / $pdfState.scale,
+          pressure: point.pressure
+        }));
         const drawingPath: DrawingPath = {
           tool: $drawingState.tool,
           color: color,
           lineWidth: $drawingState.lineWidth,
-          points: finalPath,
-          pageNumber: $pdfState.currentPage,
-          viewerScale: $pdfState.scale  // Store the viewer scale when the path was drawn
+          points: basePathPoints, // Store base viewport coordinates
+          pageNumber: $pdfState.currentPage
+          // No need for viewerScale anymore - all coords are at scale 1.0
         };
         addDrawingPath(drawingPath);
       }
@@ -615,7 +678,7 @@ function handlePointerUp(event: PointerEvent) {
     }
   }
 
-  function handleWheel(event: WheelEvent) {
+  async function handleWheel(event: WheelEvent) {
     // Only handle wheel events when Ctrl is pressed (for zooming)
     if (event.ctrlKey) {
       event.preventDefault();
@@ -623,16 +686,17 @@ function handlePointerUp(event: PointerEvent) {
       // Fix zoom direction: deltaY < 0 means scroll up (zoom in)
       const zoomIn = event.deltaY < 0;
       
+      let newScale: number;
       if (zoomIn) {
-        const newScale = Math.min($pdfState.scale * 1.1, 10); // Allow much more zoom in
-        pdfState.update(state => ({ ...state, scale: newScale }));
+        newScale = Math.min($pdfState.scale * 1.1, 10); // Allow much more zoom in
       } else {
-        const newScale = Math.max($pdfState.scale / 1.1, 0.1); // Allow much more zoom out
-        pdfState.update(state => ({ ...state, scale: newScale }));
+        newScale = Math.max($pdfState.scale / 1.1, 0.1); // Allow much more zoom out
       }
       
-      // Re-render at new scale
-      renderCurrentPage();
+      // CRITICAL: Render FIRST, update state AFTER
+      // This ensures canvas dimensions are updated before overlays re-render
+      await renderCurrentPage(newScale);
+      pdfState.update(state => ({ ...state, scale: newScale }));
     }
   }
 
@@ -653,21 +717,25 @@ function handlePointerUp(event: PointerEvent) {
 
   export async function zoomIn() {
     const newScale = Math.min($pdfState.scale * 1.2, 10); // Allow much more zoom in
+    // CRITICAL: Render FIRST, update state AFTER
+    await renderCurrentPage(newScale);
     pdfState.update(state => ({ ...state, scale: newScale }));
-    await renderCurrentPage();
   }
 
   export async function zoomOut() {
     const newScale = Math.max($pdfState.scale / 1.2, 0.1); // Allow much more zoom out
+    // CRITICAL: Render FIRST, update state AFTER
+    await renderCurrentPage(newScale);
     pdfState.update(state => ({ ...state, scale: newScale }));
-    await renderCurrentPage();
   }
 
-  export function resetZoom() {
+  export async function resetZoom() {
     // Reset both zoom and pan position to center the PDF
     panOffset = { x: 0, y: 0 };
-    pdfState.update(state => ({ ...state, scale: 1.2 }));
-    renderCurrentPage();
+    const newScale = 1.2;
+    // CRITICAL: Render FIRST, update state AFTER
+    await renderCurrentPage(newScale);
+    pdfState.update(state => ({ ...state, scale: newScale }));
   }
 
   export async function fitToWidth() {
@@ -680,8 +748,9 @@ function handlePointerUp(event: PointerEvent) {
       const newScale = containerWidth / viewport.width;
       
       panOffset = { x: 0, y: 0 };
+      // CRITICAL: Render FIRST, update state AFTER
+      await renderCurrentPage(newScale);
       pdfState.update(state => ({ ...state, scale: newScale }));
-      await renderCurrentPage();
     } catch (error) {
       console.error('Error fitting to width:', error);
     }
@@ -697,8 +766,9 @@ function handlePointerUp(event: PointerEvent) {
       const newScale = containerHeight / viewport.height;
       
       panOffset = { x: 0, y: 0 };
+      // CRITICAL: Render FIRST, update state AFTER
+      await renderCurrentPage(newScale);
       pdfState.update(state => ({ ...state, scale: newScale }));
-      await renderCurrentPage();
     } catch (error) {
       console.error('Error fitting to height:', error);
     }
@@ -800,23 +870,8 @@ function handlePointerUp(event: PointerEvent) {
         });
       }
       
-      // Render drawing paths to temporary canvas at the same scale
-      const drawingContext = tempDrawingCanvas.getContext('2d');
-      if (drawingContext && drawingEngine) {
-        // Scale the drawing context to match the PDF canvas scaling
-        drawingContext.scale(outputScale, outputScale);
-        
-        // Get drawing paths for this specific page
-        let pagePaths: any[] = [];
-        const unsubscribePaths = drawingPaths.subscribe(paths => {
-          pagePaths = paths.get(pageNumber) || [];
-        });
-        unsubscribePaths();
-        
-        // Create temporary drawing engine for this canvas
-        const tempEngine = new DrawingEngine(tempDrawingCanvas);
-        tempEngine.renderPaths(pagePaths);
-      }
+      // Skip rendering drawing paths to temporary canvas - we'll render them directly in createMergedCanvasWithAnnotations
+      // This avoids duplication since we render them properly with correct scaling there
       
       // Now create the merged canvas with all annotations
       // IMPORTANT: Use base viewport dimensions (scale 1.0) for consistent coordinate transformation
@@ -964,29 +1019,13 @@ function handlePointerUp(event: PointerEvent) {
             ctx.globalAlpha = 1.0;
           }
           
-          // FIXED: The drawing paths were created at the drawing canvas size but at the current viewer scale
-          // We need to transform them to the export canvas coordinate system
-          // First, get the scale that was used when the paths were drawn (stored in the path or use current scale)
-          const pathViewerScale = path.viewerScale || $pdfState.scale;
-          
-          // Transform coordinates: drawing canvas -> base viewport -> export canvas
-          // Step 1: Scale from drawing canvas to base viewport (accounting for viewer scale)
-          // Use the base viewport dimensions for coordinate transformation
-          // The drawing paths were created relative to the original drawing canvas size (which matches canvasWidth/canvasHeight)
-          const drawingToBaseScaleX = (canvasWidth / pathViewerScale) / canvasWidth;
-          const drawingToBaseScaleY = (canvasHeight / pathViewerScale) / canvasHeight;
-          
-          console.log(`Page ${pageNumber} Drawing path coordinate transform: pathViewerScale=${pathViewerScale}, drawingToBaseScale=(${drawingToBaseScaleX}, ${drawingToBaseScaleY})`);
-          
+          // SIMPLIFIED: Drawing paths are now stored at base viewport coordinates (scale 1.0)
+          // No transformation needed - just draw at the stored coordinates
           ctx.beginPath();
-          const transformedX = path.points[0].x * drawingToBaseScaleX;
-          const transformedY = path.points[0].y * drawingToBaseScaleY;
-          ctx.moveTo(transformedX, transformedY);
+          ctx.moveTo(path.points[0].x, path.points[0].y);
           
           for (let i = 1; i < path.points.length; i++) {
-            const transformedX = path.points[i].x * drawingToBaseScaleX;
-            const transformedY = path.points[i].y * drawingToBaseScaleY;
-            ctx.lineTo(transformedX, transformedY);
+            ctx.lineTo(path.points[i].x, path.points[i].y);
           }
           
           ctx.stroke();
@@ -1196,13 +1235,51 @@ function handlePointerUp(event: PointerEvent) {
         const y = note.relativeY * canvasHeight;
         const width = note.width || 200;
         const height = note.height || 150;
+        const borderRadius = 8; // Match the border-radius from StickyNote.svelte
         
+        // Save context for shadow
+        ctx.save();
+        
+        // Apply shadow (matching StickyNote.svelte box-shadow)
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 4;
+        
+        // Create path for rounded rectangle
+        ctx.beginPath();
+        ctx.moveTo(x + borderRadius, y);
+        ctx.lineTo(x + width - borderRadius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + borderRadius);
+        ctx.lineTo(x + width, y + height - borderRadius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - borderRadius, y + height);
+        ctx.lineTo(x + borderRadius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - borderRadius);
+        ctx.lineTo(x, y + borderRadius);
+        ctx.quadraticCurveTo(x, y, x + borderRadius, y);
+        ctx.closePath();
+        
+        // Fill with shadow
         ctx.fillStyle = note.color || '#FFF59D';
-        ctx.fillRect(x, y, width, height);
+        ctx.fill();
         
+        // Reset shadow for border
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
+        // Draw rounded rectangle border
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
         ctx.lineWidth = 1;
-        ctx.strokeRect(x, y, width, height);
+        ctx.stroke();
+        
+        // Restore context after shadow
+        ctx.restore();
+        
+        // Set clipping region for text to stay within rounded rectangle
+        ctx.save();
+        ctx.clip();
         
         ctx.fillStyle = '#000';
         ctx.font = `${note.fontSize || 14}px Arial`;
@@ -1228,6 +1305,9 @@ function handlePointerUp(event: PointerEvent) {
         lines.forEach((line, index) => {
           ctx.fillText(line.trim(), x + 10, y + 20 + (index * lineHeight));
         });
+        
+        // Restore clipping
+        ctx.restore();
       });
       
       ctx.restore();
@@ -1331,27 +1411,16 @@ function handlePointerUp(event: PointerEvent) {
               ctx.globalAlpha = 1.0;
             }
             
-            // FIXED: The drawing paths were created at the drawing canvas size but at the current viewer scale
-            // We need to transform them to the export canvas coordinate system
-            // First, get the scale that was used when the paths were drawn (stored in the path or use current scale)
-            const pathViewerScale = path.viewerScale || $pdfState.scale;
-            
-            // Transform coordinates: drawing canvas -> base viewport -> export canvas
-            // Step 1: Scale from drawing canvas to base viewport (accounting for viewer scale)
-            const drawingToBaseScaleX = (canvasWidth / pathViewerScale) / drawingCanvas.width;
-            const drawingToBaseScaleY = (canvasHeight / pathViewerScale) / drawingCanvas.height;
-            
-            console.log(`Drawing path coordinate transform: pathViewerScale=${pathViewerScale}, drawingToBaseScale=(${drawingToBaseScaleX}, ${drawingToBaseScaleY})`);
+            // SIMPLIFIED: Drawing paths are now stored at base viewport coordinates (scale 1.0)
+            // We need to scale them for current viewer scale
+            const viewerScale = $pdfState.scale;
             
             ctx.beginPath();
-            const transformedX = path.points[0].x * drawingToBaseScaleX;
-            const transformedY = path.points[0].y * drawingToBaseScaleY;
-            ctx.moveTo(transformedX, transformedY);
+            // Scale from base viewport to current canvas size
+            ctx.moveTo(path.points[0].x * viewerScale, path.points[0].y * viewerScale);
             
             for (let i = 1; i < path.points.length; i++) {
-              const transformedX = path.points[i].x * drawingToBaseScaleX;
-              const transformedY = path.points[i].y * drawingToBaseScaleY;
-              ctx.lineTo(transformedX, transformedY);
+              ctx.lineTo(path.points[i].x * viewerScale, path.points[i].y * viewerScale);
             }
             
             ctx.stroke();
@@ -1538,15 +1607,51 @@ function handlePointerUp(event: PointerEvent) {
           const y = note.relativeY * canvasHeight;
           const width = note.width || 200;
           const height = note.height || 150;
+          const borderRadius = 8; // Match the border-radius from StickyNote.svelte
           
-          // Draw sticky note background
+          // Save context for shadow
+          ctx.save();
+          
+          // Apply shadow (matching StickyNote.svelte box-shadow)
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+          ctx.shadowBlur = 8;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 4;
+          
+          // Create path for rounded rectangle
+          ctx.beginPath();
+          ctx.moveTo(x + borderRadius, y);
+          ctx.lineTo(x + width - borderRadius, y);
+          ctx.quadraticCurveTo(x + width, y, x + width, y + borderRadius);
+          ctx.lineTo(x + width, y + height - borderRadius);
+          ctx.quadraticCurveTo(x + width, y + height, x + width - borderRadius, y + height);
+          ctx.lineTo(x + borderRadius, y + height);
+          ctx.quadraticCurveTo(x, y + height, x, y + height - borderRadius);
+          ctx.lineTo(x, y + borderRadius);
+          ctx.quadraticCurveTo(x, y, x + borderRadius, y);
+          ctx.closePath();
+          
+          // Fill with shadow
           ctx.fillStyle = note.color || '#FFF59D';
-          ctx.fillRect(x, y, width, height);
+          ctx.fill();
           
-          // Draw sticky note border
+          // Reset shadow for border
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+          
+          // Draw rounded rectangle border
           ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
           ctx.lineWidth = 1;
-          ctx.strokeRect(x, y, width, height);
+          ctx.stroke();
+          
+          // Restore context after shadow
+          ctx.restore();
+          
+          // Set clipping region for text to stay within rounded rectangle
+          ctx.save();
+          ctx.clip();
           
           // Draw sticky note text
           ctx.fillStyle = '#000';
@@ -1575,6 +1680,9 @@ function handlePointerUp(event: PointerEvent) {
           lines.forEach((line, index) => {
             ctx.fillText(line.trim(), x + 10, y + 20 + (index * lineHeight));
           });
+          
+          // Restore clipping
+          ctx.restore();
         });
         
         ctx.restore();
@@ -1614,36 +1722,37 @@ function handlePointerUp(event: PointerEvent) {
       
       
       <!-- Text Overlay for Custom Text Annotations -->
-      {#if $pdfState.document && pdfCanvas}
+      {#if $pdfState.document && canvasDisplayWidth > 0 && canvasDisplayHeight > 0}
         <TextOverlay 
-          canvasWidth={pdfCanvas.style.width ? parseFloat(pdfCanvas.style.width) : 0}
-          canvasHeight={pdfCanvas.style.height ? parseFloat(pdfCanvas.style.height) : 0}
+          canvasWidth={canvasDisplayWidth}
+          canvasHeight={canvasDisplayHeight}
+          currentScale={$pdfState.scale}
         />
       {/if}
       
       <!-- Sticky Note Overlay for Custom Sticky Note Annotations -->
-      {#if $pdfState.document && pdfCanvas}
+      {#if $pdfState.document && canvasDisplayWidth > 0 && canvasDisplayHeight > 0}
         <StickyNoteOverlay 
-          containerWidth={pdfCanvas.style.width ? parseFloat(pdfCanvas.style.width) : 0}
-          containerHeight={pdfCanvas.style.height ? parseFloat(pdfCanvas.style.height) : 0}
+          containerWidth={canvasDisplayWidth}
+          containerHeight={canvasDisplayHeight}
           scale={$pdfState.scale}
         />
       {/if}
       
       <!-- Stamp Overlay for Custom Stamp Annotations -->
-      {#if $pdfState.document && pdfCanvas}
+      {#if $pdfState.document && canvasDisplayWidth > 0 && canvasDisplayHeight > 0}
         <StampOverlay 
-          containerWidth={pdfCanvas.style.width ? parseFloat(pdfCanvas.style.width) : 0}
-          containerHeight={pdfCanvas.style.height ? parseFloat(pdfCanvas.style.height) : 0}
+          containerWidth={canvasDisplayWidth}
+          containerHeight={canvasDisplayHeight}
           scale={$pdfState.scale}
         />
       {/if}
       
       <!-- Arrow Overlay for Custom Arrow Annotations -->
-      {#if $pdfState.document && pdfCanvas}
+      {#if $pdfState.document && canvasDisplayWidth > 0 && canvasDisplayHeight > 0}
         <ArrowOverlay 
-          containerWidth={pdfCanvas.style.width ? parseFloat(pdfCanvas.style.width) : 0}
-          containerHeight={pdfCanvas.style.height ? parseFloat(pdfCanvas.style.height) : 0}
+          containerWidth={canvasDisplayWidth}
+          containerHeight={canvasDisplayHeight}
           scale={$pdfState.scale}
         />
       {/if}
