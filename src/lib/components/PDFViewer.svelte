@@ -1183,13 +1183,51 @@ function handlePointerUp(event: PointerEvent) {
         const y = note.relativeY * canvasHeight;
         const width = note.width || 200;
         const height = note.height || 150;
+        const borderRadius = 8; // Match the border-radius from StickyNote.svelte
         
+        // Save context for shadow
+        ctx.save();
+        
+        // Apply shadow (matching StickyNote.svelte box-shadow)
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 4;
+        
+        // Create path for rounded rectangle
+        ctx.beginPath();
+        ctx.moveTo(x + borderRadius, y);
+        ctx.lineTo(x + width - borderRadius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + borderRadius);
+        ctx.lineTo(x + width, y + height - borderRadius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - borderRadius, y + height);
+        ctx.lineTo(x + borderRadius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - borderRadius);
+        ctx.lineTo(x, y + borderRadius);
+        ctx.quadraticCurveTo(x, y, x + borderRadius, y);
+        ctx.closePath();
+        
+        // Fill with shadow
         ctx.fillStyle = note.color || '#FFF59D';
-        ctx.fillRect(x, y, width, height);
+        ctx.fill();
         
+        // Reset shadow for border
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
+        // Draw rounded rectangle border
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
         ctx.lineWidth = 1;
-        ctx.strokeRect(x, y, width, height);
+        ctx.stroke();
+        
+        // Restore context after shadow
+        ctx.restore();
+        
+        // Set clipping region for text to stay within rounded rectangle
+        ctx.save();
+        ctx.clip();
         
         ctx.fillStyle = '#000';
         ctx.font = `${note.fontSize || 14}px Arial`;
@@ -1215,6 +1253,9 @@ function handlePointerUp(event: PointerEvent) {
         lines.forEach((line, index) => {
           ctx.fillText(line.trim(), x + 10, y + 20 + (index * lineHeight));
         });
+        
+        // Restore clipping
+        ctx.restore();
       });
       
       ctx.restore();
@@ -1514,15 +1555,51 @@ function handlePointerUp(event: PointerEvent) {
           const y = note.relativeY * canvasHeight;
           const width = note.width || 200;
           const height = note.height || 150;
+          const borderRadius = 8; // Match the border-radius from StickyNote.svelte
           
-          // Draw sticky note background
+          // Save context for shadow
+          ctx.save();
+          
+          // Apply shadow (matching StickyNote.svelte box-shadow)
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+          ctx.shadowBlur = 8;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 4;
+          
+          // Create path for rounded rectangle
+          ctx.beginPath();
+          ctx.moveTo(x + borderRadius, y);
+          ctx.lineTo(x + width - borderRadius, y);
+          ctx.quadraticCurveTo(x + width, y, x + width, y + borderRadius);
+          ctx.lineTo(x + width, y + height - borderRadius);
+          ctx.quadraticCurveTo(x + width, y + height, x + width - borderRadius, y + height);
+          ctx.lineTo(x + borderRadius, y + height);
+          ctx.quadraticCurveTo(x, y + height, x, y + height - borderRadius);
+          ctx.lineTo(x, y + borderRadius);
+          ctx.quadraticCurveTo(x, y, x + borderRadius, y);
+          ctx.closePath();
+          
+          // Fill with shadow
           ctx.fillStyle = note.color || '#FFF59D';
-          ctx.fillRect(x, y, width, height);
+          ctx.fill();
           
-          // Draw sticky note border
+          // Reset shadow for border
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+          
+          // Draw rounded rectangle border
           ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
           ctx.lineWidth = 1;
-          ctx.strokeRect(x, y, width, height);
+          ctx.stroke();
+          
+          // Restore context after shadow
+          ctx.restore();
+          
+          // Set clipping region for text to stay within rounded rectangle
+          ctx.save();
+          ctx.clip();
           
           // Draw sticky note text
           ctx.fillStyle = '#000';
@@ -1551,6 +1628,9 @@ function handlePointerUp(event: PointerEvent) {
           lines.forEach((line, index) => {
             ctx.fillText(line.trim(), x + 10, y + 20 + (index * lineHeight));
           });
+          
+          // Restore clipping
+          ctx.restore();
         });
         
         ctx.restore();
