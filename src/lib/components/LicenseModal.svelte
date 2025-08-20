@@ -63,11 +63,13 @@
         dispatch('validated', { licenseKey: licenseKey.trim(), wasActivation: needsActivation });
         closeModalOnSuccess();
       } else {
-        validationError = result.error || (needsActivation ? 'License activation failed' : 'Invalid license key');
+        const baseError = result.error || (needsActivation ? 'License activation failed' : 'Invalid license key');
+        validationError = `${baseError}. You can find your license key on your Polar portal: https://polar.sh/doublone-studios/portal/`;
       }
     } catch (error) {
       console.error('License processing error:', error);
-      validationError = typeof error === 'string' ? error : (needsActivation ? 'Failed to activate license key' : 'Failed to validate license key');
+      const baseError = typeof error === 'string' ? error : (needsActivation ? 'Failed to activate license key' : 'Failed to validate license key');
+      validationError = `${baseError}. You can find your license key on your Polar portal: https://polar.sh/doublone-studios/portal/`;
     } finally {
       isProcessing = false;
     }
@@ -84,6 +86,31 @@
   function handleBackdropClick(event: MouseEvent) {
     if (event.target === event.currentTarget) {
       closeModal();
+    }
+  }
+  
+  async function openPolarPortal() {
+    const polarUrl = 'https://polar.sh/doublone-studios/portal/';
+    const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
+    
+    if (isTauri) {
+      try {
+        // Use Tauri's custom command to open external URL
+        await invoke('open_external_url', { url: polarUrl });
+      } catch (error) {
+        console.error('Failed to open Polar portal with Tauri command:', error);
+        
+        // Fallback: try shell plugin
+        try {
+          const { open } = await import('@tauri-apps/plugin-shell');
+          await open(polarUrl);
+        } catch (shellError) {
+          console.error('Failed to open Polar portal with shell plugin:', shellError);
+        }
+      }
+    } else {
+      // In web environment, open in new tab
+      window.open(polarUrl, '_blank', 'noopener,noreferrer');
     }
   }
 </script>
@@ -120,6 +147,17 @@
         {:else}
           You need a valid license key to continue using LeedPDF. Please enter your license key below.
         {/if}
+      </p>
+      
+      <p class="text-sm text-gray-500 mb-4">
+        Don't know your license key? You can find it on 
+        <button 
+          type="button"
+          on:click={openPolarPortal}
+          class="text-sage hover:text-sage/80 underline transition-colors cursor-pointer bg-transparent border-none p-0 font-inherit"
+        >
+          your Polar portal
+        </button>.
       </p>
       
       <div class="mb-4">
