@@ -7,6 +7,9 @@
   ],
   "permissions": [
     "core:default",
+
+    "updater:default",
+
     "fs:allow-read-file",
     "fs:allow-localdata-read-recursive",
     "fs:allow-home-read-recursive",
@@ -14,11 +17,29 @@
     "fs:allow-document-read-recursive",
     "fs:allow-desktop-read-recursive",
     "fs:allow-download-read-recursive",
-    "updater:default",
+
+    "dialog:allow-save",
+
+    "fs:allow-write-file",
+    "fs:allow-localdata-write-recursive",
+    "fs:allow-home-write-recursive",
+    "fs:allow-resource-write-recursive",
+    "fs:allow-document-write-recursive",
+    "fs:allow-desktop-write-recursive",
+    "fs:allow-download-write-recursive",
+
     {
       "identifier": "fs:allow-read-file",
       "allow": [
-        { "path": "C:\\**" }
+        { "path": "$HOME/**", "platform": "macOS" },
+        { "path": "C:\\**", "platform": "windows" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [
+        { "path": "$HOME/**", "platform": "macOS" },
+        { "path": "C:\\**", "platform": "windows" }
       ]
     }
   ]

@@ -697,8 +697,12 @@
       const annotatedPdfBytes = await exporter.exportToPDF();
       const filename = `${originalName}_annotated.pdf`;
 
-      PDFExporter.downloadFile(annotatedPdfBytes, filename, 'application/pdf');
-      console.log('🎉 Multi-page PDF exported successfully:', filename);
+      const success = await PDFExporter.exportFile(annotatedPdfBytes, filename, 'application/pdf');
+      if (success) {
+        console.log('🎉 Multi-page PDF exported successfully:', filename);
+      } else {
+        console.log('📄 Export was cancelled by user');
+      }
     } catch (error) {
       console.error('Export failed:', error);
       alert('Export failed. Please try again.');

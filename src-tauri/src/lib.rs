@@ -128,6 +128,28 @@ fn exit_app(app_handle: tauri::AppHandle) {
     app_handle.exit(0);
 }
 
+#[tauri::command]
+fn test_tauri_detection() -> String {
+    "Tauri detection working!".to_string()
+}
+
+#[tauri::command]
+fn export_file(_app_handle: tauri::AppHandle, content: Vec<u8>, default_filename: String, filter_name: String, extension: String) -> Result<Option<String>, String> {
+    use rfd::FileDialog;
+    
+    let path = FileDialog::new()
+        .add_filter(&filter_name, &[&extension])
+        .set_file_name(&default_filename)
+        .save_file();
+        
+    if let Some(p) = path {
+        std::fs::write(&p, content).map_err(|e| e.to_string())?;
+        Ok(Some(p.to_string_lossy().to_string()))
+    } else {
+        Ok(None) // User cancelled
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -145,7 +167,9 @@ pub fn run() {
             get_stored_license_key,
             clear_license,
             check_license_smart_command,
-            exit_app
+            exit_app,
+            test_tauri_detection,
+            export_file
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
