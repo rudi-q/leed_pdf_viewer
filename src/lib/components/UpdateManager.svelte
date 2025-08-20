@@ -46,7 +46,24 @@
     } catch (error) {
       console.error('Error checking for updates:', error);
       updateStore.setDownloading(false);
-      updateStore.setError(`Failed to check for updates: ${error}`);
+      
+      // Check if this is a network connectivity issue
+      const errorString = error?.toString() || '';
+      const isNetworkError = errorString.includes('error sending request') || 
+                           errorString.includes('network') || 
+                           errorString.includes('timeout') ||
+                           errorString.includes('connection') ||
+                           errorString.includes('dns') ||
+                           errorString.includes('offline');
+      
+      if (isNetworkError) {
+        console.log('Update check skipped - no internet connection');
+        updateStore.setChecking(false);
+        // Don't show error notification for network issues - just log and continue
+      } else {
+        // Only show error for non-network related issues
+        updateStore.setError(`Failed to check for updates: ${error}`);
+      }
     }
   }
 
