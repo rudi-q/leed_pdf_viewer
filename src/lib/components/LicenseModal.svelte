@@ -1,13 +1,15 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import { licenseManager } from '$lib/utils/licenseManager';
   import { invoke } from '@tauri-apps/api/core';
 
   export let isOpen: boolean = false;
+  export let needsActivation: boolean = true; // true = activation, false = validation
   
   const dispatch = createEventDispatcher();
   
   let licenseKey: string = '';
-  let isValidating: boolean = false;
+  let isProcessing: boolean = false;
   let validationError: string = '';
   
   async function closeModal() {
@@ -37,37 +39,43 @@
     dispatch('close');
   }
   
-  async function validateLicense() {
+  async function processLicense() {
     if (!licenseKey.trim()) {
       validationError = 'Please enter a license key';
       return;
     }
     
-    isValidating = true;
+    isProcessing = true;
     validationError = '';
     
     try {
-      const isValid = await invoke('validate_license', { 
-        licenseKey: licenseKey.trim() 
-      });
+      let result;
       
-      if (isValid) {
-        dispatch('validated', { licenseKey: licenseKey.trim() });
+      if (needsActivation) {
+        // First time - activate license
+        result = await licenseManager.activateLicense(licenseKey.trim());
+      } else {
+        // Subsequent times - validate existing license
+        result = await licenseManager.validateLicense(licenseKey.trim());
+      }
+      
+      if (result.valid) {
+        dispatch('validated', { licenseKey: licenseKey.trim(), wasActivation: needsActivation });
         closeModalOnSuccess();
       } else {
-        validationError = 'Invalid license key';
+        validationError = result.error || (needsActivation ? 'License activation failed' : 'Invalid license key');
       }
     } catch (error) {
-      console.error('License validation error:', error);
-      validationError = typeof error === 'string' ? error : 'Failed to validate license key';
+      console.error('License processing error:', error);
+      validationError = typeof error === 'string' ? error : (needsActivation ? 'Failed to activate license key' : 'Failed to validate license key');
     } finally {
-      isValidating = false;
+      isProcessing = false;
     }
   }
   
   function handleKeyPress(event: KeyboardEvent) {
     if (event.key === 'Enter') {
-      validateLicense();
+      processLicense();
     } else if (event.key === 'Escape') {
       closeModal();
     }
@@ -93,7 +101,7 @@
     <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
       <div class="flex items-center justify-between mb-4">
         <h2 id="license-modal-title" class="text-xl font-semibold text-gray-900">
-          License Key Required
+          {needsActivation ? 'Activate License Key' : 'License Key Required'}
         </h2>
         <button 
           on:click={closeModal}
@@ -107,7 +115,11 @@
       </div>
       
       <p class="text-gray-600 mb-4">
-        You need a valid license key to continue using LeedPDF. Please enter your license key below.
+        {#if needsActivation}
+          Welcome to LeedPDF! Please enter your license key to activate this device.
+        {:else}
+          You need a valid license key to continue using LeedPDF. Please enter your license key below.
+        {/if}
       </p>
       
       <div class="mb-4">
@@ -120,7 +132,7 @@
           bind:value={licenseKey}
           placeholder="Enter your license key"
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent"
-          disabled={isValidating}
+          disabled={isProcessing}
           on:keydown={handleKeyPress}
           autofocus
         />
@@ -136,25 +148,25 @@
         <button
           on:click={closeModal}
           class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
-          disabled={isValidating}
+          disabled={isProcessing}
         >
           Cancel
         </button>
         <button
-          on:click={validateLicense}
+          on:click={processLicense}
           class="px-4 py-2 text-white bg-sage rounded-md hover:bg-sage/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={isValidating || !licenseKey.trim()}
+          disabled={isProcessing || !licenseKey.trim()}
         >
-          {#if isValidating}
+          {#if isProcessing}
             <div class="flex items-center">
               <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Validating...
+              {needsActivation ? 'Activating...' : 'Validating...'}
             </div>
           {:else}
-            Validate License
+            {needsActivation ? 'Activate License' : 'Validate License'}
           {/if}
         </button>
       </div>

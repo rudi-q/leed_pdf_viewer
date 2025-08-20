@@ -41,7 +41,24 @@ export class LicenseManager {
   }
   
   /**
-   * Validate a license key with the Polar API
+   * Activate a license key for this device (first time setup)
+   */
+  async activateLicense(licenseKey: string): Promise<LicenseValidationResult> {
+    if (!this.isTauri()) {
+      return { valid: true }; // Web version doesn't need license activation
+    }
+    
+    try {
+      const isValid = await invoke<boolean>('activate_license', { licenseKey });
+      return { valid: isValid };
+    } catch (error) {
+      const errorMessage = typeof error === 'string' ? error : 'Failed to activate license key';
+      return { valid: false, error: errorMessage };
+    }
+  }
+  
+  /**
+   * Validate an already-activated license key with the Polar API
    */
   async validateLicense(licenseKey: string): Promise<LicenseValidationResult> {
     if (!this.isTauri()) {
@@ -73,13 +90,22 @@ export class LicenseManager {
   }
   
   /**
-   * Check if license validation is required and validate stored license if available
+   * Check if license needs activation (no license file) or validation (existing license)
    */
-  async checkLicenseStatus(): Promise<LicenseValidationResult> {
+  async checkLicenseStatus(): Promise<LicenseValidationResult & { needsActivation?: boolean }> {
     if (!this.isTauri()) {
       return { valid: true }; // Web version doesn't need license validation
     }
     
+    // Check if there's an existing license file
+    const storedLicenseKey = await this.getStoredLicenseKey();
+    
+    if (!storedLicenseKey) {
+      // No stored license - needs activation
+      return { valid: false, needsActivation: true, error: 'No license key found - activation required' };
+    }
+    
+    // Has stored license - perform smart validation
     // Avoid multiple simultaneous validations
     if (this.validationPromise) {
       return this.validationPromise;
@@ -89,7 +115,7 @@ export class LicenseManager {
     const result = await this.validationPromise;
     this.validationPromise = null;
     
-    return result;
+    return { ...result, needsActivation: false };
   }
   
   private async performLicenseCheck(): Promise<LicenseValidationResult> {

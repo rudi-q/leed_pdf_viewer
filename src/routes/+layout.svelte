@@ -14,6 +14,7 @@
 	let showLicenseModal = false;
 	let licenseCheckCompleted = false;
 	let hasValidLicense = false;
+	let needsActivation = true; // true = first time activation, false = validation
 
 	// Reference to UpdateManager component
 	let updateManager: UpdateManager;
@@ -54,21 +55,23 @@
 				}
 			} else {
 				hasValidLicense = false;
+				needsActivation = result.needsActivation ?? true;
 				showLicenseModal = true;
 			}
 		} catch (error) {
 			// Show modal on error as well (no stored license or validation failed)
 			hasValidLicense = false;
+			needsActivation = true; // Default to activation on error
 			showLicenseModal = true;
 		} finally {
 			licenseCheckCompleted = true;
 		}
 	}
 
-	// Handle successful license validation
-	function handleLicenseValidated(event: CustomEvent<{ licenseKey: string }>) {
-		const { licenseKey } = event.detail;
-		console.log('License validated successfully:', licenseKey);
+	// Handle successful license processing (activation or validation)
+	function handleLicenseValidated(event: CustomEvent<{ licenseKey: string; wasActivation: boolean }>) {
+		const { licenseKey, wasActivation } = event.detail;
+		console.log(`License ${wasActivation ? 'activated' : 'validated'} successfully:`, licenseKey);
 		showLicenseModal = false;
 		licenseCheckCompleted = true;
 		hasValidLicense = true;
@@ -96,7 +99,8 @@
 
 <!-- License Modal for Tauri Desktop App -->
 <LicenseModal 
-	bind:isOpen={showLicenseModal} 
+	bind:isOpen={showLicenseModal}
+	bind:needsActivation={needsActivation}
 	on:validated={handleLicenseValidated}
 	on:close={handleLicenseModalClose}
 />

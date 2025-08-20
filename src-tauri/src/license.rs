@@ -8,23 +8,84 @@ struct LicenseValidationRequest {
     organization_id: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct LicenseActivationRequest {
+    key: String,
+    organization_id: String,
+    label: String,
+}
+
 #[derive(Debug, Deserialize)]
 struct LicenseValidationResponse {
     status: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct LicenseKeyNested {
+    status: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct LicenseActivationResponse {
+    license_key: LicenseKeyNested,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StoredLicense {
     pub key: String,
     pub validated_at: u64,
+    pub activated_at: u64,
+    pub device_id: String,
 }
 
 const POLAR_VALIDATION_URL: &str = "https://api.polar.sh/v1/customer-portal/license-keys/validate";
+const POLAR_ACTIVATION_URL: &str = "https://api.polar.sh/v1/customer-portal/license-keys/activate";
 const ORGANIZATION_ID: &str = "2ec4183f-eaad-4089-b9dc-9008f3748460";
 
 // Offline grace period: 7 days (in seconds)
 const OFFLINE_GRACE_PERIOD: u64 = 7 * 24 * 60 * 60;
 
+/// Get unique device ID for license activation
+pub fn get_device_id() -> Result<String, String> {
+    machine_uid::get().map_err(|e| format!("Failed to get device ID: {}", e))
+}
+
+/// Activate a license key for this device (first time setup)
+pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
+    let client = reqwest::Client::new();
+    let device_id = get_device_id()?;
+    
+    let request_body = LicenseActivationRequest {
+        key: license_key.to_string(),
+        organization_id: ORGANIZATION_ID.to_string(),
+        label: device_id,
+    };
+
+    let response = client
+        .post(POLAR_ACTIVATION_URL)
+        .json(&request_body)
+        .send()
+        .await
+        .map_err(|e| format!("Network error: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!("API returned status: {}", response.status()));
+    }
+
+    let activation_response: LicenseActivationResponse = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+    // Check if status is "granted" for successful activation
+    if activation_response.license_key.status == "granted" {
+        Ok(true)
+    } else {
+        Err(format!("License key activation failed. Status: {}", activation_response.license_key.status))
+    }
+}
+
+/// Validate an already-activated license key
 pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
     let client = reqwest::Client::new();
     
@@ -85,15 +146,20 @@ pub fn get_stored_license(app_handle: &AppHandle) -> Result<Option<StoredLicense
     Ok(Some(stored_license))
 }
 
-pub fn store_license(app_handle: &AppHandle, license_key: &str) -> Result<(), String> {
+/// Store an activated license (first time setup)
+pub fn store_activated_license(app_handle: &AppHandle, license_key: &str) -> Result<(), String> {
     let license_file = get_license_file_path(app_handle)?;
+    let device_id = get_device_id()?;
+    let current_time = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
     
     let stored_license = StoredLicense {
         key: license_key.to_string(),
-        validated_at: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
+        validated_at: current_time,
+        activated_at: current_time,
+        device_id,
     };
 
     let content = serde_json::to_string_pretty(&stored_license)
@@ -103,6 +169,42 @@ pub fn store_license(app_handle: &AppHandle, license_key: &str) -> Result<(), St
         .map_err(|e| format!("Failed to write license file: {}", e))?;
 
     Ok(())
+}
+
+/// Update validation timestamp for existing activated license
+pub fn store_license(app_handle: &AppHandle, license_key: &str) -> Result<(), String> {
+    // Get existing license to preserve activation data
+    let existing_license = get_stored_license(app_handle)?;
+    
+    match existing_license {
+        Some(license) => {
+            // Update existing license with new validation timestamp
+            let license_file = get_license_file_path(app_handle)?;
+            
+            let updated_license = StoredLicense {
+                key: license_key.to_string(),
+                validated_at: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+                activated_at: license.activated_at,
+                device_id: license.device_id,
+            };
+        
+            let content = serde_json::to_string_pretty(&updated_license)
+                .map_err(|e| format!("Failed to serialize license: {}", e))?;
+        
+            std::fs::write(&license_file, content)
+                .map_err(|e| format!("Failed to write license file: {}", e))?;
+        
+            Ok(())
+        },
+        None => {
+            // No existing license - this shouldn't happen for validation updates
+            // but we'll create a new one anyway
+            store_activated_license(app_handle, license_key)
+        }
+    }
 }
 
 pub fn remove_stored_license(app_handle: &AppHandle) -> Result<(), String> {
