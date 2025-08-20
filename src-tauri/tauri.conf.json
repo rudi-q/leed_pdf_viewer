@@ -14,6 +14,7 @@
         "title": "LeedPDF - Draw and Annotate on PDFs",
         "width": 800,
         "height": 600,
+        "maximized": true,
         "resizable": true,
         "center": true,
         "focus": true,
