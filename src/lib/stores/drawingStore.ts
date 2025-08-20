@@ -60,8 +60,12 @@ export interface TextAnnotation {
 	fontSize: number;
 	color: string;
 	fontFamily: string;
+	width?: number; // Optional width for scaling
+	height?: number; // Optional height for scaling
 	relativeX: number; // 0-1 range for scaling
 	relativeY: number; // 0-1 range for scaling
+	relativeWidth?: number; // 0-1 range for scaling
+	relativeHeight?: number; // 0-1 range for scaling
 }
 
 // Sticky Note annotation interface (custom solution)

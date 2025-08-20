@@ -1087,7 +1087,7 @@ function handlePointerUp(event: PointerEvent) {
       pageTextAnnotations.forEach(annotation => {
         // FIXED: Use the stored absolute coordinates when they exist instead of computing from relative
         // This ensures annotations appear exactly where they were placed originally
-        let x, y;
+        let x, y, width, height;
         if (annotation.x !== undefined && annotation.y !== undefined) {
           // Use absolute coordinates directly - these were stored at annotation creation time
           x = annotation.x;
@@ -1100,13 +1100,88 @@ function handlePointerUp(event: PointerEvent) {
           console.log(`Text annotation: Using computed relative coordinates - relativeX=${annotation.relativeX}, relativeY=${annotation.relativeY}, computed x=${x}, y=${y}`);
         }
         
+        // Get annotation dimensions for proper text wrapping
+        if (annotation.width !== undefined && annotation.height !== undefined) {
+          width = annotation.width;
+          height = annotation.height;
+          console.log(`Text annotation: Using absolute dimensions width=${width}, height=${height}`);
+        } else if (annotation.relativeWidth !== undefined && annotation.relativeHeight !== undefined) {
+          width = annotation.relativeWidth * canvasWidth;
+          height = annotation.relativeHeight * canvasHeight;
+          console.log(`Text annotation: Using relative dimensions - relativeWidth=${annotation.relativeWidth}, relativeHeight=${annotation.relativeHeight}, computed width=${width}, height=${height}`);
+        } else {
+          // Fallback dimensions
+          width = 200;
+          height = 60;
+          console.log(`Text annotation: Using fallback dimensions width=${width}, height=${height}`);
+        }
+        
+        console.log(`Text annotation export debug:`, {
+          text: annotation.text,
+          fontSize: annotation.fontSize,
+          storedDimensions: { width: annotation.width, height: annotation.height },
+          storedRelativeDimensions: { relativeWidth: annotation.relativeWidth, relativeHeight: annotation.relativeHeight },
+          computedDimensions: { width, height },
+          canvasDimensions: { canvasWidth, canvasHeight }
+        });
+        
         ctx.font = `${annotation.fontSize}px ${annotation.fontFamily}`;
         ctx.fillStyle = annotation.color;
         ctx.textBaseline = 'top';
         
-        const lines = annotation.text.split('\n');
-        lines.forEach((line: string, index: number) => {
-          ctx.fillText(line, x, y + (index * annotation.fontSize * 1.2));
+        // Handle text wrapping within the annotation bounds
+        const padding = 4; // Match the padding from TextAnnotation component
+        const maxWidth = width - (padding * 2);
+        const lineHeight = annotation.fontSize * 1.4; // Match line-height from TextAnnotation component
+        
+        console.log(`Text wrapping parameters:`, {
+          maxWidth,
+          lineHeight,
+          padding,
+          totalWidth: width,
+          annotationText: annotation.text
+        });
+        
+        const paragraphs = annotation.text.split('\n');
+        let currentY = y + padding;
+        
+        paragraphs.forEach((paragraph, paragraphIndex) => {
+          console.log(`Processing paragraph ${paragraphIndex}: "${paragraph}"`);
+          
+          if (paragraph.trim() === '') {
+            // Empty line - just add line height
+            currentY += lineHeight;
+            console.log(`Empty paragraph, currentY now: ${currentY}`);
+            return;
+          }
+          
+          // Word wrap within the annotation width
+          const words = paragraph.split(' ');
+          let currentLine = '';
+          
+          words.forEach((word, wordIndex) => {
+            const testLine = currentLine + (currentLine ? ' ' : '') + word;
+            const metrics = ctx.measureText(testLine);
+            
+            console.log(`Testing word "${word}": testLine="${testLine}", metrics.width=${metrics.width}, maxWidth=${maxWidth}`);
+            
+            if (metrics.width > maxWidth && currentLine !== '') {
+              // Line is too long, render current line and start new one
+              console.log(`Line too long, rendering "${currentLine}" at (${x + padding}, ${currentY})`);
+              ctx.fillText(currentLine, x + padding, currentY);
+              currentY += lineHeight;
+              currentLine = word;
+            } else {
+              currentLine = testLine;
+            }
+            
+            // If this is the last word, render the final line
+            if (wordIndex === words.length - 1) {
+              console.log(`Final line of paragraph, rendering "${currentLine}" at (${x + padding}, ${currentY})`);
+              ctx.fillText(currentLine, x + padding, currentY);
+              currentY += lineHeight;
+            }
+          });
         });
       });
       
