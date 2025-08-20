@@ -4,6 +4,9 @@
   import { dev } from '$app/environment';
   import { updateStore } from '$lib/stores/updateStore';
   
+  // Props
+  export let disableAutoCheck = false;
+  
   // Check if we're in Tauri environment
   const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
   
@@ -90,9 +93,12 @@
   }
 
   onMount(() => {
-    if (browser && enableUpdater) {
+    if (browser && enableUpdater && !disableAutoCheck) {
       // Check for updates on app start using the manual function to maintain single source of truth
+      console.log('Auto-checking for updates on app start');
       manualCheckForUpdates();
+    } else if (disableAutoCheck) {
+      console.log('Auto-check disabled - updates will only be checked after license validation');
     }
     
     return () => {

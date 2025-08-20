@@ -4,6 +4,9 @@ use std::thread;
 use std::time::Duration;
 use tauri::Emitter;
 
+mod license;
+use license::{validate_license_key, get_stored_license, store_license, remove_stored_license, check_license_smart};
+
 // Global state to store pending file paths
 static PENDING_FILES: Mutex<VecDeque<String>> = Mutex::new(VecDeque::new());
 static FILE_PROCESSED: Mutex<bool> = Mutex::new(false);
@@ -78,6 +81,41 @@ fn open_external_url(url: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+async fn validate_license(app_handle: tauri::AppHandle, license_key: String) -> Result<bool, String> {
+    let is_valid = validate_license_key(&license_key).await?;
+    
+    if is_valid {
+        // Store the validated license
+        store_license(&app_handle, &license_key)?;
+    }
+    
+    Ok(is_valid)
+}
+
+#[tauri::command]
+fn get_stored_license_key(app_handle: tauri::AppHandle) -> Result<Option<String>, String> {
+    match get_stored_license(&app_handle)? {
+        Some(stored_license) => Ok(Some(stored_license.key)),
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+fn clear_license(app_handle: tauri::AppHandle) -> Result<(), String> {
+    remove_stored_license(&app_handle)
+}
+
+#[tauri::command]
+async fn check_license_smart_command(app_handle: tauri::AppHandle) -> Result<bool, String> {
+    check_license_smart(&app_handle).await
+}
+
+#[tauri::command]
+fn exit_app(app_handle: tauri::AppHandle) {
+    app_handle.exit(0);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -89,7 +127,12 @@ pub fn run() {
             get_pending_file,
             check_file_associations,
             mark_file_processed,
-            open_external_url
+            open_external_url,
+            validate_license,
+            get_stored_license_key,
+            clear_license,
+            check_license_smart_command,
+            exit_app
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
