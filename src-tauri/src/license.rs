@@ -50,8 +50,30 @@ pub fn get_device_id() -> Result<String, String> {
     machine_uid::get().map_err(|e| format!("Failed to get device ID: {}", e))
 }
 
+/// Validate license key prefix for current platform
+fn is_valid_license_key_prefix(license_key: &str) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        license_key.starts_with("LEEDWIN")
+    }
+    #[cfg(target_os = "macos")]
+    {
+        license_key.starts_with("LEEDMAC")
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        // For other platforms, accept both prefixes or add specific logic
+        license_key.starts_with("LEEDWIN") || license_key.starts_with("LEEDMAC")
+    }
+}
+
 /// Activate a license key for this device (first time setup)
 pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
+    // Validate license key pattern based on platform
+    if !is_valid_license_key_prefix(license_key) {
+        return Ok(false); // Invalid license for this platform
+    }
+    
     let client = reqwest::Client::new();
     let device_id = get_device_id()?;
     
@@ -68,7 +90,14 @@ pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
         .await
         .map_err(|e| format!("Network error: {}", e))?;
 
+    // Handle HTTP status codes properly
+    if response.status().is_client_error() {
+        // 4xx errors indicate client issues (invalid license, already activated, etc.)
+        return Ok(false);
+    }
+    
     if !response.status().is_success() {
+        // 5xx or other unexpected status codes are server/network errors
         return Err(format!("API returned status: {}", response.status()));
     }
 
@@ -81,12 +110,18 @@ pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
     if activation_response.license_key.status == "granted" {
         Ok(true)
     } else {
-        Err(format!("License key activation failed. Status: {}", activation_response.license_key.status))
+        // Non-"granted" status means invalid license, not a network error
+        Ok(false)
     }
 }
 
 /// Validate an already-activated license key
 pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
+    // Validate license key pattern based on platform
+    if !is_valid_license_key_prefix(license_key) {
+        return Ok(false); // Invalid license for this platform
+    }
+    
     let client = reqwest::Client::new();
     
     let request_body = LicenseValidationRequest {
@@ -101,7 +136,14 @@ pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
         .await
         .map_err(|e| format!("Network error: {}", e))?;
 
+    // Handle HTTP status codes properly
+    if response.status().is_client_error() {
+        // 4xx errors indicate client issues (invalid license, expired, etc.)
+        return Ok(false);
+    }
+    
     if !response.status().is_success() {
+        // 5xx or other unexpected status codes are server/network errors
         return Err(format!("API returned status: {}", response.status()));
     }
 
@@ -114,7 +156,8 @@ pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
     if validation_response.status == "granted" {
         Ok(true)
     } else {
-        Err(format!("License key is not valid. Status: {}", validation_response.status))
+        // Non-"granted" status means invalid license, not a network error
+        Ok(false)
     }
 }
 
