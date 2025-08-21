@@ -3,9 +3,10 @@
   import { browser } from '$app/environment';
   import { dev } from '$app/environment';
   import { updateStore } from '$lib/stores/updateStore';
+  import { isTauri } from '$lib/utils/tauriUtils';
   
-  // Check if we're in Tauri environment
-  const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
+  // Props
+  export let disableAutoCheck = false;
   
   // Disable updater in development mode
   const enableUpdater = !dev && isTauri;
@@ -42,8 +43,27 @@
       }
     } catch (error) {
       console.error('Error checking for updates:', error);
+      
+      // Check if this is a network connectivity issue
+      const errorString = error?.toString() || '';
+      const isNetworkError = errorString.includes('error sending request') || 
+                           errorString.includes('network') || 
+                           errorString.includes('timeout') ||
+                           errorString.includes('connection') ||
+                           errorString.includes('dns') ||
+                           errorString.includes('offline');
+      
+      if (isNetworkError) {
+        console.log('Update check skipped - no internet connection');
+        // Don't show error notification for network issues - just log and continue
+      } else {
+        // Only show error for non-network related issues
+        updateStore.setError(`Failed to check for updates: ${error}`);
+      }
+    } finally {
+      // Always reset both flags regardless of success/failure
+      updateStore.setChecking(false);
       updateStore.setDownloading(false);
-      updateStore.setError(`Failed to check for updates: ${error}`);
     }
   }
 
@@ -90,9 +110,12 @@
   }
 
   onMount(() => {
-    if (browser && enableUpdater) {
+    if (browser && enableUpdater && !disableAutoCheck) {
       // Check for updates on app start using the manual function to maintain single source of truth
+      console.log('Auto-checking for updates on app start');
       manualCheckForUpdates();
+    } else if (disableAutoCheck) {
+      console.log('Auto-check disabled - updates will only be checked after license validation');
     }
     
     return () => {

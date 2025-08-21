@@ -13,7 +13,7 @@
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-87A96B.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Commercial License](https://img.shields.io/badge/Commercial%20License-Available-87A96B.svg)](https://buy.polar.sh/polar_cl_tPmQ3d72uYwrYvzzIUM4R7cku7hg2kmEQqruI1its5c)
-[![Free for Personal Use](https://img.shields.io/badge/Free-Personal%20Use-87A96B.svg)](#-agpl-30-free--open-source)
+[![Free for Personal Use on Web](https://img.shields.io/badge/Free-Web%20App-87A96B.svg)](#web-app-agpl)
 [![GitHub Stars](https://img.shields.io/github/stars/rudi-q/leed_pdf_viewer?color=87A96B&style=flat&logo=github)](https://github.com/rudi-q/leed_pdf_viewer/stargazers)
 [![Downloads](https://img.shields.io/github/downloads/rudi-q/leed_pdf_viewer/total?label=Downloads&logo=github&color=87A96B)](https://github.com/rudi-q/leed_pdf_viewer/releases)
 [![WCAG AAA Compliant](https://img.shields.io/badge/WCAG%20AAA-Compliant-87A96B?style=flat&logo=accessibilityalt&logoColor=white)](https://www.w3.org/WAI/WCAG2AAA-Conformance)
@@ -233,17 +233,30 @@ Your sponsorship helps us:
 
 ## 📄 License
 
-LeedPDF is **dual-licensed** to give you flexibility:
+LeedPDF is **flexibly licensed** to give you options:
+<a id="web-app-agpl"></a>
+### 🆓 **Web App - AGPL-3.0 (Free & Open Source)**
+**[✨ Try LeedPDF Web App](https://leed.my)** - Always free, no account required
 
-### 🆓 **AGPL-3.0 (Free & Open Source)**
 Perfect for:
 - ✅ Personal projects and learning
 - ✅ Educational and research use
-- ✅ Non-commercial applications
-- ✅ Internal company tools (no external service)
+- ✅ Full PDF annotation features
+- ✅ Privacy-focused (local processing)
 - ✅ Contributing back to the community
 
-### 💼 **Commercial License (Paid)**
+### 🖥️ **Desktop App - PAID**
+**[💻 Download Desktop App for Windows](https://leed.my/download-for-windows)** - One-time purchase
+- 🎯 **Windows:** Pay-what-you-want
+- ✅ Native desktop experience
+- ✅ Better performance
+- ✅ Offline sync capabilities
+- ✅ Lifetime updates
+- 📋 Governed by [End User License Agreement](LICENSE-DESKTOP-EULA)
+
+*Mac desktop app coming soon!*
+
+### 💼 **Commercial License for developers (Paid)**
 Required for:
 - 🏢 Commercial products and services
 - 🏢 Proprietary software integration
@@ -253,7 +266,7 @@ Required for:
 
 ---
 
-## 💳 **Commercial Licensing Options**
+## 💳 **Developer Commercial Licensing Options**
 
 **[🛒 Get Commercial License](https://buy.polar.sh/polar_cl_tPmQ3d72uYwrYvzzIUM4R7cku7hg2kmEQqruI1its5c)**
 
@@ -274,7 +287,7 @@ Available options:
 - ✅ Perpetual license (no expiration)
 
 ### ❓ **Need Help Choosing?**
-- **Personal project?** → Use AGPL-3.0 (free)
+- **Personal project for web?** → Use AGPL-3.0 (free)
 - **Building a commercial product?** → Individual License ($99)
 - **Team of developers?** → Team License ($399)
 - **Large company/custom terms?** → Enterprise License ($1,299+)

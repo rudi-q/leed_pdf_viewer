@@ -4,6 +4,9 @@ use std::thread;
 use std::time::Duration;
 use tauri::Emitter;
 
+mod license;
+use license::{activate_license_key, validate_license_key, get_stored_license, store_license, store_activated_license, remove_stored_license, check_license_smart};
+
 // Global state to store pending file paths
 static PENDING_FILES: Mutex<VecDeque<String>> = Mutex::new(VecDeque::new());
 static FILE_PROCESSED: Mutex<bool> = Mutex::new(false);
@@ -78,6 +81,75 @@ fn open_external_url(url: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+async fn activate_license(app_handle: tauri::AppHandle, licensekey: String) -> Result<bool, String> {
+    let is_valid = activate_license_key(&licensekey).await?;
+    
+    if is_valid {
+        // Store the activated license
+        store_activated_license(&app_handle, &licensekey)?;
+    }
+    
+    Ok(is_valid)
+}
+
+#[tauri::command]
+async fn validate_license(app_handle: tauri::AppHandle, licensekey: String) -> Result<bool, String> {
+    let is_valid = validate_license_key(&licensekey).await?;
+    
+    if is_valid {
+        // Update the validation timestamp for existing license
+        store_license(&app_handle, &licensekey)?;
+    }
+    
+    Ok(is_valid)
+}
+
+#[tauri::command]
+fn get_stored_license_key(app_handle: tauri::AppHandle) -> Result<Option<String>, String> {
+    match get_stored_license(&app_handle)? {
+        Some(stored_license) => Ok(Some(stored_license.key)),
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+fn clear_license(app_handle: tauri::AppHandle) -> Result<(), String> {
+    remove_stored_license(&app_handle)
+}
+
+#[tauri::command]
+async fn check_license_smart_command(app_handle: tauri::AppHandle) -> Result<bool, String> {
+    check_license_smart(&app_handle).await
+}
+
+#[tauri::command]
+fn exit_app(app_handle: tauri::AppHandle) {
+    app_handle.exit(0);
+}
+
+#[tauri::command]
+fn test_tauri_detection() -> String {
+    "Tauri detection working!".to_string()
+}
+
+#[tauri::command]
+fn export_file(_app_handle: tauri::AppHandle, content: Vec<u8>, default_filename: String, filter_name: String, extension: String) -> Result<Option<String>, String> {
+    use rfd::FileDialog;
+    
+    let path = FileDialog::new()
+        .add_filter(&filter_name, &[&extension])
+        .set_file_name(&default_filename)
+        .save_file();
+        
+    if let Some(p) = path {
+        std::fs::write(&p, content).map_err(|e| e.to_string())?;
+        Ok(Some(p.to_string_lossy().to_string()))
+    } else {
+        Ok(None) // User cancelled
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -89,7 +161,15 @@ pub fn run() {
             get_pending_file,
             check_file_associations,
             mark_file_processed,
-            open_external_url
+            open_external_url,
+            activate_license,
+            validate_license,
+            get_stored_license_key,
+            clear_license,
+            check_license_smart_command,
+            exit_app,
+            test_tauri_detection,
+            export_file
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

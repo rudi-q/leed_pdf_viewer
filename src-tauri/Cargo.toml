@@ -1,6 +1,6 @@
 [package]
 name = "leed-pdf"
-version = "2.1.0"
+version = "2.2.0"
 description = "A Lightweight, Opensource and Free PDF Viewer"
 authors = ["Rudi K <reach@rudi.engineer>"]
 license = "AGPL"
@@ -25,6 +25,10 @@ tauri-plugin-deep-link = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-shell = "2.3.0"
+reqwest = { version = "0.11", features = ["json"] }
+tokio = { version = "1.0", features = ["full"] }
+machine-uid = "0.5"
+rfd = "0.15"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"

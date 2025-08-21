@@ -1,4 +1,6 @@
 import { PDFDocument } from 'pdf-lib';
+import { invoke } from '@tauri-apps/api/core';
+import { isTauri } from './tauriUtils';
 
 export interface ExportOptions {
 	includeOriginalPDF: boolean;
@@ -101,7 +103,115 @@ export class PDFExporter {
 		return images;
 	}
 
-	// Utility function to download a file
+	// Enhanced export method that uses Tauri backend when available
+	static async exportFile(data: Uint8Array | Blob, defaultFilename: string, mimeType: string): Promise<boolean> {
+		if (isTauri) {
+			return await PDFExporter.exportWithTauri(data, defaultFilename, mimeType);
+		} else {
+			PDFExporter.downloadFile(data, defaultFilename, mimeType);
+			return true;
+		}
+	}
+
+	// Tauri-specific export using file dialog and file system
+	static async exportWithTauri(data: Uint8Array | Blob, defaultFilename: string, mimeType: string): Promise<boolean> {
+		try {
+			console.log('Using Tauri backend for file export');
+			
+			// Convert data to Uint8Array if it's a Blob
+			let bytes: Uint8Array;
+			if (data instanceof Uint8Array) {
+				bytes = data;
+			} else {
+				try {
+					const arrayBuffer = await data.arrayBuffer();
+					bytes = new Uint8Array(arrayBuffer);
+				} catch (blobError) {
+					console.error('Failed to convert blob to array buffer:', blobError);
+					throw new Error('Invalid file data format');
+				}
+			}
+
+			// Validate data size
+			if (bytes.length === 0) {
+				throw new Error('File data is empty');
+			}
+
+			// First test Tauri connection
+			try {
+				const testResult = await invoke('test_tauri_detection');
+				console.log('Tauri connection test:', testResult);
+			} catch (testError) {
+				console.error('Tauri connection test failed:', testError);
+				throw new Error('Tauri backend not available');
+			}
+
+			// Get file extension from MIME type
+			const extension = PDFExporter.getFileExtension(mimeType).replace('.', '');
+			const filterName = PDFExporter.getFilterName(mimeType);
+			
+			// Use custom Tauri export command
+			const filePath = await invoke('export_file', {
+				content: Array.from(bytes),
+				defaultFilename,
+				filterName,
+				extension
+			});
+			
+			if (!filePath) {
+				console.log('User cancelled file save dialog');
+				return false; // User cancelled
+			}
+			
+			console.log('File saved to:', filePath);
+			
+			console.log('✅ File saved successfully via Tauri backend');
+			return true;
+			
+		} catch (error: any) {
+			console.error('Failed to export file with Tauri:', error);
+			
+			// Check if this is a critical Tauri API failure
+			if (error?.message?.includes('dialog') || error?.message?.includes('Tauri') || error?.message?.includes('plugin')) {
+				console.error('Critical Tauri API failure, falling back to browser download');
+				PDFExporter.downloadFile(data, defaultFilename, mimeType);
+				return true;
+			}
+			
+			// For user-friendly errors (like permission denied), show the error but also offer fallback
+			if (typeof window !== 'undefined' && window.confirm) {
+				const fallbackMessage = `${error.message}\n\nWould you like to try downloading the file through your browser instead?`;
+				const useFallback = window.confirm(fallbackMessage);
+				
+				if (useFallback) {
+					console.log('User chose browser download fallback');
+					PDFExporter.downloadFile(data, defaultFilename, mimeType);
+					return true;
+				} else {
+					console.log('User declined fallback, export cancelled');
+					return false;
+				}
+			} else {
+				// Fallback if window.confirm is not available
+				console.log('No user confirmation available, falling back to browser download');
+				PDFExporter.downloadFile(data, defaultFilename, mimeType);
+				return true;
+			}
+		}
+	}
+
+	// Get user-friendly filter name for file dialog
+	static getFilterName(mimeType: string): string {
+		const filterNames: { [key: string]: string } = {
+			'application/pdf': 'PDF Documents',
+			'image/png': 'PNG Images',
+			'image/jpeg': 'JPEG Images',
+			'image/webp': 'WebP Images'
+		};
+		return filterNames[mimeType] || 'All Files';
+	}
+
+	// Legacy browser download method (kept for backward compatibility and fallback)
 	static downloadFile(data: Uint8Array | Blob, filename: string, mimeType: string) {
 		const blob =
 			data instanceof Uint8Array ? new Blob([new Uint8Array(data)], { type: mimeType }) : data;
