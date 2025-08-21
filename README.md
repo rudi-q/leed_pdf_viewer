@@ -13,7 +13,7 @@
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-87A96B.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Commercial License](https://img.shields.io/badge/Commercial%20License-Available-87A96B.svg)](https://buy.polar.sh/polar_cl_tPmQ3d72uYwrYvzzIUM4R7cku7hg2kmEQqruI1its5c)
-[![Free for Personal Use](https://img.shields.io/badge/Free-Personal%20Use-87A96B.svg)](#-agpl-30-free--open-source)
+[![Free for Personal Use on Web](https://img.shields.io/badge/Free-Web%20App-87A96B.svg)](#web-app-agpl)
 [![GitHub Stars](https://img.shields.io/github/stars/rudi-q/leed_pdf_viewer?color=87A96B&style=flat&logo=github)](https://github.com/rudi-q/leed_pdf_viewer/stargazers)
 [![Downloads](https://img.shields.io/github/downloads/rudi-q/leed_pdf_viewer/total?label=Downloads&logo=github&color=87A96B)](https://github.com/rudi-q/leed_pdf_viewer/releases)
 [![WCAG AAA Compliant](https://img.shields.io/badge/WCAG%20AAA-Compliant-87A96B?style=flat&logo=accessibilityalt&logoColor=white)](https://www.w3.org/WAI/WCAG2AAA-Conformance)
@@ -234,7 +234,7 @@ Your sponsorship helps us:
 ## 📄 License
 
 LeedPDF is **flexibly licensed** to give you options:
-
+<a id="web-app-agpl"></a>
 ### 🆓 **Web App - AGPL-3.0 (Free & Open Source)**
 **[✨ Try LeedPDF Web App](https://leed.my)** - Always free, no account required
 
