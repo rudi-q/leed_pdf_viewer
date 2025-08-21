@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
-use tauri::Emitter;
+use tauri::{Emitter, RunEvent};
 
 mod license;
 use license::{activate_license_key, validate_license_key, get_stored_license, store_license, store_activated_license, remove_stored_license, check_license_smart};
@@ -134,6 +134,78 @@ fn test_tauri_detection() -> String {
 }
 
 #[tauri::command]
+fn test_file_event(app_handle: tauri::AppHandle, file_path: String) -> Result<(), String> {
+    println!("Testing file event with path: {}", file_path);
+    
+    // Test if we can emit events
+    match app_handle.emit("file-opened", &file_path) {
+        Ok(_) => println!("Successfully emitted file-opened event"),
+        Err(e) => println!("Failed to emit file-opened event: {:?}", e),
+    }
+    
+    match app_handle.emit("startup-file-ready", &file_path) {
+        Ok(_) => println!("Successfully emitted startup-file-ready event"),
+        Err(e) => println!("Failed to emit startup-file-ready event: {:?}", e),
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+fn frontend_ready(app_handle: tauri::AppHandle) -> Result<(), String> {
+    println!("Frontend is ready to receive events");
+    
+    // Check if there are any pending files and emit them now
+    let pending_files: Vec<String> = {
+        let mut pending = PENDING_FILES.lock().unwrap();
+        pending.drain(..).collect()
+    };
+    
+    if !pending_files.is_empty() {
+        println!("Frontend ready - processing {} pending files", pending_files.len());
+        process_pdf_files(&app_handle, pending_files);
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+fn check_app_state() -> Result<String, String> {
+    let args: Vec<String> = std::env::args().collect();
+    let pending_count = PENDING_FILES.lock().unwrap().len();
+    let processed = FILE_PROCESSED.lock().unwrap();
+    
+    let state = format!(
+        "App State:\n- Args: {:?}\n- Pending files: {}\n- File processed: {}\n- Current dir: {:?}\n- Bundle path: {:?}",
+        args,
+        pending_count,
+        processed,
+        std::env::current_dir().unwrap_or_default(),
+        std::env::current_exe().unwrap_or_default()
+    );
+    
+    println!("{}", state);
+    Ok(state)
+}
+
+#[tauri::command]
+fn read_file_content(file_path: String) -> Result<Vec<u8>, String> {
+    println!("Reading file content from: {}", file_path);
+    
+    // Read the file content directly from Rust
+    match std::fs::read(&file_path) {
+        Ok(content) => {
+            println!("Successfully read {} bytes from {}", content.len(), file_path);
+            Ok(content)
+        }
+        Err(e) => {
+            println!("Failed to read file {}: {}", file_path, e);
+            Err(e.to_string())
+        }
+    }
+}
+
+#[tauri::command]
 fn export_file(_app_handle: tauri::AppHandle, content: Vec<u8>, default_filename: String, filter_name: String, extension: String) -> Result<Option<String>, String> {
     use rfd::FileDialog;
     
@@ -147,6 +219,84 @@ fn export_file(_app_handle: tauri::AppHandle, content: Vec<u8>, default_filename
         Ok(Some(p.to_string_lossy().to_string()))
     } else {
         Ok(None) // User cancelled
+    }
+}
+
+// Function to process PDF files and emit events
+fn process_pdf_files(app_handle: &tauri::AppHandle, pdf_files: Vec<String>) {
+    if !pdf_files.is_empty() {
+        // Store in global queue
+        {
+            let mut pending = PENDING_FILES.lock().unwrap();
+            for pdf_file in &pdf_files {
+                pending.push_back(pdf_file.clone());
+            }
+        }
+
+        // Spawn background thread for persistent file loading attempts
+        let app_handle_clone = app_handle.clone();
+        thread::spawn(move || {
+            // Wait longer for frontend to be ready (especially for file associations)
+            println!("Waiting for frontend to be ready...");
+            thread::sleep(Duration::from_millis(3000)); // Wait 3 seconds for frontend
+            
+            for attempt in 1..=30 { // Increased attempts for file associations
+                // Check if file has been processed
+                {
+                    let processed = FILE_PROCESSED.lock().unwrap();
+                    if *processed {
+                        println!("File already processed, stopping attempts");
+                        break;
+                    }
+                }
+
+                // Wait longer for first few attempts (frontend initialization)
+                let delay = if attempt <= 5 {
+                    Duration::from_millis(2000) // 2 seconds for first 5 attempts
+                } else if attempt <= 15 {
+                    Duration::from_millis(1000) // 1 second for next 10 attempts
+                } else {
+                    Duration::from_millis(500) // 0.5 seconds for remaining attempts
+                };
+
+                thread::sleep(delay);
+
+                // Try to emit event for each PDF file
+                for (i, pdf_file) in pdf_files.iter().enumerate() {
+                    let event_name = if i == 0 {
+                        "file-opened"
+                    } else {
+                        "additional-file-opened"
+                    };
+
+                    match app_handle_clone.emit(event_name, pdf_file) {
+                        Ok(_) => {
+                            println!(
+                                "Attempt {}: Successfully emitted {} for {}",
+                                attempt, event_name, pdf_file
+                            );
+
+                            // Also emit a generic startup event
+                            let _ = app_handle_clone.emit("startup-file-ready", pdf_file);
+                        }
+                        Err(e) => {
+                            println!(
+                                "Attempt {}: Failed to emit event: {:?}",
+                                attempt, e
+                            );
+                        }
+                    }
+                }
+
+                // Emit debug info
+                let _ = app_handle_clone.emit(
+                    "debug-info",
+                    format!("File loading attempt {} of 30", attempt),
+                );
+            }
+
+            println!("File loading attempts completed");
+        });
     }
 }
 
@@ -169,6 +319,10 @@ pub fn run() {
             check_license_smart_command,
             exit_app,
             test_tauri_detection,
+            test_file_event,
+            frontend_ready,
+            check_app_state,
+            read_file_content,
             export_file
         ])
         .setup(|app| {
@@ -182,118 +336,144 @@ pub fn run() {
 
             // Handle command line arguments for file associations
             let args: Vec<String> = std::env::args().collect();
-
-            // Create log file for debugging
-            let log_path = if cfg!(target_os = "windows") {
-                "C:\\Windows\\Temp\\leedpdf_debug.txt"
-            } else {
-                "/tmp/leedpdf_debug.txt"
-            };
-
-            let mut debug_msg = format!("LeedPDF Debug: Found {} args: {:?}\n", args.len(), args);
-            std::fs::write(log_path, &debug_msg).unwrap_or_default();
-
+            
+            // Log essential startup information
+            if cfg!(debug_assertions) {
+                println!("=== LEEDPDF STARTUP DEBUG ===");
+                println!("Command line arguments: {:?}", args);
+                println!("Current working directory: {:?}", std::env::current_dir());
+                println!("Bundle path: {:?}", std::env::current_exe());
+                
+                // Log relevant environment variables
+                println!("Environment variables:");
+                for (key, value) in std::env::vars() {
+                    if key.contains("PATH") || key.contains("HOME") || key.contains("USER") || key.contains("PWD") {
+                        println!("  {}: {}", key, value);
+                    }
+                }
+            }
+            
+            // Check if we're being launched via file association
             if args.len() > 1 {
-                // Clone app handle for use in thread
-                let app_handle = app.handle().clone();
-
-                // Store PDF files in multiple places for reliability
-                let mut pdf_files: Vec<String> = Vec::new();
-
-                // Process arguments with sanitization
-                for arg in &args[1..] {
-                    let clean_arg = sanitize_path(arg);
-                    debug_msg.push_str(&format!("Processing argument: {} -> {}\n", arg, clean_arg));
-
-                    if clean_arg.to_lowercase().ends_with(".pdf") {
-                        pdf_files.push(clean_arg.clone());
-                        debug_msg.push_str(&format!("Found PDF file: {}\n", clean_arg));
-                    }
+                if cfg!(debug_assertions) {
+                    println!("*** LAUNCHED WITH ARGUMENTS - POTENTIAL FILE ASSOCIATION ***");
                 }
-
-                if !pdf_files.is_empty() {
-                    // Store in global queue
-                    {
-                        let mut pending = PENDING_FILES.lock().unwrap();
-                        for pdf_file in &pdf_files {
-                            pending.push_back(pdf_file.clone());
-                        }
-                        debug_msg.push_str(&format!("Queued {} PDF files\n", pdf_files.len()));
-                    }
-
-                    std::fs::write(log_path, &debug_msg).unwrap_or_default();
-
-                    // Spawn background thread for persistent file loading attempts
-                    thread::spawn(move || {
-                        for attempt in 1..=20 {
-                            // Try for up to 20 attempts (10 seconds)
-                            // Check if file has been processed
-                            {
-                                let processed = FILE_PROCESSED.lock().unwrap();
-                                if *processed {
-                                    println!("File already processed, stopping attempts");
-                                    break;
-                                }
-                            }
-
-                            // Wait longer for first few attempts (frontend initialization)
-                            let delay = if attempt <= 3 {
-                                Duration::from_millis(2000) // 2 seconds for first 3 attempts
-                            } else if attempt <= 8 {
-                                Duration::from_millis(1000) // 1 second for next 5 attempts
-                            } else {
-                                Duration::from_millis(500) // 0.5 seconds for remaining attempts
-                            };
-
-                            thread::sleep(delay);
-
-                            // Try to emit event for each PDF file
-                            for (i, pdf_file) in pdf_files.iter().enumerate() {
-                                let event_name = if i == 0 {
-                                    "file-opened"
-                                } else {
-                                    "additional-file-opened"
-                                };
-
-                                match app_handle.emit(event_name, pdf_file) {
-                                    Ok(_) => {
-                                        println!(
-                                            "Attempt {}: Successfully emitted {} for {}",
-                                            attempt, event_name, pdf_file
-                                        );
-
-                                        // Also emit a generic startup event
-                                        let _ = app_handle.emit("startup-file-ready", pdf_file);
-                                    }
-                                    Err(e) => {
-                                        println!(
-                                            "Attempt {}: Failed to emit event: {:?}",
-                                            attempt, e
-                                        );
-                                    }
-                                }
-                            }
-
-                            // Emit debug info
-                            let _ = app_handle.emit(
-                                "debug-info",
-                                format!("File loading attempt {} of 20", attempt),
-                            );
-                        }
-
-                        println!("File loading attempts completed");
-                    });
-                }
-            } else {
-                app.emit("debug-info", "No command-line arguments provided")
-                    .unwrap_or_default();
+            } else if cfg!(debug_assertions) {
+                println!("*** LAUNCHED WITHOUT ARGUMENTS - NORMAL APP LAUNCH ***");
             }
 
-            // Always emit a debug message
-            app.emit("debug-info", &debug_msg).unwrap_or_default();
+            // Create log file for debugging (only in debug builds)
+            if cfg!(debug_assertions) {
+                let log_path = if cfg!(target_os = "windows") {
+                    "C:\\Windows\\Temp\\leedpdf_debug.txt"
+                } else {
+                    "/tmp/leedpdf_debug.txt"
+                };
+
+                let mut debug_msg = format!("LeedPDF Debug: Found {} args: {:?}\n", args.len(), args);
+                std::fs::write(log_path, &debug_msg).unwrap_or_default();
+
+                if args.len() > 1 {
+                    // Process arguments with sanitization
+                    let mut pdf_files: Vec<String> = Vec::new();
+
+                    for arg in &args[1..] {
+                        let clean_arg = sanitize_path(arg);
+                        debug_msg.push_str(&format!("Processing argument: {} -> {}\n", arg, clean_arg));
+
+                        if clean_arg.to_lowercase().ends_with(".pdf") {
+                            pdf_files.push(clean_arg.clone());
+                            debug_msg.push_str(&format!("Found PDF file: {}\n", clean_arg));
+                        }
+                    }
+
+                    if !pdf_files.is_empty() {
+                        debug_msg.push_str(&format!("Queued {} PDF files\n", pdf_files.len()));
+                        std::fs::write(log_path, &debug_msg).unwrap_or_default();
+                        process_pdf_files(&app.handle(), pdf_files);
+                    }
+                } else {
+                    app.emit("debug-info", "No command-line arguments provided")
+                        .unwrap_or_default();
+                }
+
+                // Always emit a debug message
+                app.emit("debug-info", &debug_msg).unwrap_or_default();
+                
+                println!("=== SETUP COMPLETE ===");
+            } else {
+                // In production, just process files silently
+                if args.len() > 1 {
+                    let mut pdf_files: Vec<String> = Vec::new();
+                    for arg in &args[1..] {
+                        let clean_arg = sanitize_path(arg);
+                        if clean_arg.to_lowercase().ends_with(".pdf") {
+                            pdf_files.push(clean_arg.clone());
+                        }
+                    }
+                    if !pdf_files.is_empty() {
+                        process_pdf_files(&app.handle(), pdf_files);
+                    }
+                }
+            }
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // Log all events for debugging
+            println!("Received event: {:?}", event);
+            
+            match event {
+                // Handle macOS file association events
+                RunEvent::Opened { urls } => {
+                    println!("*** FILE ASSOCIATION EVENT RECEIVED ***");
+                    println!("Received opened event with URLs: {:?}", urls);
+                    
+                    let mut pdf_files: Vec<String> = Vec::new();
+                    for url in urls {
+                        // Convert URL to file path
+                        let url_str = url.to_string();
+                        println!("Processing URL: {}", url_str);
+                        
+                        if url_str.starts_with("file://") {
+                            let path = url_str.replace("file://", "");
+                            let decoded_path = urlencoding::decode(&path).unwrap_or_default();
+                            
+                            println!("Decoded path: {}", decoded_path);
+                            
+                            if decoded_path.to_lowercase().ends_with(".pdf") {
+                                pdf_files.push(decoded_path.to_string());
+                                println!("Found PDF file from opened event: {}", decoded_path);
+                            } else {
+                                println!("Not a PDF file: {}", decoded_path);
+                            }
+                        } else {
+                            println!("Not a file:// URL: {}", url_str);
+                        }
+                    }
+                    
+                    if !pdf_files.is_empty() {
+                        println!("Processing {} PDF files from file association event", pdf_files.len());
+                        process_pdf_files(&app_handle, pdf_files);
+                    } else {
+                        println!("No PDF files found in file association event");
+                    }
+                }
+                
+                // Handle other events for debugging
+                RunEvent::WindowEvent { label, event, .. } => {
+                    println!("Window event for {}: {:?}", label, event);
+                }
+                
+                RunEvent::ExitRequested { api, code, .. } => {
+                    println!("Exit requested with code: {:?}", code);
+                }
+                
+                _ => {
+                    println!("Other event: {:?}", event);
+                }
+            }
+        });
 }

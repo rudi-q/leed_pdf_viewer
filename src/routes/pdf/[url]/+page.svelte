@@ -240,6 +240,7 @@
       debugResults += '\n🔄 Step 5: Reading file...';
       let fileData: Uint8Array;
       try {
+        // Use the correct readFile API - read as binary data
         fileData = await readFile(cleanPath);
         debugResults += `\n✅ Step 5: File read successfully! Size: ${fileData.length} bytes`;
       } catch (readError: unknown) {

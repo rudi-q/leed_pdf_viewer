@@ -41,6 +41,18 @@
         { "path": "$HOME/**", "platform": "macOS" },
         { "path": "C:\\**", "platform": "windows" }
       ]
+    },
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [
+        { "path": "/**", "platform": "macOS" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [
+        { "path": "/**", "platform": "macOS" }
+      ]
     }
   ]
 }

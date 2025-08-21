@@ -47,6 +47,31 @@
   let maxFileLoadingAttempts = 10;
   let fileLoadingTimer: number | null = null;
 
+  // Debug function to test app state
+  async function testAppState() {
+    try {
+      debugResults = 'Testing app state...';
+      const result = await invoke('check_app_state');
+      debugResults = `App State:\n${result}`;
+      console.log('App state result:', result);
+    } catch (error) {
+      debugResults = `Error: ${error}`;
+      console.error('Error testing app state:', error);
+    }
+  }
+
+  // Debug function to test file event
+  async function testFileEvent() {
+    try {
+      debugResults = 'Testing file event...';
+      await invoke('test_file_event', { filePath: '/tmp/test.pdf' });
+      debugResults = 'File event test completed - check terminal for output';
+    } catch (error) {
+      debugResults = `Error: ${error}`;
+      console.error('Error testing file event:', error);
+    }
+  }
+
   // Redirect from /?pdf=URL to /pdf/URL for better URL structure
   $: if (browser && $page && $page.url) {
     const pdfUrl = $page.url.searchParams.get('pdf');
@@ -183,8 +208,10 @@
       debugResults += '\n🔄 Step 5: Reading file...';
       let fileData: Uint8Array;
       try {
-        fileData = await readFile(cleanPath);
-        debugResults += `\n✅ Step 5: File read successfully! Size: ${fileData.length} bytes`;
+        // Try using the Rust command first to avoid glob pattern issues
+        const fileContent = await invoke('read_file_content', { filePath: cleanPath }) as number[];
+        fileData = new Uint8Array(fileContent);
+        debugResults += `\n✅ Step 5: File read successfully via Rust! Size: ${fileData.length} bytes`;
       } catch (readError: unknown) {
         const errorMsg = readError instanceof Error ? readError.message : String(readError);
         debugResults += `\n❌ FAILED at Step 5: File read error: ${errorMsg}`;
@@ -758,6 +785,14 @@
 
     registerDeepLinkHandler();
 
+    // Signal that frontend is ready to receive events
+    if (isTauri) {
+      console.log('Signaling frontend is ready...');
+      invoke('frontend_ready').then(() => {
+        console.log('Frontend ready signal sent');
+      }).catch(console.error);
+    }
+
     console.log('✅ All file loading strategies initialized');
 
     return () => {
@@ -844,8 +879,33 @@
               >
                 Open from URL
               </button>
-
             </div>
+
+                        <!-- Debug Buttons -->
+            {#if isTauri && import.meta.env.DEV}
+              <div class="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
+                <h3 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Debug Tools (Dev Mode)</h3>
+                <div class="flex gap-2">
+                  <button
+                    on:click={testAppState}
+                    class="px-3 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                  >
+                    Test App State
+                  </button>
+                  <button
+                    on:click={testFileEvent}
+                    class="px-3 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+                  >
+                    Test File Event
+                  </button>
+                </div>
+                {#if debugResults !== 'Click button to test...'}
+                  <div class="mt-2 p-2 bg-white dark:bg-gray-700 rounded text-xs overflow-auto max-h-20">
+                    <pre class="whitespace-pre-wrap">{debugResults}</pre>
+                  </div>
+                {/if}
+              </div>
+            {/if}
 
             <!-- DEBUG BUTTON -->
            <!-- <button
