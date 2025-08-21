@@ -63,8 +63,17 @@
         dispatch('validated', { licenseKey: licenseKey.trim(), wasActivation: needsActivation });
         closeModalOnSuccess();
       } else {
-        const baseError = result.error || (needsActivation ? 'License activation failed' : 'Invalid license key');
-        validationError = getErrorMessageWithLinks(baseError);
+        // Use the error message from the backend directly, with fallback
+        validationError = result.error || (needsActivation ? 'License activation failed' : 'Invalid license key');
+        // Only add links for generic errors, not platform-specific ones
+        const isPlatformSpecificError = validationError.includes('not valid for Windows') || 
+                                       validationError.includes('not valid for macOS') ||
+                                       validationError.includes('starts with \'LEEDWIN\'') ||
+                                       validationError.includes('starts with \'LEEDMAC\'');
+        
+        if (!isPlatformSpecificError && !validationError.includes('polar.sh') && !validationError.includes('leed.my')) {
+          validationError = getErrorMessageWithLinks(validationError);
+        }
       }
     } catch (error) {
       console.error('License processing error:', error);

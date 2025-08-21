@@ -43,7 +43,7 @@ export class LicenseManager {
     }
     
     try {
-      const isValid = await invoke<boolean>('activate_license', { license_key: licenseKey });
+      const isValid = await invoke<boolean>('activate_license', { licensekey: licenseKey });
       return { valid: isValid };
     } catch (error) {
       const errorMessage = typeof error === 'string' ? error : 'Failed to activate license key';
@@ -60,7 +60,7 @@ export class LicenseManager {
     }
     
     try {
-      const isValid = await invoke<boolean>('validate_license', { license_key: licenseKey });
+      const isValid = await invoke<boolean>('validate_license', { licensekey: licenseKey });
       return { valid: isValid };
     } catch (error) {
       const errorMessage = typeof error === 'string' ? error : 'Failed to validate license key';
