@@ -47,6 +47,14 @@
   let maxFileLoadingAttempts = 10;
   let fileLoadingTimer: number | null = null;
 
+  // Debug state changes
+  $: console.log('State changed:', { 
+    currentFile: !!currentFile, 
+    showWelcome, 
+    dragOver,
+    fileType: currentFile ? (typeof currentFile === 'string' ? 'string' : 'File') : 'null'
+  });
+
   // Debug function to test app state
   async function testAppState() {
     try {
@@ -108,16 +116,33 @@
       return;
     }
 
-    console.log('Storing file and navigating to pdf-upload route');
+    console.log('Processing PDF file directly on current page');
+    console.log('Before state change - showWelcome:', showWelcome, 'currentFile:', !!currentFile);
     
-    // Use new IndexedDB storage system
-    const result = await storeUploadedFile(file);
-    
-    if (result.success && result.id) {
-      // Navigate with the file ID
-      goto(`/pdf-upload?fileId=${result.id}`);
+    try {
+      // Update state immediately
+      currentFile = file;
+      showWelcome = false;
+      
+      // Set current PDF for auto-save functionality
+      setCurrentPDF(file.name, file.size);
+      
+      console.log('After state change - showWelcome:', showWelcome, 'currentFile:', !!currentFile);
+      
+      // Show success toast
+      toastStore.success('PDF Loaded', `${file.name} has been loaded successfully!`);
+      
+      console.log('PDF loaded successfully:', { 
+        name: file.name, 
+        size: file.size, 
+        currentFile: !!currentFile,
+        showWelcome 
+      });
+      
+    } catch (error) {
+      console.error('Error loading PDF:', error);
+      toastStore.error('Load Error', 'Failed to load the PDF. Please try again.');
     }
-    // Error handling is done in the storage utility via toasts
   }
 
   function isValidPdfUrl(url: string): boolean {
@@ -419,27 +444,65 @@
   }
 
   function handleDrop(event: DragEvent) {
+    console.log('=== DROP EVENT TRIGGERED ===');
     event.preventDefault();
+    event.stopPropagation();
+    
+    // Reset drag state immediately
     dragOver = false;
-
-    if (event.dataTransfer?.files) {
+    
+    if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
+      console.log('Files detected in drop:', event.dataTransfer.files.length);
+      console.log('File details:', {
+        name: event.dataTransfer.files[0]?.name,
+        type: event.dataTransfer.files[0]?.type,
+        size: event.dataTransfer.files[0]?.size
+      });
+      
+      // Process the files
       handleFileUpload(event.dataTransfer.files);
+    } else {
+      console.log('No files in drop event');
+      console.log('DataTransfer types:', event.dataTransfer?.types);
+      console.log('DataTransfer files:', event.dataTransfer?.files);
     }
   }
 
   function handleDragOver(event: DragEvent) {
     event.preventDefault();
-    dragOver = true;
+    event.stopPropagation();
+    
+    // Only set dragOver to true if we have files
+    if (event.dataTransfer?.types.includes('Files')) {
+      if (!dragOver) {
+        console.log('Drag over with files - setting dragOver to true');
+        dragOver = true;
+      }
+    }
+  }
+
+  function handleDragEnter(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Only set dragOver to true if we have files
+    if (event.dataTransfer?.types.includes('Files')) {
+      console.log('Drag enter with files - setting dragOver to true');
+      dragOver = true;
+    }
   }
 
   function handleDragLeave(event: DragEvent) {
-    // Only set dragOver to false if we're actually leaving the main container
-    // Check if the related target is outside the main element
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Check if we're actually leaving the main container
     const mainElement = event.currentTarget as Element;
     const relatedTarget = event.relatedTarget as Element;
     
     // If relatedTarget is null (leaving the window) or not a child of main, we're truly leaving
     if (!relatedTarget || !mainElement.contains(relatedTarget)) {
+      console.log('Drag leave - setting dragOver to false');
       dragOver = false;
     }
   }
@@ -816,8 +879,9 @@
 <main
   class="w-screen h-screen relative overflow-hidden"
   class:drag-over={dragOver}
-  on:drop|nonpassive={handleDrop}
-  on:dragover|nonpassive={handleDragOver}
+  on:drop={handleDrop}
+  on:dragover={handleDragOver}
+  on:dragenter={handleDragEnter}
   on:dragleave={handleDragLeave}
 >
   {#if !focusMode}
@@ -1040,11 +1104,12 @@
   </div>
 
   {#if dragOver}
-    <div class="absolute inset-0 bg-sage/20 backdrop-blur-sm flex items-center justify-center z-40">
-      <div class="text-center">
-        <div class="text-6xl mb-4">📄</div>
+    <div class="absolute inset-0 bg-sage/40 backdrop-blur-sm flex items-center justify-center z-40 transition-all duration-200 ease-out pointer-events-none">
+      <div class="text-center transform scale-105 transition-transform duration-200">
+        <div class="text-6xl mb-4 animate-bounce">📄</div>
         <h3 class="text-2xl font-bold text-charcoal mb-2">Drop your PDF here</h3>
         <p class="text-slate">Release to start drawing</p>
+        <div class="mt-4 text-sm text-sage font-medium">Ready to receive PDF</div>
       </div>
     </div>
   {/if}
