@@ -38,3 +38,19 @@ export const isTauri = detectTauri();
 export function checkIsTauri(): boolean {
   return detectTauri();
 }
+
+export function detectOS(): string {
+	if (typeof window === 'undefined') return 'Unknown';
+
+	const userAgent = window.navigator.userAgent;
+	const platform = window.navigator.platform;
+
+	if (userAgent.includes('Windows') || platform.includes('Win')) {
+		return 'Windows';
+	} else if (userAgent.includes('Mac') || platform.includes('Mac')) {
+		return 'macOS';
+	} else if (userAgent.includes('Linux') || platform.includes('Linux')) {
+		return 'Linux';
+	}
+	return 'Unknown';
+}

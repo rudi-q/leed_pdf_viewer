@@ -20,7 +20,7 @@
   import TemplatePicker from '$lib/components/TemplatePicker.svelte';
   import { toastStore } from '$lib/stores/toastStore';
   import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
-  import { isTauri } from '$lib/utils/tauriUtils';
+  import { detectOS, isTauri } from '$lib/utils/tauriUtils';
 
   let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
@@ -724,8 +724,7 @@
   onMount(() => {
     console.log('[onMount] Component mounted - setting up comprehensive file loading');
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-
-    // Check if download card was dismissed
+    // Check if the download card was dismissed
     if (browser) {
       const dismissed = localStorage.getItem('leedpdf-download-card-dismissed');
       showDownloadCard = dismissed !== 'true';
@@ -988,7 +987,7 @@
     </div>
   {/if}
 
-  {#if !focusMode && browser && !isTauri && showDownloadCard}
+  {#if !focusMode && browser && !isTauri && showDownloadCard && detectOS() === 'Windows'}
     <!-- Optimized Desktop App Download Card -->
     <div class="absolute bottom-16 right-4 w-72 animate-fade-in download-card">
       <div class="floating-panel p-4 group hover:scale-[1.01] transition-all duration-300 hover:shadow-xl">
@@ -1008,7 +1007,7 @@
               Better performance and offline access
             </p>
             <a 
-              href="/downloads" 
+              href="/download-for-windows"
               target="_blank" 
               rel="noopener noreferrer"
               class="inline-flex items-center gap-1.5 text-xs font-medium text-sage hover:text-sage/80 transition-colors group/link"
