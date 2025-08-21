@@ -9,6 +9,7 @@
 	import { licenseManager } from '$lib/utils/licenseManager';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
+	import { AUTO_CLEANUP_INTERVAL } from '$lib/constants';
 
 	// License validation state
 	let showLicenseModal = false;
@@ -25,7 +26,7 @@
 	// Initialize file storage auto-cleanup when app loads
 	if (browser) {
 		onMount(() => {
-			// Start auto-cleanup of old files every 30 minutes
+			// Start auto-cleanup of old files every AUTO_CLEANUP_INTERVAL milliseconds
 			const stopCleanup = fileStorage.startAutoCleanup();
 			
 			// License validation for Tauri desktop app only

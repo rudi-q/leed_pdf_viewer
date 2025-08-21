@@ -6,7 +6,7 @@
   import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
   import { listen } from '@tauri-apps/api/event';
   import { message } from '@tauri-apps/plugin-dialog';
-  import { readFile } from '@tauri-apps/plugin-fs';
+  import { readFile as readFilePlugin } from '@tauri-apps/plugin-fs';
   import { invoke } from '@tauri-apps/api/core';
   import PDFViewer from '$lib/components/PDFViewer.svelte';
   import Toolbar from '$lib/components/Toolbar.svelte';
@@ -15,6 +15,7 @@
   import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
   import { redo, setCurrentPDF, setTool, undo, pdfState, forceSaveAllAnnotations } from '$lib/stores/drawingStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
+  import { MAX_FILE_LOADING_ATTEMPTS } from '$lib/constants';
 
   const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
 
@@ -34,7 +35,7 @@
   // File loading variables
   let hasLoadedFromCommandLine = false;
   let fileLoadingAttempts = 0;
-  let maxFileLoadingAttempts = 10;
+  let maxFileLoadingAttempts = MAX_FILE_LOADING_ATTEMPTS;
   let fileLoadingTimer: number | null = null;
 
   // Extract and decode URL parameter
@@ -236,43 +237,55 @@
       }
       debugResults += '\n✅ Step 4: PDF file check passed';
 
-      // Step 5: Try to read the file
+      // Step 5: Try to read the file using Rust command first, then plugin fallback
       debugResults += '\n🔄 Step 5: Reading file...';
       let fileData: Uint8Array;
       try {
-        // Use the correct readFile API - read as binary data
-        fileData = await readFile(cleanPath);
-        debugResults += `\n✅ Step 5: File read successfully! Size: ${fileData.length} bytes`;
-      } catch (readError: unknown) {
-        const errorMsg = readError instanceof Error ? readError.message : String(readError);
-        debugResults += `\n❌ FAILED at Step 5: File read error: ${errorMsg}`;
+        // First try the Rust command for better security and permissions
+        debugResults += '\n🔄 Trying Rust read_file_content command...';
+        const fileContent = await invoke('read_file_content', { filePath: cleanPath }) as number[];
+        fileData = new Uint8Array(fileContent);
+        debugResults += `\n✅ Step 5: File read successfully via Rust! Size: ${fileData.length} bytes`;
+      } catch (rustError: unknown) {
+        const rustErrorMsg = rustError instanceof Error ? rustError.message : String(rustError);
+        debugResults += `\n⚠️ Rust command failed: ${rustErrorMsg}`;
+        debugResults += '\n🔄 Falling back to plugin-fs readFile...';
+        
+        try {
+          // Fallback to plugin-fs when Rust command fails (e.g., permissions)
+          fileData = await readFilePlugin(cleanPath);
+          debugResults += `\n✅ Step 5: File read successfully via plugin fallback! Size: ${fileData.length} bytes`;
+        } catch (pluginError: unknown) {
+          const pluginErrorMsg = pluginError instanceof Error ? pluginError.message : String(pluginError);
+          debugResults += `\n❌ Plugin fallback also failed: ${pluginErrorMsg}`;
 
-        // Try alternative path formats
-        debugResults += '\n🔄 Trying alternative path formats...';
-        const altPaths = [
-          cleanPath.replace(/\\/g, '/'),
-          cleanPath.replace(/\//g, '\\'),
-          `"${cleanPath}"` // Try with quotes
-        ];
+          // Try alternative path formats with plugin fallback
+          debugResults += '\n🔄 Trying alternative path formats with plugin...';
+          const altPaths = [
+            cleanPath.replace(/\\/g, '/'),
+            cleanPath.replace(/\//g, '\\'),
+            `"${cleanPath}"` // Try with quotes
+          ];
 
-        let success = false;
-        for (const altPath of altPaths) {
-          try {
-            debugResults += `\n🔄 Trying: ${altPath}`;
-            fileData = await readFile(altPath);
-            debugResults += `\n✅ Success with alternative path!`;
-            cleanPath = altPath;
-            success = true;
-            break;
-          } catch (altError: unknown) {
-            const altErrorMsg = altError instanceof Error ? altError.message : String(altError);
-            debugResults += `\n❌ Failed: ${altErrorMsg}`;
+          let success = false;
+          for (const altPath of altPaths) {
+            try {
+              debugResults += `\n🔄 Trying: ${altPath}`;
+              fileData = await readFilePlugin(altPath);
+              debugResults += `\n✅ Success with alternative path!`;
+              cleanPath = altPath;
+              success = true;
+              break;
+            } catch (altError: unknown) {
+              const altErrorMsg = altError instanceof Error ? altError.message : String(altError);
+              debugResults += `\n❌ Failed: ${altErrorMsg}`;
+            }
           }
-        }
 
-        if (!success) {
-          debugResults += '\n❌ FINAL FAILURE: All path formats failed';
-          return false;
+          if (!success) {
+            debugResults += '\n❌ FINAL FAILURE: All path formats failed';
+            return false;
+          }
         }
       }
 

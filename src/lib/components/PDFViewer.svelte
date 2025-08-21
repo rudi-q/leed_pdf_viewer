@@ -53,6 +53,7 @@ import TextOverlay from './TextOverlay.svelte';
 import StickyNoteOverlay from './StickyNoteOverlay.svelte';
 import StampOverlay from './StampOverlay.svelte';
 import ArrowOverlay from './ArrowOverlay.svelte';
+import { TOOLBAR_HEIGHT } from '$lib/constants';
 
   export let pdfFile: File | string | null = null;
 
@@ -272,7 +273,7 @@ import ArrowOverlay from './ArrowOverlay.svelte';
       if (containerDiv) {
         const page = await document.getPage(1);
         const viewport = page.getViewport({ scale: 1 });
-        const containerHeight = containerDiv.clientHeight - 100; // Account for toolbar and page info
+        const containerHeight = containerDiv.clientHeight - TOOLBAR_HEIGHT; // Account for toolbar and page info
         const fitHeightScale = containerHeight / viewport.height;
         
         // Update scale without rendering yet
@@ -762,7 +763,7 @@ function handlePointerUp(event: PointerEvent) {
     try {
       const page = await $pdfState.document.getPage($pdfState.currentPage);
       const viewport = page.getViewport({ scale: 1 });
-      const containerHeight = containerDiv.clientHeight - 100; // Account for toolbar and page info
+      const containerHeight = containerDiv.clientHeight - TOOLBAR_HEIGHT; // Account for toolbar and page info
       const newScale = containerHeight / viewport.height;
       
       panOffset = { x: 0, y: 0 };

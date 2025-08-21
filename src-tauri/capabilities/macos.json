@@ -14,13 +14,20 @@
     {
       "identifier": "fs:allow-read-file",
       "allow": [
-        { "path": "/**" }
+        { "path": "~/Documents/**" },
+        { "path": "~/Desktop/**" },
+        { "path": "~/Downloads/**" },
+        { "path": "~/Pictures/**" },
+        { "path": "~/Music/**" },
+        { "path": "~/Movies/**" }
       ]
     },
     {
       "identifier": "fs:allow-write-file",
       "allow": [
-        { "path": "/**" }
+        { "path": "~/Downloads/**" },
+        { "path": "~/Documents/**" },
+        { "path": "~/Desktop/**" }
       ]
     }
   ]

@@ -6,7 +6,7 @@
   import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
   import { listen } from '@tauri-apps/api/event';
   import { message } from '@tauri-apps/plugin-dialog';
-  import { readFile } from '@tauri-apps/plugin-fs';
+  import { readFile as readFilePlugin } from '@tauri-apps/plugin-fs';
   import { invoke } from '@tauri-apps/api/core';
   import PDFViewer from '$lib/components/PDFViewer.svelte';
   import Toolbar from '$lib/components/Toolbar.svelte';
@@ -20,6 +20,8 @@
   import TemplatePicker from '$lib/components/TemplatePicker.svelte';
   import { toastStore } from '$lib/stores/toastStore';
   import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
+  import { MAX_FILE_LOADING_ATTEMPTS } from '$lib/constants';
+  import DebugPanel from '$lib/components/DebugPanel.svelte';
 
   const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
 
@@ -36,48 +38,22 @@
   let focusMode = false;
   let showTemplatePicker = false;
   let showDownloadCard = true;
-
-  // Debug variables
-  let debugVisible = false;
-  let debugResults = 'Click button to test...';
+  let showDebugPanel = false;
 
   // File loading variables
   let hasLoadedFromCommandLine = false;
   let fileLoadingAttempts = 0;
-  let maxFileLoadingAttempts = 10;
+  let maxFileLoadingAttempts = MAX_FILE_LOADING_ATTEMPTS;
   let fileLoadingTimer: number | null = null;
 
-  // Debug state changes
-  $: console.log('State changed:', { 
-    currentFile: !!currentFile, 
-    showWelcome, 
-    dragOver,
-    fileType: currentFile ? (typeof currentFile === 'string' ? 'string' : 'File') : 'null'
-  });
-
-  // Debug function to test app state
-  async function testAppState() {
-    try {
-      debugResults = 'Testing app state...';
-      const result = await invoke('check_app_state');
-      debugResults = `App State:\n${result}`;
-      console.log('App state result:', result);
-    } catch (error) {
-      debugResults = `Error: ${error}`;
-      console.error('Error testing app state:', error);
-    }
-  }
-
-  // Debug function to test file event
-  async function testFileEvent() {
-    try {
-      debugResults = 'Testing file event...';
-      await invoke('test_file_event', { filePath: '/tmp/test.pdf' });
-      debugResults = 'File event test completed - check terminal for output';
-    } catch (error) {
-      debugResults = `Error: ${error}`;
-      console.error('Error testing file event:', error);
-    }
+  // Debug state changes (development only)
+  $: if (import.meta.env.DEV) {
+    console.log('State changed:', { 
+      currentFile: !!currentFile, 
+      showWelcome, 
+      dragOver,
+      fileType: currentFile ? (typeof currentFile === 'string' ? 'string' : 'File') : 'null'
+    });
   }
 
   // Redirect from /?pdf=URL to /pdf/URL for better URL structure
@@ -197,8 +173,10 @@
   // Replace your handleFileFromCommandLine function with this enhanced debug version
 
   async function handleFileFromCommandLine(filePath: string): Promise<boolean> {
-    console.log('*** HANDLING FILE FROM COMMAND LINE ***');
-    console.log('File path:', filePath);
+    if (import.meta.env.DEV) {
+      console.log('*** HANDLING FILE FROM COMMAND LINE ***');
+      console.log('File path:', filePath);
+    }
 
     // Mark that we've attempted to load from command line
     hasLoadedFromCommandLine = true;
@@ -206,43 +184,40 @@
     try {
       // Step 1: Validate path
       if (!filePath || typeof filePath !== 'string') {
-        debugResults += '\n❌ FAILED: Invalid file path received';
         throw new Error('Invalid file path received');
       }
-      debugResults += '\n✅ Step 1: Path validation passed';
 
       // Step 2: Sanitize path
       let cleanPath = filePath.trim();
       if (cleanPath.startsWith('"') && cleanPath.endsWith('"')) {
         cleanPath = cleanPath.slice(1, -1);
       }
-      debugResults += `\n✅ Step 2: Cleaned path: ${cleanPath}`;
 
       // Step 3: Extract filename
       const fileName = cleanPath.split(/[\\/]/).pop() || 'document.pdf';
-      debugResults += `\n✅ Step 3: Extracted filename: ${fileName}`;
 
       // Step 4: Check if it's a PDF
       if (!fileName.toLowerCase().endsWith('.pdf')) {
-        debugResults += '\n❌ FAILED: Not a PDF file';
         return false;
       }
-      debugResults += '\n✅ Step 4: PDF file check passed';
 
-      // Step 5: Try to read the file (this is probably where it fails)
-      debugResults += '\n🔄 Step 5: Reading file...';
+      // Step 5: Try to read the file
       let fileData: Uint8Array;
       try {
         // Try using the Rust command first to avoid glob pattern issues
-        const fileContent = await invoke('read_file_content', { filePath: cleanPath }) as number[];
+        const fileContent = await invoke('read_file_content', { filePath: cleanPath });
+        
+        // Validate the result before casting
+        if (!Array.isArray(fileContent) || !fileContent.every(x => typeof x === 'number')) {
+          throw new Error(`Invalid response from read_file_content: expected array of numbers, got ${typeof fileContent}`);
+        }
+        
         fileData = new Uint8Array(fileContent);
-        debugResults += `\n✅ Step 5: File read successfully via Rust! Size: ${fileData.length} bytes`;
       } catch (readError: unknown) {
         const errorMsg = readError instanceof Error ? readError.message : String(readError);
-        debugResults += `\n❌ FAILED at Step 5: File read error: ${errorMsg}`;
+        console.error('File read error:', errorMsg);
 
         // Try alternative path formats
-        debugResults += '\n🔄 Trying alternative path formats...';
         const altPaths = [
           cleanPath.replace(/\\/g, '/'),
           cleanPath.replace(/\//g, '\\'),
@@ -252,71 +227,58 @@
         let success = false;
         for (const altPath of altPaths) {
           try {
-            debugResults += `\n🔄 Trying: ${altPath}`;
-            fileData = await readFile(altPath);
-            debugResults += `\n✅ Success with alternative path!`;
+            fileData = await readFilePlugin(altPath);
             cleanPath = altPath;
             success = true;
             break;
           } catch (altError: unknown) {
-            const altErrorMsg = altError instanceof Error ? altError.message : String(altError);
-            debugResults += `\n❌ Failed: ${altErrorMsg}`;
+            console.warn('Alternative path failed:', altPath, altError);
           }
         }
 
         if (!success) {
-          debugResults += '\n❌ FINAL FAILURE: All path formats failed';
+          console.error('All path formats failed');
           return false;
         }
       }
 
       // Step 6: Validate PDF header
-      debugResults += '\n🔄 Step 6: Validating PDF header...';
       const pdfHeader = new Uint8Array(fileData!.slice(0, 4));
       const pdfSignature = String.fromCharCode(...pdfHeader);
       if (pdfSignature !== '%PDF') {
-        debugResults += `\n❌ FAILED: Invalid PDF signature: ${pdfSignature}`;
+        console.error('Invalid PDF signature:', pdfSignature);
         return false;
       }
-      debugResults += '\n✅ Step 6: PDF signature valid';
 
       // Step 7: Create File object
-      debugResults += '\n🔄 Step 7: Creating File object...';
       const file = new File([new Uint8Array(fileData!)], fileName, { type: 'application/pdf' });
-      debugResults += `\n✅ Step 7: File object created - ${file.name}, ${file.size} bytes`;
 
       // Step 8: Size check
       if (file.size > 50 * 1024 * 1024) {
-        debugResults += '\n❌ FAILED: File too large';
+        console.error('File too large:', file.size);
         return false;
       }
-      debugResults += '\n✅ Step 8: Size check passed';
 
-      // Step 9: Set state (this should hide welcome screen and show PDF)
-      debugResults += '\n🔄 Step 9: Setting application state...';
+      // Step 9: Set state
       currentFile = file;
       showWelcome = false;
-      debugResults += '\n✅ Step 9: State updated';
 
       // Step 10: Set PDF for auto-save
-      debugResults += '\n🔄 Step 10: Setting up auto-save...';
       setCurrentPDF(file.name, file.size);
-      debugResults += '\n✅ Step 10: Auto-save configured';
 
       // Step 11: Mark as processed
       try {
         await invoke('mark_file_processed');
-        debugResults += '\n✅ Step 11: Marked as processed in Rust';
       } catch (e) {
-        debugResults += '\n⚠️ Step 11: Could not mark as processed (not critical)';
+        console.warn('Could not mark as processed (not critical)');
       }
 
-      debugResults += '\n🎉 SUCCESS: PDF should now be loading!';
+      console.log('PDF loaded successfully from command line');
       return true;
 
     } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      debugResults += `\n💥 UNEXPECTED ERROR: ${errorMsg}`;
+      console.error('Unexpected error in handleFileFromCommandLine:', errorMsg);
       return false;
     }
   }
@@ -324,43 +286,71 @@
   // Multiple strategies for checking files
   async function checkForPendingFiles() {
     try {
-      console.log('Checking for pending files (strategy 1: command)...');
-      const pendingFile = await invoke('get_pending_file') as string | null;
+      if (import.meta.env.DEV) {
+        console.log('Checking for pending files (strategy 1: command)...');
+      }
+      const pendingFile = await invoke('get_pending_file');
+      
+      // Validate the result before casting
+      if (pendingFile !== null && typeof pendingFile !== 'string') {
+        if (import.meta.env.DEV) {
+          console.error('Invalid response from get_pending_file: expected string or null');
+        }
+        return;
+      }
 
       if (pendingFile) {
-        console.log('Found pending file via command:', pendingFile);
+        if (import.meta.env.DEV) {
+          console.log('Found pending file via command:', pendingFile);
+        }
         const success = await handleFileFromCommandLine(pendingFile);
 
         if (success) {
           // Check for more files
           setTimeout(checkForPendingFiles, 100);
         }
-      } else {
+      } else if (import.meta.env.DEV) {
         console.log('No pending files found via command');
       }
     } catch (error) {
-      console.error('Error checking for pending files:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error checking for pending files:', error);
+      }
     }
   }
 
   async function checkFileAssociations() {
     try {
-      console.log('Checking file associations (strategy 2: direct check)...');
-      const pdfFiles = await invoke('check_file_associations') as string[];
+      if (import.meta.env.DEV) {
+        console.log('Checking file associations (strategy 2: direct check)...');
+      }
+      const pdfFiles = await invoke('check_file_associations');
+      
+      // Validate the result before casting
+      if (!Array.isArray(pdfFiles) || !pdfFiles.every(x => typeof x === 'string')) {
+        if (import.meta.env.DEV) {
+          console.error('Invalid response from check_file_associations: expected array of strings');
+        }
+        return;
+      }
 
-      if (pdfFiles && pdfFiles.length > 0) {
-        console.log('Found PDF files via direct check:', pdfFiles);
+      if (pdfFiles.length > 0) {
+        if (import.meta.env.DEV) {
+          console.log('Found PDF files via direct check:', pdfFiles);
+        }
         for (const pdfFile of pdfFiles) {
           const success = await handleFileFromCommandLine(pdfFile);
           if (success) {
             break; // Only load the first one
           }
         }
-      } else {
+      } else if (import.meta.env.DEV) {
         console.log('No PDF files found via direct check');
       }
     } catch (error) {
-      console.error('Error checking file associations:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error checking file associations:', error);
+      }
     }
   }
 
@@ -813,7 +803,9 @@
 
   // Enhanced onMount with comprehensive file loading
   onMount(() => {
-    console.log('[onMount] Component mounted - setting up comprehensive file loading');
+    if (import.meta.env.DEV) {
+      console.log('[onMount] Component mounted - setting up comprehensive file loading');
+    }
     document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     // Check if download card was dismissed
@@ -823,43 +815,61 @@
     }
 
     // Strategy 1: Immediate checks
-    console.log('Starting immediate file checks...');
+    if (import.meta.env.DEV) {
+      console.log('Starting immediate file checks...');
+    }
     checkForPendingFiles();
     checkFileAssociations();
 
     // Strategy 2: Event listeners
-    console.log('Setting up event listeners...');
+    if (import.meta.env.DEV) {
+      console.log('Setting up event listeners...');
+    }
 
     const unlistenFileOpened = listen('file-opened', (event) => {
-      console.log('*** FILE-OPENED EVENT RECEIVED ***');
-      console.log('Event payload:', event.payload);
+      if (import.meta.env.DEV) {
+        console.log('*** FILE-OPENED EVENT RECEIVED ***');
+        console.log('Event payload:', event.payload);
+      }
       handleFileFromCommandLine(event.payload as string);
     });
 
     const unlistenStartupReady = listen('startup-file-ready', (event) => {
-      console.log('*** STARTUP-FILE-READY EVENT RECEIVED ***');
-      console.log('Event payload:', event.payload);
+      if (import.meta.env.DEV) {
+        console.log('*** STARTUP-FILE-READY EVENT RECEIVED ***');
+        console.log('Event payload:', event.payload);
+      }
       handleFileFromCommandLine(event.payload as string);
     });
 
     const unlistenDebug = listen('debug-info', (event) => {
-      console.log('TAURI DEBUG:', event.payload);
+      if (import.meta.env.DEV) {
+        console.log('TAURI DEBUG:', event.payload);
+      }
     });
 
     registerDeepLinkHandler();
 
     // Signal that frontend is ready to receive events
     if (isTauri) {
-      console.log('Signaling frontend is ready...');
+      if (import.meta.env.DEV) {
+        console.log('Signaling frontend is ready...');
+      }
       invoke('frontend_ready').then(() => {
-        console.log('Frontend ready signal sent');
+        if (import.meta.env.DEV) {
+          console.log('Frontend ready signal sent');
+        }
       }).catch(console.error);
     }
 
-    console.log('✅ All file loading strategies initialized');
+    if (import.meta.env.DEV) {
+      console.log('✅ All file loading strategies initialized');
+    }
 
     return () => {
-      console.log('[onDestroy] Cleaning up file loading systems');
+      if (import.meta.env.DEV) {
+        console.log('[onDestroy] Cleaning up file loading systems');
+      }
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
 
       if (fileLoadingTimer) {
@@ -945,64 +955,6 @@
               </button>
             </div>
 
-                        <!-- Debug Buttons -->
-            {#if isTauri && import.meta.env.DEV}
-              <div class="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
-                <h3 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Debug Tools (Dev Mode)</h3>
-                <div class="flex gap-2">
-                  <button
-                    on:click={testAppState}
-                    class="px-3 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-                  >
-                    Test App State
-                  </button>
-                  <button
-                    on:click={testFileEvent}
-                    class="px-3 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600"
-                  >
-                    Test File Event
-                  </button>
-                </div>
-                {#if debugResults !== 'Click button to test...'}
-                  <div class="mt-2 p-2 bg-white dark:bg-gray-700 rounded text-xs overflow-auto max-h-20">
-                    <pre class="whitespace-pre-wrap">{debugResults}</pre>
-                  </div>
-                {/if}
-              </div>
-            {/if}
-
-            <!-- DEBUG BUTTON -->
-           <!-- <button
-              class="secondary-button text-sm px-4 py-2 bg-yellow-200 border-yellow-400"
-              on:click={async () => {
-                debugVisible = true;
-                debugResults = 'Testing...';
-
-                try {
-                  // Test 1: Check if invoke works
-                  debugResults = 'Step 1: Testing invoke function...';
-
-                  const pdfFiles = await invoke('check_file_associations') as string[];
-                  debugResults = `Step 2: SUCCESS! Found files: ${JSON.stringify(pdfFiles)}`;
-
-                  if (pdfFiles && pdfFiles.length > 0) {
-                    // Test 2: Try to load the file
-                    debugResults += '\nStep 3: Trying to load file...';
-                    await handleFileFromCommandLine(pdfFiles[0]);
-                    debugResults += '\nStep 4: File loading attempted!';
-                  } else {
-                    debugResults += '\nStep 3: No files found to load';
-                  }
-
-                } catch (error: unknown) {
-                  const errorMessage = error instanceof Error ? error.message : String(error);
-                  debugResults = `ERROR: ${errorMessage}`;
-                }
-              }}
-            >
-              🔧 DEBUG: Test File Loading
-            </button>-->
-
             <div class="text-sm text-slate">
               <span>or</span>
             </div>
@@ -1068,20 +1020,6 @@
             <p class="text-lg text-slate dark:text-gray-300 font-medium">
               or drop a file anywhere
             </p>
-
-            <!-- Debug results display -->
-            {#if debugVisible}
-              <div class="mt-4 p-4 bg-gray-100 rounded-lg text-sm max-w-md mx-auto">
-                <h4 class="font-bold mb-2">Debug Results:</h4>
-                <pre class="whitespace-pre-wrap text-xs">{debugResults}</pre>
-                <button
-                  class="mt-2 text-xs px-2 py-1 bg-gray-300 rounded"
-                  on:click={() => debugVisible = false}
-                >
-                  Close
-                </button>
-              </div>
-            {/if}
           </div>
 
         </div>
@@ -1184,11 +1122,24 @@
       <span>?</span>
       <span>Help</span>
     </button>
+
+    <!-- Debug button (only visible in development mode) -->
+    {#if isTauri && import.meta.env.DEV}
+      <button
+        class="absolute bottom-4 left-20 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors flex items-center gap-1 bg-white/80 hover:bg-white/90 dark:bg-gray-800/80 dark:hover:bg-gray-700/90 px-2 py-1 rounded-lg backdrop-blur-sm border border-blue-200 dark:border-blue-700"
+        on:click={() => showDebugPanel = true}
+        title="Open debug panel"
+      >
+        <span>🔧</span>
+        <span>Debug</span>
+      </button>
+    {/if}
   {/if}
 </main>
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => showShortcuts = false} />
 <TemplatePicker bind:isOpen={showTemplatePicker} on:close={() => showTemplatePicker = false} />
+<DebugPanel bind:isVisible={showDebugPanel} />
 
 <!-- Hidden file input -->
 <input

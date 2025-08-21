@@ -11,6 +11,15 @@ use license::{activate_license_key, validate_license_key, get_stored_license, st
 static PENDING_FILES: Mutex<VecDeque<String>> = Mutex::new(VecDeque::new());
 static FILE_PROCESSED: Mutex<bool> = Mutex::new(false);
 
+// Configuration constants
+const MAX_FILE_LOADING_ATTEMPTS: u32 = 30;
+const FRONTEND_READY_WAIT_MS: u64 = 3000;
+const INITIAL_ATTEMPT_DELAY_MS: u64 = 2000;
+const MIDDLE_ATTEMPT_DELAY_MS: u64 = 1000;
+const FINAL_ATTEMPT_DELAY_MS: u64 = 500;
+const INITIAL_ATTEMPT_COUNT: u32 = 5;
+const MIDDLE_ATTEMPT_COUNT: u32 = 15;
+
 // Path sanitization function
 fn sanitize_path(path: &str) -> String {
     let mut clean_path = path.trim().to_string();
@@ -133,8 +142,10 @@ fn test_tauri_detection() -> String {
     "Tauri detection working!".to_string()
 }
 
+#[cfg(debug_assertions)]
 #[tauri::command]
 fn test_file_event(app_handle: tauri::AppHandle, file_path: String) -> Result<(), String> {
+
     println!("Testing file event with path: {}", file_path);
     
     // Test if we can emit events
@@ -169,6 +180,7 @@ fn frontend_ready(app_handle: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(debug_assertions)]
 #[tauri::command]
 fn check_app_state() -> Result<String, String> {
     let args: Vec<String> = std::env::args().collect();
@@ -192,15 +204,69 @@ fn check_app_state() -> Result<String, String> {
 fn read_file_content(file_path: String) -> Result<Vec<u8>, String> {
     println!("Reading file content from: {}", file_path);
     
-    // Read the file content directly from Rust
-    match std::fs::read(&file_path) {
+    // Security: Validate and canonicalize the file path
+    let path = std::path::Path::new(&file_path);
+    
+    // Check if path is absolute and valid
+    if !path.is_absolute() {
+        return Err("File path must be absolute".to_string());
+    }
+    
+    // Canonicalize the path to resolve any symlinks and normalize
+    let canonical_path = match std::fs::canonicalize(path) {
+        Ok(canonical) => canonical,
+        Err(e) => return Err(format!("Failed to canonicalize path: {}", e)),
+    };
+    
+    // Security: Define allowed base directories (user's home directory and common locations)
+    let allowed_bases = [
+        std::env::var("HOME").unwrap_or_default(),
+        std::env::var("USERPROFILE").unwrap_or_default(), // Windows
+        std::env::var("APPDATA").unwrap_or_default(), // Windows
+        std::env::var("LOCALAPPDATA").unwrap_or_default(), // Windows
+    ];
+    
+    // Check if the canonicalized path is under any allowed base directory
+    let mut is_allowed = false;
+    for base in &allowed_bases {
+        if !base.is_empty() {
+            let base_path = std::path::Path::new(base);
+            if canonical_path.starts_with(base_path) {
+                is_allowed = true;
+                break;
+            }
+        }
+    }
+    
+    if !is_allowed {
+        return Err("File path is outside of allowed directories".to_string());
+    }
+    
+    // Security: Check if it's a regular file (not a directory, symlink, etc.)
+    let metadata = match std::fs::metadata(&canonical_path) {
+        Ok(meta) => meta,
+        Err(e) => return Err(format!("Failed to read file metadata: {}", e)),
+    };
+    
+    if !metadata.is_file() {
+        return Err("Path does not point to a regular file".to_string());
+    }
+    
+    // Security: Enforce file size limits (50MB max)
+    const MAX_FILE_SIZE: u64 = 50 * 1024 * 1024; // 50MB
+    if metadata.len() > MAX_FILE_SIZE {
+        return Err(format!("File too large: {} bytes (max: {} bytes)", metadata.len(), MAX_FILE_SIZE));
+    }
+    
+    // Read the file content with the validated canonical path
+    match std::fs::read(&canonical_path) {
         Ok(content) => {
-            println!("Successfully read {} bytes from {}", content.len(), file_path);
+            println!("Successfully read {} bytes from {}", content.len(), canonical_path.display());
             Ok(content)
         }
         Err(e) => {
-            println!("Failed to read file {}: {}", file_path, e);
-            Err(e.to_string())
+            println!("Failed to read file {}: {}", canonical_path.display(), e);
+            Err(format!("Failed to read file: {}", e))
         }
     }
 }
@@ -222,6 +288,30 @@ fn export_file(_app_handle: tauri::AppHandle, content: Vec<u8>, default_filename
     }
 }
 
+#[cfg(debug_assertions)]
+#[tauri::command]
+fn get_default_test_path() -> Result<String, String> {
+    // Return a platform-appropriate default test path
+    let default_path = if cfg!(target_os = "windows") {
+        // Windows: Use temp directory
+        std::env::temp_dir()
+            .join("test.pdf")
+            .to_string_lossy()
+            .to_string()
+    } else if cfg!(target_os = "macos") {
+        // macOS: Use /tmp or user's temp directory
+        std::env::temp_dir()
+            .join("test.pdf")
+            .to_string_lossy()
+            .to_string()
+    } else {
+        // Linux and other Unix-like systems
+        "/tmp/test.pdf".to_string()
+    };
+    
+    Ok(default_path)
+}
+
 // Function to process PDF files and emit events
 fn process_pdf_files(app_handle: &tauri::AppHandle, pdf_files: Vec<String>) {
     if !pdf_files.is_empty() {
@@ -238,9 +328,9 @@ fn process_pdf_files(app_handle: &tauri::AppHandle, pdf_files: Vec<String>) {
         thread::spawn(move || {
             // Wait longer for frontend to be ready (especially for file associations)
             println!("Waiting for frontend to be ready...");
-            thread::sleep(Duration::from_millis(3000)); // Wait 3 seconds for frontend
+            thread::sleep(Duration::from_millis(FRONTEND_READY_WAIT_MS)); // Wait 3 seconds for frontend
             
-            for attempt in 1..=30 { // Increased attempts for file associations
+            for attempt in 1..=MAX_FILE_LOADING_ATTEMPTS { // Increased attempts for file associations
                 // Check if file has been processed
                 {
                     let processed = FILE_PROCESSED.lock().unwrap();
@@ -251,12 +341,12 @@ fn process_pdf_files(app_handle: &tauri::AppHandle, pdf_files: Vec<String>) {
                 }
 
                 // Wait longer for first few attempts (frontend initialization)
-                let delay = if attempt <= 5 {
-                    Duration::from_millis(2000) // 2 seconds for first 5 attempts
-                } else if attempt <= 15 {
-                    Duration::from_millis(1000) // 1 second for next 10 attempts
+                let delay = if attempt <= INITIAL_ATTEMPT_COUNT {
+                    Duration::from_millis(INITIAL_ATTEMPT_DELAY_MS) // 2 seconds for first 5 attempts
+                } else if attempt <= MIDDLE_ATTEMPT_COUNT {
+                    Duration::from_millis(MIDDLE_ATTEMPT_DELAY_MS) // 1 second for next 10 attempts
                 } else {
-                    Duration::from_millis(500) // 0.5 seconds for remaining attempts
+                    Duration::from_millis(FINAL_ATTEMPT_DELAY_MS) // 0.5 seconds for remaining attempts
                 };
 
                 thread::sleep(delay);
@@ -291,7 +381,7 @@ fn process_pdf_files(app_handle: &tauri::AppHandle, pdf_files: Vec<String>) {
                 // Emit debug info
                 let _ = app_handle_clone.emit(
                     "debug-info",
-                    format!("File loading attempt {} of 30", attempt),
+                    format!("File loading attempt {} of {}", attempt, MAX_FILE_LOADING_ATTEMPTS),
                 );
             }
 
@@ -319,11 +409,15 @@ pub fn run() {
             check_license_smart_command,
             exit_app,
             test_tauri_detection,
-            test_file_event,
             frontend_ready,
-            check_app_state,
             read_file_content,
-            export_file
+            export_file,
+            #[cfg(debug_assertions)]
+            test_file_event,
+            #[cfg(debug_assertions)]
+            check_app_state,
+            #[cfg(debug_assertions)]
+            get_default_test_path
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -422,8 +516,10 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            // Log all events for debugging
-            println!("Received event: {:?}", event);
+            // Log all events for debugging (debug builds only)
+            if cfg!(debug_assertions) {
+                println!("Received event: {:?}", event);
+            }
             
             match event {
                 // Handle macOS file association events
