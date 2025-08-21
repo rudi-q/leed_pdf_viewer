@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import { licenseManager } from '$lib/utils/licenseManager';
   import { invoke } from '@tauri-apps/api/core';
+  import { isTauri } from '$lib/utils/tauriUtils';
 
   export let isOpen: boolean = false;
   export let needsActivation: boolean = true; // true = activation, false = validation
@@ -14,7 +15,6 @@
   
   async function closeModal() {
     // For Tauri desktop app, exit the application when license modal is closed without validation
-    const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
     
     if (isTauri) {
       try {
@@ -91,7 +91,6 @@
   
   async function openPolarPortal() {
     const polarUrl = 'https://polar.sh/doublone-studios/portal/';
-    const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
     
     if (isTauri) {
       try {
@@ -125,7 +124,6 @@
   
   async function openPurchaseLink() {
     const purchaseUrl = getPurchaseUrl();
-    const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
     
     if (isTauri) {
       try {

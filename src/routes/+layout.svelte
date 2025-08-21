@@ -9,6 +9,7 @@
 	import { licenseManager } from '$lib/utils/licenseManager';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
+	import { isTauri } from '$lib/utils/tauriUtils';
 
 	// License validation state
 	let showLicenseModal = false;
@@ -18,9 +19,6 @@
 
 	// Reference to UpdateManager component
 	let updateManager: UpdateManager;
-
-	// Check if we're running in Tauri desktop environment (same method as UpdateManager)
-	const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
 
 	// Initialize file storage auto-cleanup when app loads
 	if (browser) {
@@ -71,7 +69,11 @@
 	// Handle successful license processing (activation or validation)
 	function handleLicenseValidated(event: CustomEvent<{ licenseKey: string; wasActivation: boolean }>) {
 		const { licenseKey, wasActivation } = event.detail;
-		console.log(`License ${wasActivation ? 'activated' : 'validated'} successfully:`, licenseKey);
+		// Log success without exposing the raw license key
+		const maskedKey = licenseKey.length > 4 ? 
+			'*'.repeat(licenseKey.length - 4) + licenseKey.slice(-4) : 
+			'*'.repeat(licenseKey.length);
+		console.log(`License ${wasActivation ? 'activation' : 'validation'} successful - Key: ${maskedKey}`);
 		showLicenseModal = false;
 		licenseCheckCompleted = true;
 		hasValidLicense = true;

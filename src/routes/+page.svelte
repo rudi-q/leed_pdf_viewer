@@ -20,8 +20,7 @@
   import TemplatePicker from '$lib/components/TemplatePicker.svelte';
   import { toastStore } from '$lib/stores/toastStore';
   import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
-
-  const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
+  import { isTauri } from '$lib/utils/tauriUtils';
 
   let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;

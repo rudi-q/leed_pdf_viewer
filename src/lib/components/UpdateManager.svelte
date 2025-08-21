@@ -3,12 +3,10 @@
   import { browser } from '$app/environment';
   import { dev } from '$app/environment';
   import { updateStore } from '$lib/stores/updateStore';
+  import { isTauri } from '$lib/utils/tauriUtils';
   
   // Props
   export let disableAutoCheck = false;
-  
-  // Check if we're in Tauri environment
-  const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
   
   // Disable updater in development mode
   const enableUpdater = !dev && isTauri;

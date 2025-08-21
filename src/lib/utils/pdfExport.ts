@@ -1,5 +1,6 @@
 import { PDFDocument } from 'pdf-lib';
 import { invoke } from '@tauri-apps/api/core';
+import { isTauri } from './tauriUtils';
 
 export interface ExportOptions {
 	includeOriginalPDF: boolean;
@@ -102,22 +103,9 @@ export class PDFExporter {
 		return images;
 	}
 
-	// Check if running in Tauri environment (same method as navigationUtils)
-	static isTauri(): boolean {
-		if (typeof window === 'undefined') return false;
-		
-		// Check for various Tauri-specific globals
-		return !!(
-			(window as any).__TAURI__ ||
-			(window as any).__TAURI_INTERNALS__ ||
-			(window as any).__TAURI_IPC__ ||
-			(window as any).__TAURI_EVENT_PLUGIN_INTERNALS__
-		);
-	}
-
 	// Enhanced export method that uses Tauri backend when available
 	static async exportFile(data: Uint8Array | Blob, defaultFilename: string, mimeType: string): Promise<boolean> {
-		if (PDFExporter.isTauri()) {
+		if (isTauri) {
 			return await PDFExporter.exportWithTauri(data, defaultFilename, mimeType);
 		} else {
 			PDFExporter.downloadFile(data, defaultFilename, mimeType);
