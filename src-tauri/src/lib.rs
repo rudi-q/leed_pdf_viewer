@@ -7,6 +7,9 @@ use tauri::{Emitter, RunEvent};
 mod license;
 use license::{activate_license_key, validate_license_key, get_stored_license, store_license, store_activated_license, remove_stored_license, check_license_smart};
 
+mod license;
+use license::{activate_license_key, validate_license_key, get_stored_license, store_license, store_activated_license, remove_stored_license, check_license_smart};
+
 // Global state to store pending file paths
 static PENDING_FILES: Mutex<VecDeque<String>> = Mutex::new(VecDeque::new());
 static FILE_PROCESSED: Mutex<bool> = Mutex::new(false);
@@ -91,24 +94,24 @@ fn open_external_url(url: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn activate_license(app_handle: tauri::AppHandle, license_key: String) -> Result<bool, String> {
-    let is_valid = activate_license_key(&license_key).await?;
+async fn activate_license(app_handle: tauri::AppHandle, licensekey: String) -> Result<bool, String> {
+    let is_valid = activate_license_key(&licensekey).await?;
     
     if is_valid {
         // Store the activated license
-        store_activated_license(&app_handle, &license_key)?;
+        store_activated_license(&app_handle, &licensekey)?;
     }
     
     Ok(is_valid)
 }
 
 #[tauri::command]
-async fn validate_license(app_handle: tauri::AppHandle, license_key: String) -> Result<bool, String> {
-    let is_valid = validate_license_key(&license_key).await?;
+async fn validate_license(app_handle: tauri::AppHandle, licensekey: String) -> Result<bool, String> {
+    let is_valid = validate_license_key(&licensekey).await?;
     
     if is_valid {
         // Update the validation timestamp for existing license
-        store_license(&app_handle, &license_key)?;
+        store_license(&app_handle, &licensekey)?;
     }
     
     Ok(is_valid)

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Calendar, Download, ExternalLink, Tag } from 'lucide-svelte';
+  import { detectOS } from '$lib/utils/tauriUtils';
 
 	interface Asset {
     name: string;
@@ -75,22 +76,6 @@
       return 'Linux App';
     }
     return 'Download';
-  }
-
-  function detectOS(): string {
-    if (typeof window === 'undefined') return 'Unknown';
-    
-    const userAgent = window.navigator.userAgent;
-    const platform = window.navigator.platform;
-    
-    if (userAgent.includes('Windows') || platform.includes('Win')) {
-      return 'Windows';
-    } else if (userAgent.includes('Mac') || platform.includes('Mac')) {
-      return 'macOS';
-    } else if (userAgent.includes('Linux') || platform.includes('Linux')) {
-      return 'Linux';
-    }
-    return 'Unknown';
   }
 
   function getOSIcon(os: string): string {

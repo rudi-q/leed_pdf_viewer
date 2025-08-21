@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { isTauri } from './tauriUtils';
 
 export interface LicenseValidationResult {
   valid: boolean;
@@ -17,17 +18,10 @@ export class LicenseManager {
   }
   
   /**
-   * Check if we're running in Tauri desktop environment (same method as UpdateManager)
-   */
-  private isTauri(): boolean {
-    return typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
-  }
-  
-  /**
    * Get stored license key from the backend
    */
   async getStoredLicenseKey(): Promise<string | null> {
-    if (!this.isTauri()) {
+    if (!isTauri) {
       return null;
     }
     
@@ -44,12 +38,12 @@ export class LicenseManager {
    * Activate a license key for this device (first time setup)
    */
   async activateLicense(licenseKey: string): Promise<LicenseValidationResult> {
-    if (!this.isTauri()) {
+    if (!isTauri) {
       return { valid: true }; // Web version doesn't need license activation
     }
     
     try {
-      const isValid = await invoke<boolean>('activate_license', { licenseKey });
+      const isValid = await invoke<boolean>('activate_license', { licensekey: licenseKey });
       return { valid: isValid };
     } catch (error) {
       const errorMessage = typeof error === 'string' ? error : 'Failed to activate license key';
@@ -61,12 +55,12 @@ export class LicenseManager {
    * Validate an already-activated license key with the Polar API
    */
   async validateLicense(licenseKey: string): Promise<LicenseValidationResult> {
-    if (!this.isTauri()) {
+    if (!isTauri) {
       return { valid: true }; // Web version doesn't need license validation
     }
     
     try {
-      const isValid = await invoke<boolean>('validate_license', { licenseKey });
+      const isValid = await invoke<boolean>('validate_license', { licensekey: licenseKey });
       return { valid: isValid };
     } catch (error) {
       const errorMessage = typeof error === 'string' ? error : 'Failed to validate license key';
@@ -78,7 +72,7 @@ export class LicenseManager {
    * Clear stored license key
    */
   async clearLicense(): Promise<void> {
-    if (!this.isTauri()) {
+    if (!isTauri) {
       return;
     }
     
@@ -93,7 +87,7 @@ export class LicenseManager {
    * Check if license needs activation (no license file) or validation (existing license)
    */
   async checkLicenseStatus(): Promise<LicenseValidationResult & { needsActivation?: boolean }> {
-    if (!this.isTauri()) {
+    if (!isTauri) {
       return { valid: true }; // Web version doesn't need license validation
     }
     
@@ -108,7 +102,8 @@ export class LicenseManager {
     // Has stored license - perform smart validation
     // Avoid multiple simultaneous validations
     if (this.validationPromise) {
-      return this.validationPromise;
+      const result = await this.validationPromise;
+      return { ...result, needsActivation: false };
     }
     
     this.validationPromise = this.performLicenseCheck();
