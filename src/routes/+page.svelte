@@ -821,8 +821,8 @@
             <img src="/logo-dark.png" alt="LeedPDF" class="w-24 h-24 mx-auto hidden dark:block object-contain" />
           </div>
 
-          <h1 class="text-4xl text-charcoal dark:text-gray-100 mb-4" style="font-family: 'Dancing Script', cursive; font-weight: 600;">LeedPDF - Free PDF Annotation Tool</h1>
-          <h2 class="text-lg text-slate dark:text-gray-300 mb-6 font-normal">
+          <h1 class="text-xl sm:text-2xl md:text-3xl lg:text-4xl text-charcoal dark:text-gray-100 mb-4 text-center leading-tight px-2" style="font-family: 'Dancing Script', cursive; font-weight: 600;">LeedPDF - Free PDF Annotation Tool</h1>
+          <h2 class="text-lg text-slate dark:text-gray-300 mb-6 font-normal hidden md:block">
             Add drawings and notes to any PDF. <br />
             <i>Works with mouse, touch, or stylus - completely free and private.</i>
           </h2>
@@ -830,14 +830,14 @@
           <div class="space-y-4 flex flex-col items-center">
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
               <button
-                class="primary-button text-lg px-6 py-4 w-56 h-16 flex items-center justify-center"
+                class="primary-button text-base sm:text-lg px-4 sm:px-6 py-3 sm:py-4 w-48 sm:w-56 h-14 sm:h-16 flex items-center justify-center"
                 on:click={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
               >
                 Choose PDF File
               </button>
 
               <button
-                class="secondary-button text-lg px-6 py-4 w-56 h-16 flex items-center justify-center"
+                class="secondary-button text-base sm:text-lg px-4 sm:px-6 py-3 sm:py-4 w-48 sm:w-56 h-14 sm:h-16 flex items-center justify-center"
                 on:click={handleViewFromLink}
               >
                 Open from URL
@@ -882,9 +882,9 @@
             </div>
 
             {#if !showUrlInput}
-            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <div class="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-4 justify-center px-2 py-1">
               <button
-                class="secondary-button text-lg px-6 py-4 w-56 h-16 flex items-center justify-center"
+                class="secondary-button text-sm sm:text-lg px-3 sm:px-6 py-2 sm:py-4 w-28 sm:w-52 h-10 sm:h-16 flex items-center justify-center text-center flex-shrink-0 transform-gpu"
                 on:click={handleCreateBlankPDF}
                 title="Create a blank PDF page to start drawing and taking notes"
               >
@@ -892,14 +892,14 @@
               </button>
 
               <button
-                class="secondary-button text-lg px-6 py-4 w-56 h-16 flex items-center justify-center text-center"
+                class="secondary-button text-sm sm:text-lg px-3 sm:px-6 py-2 sm:py-4 w-28 sm:w-52 h-10 sm:h-16 flex items-center justify-center text-center flex-shrink-0 transform-gpu"
                 on:click={() => showTemplatePicker = true}
               >
                 Browse Templates
               </button>
 
               <button
-                class="secondary-button text-lg px-6 py-4 w-56 h-16 flex items-center justify-center text-center"
+                class="secondary-button text-sm sm:text-lg px-3 sm:px-6 py-2 sm:py-4 w-28 sm:w-52 h-10 sm:h-16 flex items-center justify-center text-center flex-shrink-0 transform-gpu"
                 on:click={handleSearchLinkClick}
                 aria-label="Search PDFs"
               >
@@ -919,13 +919,13 @@
                 </div>
                 <div class="flex gap-2 justify-center">
                   <button
-                    class="primary-button px-6 py-2"
+                    class="primary-button px-4 sm:px-6 py-2 text-sm sm:text-base"
                     on:click={handleUrlSubmit}
                   >
                     Load PDF
                   </button>
                   <button
-                    class="secondary-button px-6 py-2"
+                    class="secondary-button px-4 sm:px-6 py-2 text-sm sm:text-base"
                     on:click={handleUrlCancel}
                   >
                     Cancel
@@ -939,7 +939,7 @@
               </div>
             {/if}
 
-            <p class="text-lg text-slate dark:text-gray-300 font-medium">
+            <p class="text-base sm:text-lg text-slate dark:text-gray-300 font-medium hidden sm:block">
               or drop a file anywhere
             </p>
 

@@ -312,3 +312,133 @@ Available options:
 **Built with ❤️ for the open web**
 
 *Privacy-focused • Lightweight • No tracking • No accounts • No servers*
+
+# LeedPDF - Draw on PDFs
+
+A modern, open-source PDF annotation tool that runs entirely in your browser. Draw, annotate, and collaborate without uploading your documents to external servers.
+
+## ✨ Features
+
+- **🎨 Drawing Tools**: Pencil, eraser, text, arrows, highlights, sticky notes, and stamps
+- **📱 Responsive Design**: Optimized for desktop, tablet, and mobile devices
+- **🔒 Privacy First**: All processing happens locally in your browser
+- **📄 Multiple Formats**: Support for various PDF types and sizes
+- **🎯 Smart Tools**: Intelligent eraser that only removes drawings
+- **💾 Auto-save**: Your annotations are automatically saved
+- **🌙 Dark Mode**: Comfortable viewing in any lighting condition
+- **⌨️ Keyboard Shortcuts**: Power-user features for efficiency
+
+## 🚀 Responsive Toolbar
+
+LeedPDF features a responsive toolbar system that automatically adapts to different screen sizes:
+
+- **Desktop (lg+ screens)**: Single top toolbar with organized sections:
+  - **Left**: Logo, file operations, page navigation, zoom controls, reset/fit options
+  - **Center**: All drawing tools (pen, eraser, text, arrows, highlights, stamps)
+  - **Right**: Current tool indicator, delete changes, light/dark mode toggle, undo/redo, search, download
+- **Mobile/Tablet (below lg)**: 
+  - **Top toolbar**: Essential features (logo, undo/redo, search, download) + 3-dot menu for secondary features
+  - **Bottom toolbar**: All drawing tools with 44px touch targets for accessibility
+- **Landing Page**: Responsive button layout that adapts to screen width with intelligent wrapping
+
+This design ensures optimal usability across all device sizes while maintaining easy access to essential features.
+
+## 🛠️ Getting Started
+
+### Prerequisites
+
+- Node.js 18+ 
+- pnpm (recommended) or npm
+
+### Installation
+
+```bash
+git clone https://github.com/rudi-q/leedpdf.git
+cd leedpdf
+pnpm install
+```
+
+### Development
+
+```bash
+pnpm dev
+```
+
+Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+### Building
+
+```bash
+pnpm build
+pnpm preview
+```
+
+## 🧪 Testing
+
+```bash
+# Unit tests
+pnpm test
+
+# E2E tests
+pnpm test:e2e
+
+# Run specific test file
+pnpm test:e2e -- toolbar-responsive.spec.ts
+```
+
+## 📱 Mobile Experience
+
+- **Touch Optimized**: All drawing tools work seamlessly with touch input
+- **Responsive Layout**: Toolbars automatically adapt to screen size
+- **Landscape Mode**: Recommended for best mobile experience
+- **Focus Mode**: Press F key to hide UI elements for distraction-free annotation
+
+## 🎨 Drawing Tools
+
+- **Pencil (1)**: Freehand drawing with customizable colors and line widths
+- **Eraser (2)**: Smart eraser that only removes drawings, preserves PDF content
+- **Text (3)**: Add text annotations with custom fonts and colors
+- **Arrow (4)**: Draw directional arrows for better communication
+- **Highlighter (8)**: Highlight important sections with semi-transparent colors
+- **Sticky Note (9)**: Add contextual notes and comments
+- **Stamps**: Pre-made stamps and custom sticker support
+
+## ⌨️ Keyboard Shortcuts
+
+- **1-9**: Quick tool selection
+- **F**: Toggle focus mode
+- **T**: Toggle page thumbnails
+- **Ctrl+Z**: Undo
+- **Ctrl+Y**: Redo
+- **Ctrl+S**: Save annotations
+- **+/-**: Zoom in/out
+- **0**: Reset zoom
+
+## 🌐 Browser Support
+
+- Chrome/Edge (recommended)
+- Firefox
+- Safari
+- Mobile browsers (iOS Safari, Chrome Mobile)
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## 🐛 Issues
+
+Found a bug? Please report it in the [GitHub issues](https://github.com/rudi-q/leedpdf/issues).
+
+## 📞 Support
+
+- **GitHub**: [rudi-q/leedpdf](https://github.com/rudi-q/leedpdf)
+- **Website**: [leed.my](https://leed.my)
+- **Documentation**: [docs/](docs/)
+
+---
+
+Made with ❤️ by [Rudi K](https://github.com/rudi-q)

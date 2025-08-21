@@ -785,7 +785,7 @@
     {/if}
 
     {#if !focusMode}
-      <div class="absolute bottom-4 right-4 text-xs text-charcoal/60 dark:text-gray-300 flex items-center gap-2">
+      <div class="absolute bottom-4 right-4 text-xs text-charcoal/60 dark:text-gray-300 flex items-center gap-2 hidden lg:flex">
         <span>Made by Rudi K</span>
         <a aria-label="Credit" href="https://github.com/rudi-q/leed_pdf_viewer" class="text-charcoal/60 dark:text-gray-300 hover:text-sage dark:hover:text-sage transition-colors" target="_blank" rel="noopener" title="View on GitHub">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -795,7 +795,7 @@
       </div>
 
       <button
-        class="absolute bottom-4 left-4 text-xs text-charcoal/60 dark:text-gray-300 hover:text-charcoal dark:hover:text-white transition-colors flex items-center gap-1 bg-white/50 hover:bg-white/80 px-2 py-1 rounded-lg backdrop-blur-sm"
+        class="absolute bottom-4 left-4 text-xs text-charcoal/60 dark:text-gray-300 hover:text-charcoal dark:hover:text-white transition-colors flex items-center gap-1 bg-white/50 hover:bg-white/80 px-2 py-1 rounded-lg backdrop-blur-sm hidden lg:flex"
         on:click={() => showShortcuts = true}
         title="Show keyboard shortcuts (? or F1)"
       >

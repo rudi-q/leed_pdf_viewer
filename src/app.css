@@ -69,7 +69,7 @@
   
   .smooth-button {
     @apply px-4 py-2 rounded-xl font-medium transition-all duration-200;
-    @apply hover:scale-105 active:scale-95 focus:outline-none;
+    @apply focus:outline-none;
   }
   
   .primary-button {
@@ -81,10 +81,11 @@
   .secondary-button {
     @apply smooth-button bg-white/70 dark:bg-gray-800/70 text-charcoal dark:text-gray-200 hover:bg-white/90 dark:hover:bg-gray-700/90;
     @apply border border-charcoal/10 dark:border-gray-600/20;
+    @apply hover:scale-[1.02] active:scale-[0.98];
   }
 }
 
-/* Scrollbar styling for that clean look */
+/* Responsive toolbar improvements */
 @layer utilities {
   .hide-scrollbar {
     -ms-overflow-style: none;
@@ -97,5 +98,117 @@
   
   .glass-effect {
     @apply bg-white/30 dark:bg-gray-800/30 backdrop-blur-md border border-white/20 dark:border-gray-700/20;
+  }
+  
+  /* Mobile-first responsive design */
+  @media (max-width: 1023px) {
+    .toolbar-top .floating-panel {
+      @apply !py-1 !px-2;
+    }
+    
+    .toolbar-bottom .floating-panel {
+      @apply !py-2 !px-2;
+    }
+    
+    .toolbar-bottom .tool-button {
+      @apply p-1.5;
+    }
+    
+    /* Enhanced horizontal scrolling for mobile toolbar */
+    .toolbar-bottom .floating-panel {
+      @apply overflow-x-auto overflow-y-hidden;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(139, 148, 116, 0.5) transparent;
+    }
+    
+    .toolbar-bottom .floating-panel::-webkit-scrollbar {
+      height: 4px;
+    }
+    
+    .toolbar-bottom .floating-panel::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    .toolbar-bottom .floating-panel::-webkit-scrollbar-thumb {
+      background: rgba(139, 148, 116, 0.5);
+      border-radius: 2px;
+    }
+    
+    .toolbar-bottom .floating-panel::-webkit-scrollbar-thumb:hover {
+      background: rgba(139, 148, 116, 0.7);
+    }
+    
+    /* Ensure dropdowns don't get cut off on mobile */
+    .toolbar-bottom .floating-panel {
+      @apply max-h-[80vh];
+    }
+    
+    /* Smooth scrolling for better UX */
+    .toolbar-bottom .floating-panel {
+      scroll-behavior: smooth;
+    }
+    
+    /* Smooth fade indicators */
+    .toolbar-bottom .floating-panel > div[class*="bg-gradient"] {
+      transition: opacity 0.3s ease;
+    }
+  }
+  
+  /* Ensure all dropdowns are properly positioned and don't affect toolbar layout */
+  .stamp-palette-container,
+  .color-palette-container,
+  .line-width-container,
+  .eraser-size-container {
+    @apply relative;
+  }
+  
+  /* Dropdown positioning for both toolbars */
+  .stamp-palette-container .absolute,
+  .color-palette-container .absolute,
+  .line-width-container .absolute,
+  .eraser-size-container .absolute {
+    @apply z-50;
+  }
+  
+  @media (max-width: 767px) {
+    .toolbar-top {
+      @apply left-2 right-2;
+    }
+    
+    .toolbar-bottom {
+      @apply left-2 right-2 bottom-2;
+    }
+    
+    .toolbar-top .floating-panel {
+      @apply !py-1 !px-2;
+    }
+    
+    .toolbar-bottom .floating-panel {
+      @apply !py-1.5 !px-2;
+    }
+    
+    /* Ensure minimum touch target size on mobile */
+    .toolbar-bottom .tool-button {
+      @apply min-w-[44px] min-h-[44px];
+    }
+  }
+  
+  @media (max-width: 639px) {
+    .toolbar-top .floating-panel {
+      @apply !py-1 !px-1;
+    }
+    
+    .toolbar-bottom .floating-panel {
+      @apply !py-1 !px-1;
+    }
+    
+    .toolbar-bottom .tool-button {
+      @apply p-1;
+    }
+    
+    /* Compact spacing for very small screens */
+    .toolbar-bottom .space-x-2 > * + * {
+      @apply ml-1;
+    }
   }
 }
