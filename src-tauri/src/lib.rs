@@ -7,9 +7,6 @@ use tauri::{Emitter, RunEvent};
 mod license;
 use license::{activate_license_key, validate_license_key, get_stored_license, store_license, store_activated_license, remove_stored_license, check_license_smart};
 
-mod license;
-use license::{activate_license_key, validate_license_key, get_stored_license, store_license, store_activated_license, remove_stored_license, check_license_smart};
-
 // Global state to store pending file paths
 static PENDING_FILES: Mutex<VecDeque<String>> = Mutex::new(VecDeque::new());
 static FILE_PROCESSED: Mutex<bool> = Mutex::new(false);
@@ -566,7 +563,7 @@ pub fn run() {
                     println!("Window event for {}: {:?}", label, event);
                 }
                 
-                RunEvent::ExitRequested { api, code, .. } => {
+                RunEvent::ExitRequested {  code, .. } => {
                     println!("Exit requested with code: {:?}", code);
                 }
                 
