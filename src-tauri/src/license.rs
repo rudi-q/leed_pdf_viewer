@@ -89,7 +89,7 @@ pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
             return Err("Invalid license key format. Please ensure your license key starts with 'LEEDWIN' or 'LEEDMAC'.".to_string());
         }
     }
-    
+
     let client = reqwest::Client::new();
     let device_id = get_device_id()?;
     
@@ -187,6 +187,7 @@ pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
     if !response.status().is_success() {
         // 5xx or other unexpected status codes are server/network errors
         return Err("License server is temporarily unavailable. Please try again later.".to_string());
+
     }
 
     let validation_response: LicenseValidationResponse = response
@@ -200,6 +201,7 @@ pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
     } else {
         // Non-"granted" status means invalid license, not a network error
         Err(format!("License validation was rejected. Status: {}. Your license may be expired or invalid.", validation_response.status))
+
     }
 }
 

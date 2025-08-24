@@ -4,6 +4,12 @@
  */
 
 import { toastStore } from '$lib/stores/toastStore';
+import { 
+  MAX_FILE_SIZE, 
+  WARNING_FILE_SIZE, 
+  SESSION_MAX_FILE_SIZE, 
+  MAX_STORAGE_TIME 
+} from '$lib/constants';
 
 export interface StoredFileData {
   id: string;
@@ -32,13 +38,13 @@ class FileStorageManager {
   private storeName = 'tempFiles';
   private db: IDBDatabase | null = null;
 
-  // File size limits
-  private readonly MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
-  private readonly WARNING_FILE_SIZE = 15 * 1024 * 1024; // 15MB
-  private readonly MAX_STORAGE_TIME = 2 * 60 * 60 * 1000; // 2 hours
+  // File size limits - now using constants
+  private readonly MAX_FILE_SIZE = MAX_FILE_SIZE;
+  private readonly WARNING_FILE_SIZE = WARNING_FILE_SIZE;
+  private readonly MAX_STORAGE_TIME = MAX_STORAGE_TIME;
   
   // SessionStorage fallback limits
-  private readonly SESSION_MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB for sessionStorage fallback
+  private readonly SESSION_MAX_FILE_SIZE = SESSION_MAX_FILE_SIZE;
 
   /**
    * Initialize the IndexedDB database

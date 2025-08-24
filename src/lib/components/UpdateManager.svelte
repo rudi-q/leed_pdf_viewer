@@ -7,7 +7,6 @@
   
   // Props
   export let disableAutoCheck = false;
-  
   // Disable updater in development mode
   const enableUpdater = !dev && isTauri;
 

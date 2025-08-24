@@ -1,0 +1,34 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "macos-capability",
+  "platforms": [
+    "macOS"
+  ],
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "fs:allow-read-file",
+    "fs:allow-write-file",
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [
+        { "path": "~/Documents/**" },
+        { "path": "~/Desktop/**" },
+        { "path": "~/Downloads/**" },
+        { "path": "~/Pictures/**" },
+        { "path": "~/Music/**" },
+        { "path": "~/Movies/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [
+        { "path": "~/Downloads/**" },
+        { "path": "~/Documents/**" },
+        { "path": "~/Desktop/**" }
+      ]
+    }
+  ]
+}
