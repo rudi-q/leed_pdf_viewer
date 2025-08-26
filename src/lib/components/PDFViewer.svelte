@@ -1,27 +1,33 @@
 <script lang="ts">
-  import { onDestroy, onMount, tick } from 'svelte';
-  import {
-    addDrawingPath,
-    arrowAnnotations,
-    currentPageArrowAnnotations,
-    currentPagePaths,
-    currentPageStampAnnotations,
-    currentPageStickyNotes,
-    currentPageTextAnnotations,
-    type DrawingPath,
-    drawingPaths,
-    drawingState,
-    getStampById,
-    pdfState,
-    type Point,
-    stampAnnotations,
-    stickyNoteAnnotations,
-    textAnnotations
-  } from '../stores/drawingStore';
-  import { PDFManager } from '../utils/pdfUtils';
-  import { DrawingEngine } from '../utils/drawingUtils';
+	import { onDestroy, onMount, tick } from 'svelte';
+	import {
+		addDrawingPath,
+		arrowAnnotations,
+		currentPageArrowAnnotations,
+		currentPagePaths,
+		currentPageStampAnnotations,
+		currentPageStickyNotes,
+		currentPageTextAnnotations,
+		type DrawingPath,
+		drawingPaths,
+		drawingState,
+		getStampById,
+		pdfState,
+		type Point,
+		stampAnnotations,
+		stickyNoteAnnotations,
+		textAnnotations
+	} from '../stores/drawingStore';
+	import { PDFManager } from '../utils/pdfUtils';
+	import { DrawingEngine } from '../utils/drawingUtils';
+	import { toastStore } from '../stores/toastStore';
+	import TextOverlay from './TextOverlay.svelte';
+	import StickyNoteOverlay from './StickyNoteOverlay.svelte';
+	import StampOverlay from './StampOverlay.svelte';
+	import ArrowOverlay from './ArrowOverlay.svelte';
+	import { TOOLBAR_HEIGHT } from '$lib/constants';
 
-  // Helper function to convert SVG string to image
+	// Helper function to convert SVG string to image
   async function svgToImage(svgString: string, width: number, height: number): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -49,12 +55,8 @@
       img.src = url;
     });
   }
-import TextOverlay from './TextOverlay.svelte';
-import StickyNoteOverlay from './StickyNoteOverlay.svelte';
-import StampOverlay from './StampOverlay.svelte';
-import ArrowOverlay from './ArrowOverlay.svelte';
 
-  export let pdfFile: File | string | null = null;
+	export let pdfFile: File | string | null = null;
 
   let pdfCanvas: HTMLCanvasElement;
   let drawingCanvas: HTMLCanvasElement;
@@ -272,7 +274,7 @@ import ArrowOverlay from './ArrowOverlay.svelte';
       if (containerDiv) {
         const page = await document.getPage(1);
         const viewport = page.getViewport({ scale: 1 });
-        const containerHeight = containerDiv.clientHeight - 100; // Account for toolbar and page info
+        const containerHeight = containerDiv.clientHeight - TOOLBAR_HEIGHT; // Account for toolbar and page info
         const fitHeightScale = containerHeight / viewport.height;
         
         // Update scale without rendering yet
@@ -299,7 +301,7 @@ import ArrowOverlay from './ArrowOverlay.svelte';
       pdfState.update(state => ({ ...state, isLoading: false }));
       // Reset the tracking to allow retry
       lastLoadedFile = null;
-      alert(`Failed to load PDF: ${(error as Error).message}`);
+      toastStore.error('PDF Loading Failed', (error as Error).message);
     }
   }
 
@@ -762,7 +764,7 @@ function handlePointerUp(event: PointerEvent) {
     try {
       const page = await $pdfState.document.getPage($pdfState.currentPage);
       const viewport = page.getViewport({ scale: 1 });
-      const containerHeight = containerDiv.clientHeight - 100; // Account for toolbar and page info
+      const containerHeight = containerDiv.clientHeight - TOOLBAR_HEIGHT; // Account for toolbar and page info
       const newScale = containerHeight / viewport.height;
       
       panOffset = { x: 0, y: 0 };
@@ -1788,7 +1790,6 @@ function handlePointerUp(event: PointerEvent) {
       <div class="text-center">
         <div class="text-6xl mb-4">📄</div>
         <h3 class="text-xl font-medium text-charcoal mb-2">Drop a PDF here or click to browse</h3>
-        <p class="text-xs text-slate mt-2">Debug: Loading={$pdfState.isLoading}, Document={!!$pdfState.document}, Pages={$pdfState.totalPages}</p>
       </div>
     </div>
   {/if}

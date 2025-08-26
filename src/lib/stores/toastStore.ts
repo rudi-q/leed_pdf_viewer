@@ -21,7 +21,7 @@ const createToastStore = () => {
 			...toast
 		};
 
-		update(toasts => [...toasts, newToast]);
+		update((toasts) => [...toasts, newToast]);
 
 		// Auto-remove toast after duration
 		if (newToast.duration && newToast.duration > 0) {
@@ -34,7 +34,7 @@ const createToastStore = () => {
 	};
 
 	const removeToast = (id: string) => {
-		update(toasts => toasts.filter(t => t.id !== id));
+		update((toasts) => toasts.filter((t) => t.id !== id));
 	};
 
 	const clearAll = () => {

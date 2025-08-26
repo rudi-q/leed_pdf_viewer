@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { toastStore } from '$lib/stores/toastStore';
-  import Toast from './Toast.svelte';
+	import { toastStore } from '$lib/stores/toastStore';
+	import Toast from './Toast.svelte';
 </script>
 
 <!-- Toast Container - Fixed position at top right -->

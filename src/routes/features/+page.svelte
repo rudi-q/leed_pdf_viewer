@@ -1,7 +1,7 @@
 <script lang="ts">
-  import SEOHead from '$lib/components/SEOHead.svelte';
-  
-  const seoData = {
+	import SEOHead from '$lib/components/SEOHead.svelte';
+
+	const seoData = {
     title: 'LeedPDF Features - PDF Annotation Tools & Capabilities',
     description: 'Discover all LeedPDF features: draw, annotate, highlight, add text, shapes, and notes to PDFs. Works on any device with mouse, touch, or stylus input.',
     keywords: 'PDF features, PDF annotation tools, draw on PDF, PDF markup tools, PDF editor features, digital annotation',
