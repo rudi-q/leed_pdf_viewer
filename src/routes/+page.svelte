@@ -388,7 +388,7 @@
 
     if (!isValidPdfUrl(url)) {
       console.log('Invalid PDF URL');
-      alert('Invalid PDF URL. Please provide a valid web address.');
+      toastStore.error('Invalid URL', 'Invalid PDF URL. Please provide a valid web address.');
       return;
     }
 
@@ -654,7 +654,7 @@
 
   async function handleExportPDF() {
     if (!currentFile || !pdfViewer) {
-      alert('No PDF to export');
+      toastStore.warning('No PDF', 'No PDF to export');
       return;
     }
 
@@ -711,7 +711,7 @@
       }
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Export failed. Please try again.');
+      toastStore.error('Export Failed', 'Export failed. Please try again.');
     }
   }
 

@@ -176,13 +176,13 @@
 
     if (!isValidPDFFile(file)) {
       console.log('Invalid PDF file');
-      alert('Please choose a valid PDF file.');
+      toastStore.error('Invalid File', 'Please choose a valid PDF file.');
       return;
     }
 
     if (file.size > MAX_FILE_SIZE) { // 50MB limit
       console.log('File too large');
-      alert('File too large. Please choose a file under 50MB.');
+      toastStore.error('File Too Large', 'File too large. Please choose a file under 50MB.');
       return;
     }
 
@@ -417,7 +417,7 @@
 
     if (!isValidPdfUrl(url)) {
       console.log('Invalid PDF URL');
-      alert('Invalid PDF URL. Please provide a valid web address.');
+      toastStore.error('Invalid URL', 'Invalid PDF URL. Please provide a valid web address.');
       return;
     }
 
@@ -645,7 +645,7 @@
 
   async function handleExportPDF() {
     if (!currentFile || !pdfViewer) {
-      alert('No PDF to export');
+      toastStore.warning('No PDF', 'No PDF to export');
       return;
     }
 
@@ -713,7 +713,7 @@
       }
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Export failed. Please try again.');
+      toastStore.error('Export Failed', 'Export failed. Please try again.');
     }
   }
 

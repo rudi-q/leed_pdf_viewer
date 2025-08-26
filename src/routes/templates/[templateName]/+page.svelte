@@ -13,6 +13,7 @@
 	import PageThumbnails from '$lib/components/PageThumbnails.svelte';
 	import { isValidPDFFile } from '$lib/utils/pdfUtils';
 	import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
+	import { toastStore } from '$lib/stores/toastStore';
 	import { PDFExporter } from '$lib/utils/pdfExport';
 	import { MAX_FILE_SIZE } from '$lib/constants';
 
@@ -115,13 +116,13 @@
 
     if (!isValidPDFFile(file)) {
       console.log('Invalid PDF file');
-      alert('Please choose a valid PDF file.');
+      toastStore.error('Invalid File', 'Please choose a valid PDF file.');
       return;
     }
 
     if (file.size > MAX_FILE_SIZE) { // 50MB limit
       console.log('File too large');
-      alert('File too large. Please choose a file under 50MB.');
+      toastStore.error('File Too Large', 'File too large. Please choose a file under 50MB.');
       return;
     }
 
@@ -509,7 +510,7 @@
       }
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Export failed. Please try again.');
+      toastStore.error('Export Failed', 'Export failed. Please try again.');
     }
   }
 

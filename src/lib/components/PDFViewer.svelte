@@ -20,6 +20,7 @@
 	} from '../stores/drawingStore';
 	import { PDFManager } from '../utils/pdfUtils';
 	import { DrawingEngine } from '../utils/drawingUtils';
+	import { toastStore } from '../stores/toastStore';
 	import TextOverlay from './TextOverlay.svelte';
 	import StickyNoteOverlay from './StickyNoteOverlay.svelte';
 	import StampOverlay from './StampOverlay.svelte';
@@ -300,7 +301,7 @@
       pdfState.update(state => ({ ...state, isLoading: false }));
       // Reset the tracking to allow retry
       lastLoadedFile = null;
-      alert(`Failed to load PDF: ${(error as Error).message}`);
+      toastStore.error('PDF Loading Failed', (error as Error).message);
     }
   }
 
