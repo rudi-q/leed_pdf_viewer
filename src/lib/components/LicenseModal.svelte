@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import { licenseManager } from '$lib/utils/licenseManager';
   import { invoke } from '@tauri-apps/api/core';
+  import { isTauri } from '$lib/utils/tauriUtils';
 
   export let isOpen: boolean = false;
   export let needsActivation: boolean = true; // true = activation, false = validation
@@ -14,7 +15,6 @@
   
   async function closeModal() {
     // For Tauri desktop app, exit the application when license modal is closed without validation
-    const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
     
     if (isTauri) {
       try {
@@ -63,13 +63,22 @@
         dispatch('validated', { licenseKey: licenseKey.trim(), wasActivation: needsActivation });
         closeModalOnSuccess();
       } else {
-        const baseError = result.error || (needsActivation ? 'License activation failed' : 'Invalid license key');
-        validationError = `${baseError}. You can find your license key on your Polar portal: https://polar.sh/doublone-studios/portal/`;
+        // Use the error message from the backend directly, with fallback
+        validationError = result.error || (needsActivation ? 'License activation failed' : 'Invalid license key');
+        // Only add links for generic errors, not platform-specific ones
+        const isPlatformSpecificError = validationError.includes('not valid for Windows') || 
+                                       validationError.includes('not valid for macOS') ||
+                                       validationError.includes('starts with \'LEEDWIN\'') ||
+                                       validationError.includes('starts with \'LEEDMAC\'');
+        
+        if (!isPlatformSpecificError && !validationError.includes('polar.sh') && !validationError.includes('leed.my')) {
+          validationError = getErrorMessageWithLinks(validationError);
+        }
       }
     } catch (error) {
       console.error('License processing error:', error);
       const baseError = typeof error === 'string' ? error : (needsActivation ? 'Failed to activate license key' : 'Failed to validate license key');
-      validationError = `${baseError}. You can find your license key on your Polar portal: https://polar.sh/doublone-studios/portal/`;
+      validationError = getErrorMessageWithLinks(baseError);
     } finally {
       isProcessing = false;
     }
@@ -91,7 +100,6 @@
   
   async function openPolarPortal() {
     const polarUrl = 'https://polar.sh/doublone-studios/portal/';
-    const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
     
     if (isTauri) {
       try {
@@ -112,6 +120,44 @@
       // In web environment, open in new tab
       window.open(polarUrl, '_blank', 'noopener,noreferrer');
     }
+  }
+  
+  function getPurchaseUrl(): string {
+    const userAgent = navigator.userAgent.toLowerCase();
+    if (userAgent.includes('mac') || userAgent.includes('darwin')) {
+      return 'https://leed.my/download-for-mac';
+    } else {
+      return 'https://leed.my/download-for-windows';
+    }
+  }
+  
+  async function openPurchaseLink() {
+    const purchaseUrl = getPurchaseUrl();
+    
+    if (isTauri) {
+      try {
+        // Use Tauri's custom command to open external URL
+        await invoke('open_external_url', { url: purchaseUrl });
+      } catch (error) {
+        console.error('Failed to open purchase link with Tauri command:', error);
+        
+        // Fallback: try shell plugin
+        try {
+          const { open } = await import('@tauri-apps/plugin-shell');
+          await open(purchaseUrl);
+        } catch (shellError) {
+          console.error('Failed to open purchase link with shell plugin:', shellError);
+        }
+      }
+    } else {
+      // In web environment, open in new tab
+      window.open(purchaseUrl, '_blank', 'noopener,noreferrer');
+    }
+  }
+  
+  function getErrorMessageWithLinks(baseError: string): string {
+    const purchaseUrl = getPurchaseUrl();
+    return `${baseError}. You can find your license key on your Polar portal: https://polar.sh/doublone-studios/portal/ or purchase one from ${purchaseUrl}`;
   }
 </script>
 
@@ -157,6 +203,13 @@
           class="text-sage hover:text-sage/80 underline transition-colors cursor-pointer bg-transparent border-none p-0 font-inherit"
         >
           your Polar portal
+        </button>. If you don't have a license key, you can purchase one from 
+        <button 
+          type="button"
+          on:click={() => openPurchaseLink()}
+          class="text-sage hover:text-sage/80 underline transition-colors cursor-pointer bg-transparent border-none p-0 font-inherit"
+        >
+          here
         </button>.
       </p>
       

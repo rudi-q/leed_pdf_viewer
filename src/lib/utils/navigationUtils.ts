@@ -1,20 +1,8 @@
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
+import { isTauri } from './tauriUtils';
 
-// Check if running in Tauri environment
-function detectTauri(): boolean {
-  if (typeof window === 'undefined') return false;
-  
-  // Check for various Tauri-specific globals
-  return !!(
-    (window as any).__TAURI__ ||
-    (window as any).__TAURI_INTERNALS__ ||
-    (window as any).__TAURI_IPC__ ||
-    (window as any).__TAURI_EVENT_PLUGIN_INTERNALS__
-  );
-}
-
-export const isTauri = detectTauri();
+// Tauri detection is now imported from shared utility
 
 // Dynamic import for Tauri invoke to avoid issues when not in Tauri
 async function invokeCommand(command: string, payload?: any): Promise<any> {

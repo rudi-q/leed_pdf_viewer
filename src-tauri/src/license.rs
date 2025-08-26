@@ -50,8 +50,46 @@ pub fn get_device_id() -> Result<String, String> {
     machine_uid::get().map_err(|e| format!("Failed to get device ID: {}", e))
 }
 
+/// Validate license key prefix for current platform
+fn is_valid_license_key_prefix(license_key: &str) -> bool {
+    // TODO: Remove LEEDUMMY support after merging to main - this is for testing only
+    if license_key.starts_with("LEEDUMMY") {
+        return true; // LEEDUMMY works on all platforms for testing
+    }
+    
+    #[cfg(target_os = "windows")]
+    {
+        license_key.starts_with("LEEDWIN")
+    }
+    #[cfg(target_os = "macos")]
+    {
+        license_key.starts_with("LEEDMAC")
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        // For other platforms, accept both prefixes or add specific logic
+        license_key.starts_with("LEEDWIN") || license_key.starts_with("LEEDMAC")
+    }
+}
+
 /// Activate a license key for this device (first time setup)
 pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
+    // Validate license key pattern based on platform
+    if !is_valid_license_key_prefix(license_key) {
+        #[cfg(target_os = "windows")]
+        {
+            return Err("This license key is not valid for Windows. Please ensure you have a Windows license key that starts with 'LEEDWIN'.".to_string());
+        }
+        #[cfg(target_os = "macos")]
+        {
+            return Err("This license key is not valid for macOS. Please ensure you have a Mac license key that starts with 'LEEDMAC'.".to_string());
+        }
+        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        {
+            return Err("Invalid license key format. Please ensure your license key starts with 'LEEDWIN' or 'LEEDMAC'.".to_string());
+        }
+    }
+    
     let client = reqwest::Client::new();
     let device_id = get_device_id()?;
     
@@ -68,25 +106,57 @@ pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
         .await
         .map_err(|e| format!("Network error: {}", e))?;
 
+    // Handle HTTP status codes properly
+    if response.status().is_client_error() {
+        // 4xx errors indicate client issues (invalid license, already activated, etc.)
+        let status_code = response.status().as_u16();
+        return match status_code {
+            400 => Err("Invalid license key format or request. Please check your license key.".to_string()),
+            401 => Err("License key authentication failed. Please verify your license key is correct.".to_string()),
+            403 => Err("This license key cannot be activated. It may be expired, already used on too many devices, or invalid.".to_string()),
+            404 => Err("License key not found. Please check that you've entered the correct license key.".to_string()),
+            409 => Err("This license key has already been activated on this device or has reached its device limit.".to_string()),
+            _ => Err(format!("License activation failed with error code {}. Please contact support if this persists.", status_code)),
+        };
+    }
+    
     if !response.status().is_success() {
-        return Err(format!("API returned status: {}", response.status()));
+        // 5xx or other unexpected status codes are server/network errors
+        return Err("License server is temporarily unavailable. Please try again later.".to_string());
     }
 
     let activation_response: LicenseActivationResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_err(|e| format!("Failed to parse server response: {}", e))?;
 
     // Check if status is "granted" for successful activation
     if activation_response.license_key.status == "granted" {
         Ok(true)
     } else {
-        Err(format!("License key activation failed. Status: {}", activation_response.license_key.status))
+        // Non-"granted" status means invalid license, not a network error
+        Err(format!("License activation was rejected. Status: {}. Please verify your license key is valid and not expired.", activation_response.license_key.status))
     }
 }
 
 /// Validate an already-activated license key
 pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
+    // Validate license key pattern based on platform
+    if !is_valid_license_key_prefix(license_key) {
+        #[cfg(target_os = "windows")]
+        {
+            return Err("This license key is not valid for Windows. Please ensure you have a Windows license key that starts with 'LEEDWIN'.".to_string());
+        }
+        #[cfg(target_os = "macos")]
+        {
+            return Err("This license key is not valid for macOS. Please ensure you have a Mac license key that starts with 'LEEDMAC'.".to_string());
+        }
+        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        {
+            return Err("Invalid license key format. Please ensure your license key starts with 'LEEDWIN' or 'LEEDMAC'.".to_string());
+        }
+    }
+    
     let client = reqwest::Client::new();
     
     let request_body = LicenseValidationRequest {
@@ -101,20 +171,35 @@ pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
         .await
         .map_err(|e| format!("Network error: {}", e))?;
 
+    // Handle HTTP status codes properly
+    if response.status().is_client_error() {
+        // 4xx errors indicate client issues (invalid license, expired, etc.)
+        let status_code = response.status().as_u16();
+        return match status_code {
+            400 => Err("Invalid license key format. Please check your license key.".to_string()),
+            401 => Err("License key authentication failed. Please verify your license key is correct.".to_string()),
+            403 => Err("This license key is not valid or has expired. Please check your license status.".to_string()),
+            404 => Err("License key not found. Please check that you've entered the correct license key.".to_string()),
+            _ => Err(format!("License validation failed with error code {}. Please contact support if this persists.", status_code)),
+        };
+    }
+    
     if !response.status().is_success() {
-        return Err(format!("API returned status: {}", response.status()));
+        // 5xx or other unexpected status codes are server/network errors
+        return Err("License server is temporarily unavailable. Please try again later.".to_string());
     }
 
     let validation_response: LicenseValidationResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_err(|e| format!("Failed to parse server response: {}", e))?;
 
     // Check if status is "granted" for valid license
     if validation_response.status == "granted" {
         Ok(true)
     } else {
-        Err(format!("License key is not valid. Status: {}", validation_response.status))
+        // Non-"granted" status means invalid license, not a network error
+        Err(format!("License validation was rejected. Status: {}. Your license may be expired or invalid.", validation_response.status))
     }
 }
 

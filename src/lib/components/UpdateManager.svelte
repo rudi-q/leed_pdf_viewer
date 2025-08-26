@@ -3,12 +3,10 @@
   import { browser } from '$app/environment';
   import { dev } from '$app/environment';
   import { updateStore } from '$lib/stores/updateStore';
+  import { isTauri } from '$lib/utils/tauriUtils';
   
   // Props
   export let disableAutoCheck = false;
-  
-  // Check if we're in Tauri environment
-  const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
   
   // Disable updater in development mode
   const enableUpdater = !dev && isTauri;
@@ -45,7 +43,6 @@
       }
     } catch (error) {
       console.error('Error checking for updates:', error);
-      updateStore.setDownloading(false);
       
       // Check if this is a network connectivity issue
       const errorString = error?.toString() || '';
@@ -58,12 +55,15 @@
       
       if (isNetworkError) {
         console.log('Update check skipped - no internet connection');
-        updateStore.setChecking(false);
         // Don't show error notification for network issues - just log and continue
       } else {
         // Only show error for non-network related issues
         updateStore.setError(`Failed to check for updates: ${error}`);
       }
+    } finally {
+      // Always reset both flags regardless of success/failure
+      updateStore.setChecking(false);
+      updateStore.setDownloading(false);
     }
   }
 
