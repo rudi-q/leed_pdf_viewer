@@ -1,7 +1,7 @@
 <script lang="ts">
-  import SEOHead from '$lib/components/SEOHead.svelte';
-  
-  const seoData = {
+	import SEOHead from '$lib/components/SEOHead.svelte';
+
+	const seoData = {
     title: 'LeedPDF Use Cases - Perfect for Students, Professionals & Researchers',
     description: 'Discover how students, professionals, researchers, and teams use LeedPDF for PDF annotation, review, collaboration, and digital note-taking.',
     keywords: 'PDF use cases, student PDF tools, professional PDF annotation, research PDF markup, team collaboration, digital note-taking',

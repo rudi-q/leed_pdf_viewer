@@ -7,7 +7,7 @@ export const GET: RequestHandler = async () => {
 	if (data.mac) {
 		throw redirect(302, data.mac);
 	}
-	
+
 	// If no Mac link found
 	return json({ error: 'Mac download link not found' }, { status: 404 });
 };

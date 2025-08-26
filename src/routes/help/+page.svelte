@@ -1,7 +1,7 @@
 <script lang="ts">
-  import SEOHead from '$lib/components/SEOHead.svelte';
-  
-  const seoData = {
+	import SEOHead from '$lib/components/SEOHead.svelte';
+
+	const seoData = {
     title: 'LeedPDF Help & Documentation - Complete User Guide',
     description: 'Complete help documentation for LeedPDF. Learn how to annotate PDFs, use drawing tools, keyboard shortcuts, and advanced features.',
     keywords: 'LeedPDF help, PDF annotation guide, drawing tools tutorial, keyboard shortcuts, PDF editor documentation',

@@ -1,14 +1,7 @@
 import { derived, writable } from 'svelte/store';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-export type DrawingTool =
-	| 'pencil'
-	| 'eraser'
-	| 'text'
-	| 'arrow'
-	| 'highlight'
-	| 'note'
-	| 'stamp';
+export type DrawingTool = 'pencil' | 'eraser' | 'text' | 'arrow' | 'highlight' | 'note' | 'stamp';
 
 export interface DrawingState {
 	tool: DrawingTool;
@@ -48,7 +41,6 @@ export interface DrawingPath {
 	highlightOpacity?: number;
 	viewerScale?: number; // Store the viewer scale when the path was drawn
 }
-
 
 // Text annotation interface (custom text solution)
 export interface TextAnnotation {
@@ -348,7 +340,6 @@ const loadDrawingsForCurrentPDF = () => {
 	}
 };
 
-
 // Load text annotations for current PDF
 const loadTextAnnotationsForCurrentPDF = () => {
 	if (!currentPDFKey || typeof window === 'undefined') return;
@@ -408,7 +399,9 @@ const loadStampAnnotationsForCurrentPDF = () => {
 	if (!currentPDFKey || typeof window === 'undefined') return;
 
 	try {
-		const savedStampAnnotations = localStorage.getItem(`${STORAGE_KEY_STAMP_ANNOTATIONS}_${currentPDFKey}`);
+		const savedStampAnnotations = localStorage.getItem(
+			`${STORAGE_KEY_STAMP_ANNOTATIONS}_${currentPDFKey}`
+		);
 		if (savedStampAnnotations) {
 			const parsedStampAnnotations = JSON.parse(savedStampAnnotations);
 			const stampAnnotationsMap = new Map();
@@ -435,7 +428,9 @@ const loadArrowAnnotationsForCurrentPDF = () => {
 	if (!currentPDFKey || typeof window === 'undefined') return;
 
 	try {
-		const savedArrowAnnotations = localStorage.getItem(`${STORAGE_KEY_ARROW_ANNOTATIONS}_${currentPDFKey}`);
+		const savedArrowAnnotations = localStorage.getItem(
+			`${STORAGE_KEY_ARROW_ANNOTATIONS}_${currentPDFKey}`
+		);
 		if (savedArrowAnnotations) {
 			const parsedArrowAnnotations = JSON.parse(savedArrowAnnotations);
 			const arrowAnnotationsMap = new Map();
@@ -497,7 +492,6 @@ if (typeof window !== 'undefined') {
 	});
 }
 
-
 // Save text annotations to localStorage whenever they change (PDF-specific)
 if (typeof window !== 'undefined') {
 	textAnnotations.subscribe((texts) => {
@@ -534,7 +528,10 @@ if (typeof window !== 'undefined') {
 				}
 			});
 
-			localStorage.setItem(`${STORAGE_KEY_STICKY_NOTES}_${currentPDFKey}`, JSON.stringify(notesObject));
+			localStorage.setItem(
+				`${STORAGE_KEY_STICKY_NOTES}_${currentPDFKey}`,
+				JSON.stringify(notesObject)
+			);
 			console.log(`Auto-saved sticky notes for PDF ${currentPDFKey}`);
 		} catch (error) {
 			console.error('Error saving sticky notes to localStorage:', error);
@@ -556,7 +553,10 @@ if (typeof window !== 'undefined') {
 				}
 			});
 
-			localStorage.setItem(`${STORAGE_KEY_STAMP_ANNOTATIONS}_${currentPDFKey}`, JSON.stringify(stampsObject));
+			localStorage.setItem(
+				`${STORAGE_KEY_STAMP_ANNOTATIONS}_${currentPDFKey}`,
+				JSON.stringify(stampsObject)
+			);
 			console.log(`Auto-saved stamp annotations for PDF ${currentPDFKey}`);
 		} catch (error) {
 			console.error('Error saving stamp annotations to localStorage:', error);
@@ -578,7 +578,10 @@ if (typeof window !== 'undefined') {
 				}
 			});
 
-			localStorage.setItem(`${STORAGE_KEY_ARROW_ANNOTATIONS}_${currentPDFKey}`, JSON.stringify(arrowsObject));
+			localStorage.setItem(
+				`${STORAGE_KEY_ARROW_ANNOTATIONS}_${currentPDFKey}`,
+				JSON.stringify(arrowsObject)
+			);
 			console.log(`Auto-saved arrow annotations for PDF ${currentPDFKey}`);
 		} catch (error) {
 			console.error('Error saving arrow annotations to localStorage:', error);
@@ -710,7 +713,6 @@ export const addDrawingPath = (path: DrawingPath) => {
 	});
 };
 
-
 export const clearCurrentPageDrawings = () => {
 	pdfState.subscribe((state) => {
 		if (state.currentPage > 0) {
@@ -819,9 +821,12 @@ export const deleteTextAnnotation = (annotationId: string, pageNumber: number) =
 };
 
 // Derived store for current page text annotations
-export const currentPageTextAnnotations = derived([textAnnotations, pdfState], ([$textAnnotations, $pdfState]) => {
-	return $textAnnotations.get($pdfState.currentPage) || [];
-});
+export const currentPageTextAnnotations = derived(
+	[textAnnotations, pdfState],
+	([$textAnnotations, $pdfState]) => {
+		return $textAnnotations.get($pdfState.currentPage) || [];
+	}
+);
 
 // Sticky note annotation management functions
 export const addStickyNoteAnnotation = (annotation: StickyNoteAnnotation) => {
@@ -854,9 +859,12 @@ export const deleteStickyNoteAnnotation = (annotationId: string, pageNumber: num
 };
 
 // Derived store for current page sticky note annotations
-export const currentPageStickyNotes = derived([stickyNoteAnnotations, pdfState], ([$stickyNoteAnnotations, $pdfState]) => {
-	return $stickyNoteAnnotations.get($pdfState.currentPage) || [];
-});
+export const currentPageStickyNotes = derived(
+	[stickyNoteAnnotations, pdfState],
+	([$stickyNoteAnnotations, $pdfState]) => {
+		return $stickyNoteAnnotations.get($pdfState.currentPage) || [];
+	}
+);
 
 // Stamp annotation management functions
 export const addStampAnnotation = (annotation: StampAnnotation) => {
@@ -889,9 +897,12 @@ export const deleteStampAnnotation = (annotationId: string, pageNumber: number) 
 };
 
 // Derived store for current page stamp annotations
-export const currentPageStampAnnotations = derived([stampAnnotations, pdfState], ([$stampAnnotations, $pdfState]) => {
-	return $stampAnnotations.get($pdfState.currentPage) || [];
-});
+export const currentPageStampAnnotations = derived(
+	[stampAnnotations, pdfState],
+	([$stampAnnotations, $pdfState]) => {
+		return $stampAnnotations.get($pdfState.currentPage) || [];
+	}
+);
 
 // Arrow annotation management functions
 export const addArrowAnnotation = (annotation: ArrowAnnotation) => {
@@ -962,7 +973,10 @@ export const forceSaveAllAnnotations = (): void => {
 					notesObject[pageNum.toString()] = noteList;
 				}
 			});
-			localStorage.setItem(`${STORAGE_KEY_STICKY_NOTES}_${currentPDFKey}`, JSON.stringify(notesObject));
+			localStorage.setItem(
+				`${STORAGE_KEY_STICKY_NOTES}_${currentPDFKey}`,
+				JSON.stringify(notesObject)
+			);
 		})();
 
 		// Force save stamp annotations
@@ -973,7 +987,10 @@ export const forceSaveAllAnnotations = (): void => {
 					stampsObject[pageNum.toString()] = stampList;
 				}
 			});
-			localStorage.setItem(`${STORAGE_KEY_STAMP_ANNOTATIONS}_${currentPDFKey}`, JSON.stringify(stampsObject));
+			localStorage.setItem(
+				`${STORAGE_KEY_STAMP_ANNOTATIONS}_${currentPDFKey}`,
+				JSON.stringify(stampsObject)
+			);
 		})();
 
 		// Force save arrow annotations
@@ -984,7 +1001,10 @@ export const forceSaveAllAnnotations = (): void => {
 					arrowsObject[pageNum.toString()] = arrowList;
 				}
 			});
-			localStorage.setItem(`${STORAGE_KEY_ARROW_ANNOTATIONS}_${currentPDFKey}`, JSON.stringify(arrowsObject));
+			localStorage.setItem(
+				`${STORAGE_KEY_ARROW_ANNOTATIONS}_${currentPDFKey}`,
+				JSON.stringify(arrowsObject)
+			);
 		})();
 
 		console.log(`Force saved all annotations for PDF ${currentPDFKey}`);
@@ -994,6 +1014,9 @@ export const forceSaveAllAnnotations = (): void => {
 };
 
 // Derived store for current page arrow annotations
-export const currentPageArrowAnnotations = derived([arrowAnnotations, pdfState], ([$arrowAnnotations, $pdfState]) => {
-	return $arrowAnnotations.get($pdfState.currentPage) || [];
-});
+export const currentPageArrowAnnotations = derived(
+	[arrowAnnotations, pdfState],
+	([$arrowAnnotations, $pdfState]) => {
+		return $arrowAnnotations.get($pdfState.currentPage) || [];
+	}
+);

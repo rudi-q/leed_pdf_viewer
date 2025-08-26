@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import { licenseManager } from '$lib/utils/licenseManager';
-  import { invoke } from '@tauri-apps/api/core';
-  import { isTauri } from '$lib/utils/tauriUtils';
+	import { createEventDispatcher, onMount } from 'svelte';
+	import { licenseManager } from '$lib/utils/licenseManager';
+	import { invoke } from '@tauri-apps/api/core';
+	import { isTauri } from '$lib/utils/tauriUtils';
 
-  export let isOpen: boolean = false;
+	export let isOpen: boolean = false;
   export let needsActivation: boolean = true; // true = activation, false = validation
   
   const dispatch = createEventDispatcher();
@@ -12,6 +12,7 @@
   let licenseKey: string = '';
   let isProcessing: boolean = false;
   let validationError: string = '';
+  let licenseInput: HTMLInputElement;
   
   async function closeModal() {
     // For Tauri desktop app, exit the application when license modal is closed without validation
@@ -159,6 +160,18 @@
     const purchaseUrl = getPurchaseUrl();
     return `${baseError}. You can find your license key on your Polar portal: https://polar.sh/doublone-studios/portal/ or purchase one from ${purchaseUrl}`;
   }
+
+  // Focus input when modal opens
+  onMount(() => {
+    if (isOpen && licenseInput) {
+      licenseInput.focus();
+    }
+  });
+
+  // Watch for modal open state changes
+  $: if (isOpen && licenseInput) {
+    setTimeout(() => licenseInput.focus(), 100);
+  }
 </script>
 
 {#if isOpen}
@@ -221,11 +234,11 @@
           id="license-key-input"
           type="text"
           bind:value={licenseKey}
+          bind:this={licenseInput}
           placeholder="Enter your license key"
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent"
           disabled={isProcessing}
           on:keydown={handleKeyPress}
-          autofocus
         />
       </div>
       

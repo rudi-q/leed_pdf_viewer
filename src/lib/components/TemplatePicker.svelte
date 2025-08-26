@@ -4,7 +4,7 @@
   import { goto } from '$app/navigation';
   import templatesData from '$lib/data/templates.json';
 
-  export let isOpen = false;
+	export let isOpen = false;
   
   const dispatch = createEventDispatcher();
   
