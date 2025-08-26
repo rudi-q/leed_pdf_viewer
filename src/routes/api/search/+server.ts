@@ -16,12 +16,12 @@ function isAllowedOrigin(origin: string): boolean {
 	try {
 		const parsedOrigin = new URL(origin);
 		const hostname = parsedOrigin.hostname.toLowerCase();
-		
+
 		// Exact match for main domain
 		if (hostname === 'leed.my') {
 			return true;
 		}
-		
+
 		// Allow specific subdomains if needed
 		if (hostname.endsWith('.leed.my')) {
 			// Optional: add specific subdomain whitelist
@@ -29,7 +29,7 @@ function isAllowedOrigin(origin: string): boolean {
 			const subdomain = hostname.replace('.leed.my', '');
 			return allowedSubdomains.includes(subdomain);
 		}
-		
+
 		return false;
 	} catch {
 		return false; // Invalid URL
@@ -42,7 +42,7 @@ function makeCorsHeaders(origin: string): Record<string, string> {
 		'Access-Control-Allow-Origin': origin,
 		'Access-Control-Allow-Methods': 'POST, OPTIONS',
 		'Access-Control-Allow-Headers': 'Content-Type',
-		'Vary': 'Origin'
+		Vary: 'Origin'
 	};
 }
 
@@ -116,10 +116,13 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		if (!query || typeof query !== 'string' || query.trim().length === 0) {
 			console.log('Invalid query provided');
-			return json({ error: 'Search query is required' }, { 
-				status: 400, 
-				headers: corsValidation.headers 
-			});
+			return json(
+				{ error: 'Search query is required' },
+				{
+					status: 400,
+					headers: corsValidation.headers
+				}
+			);
 		}
 
 		if (!BRAVE_API_KEY) {
@@ -187,11 +190,14 @@ export const POST: RequestHandler = async ({ request }) => {
 		const data: BraveSearchResponse = await response.json();
 
 		if (!data.web || !data.web.results) {
-			return json({
-				results: [],
-				totalResults: 0,
-				query: query.trim()
-			}, { headers: corsValidation.headers });
+			return json(
+				{
+					results: [],
+					totalResults: 0,
+					query: query.trim()
+				},
+				{ headers: corsValidation.headers }
+			);
 		}
 
 		// Helper function to detect if a URL points to a PDF file
@@ -199,18 +205,18 @@ export const POST: RequestHandler = async ({ request }) => {
 			try {
 				const parsedUrl = new URL(url);
 				const pathname = parsedUrl.pathname.toLowerCase();
-				
+
 				// Check if pathname ends with .pdf (most reliable)
 				if (pathname.endsWith('.pdf')) {
 					return true;
 				}
-				
+
 				// Check for PDF in path segments (e.g., /documents/report.pdf/view)
 				const pathSegments = pathname.split('/');
-				if (pathSegments.some(segment => segment.endsWith('.pdf'))) {
+				if (pathSegments.some((segment) => segment.endsWith('.pdf'))) {
 					return true;
 				}
-				
+
 				return false;
 			} catch {
 				// If URL parsing fails, fall back to simple string check
@@ -226,15 +232,12 @@ export const POST: RequestHandler = async ({ request }) => {
 				if (isPDFUrl(result.url)) {
 					return true;
 				}
-				
+
 				// Fallback checks: Look for PDF indicators in text content
 				const title = result.title?.toLowerCase() || '';
 				const description = result.description?.toLowerCase() || '';
-				
-				return (
-					title.includes('pdf') ||
-					description.includes('pdf')
-				);
+
+				return title.includes('pdf') || description.includes('pdf');
 			})
 			.map((result) => ({
 				title: result.title || 'PDF Document',
@@ -261,7 +264,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	} catch (error) {
 		console.error('Search API error:', error);
 
-	return json(
+		return json(
 			{
 				error: 'An unexpected error occurred while searching. Please try again.'
 			},

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { invoke } from '@tauri-apps/api/core';
+  import { invoke } from '@tauri-apps/api/core';
 
-	export let isVisible = false;
+  export let isVisible = false;
 
   let debugResults = 'Click button to test...';
   let testFilePath = '';

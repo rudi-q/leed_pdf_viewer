@@ -22,7 +22,6 @@
   import { isTauri } from '$lib/utils/tauriUtils';
 
 
-
   let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
   let dragOver = false;
