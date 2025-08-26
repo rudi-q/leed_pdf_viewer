@@ -2,7 +2,6 @@
 	import { invoke } from '@tauri-apps/api/core';
 
 	export let isVisible = false;
-  export const isTauri = false;
 
   let debugResults = 'Click button to test...';
   let testFilePath = '';

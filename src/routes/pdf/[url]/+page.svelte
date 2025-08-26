@@ -17,8 +17,7 @@
 	import { toastStore } from '$lib/stores/toastStore';
 	import { PDFExporter } from '$lib/utils/pdfExport';
 	import { MAX_FILE_SIZE } from '$lib/constants';
-
-	const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
+  import { isTauri } from '$lib/utils/tauriUtils';
 
   let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;

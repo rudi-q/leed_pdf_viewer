@@ -19,8 +19,9 @@
   import { retrieveUploadedFile } from '$lib/utils/fileStorageUtils';
   import { MAX_FILE_SIZE } from '$lib/constants';
   import DebugPanel from '$lib/components/DebugPanel.svelte';
+  import { isTauri } from '$lib/utils/tauriUtils';
 
-  const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
+
 
   let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
