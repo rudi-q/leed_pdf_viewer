@@ -135,7 +135,7 @@
   }
 
   async function handleLogoClick() {
-    await navigateToHome();
+    await goto('/');
   }
 
   function handleToolbarScroll() {
@@ -562,7 +562,7 @@
         <!-- Mobile: Current tool indicator, Light/Dark mode -->
         <div class="flex items-center space-x-2 lg:hidden">
           <!-- Current tool indicator -->
-          <div class="hidden lg:flex items-center space-x-2 px-3 py-2 bg-sage/10 rounded-lg">
+          <div class="flex items-center space-x-2 px-3 py-2 bg-sage/10 rounded-lg">
             <span class="text-xs text-sage font-medium">{$drawingState.tool}</span>
             <span class="text-xs text-charcoal/70 dark:text-gray-400">
               {Math.max($drawingState.tool === 'eraser' ? $drawingState.eraserSize : $drawingState.lineWidth, 1)}px
@@ -571,7 +571,7 @@
 
           <!-- Light/Dark mode toggle -->
           <button
-            class="hidden lg:flex tool-button w-11 h-11 items-center justify-center"
+            class="tool-button w-11 h-11 items-center justify-center"
             on:click={toggleTheme}
             title="Toggle light/dark mode"
           >
@@ -717,10 +717,10 @@
 
     
     <!-- Left fade indicator -->
-    <div class="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-white/80 dark:from-gray-800/80 to-transparent pointer-events-none z-5" class:opacity-0={!showLeftFade}></div>
+    <div class="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-white/80 dark:from-gray-800/80 to-transparent pointer-events-none z-[5]" class:opacity-0={!showLeftFade}></div>
     
     <!-- Right fade indicator -->
-    <div class="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-white/80 dark:from-gray-800/80 to-transparent pointer-events-none z-5" class:opacity-0={!showRightFade}></div>
+    <div class="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-white/80 dark:from-gray-800/80 to-transparent pointer-events-none z-[5]" class:opacity-0={!showRightFade}></div>
     
     <div class="flex items-center space-x-2 min-w-max px-2" bind:this={toolbarScrollContainer} on:scroll={handleToolbarScroll}>
       <!-- Drawing tools -->

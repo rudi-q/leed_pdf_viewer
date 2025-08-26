@@ -30,8 +30,8 @@ test.describe('Toolbar Responsive Behavior', () => {
 		await page.waitForTimeout(100);
 
 		// Drawing tools should be hidden in top toolbar on small screens
-		const drawingToolsInTop = page.locator('.toolbar-top .hidden.lg\\:flex');
-		await expect(drawingToolsInTop).toBeVisible(); // The container exists but is hidden
+		const drawingToolsInTop = page.locator('.toolbar-top .drawing-tools'); // target by role/testid if available
+		await expect(drawingToolsInTop).toBeHidden();
 
 		// Check that specific drawing tools are not visible in top toolbar
 		await expect(page.locator('.toolbar-top button[title="Pencil (1)"]')).not.toBeVisible();
