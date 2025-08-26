@@ -195,16 +195,46 @@ export const POST: RequestHandler = async ({ request }) => {
 			});
 		}
 
+		// Helper function to detect if a URL points to a PDF file
+		function isPDFUrl(url: string): boolean {
+			try {
+				const parsedUrl = new URL(url);
+				const pathname = parsedUrl.pathname.toLowerCase();
+				
+				// Check if pathname ends with .pdf (most reliable)
+				if (pathname.endsWith('.pdf')) {
+					return true;
+				}
+				
+				// Check for PDF in path segments (e.g., /documents/report.pdf/view)
+				const pathSegments = pathname.split('/');
+				if (pathSegments.some(segment => segment.endsWith('.pdf'))) {
+					return true;
+				}
+				
+				return false;
+			} catch {
+				// If URL parsing fails, fall back to simple string check
+				const lowerUrl = url.toLowerCase();
+				return lowerUrl.includes('.pdf');
+			}
+		}
+
 		// Filter results to only include PDFs and clean up the data
 		const pdfResults: SearchResult[] = data.web.results
 			.filter((result) => {
-				// Check if URL ends with .pdf or contains PDF-related indicators
-				const url = result.url.toLowerCase();
+				// Primary check: Parse URL to reliably detect PDF files
+				if (isPDFUrl(result.url)) {
+					return true;
+				}
+				
+				// Fallback checks: Look for PDF indicators in text content
+				const title = result.title?.toLowerCase() || '';
+				const description = result.description?.toLowerCase() || '';
+				
 				return (
-					url.includes('.pdf') ||
-					url.includes('filetype:pdf') ||
-					result.title?.toLowerCase().includes('pdf') ||
-					result.description?.toLowerCase().includes('pdf')
+					title.includes('pdf') ||
+					description.includes('pdf')
 				);
 			})
 			.map((result) => ({
