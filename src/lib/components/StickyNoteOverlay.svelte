@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import StickyNote from './StickyNote.svelte';
+	import type { StickyNoteAnnotation } from '$lib/stores/drawingStore';
 	import {
-		currentPageStickyNotes,
 		addStickyNoteAnnotation,
-		updateStickyNoteAnnotation,
+		currentPageStickyNotes,
 		deleteStickyNoteAnnotation,
 		drawingState,
-		pdfState
+		pdfState,
+		updateStickyNoteAnnotation
 	} from '$lib/stores/drawingStore';
-	import type { StickyNoteAnnotation } from '$lib/stores/drawingStore';
 
 	export let containerWidth: number = 0; // Actual displayed canvas width
 	export let containerHeight: number = 0; // Actual displayed canvas height

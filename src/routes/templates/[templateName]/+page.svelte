@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
   import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
@@ -12,14 +11,15 @@
   import Toolbar from '$lib/components/Toolbar.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
   import PageThumbnails from '$lib/components/PageThumbnails.svelte';
-  import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
-  import { redo, setCurrentPDF, setTool, undo, pdfState, forceSaveAllAnnotations } from '$lib/stores/drawingStore';
+  import { isValidPDFFile } from '$lib/utils/pdfUtils';
+  import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
+  import { toastStore } from '$lib/stores/toastStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
+  import { MAX_FILE_SIZE } from '$lib/constants';
+  import { isTauri } from '$lib/utils/tauriUtils';
 
   // Get the page data from the load function
   export let data;
-
-  const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
 
   let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
@@ -115,13 +115,13 @@
 
     if (!isValidPDFFile(file)) {
       console.log('Invalid PDF file');
-      alert('Please choose a valid PDF file.');
+      toastStore.error('Invalid File', 'Please choose a valid PDF file.');
       return;
     }
 
-    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+    if (file.size > MAX_FILE_SIZE) { // 50MB limit
       console.log('File too large');
-      alert('File too large. Please choose a file under 50MB.');
+      toastStore.error('File Too Large', 'File too large. Please choose a file under 50MB.');
       return;
     }
 
@@ -210,7 +210,7 @@
 
       const file = new File([new Uint8Array(fileData)], fileName, { type: 'application/pdf' });
 
-      if (file.size > 50 * 1024 * 1024) {
+      if (file.size > MAX_FILE_SIZE) {
         return false;
       }
 
@@ -509,7 +509,7 @@
       }
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Export failed. Please try again.');
+      toastStore.error('Export Failed', 'Export failed. Please try again.');
     }
   }
 

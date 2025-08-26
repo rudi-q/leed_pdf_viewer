@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
@@ -12,13 +12,15 @@
   import Toolbar from '$lib/components/Toolbar.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
   import PageThumbnails from '$lib/components/PageThumbnails.svelte';
-  import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
-  import { redo, setCurrentPDF, setTool, undo, pdfState, forceSaveAllAnnotations } from '$lib/stores/drawingStore';
+  import { isValidPDFFile } from '$lib/utils/pdfUtils';
+  import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
   import { toastStore } from '$lib/stores/toastStore';
   import { retrieveUploadedFile } from '$lib/utils/fileStorageUtils';
+  import { MAX_FILE_SIZE } from '$lib/constants';
+  import DebugPanel from '$lib/components/DebugPanel.svelte';
+  import { isTauri } from '$lib/utils/tauriUtils';
 
-  const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
 
   let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
@@ -28,16 +30,10 @@
   let showThumbnails = false;
   let focusMode = false;
   let isLoading = true;
-
-  // Debug variables
-  let debugVisible = false;
-  let debugResults = 'Click button to test...';
+  let showDebugPanel = false;
 
   // File loading variables
-  let hasLoadedFromCommandLine = false;
-  let fileLoadingAttempts = 0;
-  let maxFileLoadingAttempts = 10;
-  let fileLoadingTimer: number | null = null;
+  // (hasLoadedFromCommandLine removed - was unused dead code)
 
   // Check if we have a file from the previous page or URL parameters
   $: if (browser && $page && $page.url) {
@@ -163,10 +159,6 @@
     console.log('[PDF Upload Route] Cleaning up');
     document.removeEventListener('fullscreenchange', handleFullscreenChange);
 
-    if (fileLoadingTimer) {
-      clearInterval(fileLoadingTimer);
-    }
-
     // Clean up Tauri event listeners
     if (window.__pdfUploadCleanup) {
       const { unlistenFileOpened, unlistenStartupReady, unlistenDebug } = window.__pdfUploadCleanup;
@@ -184,13 +176,13 @@
 
     if (!isValidPDFFile(file)) {
       console.log('Invalid PDF file');
-      alert('Please choose a valid PDF file.');
+      toastStore.error('Invalid File', 'Please choose a valid PDF file.');
       return;
     }
 
-    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+    if (file.size > MAX_FILE_SIZE) { // 50MB limit
       console.log('File too large');
-      alert('File too large. Please choose a file under 50MB.');
+      toastStore.error('File Too Large', 'File too large. Please choose a file under 50MB.');
       return;
     }
 
@@ -246,47 +238,37 @@
     console.log('*** HANDLING FILE FROM COMMAND LINE ***');
     console.log('File path:', filePath);
 
-    // Mark that we've attempted to load from command line
-    hasLoadedFromCommandLine = true;
+    // File loading from command line initiated
 
     try {
       // Step 1: Validate path
       if (!filePath || typeof filePath !== 'string') {
-        debugResults += '\n❌ FAILED: Invalid file path received';
         throw new Error('Invalid file path received');
       }
-      debugResults += '\n✅ Step 1: Path validation passed';
 
       // Step 2: Sanitize path
       let cleanPath = filePath.trim();
       if (cleanPath.startsWith('"') && cleanPath.endsWith('"')) {
         cleanPath = cleanPath.slice(1, -1);
       }
-      debugResults += `\n✅ Step 2: Cleaned path: ${cleanPath}`;
 
       // Step 3: Extract filename
       const fileName = cleanPath.split(/[\\\/]/).pop() || 'document.pdf';
-      debugResults += `\n✅ Step 3: Extracted filename: ${fileName}`;
 
       // Step 4: Check if it's a PDF
       if (!fileName.toLowerCase().endsWith('.pdf')) {
-        debugResults += '\n❌ FAILED: Not a PDF file';
         return false;
       }
-      debugResults += '\n✅ Step 4: PDF file check passed';
 
       // Step 5: Try to read the file
-      debugResults += '\n🔄 Step 5: Reading file...';
       let fileData: Uint8Array;
       try {
         fileData = await readFile(cleanPath);
-        debugResults += `\n✅ Step 5: File read successfully! Size: ${fileData.length} bytes`;
       } catch (readError: unknown) {
         const errorMsg = readError instanceof Error ? readError.message : String(readError);
-        debugResults += `\n❌ FAILED at Step 5: File read error: ${errorMsg}`;
+        console.error('File read error:', errorMsg);
 
         // Try alternative path formats
-        debugResults += '\n🔄 Trying alternative path formats...';
         const altPaths = [
           cleanPath.replace(/\\/g, '/'),
           cleanPath.replace(/\//g, '\\'),
@@ -296,71 +278,58 @@
         let success = false;
         for (const altPath of altPaths) {
           try {
-            debugResults += `\n🔄 Trying: ${altPath}`;
             fileData = await readFile(altPath);
-            debugResults += `\n✅ Success with alternative path!`;
             cleanPath = altPath;
             success = true;
             break;
           } catch (altError: unknown) {
-            const altErrorMsg = altError instanceof Error ? altError.message : String(altError);
-            debugResults += `\n❌ Failed: ${altErrorMsg}`;
+            console.warn('Alternative path failed:', altPath, altError);
           }
         }
 
         if (!success) {
-          debugResults += '\n❌ FINAL FAILURE: All path formats failed';
+          console.error('All path formats failed');
           return false;
         }
       }
 
       // Step 6: Validate PDF header
-      debugResults += '\n🔄 Step 6: Validating PDF header...';
       const pdfHeader = new Uint8Array(fileData!.slice(0, 4));
       const pdfSignature = String.fromCharCode(...pdfHeader);
       if (pdfSignature !== '%PDF') {
-        debugResults += `\n❌ FAILED: Invalid PDF signature: ${pdfSignature}`;
+        console.error('Invalid PDF signature:', pdfSignature);
         return false;
       }
-      debugResults += '\n✅ Step 6: PDF signature valid';
 
       // Step 7: Create File object
-      debugResults += '\n🔄 Step 7: Creating File object...';
       const file = new File([new Uint8Array(fileData!)], fileName, { type: 'application/pdf' });
-      debugResults += `\n✅ Step 7: File object created - ${file.name}, ${file.size} bytes`;
 
       // Step 8: Size check
-      if (file.size > 50 * 1024 * 1024) {
-        debugResults += '\n❌ FAILED: File too large';
+      if (file.size > MAX_FILE_SIZE) {
+        console.error('File too large:', file.size);
         return false;
       }
-      debugResults += '\n✅ Step 8: Size check passed';
 
       // Step 9: Set state
-      debugResults += '\n🔄 Step 9: Setting application state...';
       currentFile = file;
       isLoading = false;
-      debugResults += '\n✅ Step 9: State updated';
 
       // Step 10: Set PDF for auto-save
-      debugResults += '\n🔄 Step 10: Setting up auto-save...';
       setCurrentPDF(file.name, file.size);
-      debugResults += '\n✅ Step 10: Auto-save configured';
 
       // Step 11: Mark as processed
       try {
         await invoke('mark_file_processed');
-        debugResults += '\n✅ Step 11: Marked as processed in Rust';
       } catch (e) {
-        debugResults += '\n⚠️ Step 11: Could not mark as processed (not critical)';
+        console.warn('Could not mark as processed (not critical)');
       }
 
-      debugResults += '\n🎉 SUCCESS: PDF should now be loading!';
+      console.log('PDF loaded successfully from command line');
       return true;
 
     } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      debugResults += `\n💥 UNEXPECTED ERROR: ${errorMsg}`;
+      console.error('Unexpected error in handleFileFromCommandLine:', errorMsg);
       return false;
     }
   }
@@ -447,7 +416,7 @@
 
     if (!isValidPdfUrl(url)) {
       console.log('Invalid PDF URL');
-      alert('Invalid PDF URL. Please provide a valid web address.');
+      toastStore.error('Invalid URL', 'Invalid PDF URL. Please provide a valid web address.');
       return;
     }
 
@@ -675,7 +644,7 @@
 
   async function handleExportPDF() {
     if (!currentFile || !pdfViewer) {
-      alert('No PDF to export');
+      toastStore.warning('No PDF', 'No PDF to export');
       return;
     }
 
@@ -743,7 +712,7 @@
       }
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Export failed. Please try again.');
+      toastStore.error('Export Failed', 'Export failed. Please try again.');
     }
   }
 
@@ -841,6 +810,18 @@
         <span>Help</span>
       </button>
 
+      <!-- Debug button (only visible in development mode) -->
+      {#if isTauri && import.meta.env.DEV}
+        <button
+          class="absolute bottom-4 left-20 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors flex items-center gap-1 bg-white/50 hover:bg-white/80 dark:bg-gray-800/50 dark:hover:bg-gray-700/80 px-2 py-1 rounded-lg backdrop-blur-sm border border-blue-200 dark:border-blue-700"
+          on:click={() => showDebugPanel = true}
+          title="Open debug panel"
+        >
+          <span>🔧</span>
+          <span>Debug</span>
+        </button>
+      {/if}
+
       <button
         class="absolute top-16 text-sm text-charcoal/60 dark:text-gray-300 hover:text-charcoal dark:hover:text-white transition-colors flex items-center gap-2 bg-white/50 hover:bg-white/80 px-3 py-2 rounded-lg backdrop-blur-sm"
         class:left-4={!showThumbnails}
@@ -858,6 +839,7 @@
 </main>
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => showShortcuts = false} />
+<DebugPanel bind:isVisible={showDebugPanel} />
 
 <!-- Hidden file input -->
 <input
