@@ -11,6 +11,31 @@ const ALLOWED_ORIGINS = env.ALLOWED_ORIGINS
 	? env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
 	: ['http://localhost:5173', 'http://localhost:4173']; // Default SvelteKit dev/preview ports
 
+// Helper function to validate allowed origins
+function isAllowedOrigin(origin: string): boolean {
+	try {
+		const parsedOrigin = new URL(origin);
+		const hostname = parsedOrigin.hostname.toLowerCase();
+		
+		// Exact match for main domain
+		if (hostname === 'leed.my') {
+			return true;
+		}
+		
+		// Allow specific subdomains if needed
+		if (hostname.endsWith('.leed.my')) {
+			// Optional: add specific subdomain whitelist
+			const allowedSubdomains = ['app', 'beta', 'staging', 'www'];
+			const subdomain = hostname.replace('.leed.my', '');
+			return allowedSubdomains.includes(subdomain);
+		}
+		
+		return false;
+	} catch {
+		return false; // Invalid URL
+	}
+}
+
 // Helper function to validate origin and get CORS headers
 function validateOriginAndGetCorsHeaders(request: Request): {
 	valid: boolean;
@@ -30,19 +55,21 @@ function validateOriginAndGetCorsHeaders(request: Request): {
 			headers: {
 				'Access-Control-Allow-Origin': origin,
 				'Access-Control-Allow-Methods': 'POST, OPTIONS',
-				'Access-Control-Allow-Headers': 'Content-Type'
+				'Access-Control-Allow-Headers': 'Content-Type',
+				'Vary': 'Origin'
 			}
 		};
 	}
 
-	// Allow Vercel deployments for main domain
-	if (origin.includes('https://leed.my')) {
+	// Use secure origin validation for production domains
+	if (isAllowedOrigin(origin)) {
 		return {
 			valid: true,
 			headers: {
 				'Access-Control-Allow-Origin': origin,
 				'Access-Control-Allow-Methods': 'POST, OPTIONS',
-				'Access-Control-Allow-Headers': 'Content-Type'
+				'Access-Control-Allow-Headers': 'Content-Type',
+				'Vary': 'Origin'
 			}
 		};
 	}
