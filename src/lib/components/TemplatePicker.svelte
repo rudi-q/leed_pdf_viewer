@@ -1,22 +1,15 @@
 <script lang="ts">
-	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
-	import { browser } from '$app/environment';
-	import { goto } from '$app/navigation';
+  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
+  import { browser } from '$app/environment';
+  import { goto } from '$app/navigation';
+  import templatesData from '$lib/data/templates.json';
 
 	export let isOpen = false;
   
   const dispatch = createEventDispatcher();
   
-  // Available templates - in a real app this could be fetched from an API
-  const templates = [
-    {
-      name: 'ThreeThings',
-      title: 'Three Things Journal',
-      description: 'A simple daily template for noting three important things',
-      icon: '📝'
-    }
-    // Add more templates here as they're added to the templates folder
-  ];
+  // Import templates from JSON file
+  const templates = templatesData;
   
   function close() {
     isOpen = false;
