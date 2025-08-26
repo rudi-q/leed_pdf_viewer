@@ -4,12 +4,7 @@
  */
 
 import { toastStore } from '$lib/stores/toastStore';
-import { 
-  MAX_FILE_SIZE, 
-  WARNING_FILE_SIZE, 
-  SESSION_MAX_FILE_SIZE, 
-  MAX_STORAGE_TIME 
-} from '$lib/constants';
+import { MAX_FILE_SIZE, MAX_STORAGE_TIME, SESSION_MAX_FILE_SIZE, WARNING_FILE_SIZE } from '$lib/constants';
 
 export interface StoredFileData {
   id: string;

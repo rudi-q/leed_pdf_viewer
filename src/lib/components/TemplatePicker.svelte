@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
-  import { browser } from '$app/environment';
-  import { goto } from '$app/navigation';
+	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
+	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
 
-  export let isOpen = false;
+	export let isOpen = false;
   
   const dispatch = createEventDispatcher();
   

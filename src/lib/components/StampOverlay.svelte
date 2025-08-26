@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-import StampAnnotation from './StampAnnotation.svelte';
-import {
-	currentPageStampAnnotations,
-	addStampAnnotation,
-	updateStampAnnotation,
-	deleteStampAnnotation,
-	drawingState,
-	pdfState,
-	availableStamps,
-	getStampById
-} from '../stores/drawingStore';
+	import StampAnnotation from './StampAnnotation.svelte';
 	import type { StampAnnotation as StampAnnotationType } from '../stores/drawingStore';
+	import {
+		addStampAnnotation,
+		availableStamps,
+		currentPageStampAnnotations,
+		deleteStampAnnotation,
+		drawingState,
+		getStampById,
+		pdfState,
+		updateStampAnnotation
+	} from '../stores/drawingStore';
 
 	export let containerWidth: number = 0; // Base viewport width at scale 1.0
 	export let containerHeight: number = 0; // Base viewport height at scale 1.0

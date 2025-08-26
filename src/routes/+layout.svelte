@@ -10,7 +10,6 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { isTauri } from '$lib/utils/tauriUtils';
-	import { AUTO_CLEANUP_INTERVAL } from '$lib/constants';
 
 	// License validation state
 	let showLicenseModal = false;

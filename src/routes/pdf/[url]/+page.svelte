@@ -1,23 +1,23 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
-  import { browser } from '$app/environment';
-  import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
-  import { listen } from '@tauri-apps/api/event';
-  import { message } from '@tauri-apps/plugin-dialog';
-  import { readFile as readFilePlugin } from '@tauri-apps/plugin-fs';
-  import { invoke } from '@tauri-apps/api/core';
-  import PDFViewer from '$lib/components/PDFViewer.svelte';
-  import Toolbar from '$lib/components/Toolbar.svelte';
-  import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
-  import PageThumbnails from '$lib/components/PageThumbnails.svelte';
-  import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
-  import { redo, setCurrentPDF, setTool, undo, pdfState, forceSaveAllAnnotations } from '$lib/stores/drawingStore';
-  import { PDFExporter } from '$lib/utils/pdfExport';
-  import { MAX_FILE_SIZE } from '$lib/constants';
+	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
+	import { listen } from '@tauri-apps/api/event';
+	import { message } from '@tauri-apps/plugin-dialog';
+	import { readFile as readFilePlugin } from '@tauri-apps/plugin-fs';
+	import { invoke } from '@tauri-apps/api/core';
+	import PDFViewer from '$lib/components/PDFViewer.svelte';
+	import Toolbar from '$lib/components/Toolbar.svelte';
+	import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
+	import PageThumbnails from '$lib/components/PageThumbnails.svelte';
+	import { isValidPDFFile } from '$lib/utils/pdfUtils';
+	import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
+	import { PDFExporter } from '$lib/utils/pdfExport';
+	import { MAX_FILE_SIZE } from '$lib/constants';
 
-  const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
+	const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
 
   let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;

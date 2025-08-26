@@ -1,27 +1,32 @@
 <script lang="ts">
-  import { onDestroy, onMount, tick } from 'svelte';
-  import {
-    addDrawingPath,
-    arrowAnnotations,
-    currentPageArrowAnnotations,
-    currentPagePaths,
-    currentPageStampAnnotations,
-    currentPageStickyNotes,
-    currentPageTextAnnotations,
-    type DrawingPath,
-    drawingPaths,
-    drawingState,
-    getStampById,
-    pdfState,
-    type Point,
-    stampAnnotations,
-    stickyNoteAnnotations,
-    textAnnotations
-  } from '../stores/drawingStore';
-  import { PDFManager } from '../utils/pdfUtils';
-  import { DrawingEngine } from '../utils/drawingUtils';
+	import { onDestroy, onMount, tick } from 'svelte';
+	import {
+		addDrawingPath,
+		arrowAnnotations,
+		currentPageArrowAnnotations,
+		currentPagePaths,
+		currentPageStampAnnotations,
+		currentPageStickyNotes,
+		currentPageTextAnnotations,
+		type DrawingPath,
+		drawingPaths,
+		drawingState,
+		getStampById,
+		pdfState,
+		type Point,
+		stampAnnotations,
+		stickyNoteAnnotations,
+		textAnnotations
+	} from '../stores/drawingStore';
+	import { PDFManager } from '../utils/pdfUtils';
+	import { DrawingEngine } from '../utils/drawingUtils';
+	import TextOverlay from './TextOverlay.svelte';
+	import StickyNoteOverlay from './StickyNoteOverlay.svelte';
+	import StampOverlay from './StampOverlay.svelte';
+	import ArrowOverlay from './ArrowOverlay.svelte';
+	import { TOOLBAR_HEIGHT } from '$lib/constants';
 
-  // Helper function to convert SVG string to image
+	// Helper function to convert SVG string to image
   async function svgToImage(svgString: string, width: number, height: number): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -49,13 +54,8 @@
       img.src = url;
     });
   }
-import TextOverlay from './TextOverlay.svelte';
-import StickyNoteOverlay from './StickyNoteOverlay.svelte';
-import StampOverlay from './StampOverlay.svelte';
-import ArrowOverlay from './ArrowOverlay.svelte';
-import { TOOLBAR_HEIGHT } from '$lib/constants';
 
-  export let pdfFile: File | string | null = null;
+	export let pdfFile: File | string | null = null;
 
   let pdfCanvas: HTMLCanvasElement;
   let drawingCanvas: HTMLCanvasElement;

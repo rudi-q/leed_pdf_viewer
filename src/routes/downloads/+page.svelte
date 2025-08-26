@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Calendar, Download, ExternalLink, Tag } from 'lucide-svelte';
-  import { detectOS } from '$lib/utils/tauriUtils';
+	import { detectOS } from '$lib/utils/tauriUtils';
 
 	interface Asset {
     name: string;

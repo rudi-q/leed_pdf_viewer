@@ -13,15 +13,15 @@
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
   import PageThumbnails from '$lib/components/PageThumbnails.svelte';
   import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
-  import { redo, setCurrentPDF, setTool, undo, pdfState } from '$lib/stores/drawingStore';
+  import { pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
   import { toastStore } from '$lib/stores/toastStore';
   import { MAX_FILE_SIZE } from '$lib/constants';
-  import { isDarkMode } from '$lib/stores/themeStore';
   import { handleSearchLinkClick } from '$lib/utils/navigationUtils';
   import TemplatePicker from '$lib/components/TemplatePicker.svelte';
   import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
   import DebugPanel from '$lib/components/DebugPanel.svelte';
   import { detectOS, isTauri } from '$lib/utils/tauriUtils';
+  import { PDFExporter } from '$lib/utils/pdfExport';
 
   let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;

@@ -31,17 +31,17 @@ export class PDFExporter {
 			const pages = pdfDoc.getPages();
 			console.log('Total pages in document:', pages.length);
 
-		// Embed images from canvases into PDF
-		// Process ALL pages to ensure they're preserved, even without annotations
-		for (let pageNumber = 1; pageNumber <= pages.length; pageNumber++) {
-			const canvas = this.canvasElements.get(pageNumber);
-			if (canvas) {
-				// Page has annotations - overlay the canvas
-				await this.embedCanvasInPage(pdfDoc, pages[pageNumber - 1], canvas);
+			// Embed images from canvases into PDF
+			// Process ALL pages to ensure they're preserved, even without annotations
+			for (let pageNumber = 1; pageNumber <= pages.length; pageNumber++) {
+				const canvas = this.canvasElements.get(pageNumber);
+				if (canvas) {
+					// Page has annotations - overlay the canvas
+					await this.embedCanvasInPage(pdfDoc, pages[pageNumber - 1], canvas);
+				}
+				// Pages without canvases are automatically preserved as-is by pdf-lib
+				// No action needed - the original page content remains intact
 			}
-			// Pages without canvases are automatically preserved as-is by pdf-lib
-			// No action needed - the original page content remains intact
-		}
 
 			console.log('Saving annotated PDF');
 			return await pdfDoc.save();
@@ -104,7 +104,11 @@ export class PDFExporter {
 	}
 
 	// Enhanced export method that uses Tauri backend when available
-	static async exportFile(data: Uint8Array | Blob, defaultFilename: string, mimeType: string): Promise<boolean> {
+	static async exportFile(
+		data: Uint8Array | Blob,
+		defaultFilename: string,
+		mimeType: string
+	): Promise<boolean> {
 		if (isTauri) {
 			return await PDFExporter.exportWithTauri(data, defaultFilename, mimeType);
 		} else {
@@ -114,10 +118,14 @@ export class PDFExporter {
 	}
 
 	// Tauri-specific export using file dialog and file system
-	static async exportWithTauri(data: Uint8Array | Blob, defaultFilename: string, mimeType: string): Promise<boolean> {
+	static async exportWithTauri(
+		data: Uint8Array | Blob,
+		defaultFilename: string,
+		mimeType: string
+	): Promise<boolean> {
 		try {
 			console.log('Using Tauri backend for file export');
-			
+
 			// Convert data to Uint8Array if it's a Blob
 			let bytes: Uint8Array;
 			if (data instanceof Uint8Array) {
@@ -149,7 +157,7 @@ export class PDFExporter {
 			// Get file extension from MIME type
 			const extension = PDFExporter.getFileExtension(mimeType).replace('.', '');
 			const filterName = PDFExporter.getFilterName(mimeType);
-			
+
 			// Use custom Tauri export command
 			const filePath = await invoke('export_file', {
 				content: Array.from(bytes),
@@ -157,32 +165,35 @@ export class PDFExporter {
 				filterName,
 				extension
 			});
-			
+
 			if (!filePath) {
 				console.log('User cancelled file save dialog');
 				return false; // User cancelled
 			}
-			
+
 			console.log('File saved to:', filePath);
-			
+
 			console.log('✅ File saved successfully via Tauri backend');
 			return true;
-			
 		} catch (error: any) {
 			console.error('Failed to export file with Tauri:', error);
-			
+
 			// Check if this is a critical Tauri API failure
-			if (error?.message?.includes('dialog') || error?.message?.includes('Tauri') || error?.message?.includes('plugin')) {
+			if (
+				error?.message?.includes('dialog') ||
+				error?.message?.includes('Tauri') ||
+				error?.message?.includes('plugin')
+			) {
 				console.error('Critical Tauri API failure, falling back to browser download');
 				PDFExporter.downloadFile(data, defaultFilename, mimeType);
 				return true;
 			}
-			
+
 			// For user-friendly errors (like permission denied), show the error but also offer fallback
 			if (typeof window !== 'undefined' && window.confirm) {
 				const fallbackMessage = `${error.message}\n\nWould you like to try downloading the file through your browser instead?`;
 				const useFallback = window.confirm(fallbackMessage);
-				
+
 				if (useFallback) {
 					console.log('User chose browser download fallback');
 					PDFExporter.downloadFile(data, defaultFilename, mimeType);
