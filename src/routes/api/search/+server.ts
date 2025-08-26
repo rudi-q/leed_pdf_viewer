@@ -36,6 +36,16 @@ function isAllowedOrigin(origin: string): boolean {
 	}
 }
 
+// Helper function to create consistent CORS headers
+function makeCorsHeaders(origin: string): Record<string, string> {
+	return {
+		'Access-Control-Allow-Origin': origin,
+		'Access-Control-Allow-Methods': 'POST, OPTIONS',
+		'Access-Control-Allow-Headers': 'Content-Type',
+		'Vary': 'Origin'
+	};
+}
+
 // Helper function to validate origin and get CORS headers
 function validateOriginAndGetCorsHeaders(request: Request): {
 	valid: boolean;
@@ -52,12 +62,7 @@ function validateOriginAndGetCorsHeaders(request: Request): {
 	if (env.NODE_ENV === 'development' && origin.startsWith('http://localhost:')) {
 		return {
 			valid: true,
-			headers: {
-				'Access-Control-Allow-Origin': origin,
-				'Access-Control-Allow-Methods': 'POST, OPTIONS',
-				'Access-Control-Allow-Headers': 'Content-Type',
-				'Vary': 'Origin'
-			}
+			headers: makeCorsHeaders(origin)
 		};
 	}
 
@@ -65,12 +70,7 @@ function validateOriginAndGetCorsHeaders(request: Request): {
 	if (isAllowedOrigin(origin)) {
 		return {
 			valid: true,
-			headers: {
-				'Access-Control-Allow-Origin': origin,
-				'Access-Control-Allow-Methods': 'POST, OPTIONS',
-				'Access-Control-Allow-Headers': 'Content-Type',
-				'Vary': 'Origin'
-			}
+			headers: makeCorsHeaders(origin)
 		};
 	}
 
@@ -82,11 +82,7 @@ function validateOriginAndGetCorsHeaders(request: Request): {
 	// Valid cross-origin request - return CORS headers
 	return {
 		valid: true,
-		headers: {
-			'Access-Control-Allow-Origin': origin,
-			'Access-Control-Allow-Methods': 'POST, OPTIONS',
-			'Access-Control-Allow-Headers': 'Content-Type'
-		}
+		headers: makeCorsHeaders(origin)
 	};
 }
 
