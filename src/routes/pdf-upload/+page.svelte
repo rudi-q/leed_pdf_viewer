@@ -33,7 +33,7 @@
   let showDebugPanel = false;
 
   // File loading variables
-  let hasLoadedFromCommandLine = false;
+  // (hasLoadedFromCommandLine removed - was unused dead code)
 
   // Check if we have a file from the previous page or URL parameters
   $: if (browser && $page && $page.url) {
@@ -238,8 +238,7 @@
     console.log('*** HANDLING FILE FROM COMMAND LINE ***');
     console.log('File path:', filePath);
 
-    // Mark that we've attempted to load from command line
-    hasLoadedFromCommandLine = true;
+    // File loading from command line initiated
 
     try {
       // Step 1: Validate path

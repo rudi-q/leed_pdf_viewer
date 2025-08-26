@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
-  import { browser } from '$app/environment';
-  import { ExternalLink, FileText, Loader2, Search } from 'lucide-svelte';
-  import type { SearchResponse, SearchResult } from '$lib/types/search';
+	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import { ExternalLink, FileText, Loader2, Search } from 'lucide-svelte';
+	import type { SearchResponse, SearchResult } from '$lib/types/search';
 
-  // Search state
+	// Search state
   let searchQuery = '';
   let searchResults: SearchResult[] = [];
   let isLoading = false;

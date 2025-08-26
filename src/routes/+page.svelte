@@ -39,7 +39,7 @@
   let showDebugPanel = false;
 
   // File loading variables
-  let hasLoadedFromCommandLine = false;
+  // (hasLoadedFromCommandLine removed - was unused dead code)
 
   // Debug state changes (development only)
   $: if (import.meta.env.DEV) {
@@ -173,8 +173,7 @@
       console.log('File path:', filePath);
     }
 
-    // Mark that we've attempted to load from command line
-    hasLoadedFromCommandLine = true;
+    // File loading from command line initiated
 
     try {
       // Step 1: Validate path
