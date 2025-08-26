@@ -31,5 +31,9 @@ tokio = { version = "1.0", features = ["full"] }
 machine-uid = "0.5"
 rfd = "0.15"
 
+# Linux-specific: Use gtk3 instead of xdg-portal to avoid conflict
+[target.'cfg(target_os = "linux")'.dependencies]
+rfd = { version = "0.15", features = ["gtk3"] }
+
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
