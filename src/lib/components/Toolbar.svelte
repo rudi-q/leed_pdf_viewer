@@ -559,8 +559,8 @@
           </button>
         </div>
 
-        <!-- Mobile: Current tool indicator, Light/Dark mode -->
-        <div class="flex items-center space-x-2 lg:hidden">
+        <!-- Mobile: Current tool indicator, Light/Dark mode (Hidden) -->
+        <div class="hidden lg:hidden">
           <!-- Current tool indicator -->
           <div class="flex items-center space-x-2 px-3 py-2 bg-sage/10 rounded-lg">
             <span class="text-xs text-sage font-medium">{$drawingState.tool}</span>
