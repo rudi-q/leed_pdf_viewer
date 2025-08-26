@@ -18,8 +18,7 @@
 		undoStack
 	} from '../stores/drawingStore';
 	import { isDarkMode, toggleTheme } from '../stores/themeStore';
-	import { handleSearchLinkClick } from '../utils/navigationUtils';
-	import { goto } from '$app/navigation';
+	import { handleSearchLinkClick, navigateToHome } from '../utils/navigationUtils';
 	import StampPalette from './StampPalette.svelte';
 	// Feather Icons
 	import {
@@ -121,8 +120,8 @@
     }
   }
 
-  function handleLogoClick() {
-    goto('/');
+  async function handleLogoClick() {
+    await navigateToHome();
   }
 
   // Close dropdowns when clicking outside

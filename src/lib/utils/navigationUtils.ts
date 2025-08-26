@@ -53,6 +53,36 @@ export async function openSearchPage(): Promise<void> {
 }
 
 /**
+ * Navigates to the home page with proper handling for different environments
+ */
+export async function navigateToHome(): Promise<void> {
+	if (!browser) return;
+
+	if (isTauri) {
+		// In Tauri, use multiple fallback strategies for reliable navigation
+		try {
+			// Strategy 1: SvelteKit navigation with forced state reset
+			await goto('/', { replaceState: true, invalidateAll: true });
+
+			// Strategy 2: Fallback to window.location if SvelteKit doesn't work
+			setTimeout(() => {
+				if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+					window.location.href = '/';
+				}
+			}, 100);
+		} catch (error) {
+			console.warn('SvelteKit navigation failed in Tauri, using window.location:', error);
+			if (typeof window !== 'undefined') {
+				window.location.href = '/';
+			}
+		}
+	} else {
+		// Standard web navigation
+		await goto('/');
+	}
+}
+
+/**
  * Handles search link clicks with proper target behavior
  */
 export function handleSearchLinkClick(event?: MouseEvent): void {
