@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-import StampAnnotation from './StampAnnotation.svelte';
-import {
-	currentPageStampAnnotations,
-	addStampAnnotation,
-	updateStampAnnotation,
-	deleteStampAnnotation,
-	drawingState,
-	pdfState,
-	availableStamps,
-	getStampById
-} from '../stores/drawingStore';
+	import StampAnnotation from './StampAnnotation.svelte';
 	import type { StampAnnotation as StampAnnotationType } from '../stores/drawingStore';
+	import {
+		addStampAnnotation,
+		availableStamps,
+		currentPageStampAnnotations,
+		deleteStampAnnotation,
+		drawingState,
+		getStampById,
+		pdfState,
+		updateStampAnnotation
+	} from '../stores/drawingStore';
 
 	export let containerWidth: number = 0; // Base viewport width at scale 1.0
 	export let containerHeight: number = 0; // Base viewport height at scale 1.0
@@ -202,67 +202,7 @@ import {
 		white-space: nowrap;
 	}
 
-	.stamp-picker {
-		position: absolute;
-		top: 16px;
-		left: 16px;
-		pointer-events: auto;
-		z-index: 20;
-		animation: slideInPicker 0.3s ease-out;
-	}
 
-	.stamp-picker-content {
-		background: rgba(255, 255, 255, 0.95);
-		border: 1px solid rgba(0, 0, 0, 0.1);
-		border-radius: 12px;
-		padding: 16px;
-		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-		backdrop-filter: blur(8px);
-		min-width: 280px;
-	}
-
-	.stamp-picker-title {
-		font-size: 14px;
-		font-weight: 600;
-		color: #374151;
-		margin-bottom: 12px;
-		text-align: center;
-	}
-
-	.stamp-grid {
-		display: grid;
-		grid-template-columns: repeat(6, 1fr);
-		gap: 8px;
-		max-width: 280px;
-	}
-
-	.stamp-option {
-		width: 40px;
-		height: 40px;
-		border: 2px solid transparent;
-		border-radius: 8px;
-		background: rgba(255, 255, 255, 0.8);
-		cursor: pointer;
-		font-size: 20px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: all 0.2s ease;
-		user-select: none;
-	}
-
-	.stamp-option:hover {
-		background: rgba(255, 255, 255, 1);
-		border-color: rgba(139, 69, 19, 0.3);
-		transform: scale(1.1);
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-	}
-
-	.stamp-option.selected {
-		background: rgba(139, 69, 19, 0.1);
-		border-color: rgba(139, 69, 19, 0.6);
-		box-shadow: 0 0 0 2px rgba(139, 69, 19, 0.2);
-	}
 
 	@keyframes fadeInHint {
 		0% {
@@ -275,52 +215,11 @@ import {
 		}
 	}
 
-	@keyframes slideInPicker {
-		0% {
-			opacity: 0;
-			transform: translateY(-10px);
-		}
-		100% {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
 
-	/* Dark mode support */
-	:global(.dark) .stamp-picker-content {
-		background: rgba(31, 41, 55, 0.95);
-		border-color: rgba(255, 255, 255, 0.1);
-	}
 
-	:global(.dark) .stamp-picker-title {
-		color: #e5e7eb;
-	}
 
-	:global(.dark) .stamp-option {
-		background: rgba(55, 65, 81, 0.8);
-		border-color: rgba(255, 255, 255, 0.1);
-	}
 
-	:global(.dark) .stamp-option:hover {
-		background: rgba(55, 65, 81, 1);
-		border-color: rgba(139, 69, 19, 0.5);
-	}
 
-	/* SVG stamp preview styling */
-	.stamp-svg-preview {
-		width: 24px;
-		height: 24px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.stamp-svg-preview :global(svg) {
-		width: 100%;
-		height: 100%;
-		max-width: 24px;
-		max-height: 24px;
-	}
 
 	/* Prevent text selection when in stamp tool mode */
 	.stamp-overlay.stamp-tool-active * {
@@ -329,27 +228,6 @@ import {
 
 	/* Responsive adjustments */
 	@media (max-width: 768px) {
-		.stamp-picker {
-			top: 8px;
-			left: 8px;
-		}
-		
-		.stamp-picker-content {
-			min-width: 240px;
-			padding: 12px;
-		}
-		
-		.stamp-grid {
-			grid-template-columns: repeat(5, 1fr);
-			max-width: 240px;
-		}
-		
-		.stamp-option {
-			width: 36px;
-			height: 36px;
-			font-size: 18px;
-		}
-		
 		.hint-content {
 			font-size: 12px;
 			padding: 8px 16px;

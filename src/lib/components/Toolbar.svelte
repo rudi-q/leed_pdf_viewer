@@ -1,49 +1,48 @@
 <script lang="ts">
-  import {
-    availableColors,
-    availableEraserSizes,
-    availableLineWidths,
-    clearCurrentPageDrawings,
-    drawingPaths,
-    drawingState,
-    type DrawingTool,
-    pdfState,
-    redo,
-    redoStack,
-    setColor,
-    setEraserSize,
-    setLineWidth,
-    setTool,
-    undo,
-    undoStack
-  } from '../stores/drawingStore';
-  import { isDarkMode, toggleTheme } from '../stores/themeStore';
-  import { handleSearchLinkClick } from '../utils/navigationUtils';
-  import { goto } from '$app/navigation';
-  import StampPalette from './StampPalette.svelte';
-  // Feather Icons
-  import {
-    ArrowRight,
-    ChevronLeft,
-    ChevronRight,
-    Download,
-    Edit3,
-    Folder,
-    Highlighter,
-    Layout,
-    Redo2,
-    Search,
-    Square,
-    Sticker,
-    StickyNote,
-    Trash2,
-    Type,
-    Undo2,
-    ZoomIn,
-    ZoomOut
-  } from 'lucide-svelte';
+	import {
+		availableColors,
+		availableEraserSizes,
+		availableLineWidths,
+		clearCurrentPageDrawings,
+		drawingPaths,
+		drawingState,
+		type DrawingTool,
+		pdfState,
+		redo,
+		redoStack,
+		setColor,
+		setEraserSize,
+		setLineWidth,
+		setTool,
+		undo,
+		undoStack
+	} from '../stores/drawingStore';
+	import { isDarkMode, toggleTheme } from '../stores/themeStore';
+	import { handleSearchLinkClick, navigateToHome } from '../utils/navigationUtils';
+	import StampPalette from './StampPalette.svelte';
+	// Feather Icons
+	import {
+		ArrowRight,
+		ChevronLeft,
+		ChevronRight,
+		Download,
+		Edit3,
+		Folder,
+		Highlighter,
+		Layout,
+		Redo2,
+		Search,
+		Square,
+		Sticker,
+		StickyNote,
+		Trash2,
+		Type,
+		Undo2,
+		ZoomIn,
+		ZoomOut
+	} from 'lucide-svelte';
 
-  // Auto-save indicator
+	// Auto-save indicator
   let showAutoSaveIndicator = false;
   let autoSaveTimeout: number;
   
@@ -121,8 +120,8 @@
     }
   }
 
-  function handleLogoClick() {
-    goto('/');
+  async function handleLogoClick() {
+    await navigateToHome();
   }
 
   // Close dropdowns when clicking outside

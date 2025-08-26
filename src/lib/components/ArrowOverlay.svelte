@@ -1,7 +1,14 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import type { ArrowAnnotation } from '../stores/drawingStore';
-	import { currentPageArrowAnnotations, addArrowAnnotation, updateArrowAnnotation, deleteArrowAnnotation, drawingState, pdfState } from '$lib/stores/drawingStore';
+	import {
+		addArrowAnnotation,
+		currentPageArrowAnnotations,
+		deleteArrowAnnotation,
+		drawingState,
+		pdfState,
+		updateArrowAnnotation
+	} from '$lib/stores/drawingStore';
 	import ArrowAnnotationComponent from './ArrowAnnotation.svelte';
 
 	export let containerWidth: number = 0; // Base viewport width at scale 1.0

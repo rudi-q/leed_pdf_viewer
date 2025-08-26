@@ -7,7 +7,7 @@ export const GET: RequestHandler = async () => {
 	if (data.windows) {
 		throw redirect(302, data.windows);
 	}
-	
+
 	// If no Windows link found
 	return json({ error: 'Windows download link not found' }, { status: 404 });
 };

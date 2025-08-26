@@ -1,13 +1,11 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { browser } from '$app/environment';
-  import { dev } from '$app/environment';
-  import { updateStore } from '$lib/stores/updateStore';
-  import { isTauri } from '$lib/utils/tauriUtils';
-  
-  // Props
+	import { onMount } from 'svelte';
+	import { browser, dev } from '$app/environment';
+	import { updateStore } from '$lib/stores/updateStore';
+	import { isTauri } from '$lib/utils/tauriUtils';
+
+	// Props
   export let disableAutoCheck = false;
-  
   // Disable updater in development mode
   const enableUpdater = !dev && isTauri;
 
