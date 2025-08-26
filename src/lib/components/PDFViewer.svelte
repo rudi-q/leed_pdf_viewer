@@ -1790,7 +1790,6 @@ function handlePointerUp(event: PointerEvent) {
       <div class="text-center">
         <div class="text-6xl mb-4">📄</div>
         <h3 class="text-xl font-medium text-charcoal mb-2">Drop a PDF here or click to browse</h3>
-        <p class="text-xs text-slate mt-2">Debug: Loading={$pdfState.isLoading}, Document={!!$pdfState.document}, Pages={$pdfState.totalPages}</p>
       </div>
     </div>
   {/if}

@@ -120,7 +120,10 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		if (!query || typeof query !== 'string' || query.trim().length === 0) {
 			console.log('Invalid query provided');
-			return json({ error: 'Search query is required' }, { status: 400 });
+			return json({ error: 'Search query is required' }, { 
+				status: 400, 
+				headers: corsValidation.headers 
+			});
 		}
 
 		if (!BRAVE_API_KEY) {
@@ -130,7 +133,7 @@ export const POST: RequestHandler = async ({ request }) => {
 					error:
 						'Brave Search API key not configured. Please add BRAVE_SEARCH_API_KEY to your environment variables.'
 				},
-				{ status: 500 }
+				{ status: 500, headers: corsValidation.headers }
 			);
 		}
 
@@ -164,7 +167,7 @@ export const POST: RequestHandler = async ({ request }) => {
 					{
 						error: 'Invalid Brave Search API key. Please check your API key configuration.'
 					},
-					{ status: 401 }
+					{ status: 401, headers: corsValidation.headers }
 				);
 			}
 
@@ -173,7 +176,7 @@ export const POST: RequestHandler = async ({ request }) => {
 					{
 						error: 'API rate limit exceeded. Please try again later.'
 					},
-					{ status: 429 }
+					{ status: 429, headers: corsValidation.headers }
 				);
 			}
 
@@ -181,7 +184,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				{
 					error: `Search service error: ${response.status} ${response.statusText}`
 				},
-				{ status: response.status }
+				{ status: response.status, headers: corsValidation.headers }
 			);
 		}
 
@@ -192,7 +195,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				results: [],
 				totalResults: 0,
 				query: query.trim()
-			});
+			}, { headers: corsValidation.headers });
 		}
 
 		// Helper function to detect if a URL points to a PDF file
@@ -262,11 +265,11 @@ export const POST: RequestHandler = async ({ request }) => {
 	} catch (error) {
 		console.error('Search API error:', error);
 
-		return json(
+	return json(
 			{
 				error: 'An unexpected error occurred while searching. Please try again.'
 			},
-			{ status: 500 }
+			{ status: 500, headers: corsValidation.headers }
 		);
 	}
 };
