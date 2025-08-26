@@ -353,10 +353,9 @@ This design ensures optimal usability across all device sizes while maintaining 
 ### Installation
 
 ```bash
-git clone https://github.com/rudi-q/leedpdf.git
-cd leedpdf
+git clone https://github.com/rudi-q/leed_pdf_viewer.git
+cd leed_pdf_viewer
 pnpm install
-```
 
 ### Development
 
