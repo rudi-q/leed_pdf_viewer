@@ -13,6 +13,12 @@
       name: 'ThreeThings',
       title: 'Three Things Journal',
       description: 'A simple daily template for noting three important things',
+      icon: '☺️'
+    },
+    {
+      name: 'CollegeRuled',
+      title: 'College Ruled Paper',
+      description: 'Standard college-ruled lined paper for general writing and note-taking',
       icon: '📝'
     }
     // Add more templates here as they're added to the templates folder
