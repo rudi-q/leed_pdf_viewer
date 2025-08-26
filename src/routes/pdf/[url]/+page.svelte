@@ -1,24 +1,25 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
-  import { browser } from '$app/environment';
-  import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
-  import { listen } from '@tauri-apps/api/event';
-  import { message } from '@tauri-apps/plugin-dialog';
-  import { readFile } from '@tauri-apps/plugin-fs';
-  import { invoke } from '@tauri-apps/api/core';
-  import PDFViewer from '$lib/components/PDFViewer.svelte';
-  import Toolbar from '$lib/components/Toolbar.svelte';
-  import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
-  import PageThumbnails from '$lib/components/PageThumbnails.svelte';
-  import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
-  import { redo, setCurrentPDF, setTool, undo, pdfState, forceSaveAllAnnotations } from '$lib/stores/drawingStore';
-  import { PDFExporter } from '$lib/utils/pdfExport';
+	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
+	import { listen } from '@tauri-apps/api/event';
+	import { message } from '@tauri-apps/plugin-dialog';
+	import { readFile as readFilePlugin } from '@tauri-apps/plugin-fs';
+	import { invoke } from '@tauri-apps/api/core';
+	import PDFViewer from '$lib/components/PDFViewer.svelte';
+	import Toolbar from '$lib/components/Toolbar.svelte';
+	import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
+	import PageThumbnails from '$lib/components/PageThumbnails.svelte';
+	import { isValidPDFFile } from '$lib/utils/pdfUtils';
+	import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
+	import { toastStore } from '$lib/stores/toastStore';
+	import { PDFExporter } from '$lib/utils/pdfExport';
+	import { MAX_FILE_SIZE } from '$lib/constants';
+	import { isTauri } from '$lib/utils/tauriUtils';
 
-  const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
-
-  let pdfViewer: PDFViewer;
+	let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
   let dragOver = false;
   let showShortcuts = false;
@@ -32,10 +33,7 @@
   let debugResults = 'Click button to test...';
 
   // File loading variables
-  let hasLoadedFromCommandLine = false;
-  let fileLoadingAttempts = 0;
-  let maxFileLoadingAttempts = 10;
-  let fileLoadingTimer: number | null = null;
+  // (hasLoadedFromCommandLine removed - was unused dead code)
 
   // Extract and decode URL parameter
   $: if (browser && $page && $page.params.url) {
@@ -115,10 +113,6 @@
     console.log('[PDF Route] Cleaning up');
     document.removeEventListener('fullscreenchange', handleFullscreenChange);
 
-    if (fileLoadingTimer) {
-      clearInterval(fileLoadingTimer);
-    }
-
     // Clean up Tauri event listeners
     if (window.__pdfRouteCleanup) {
       const { unlistenFileOpened, unlistenStartupReady, unlistenDebug } = window.__pdfRouteCleanup;
@@ -136,13 +130,13 @@
 
     if (!isValidPDFFile(file)) {
       console.log('Invalid PDF file');
-      alert('Please choose a valid PDF file.');
+      toastStore.error('Invalid File', 'Please choose a valid PDF file.');
       return;
     }
 
-    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+    if (file.size > MAX_FILE_SIZE) { // 50MB limit
       console.log('File too large');
-      alert('File too large. Please choose a file under 50MB.');
+      toastStore.error('File Too Large', 'File too large. Please choose a file under 50MB.');
       return;
     }
 
@@ -207,8 +201,7 @@
     console.log('*** HANDLING FILE FROM COMMAND LINE ***');
     console.log('File path:', filePath);
 
-    // Mark that we've attempted to load from command line
-    hasLoadedFromCommandLine = true;
+    // File loading from command line initiated
 
     try {
       // Step 1: Validate path
@@ -236,42 +229,55 @@
       }
       debugResults += '\n✅ Step 4: PDF file check passed';
 
-      // Step 5: Try to read the file
+      // Step 5: Try to read the file using Rust command first, then plugin fallback
       debugResults += '\n🔄 Step 5: Reading file...';
       let fileData: Uint8Array;
       try {
-        fileData = await readFile(cleanPath);
-        debugResults += `\n✅ Step 5: File read successfully! Size: ${fileData.length} bytes`;
-      } catch (readError: unknown) {
-        const errorMsg = readError instanceof Error ? readError.message : String(readError);
-        debugResults += `\n❌ FAILED at Step 5: File read error: ${errorMsg}`;
+        // First try the Rust command for better security and permissions
+        debugResults += '\n🔄 Trying Rust read_file_content command...';
+        const fileContent = await invoke('read_file_content', { filePath: cleanPath }) as number[];
+        fileData = new Uint8Array(fileContent);
+        debugResults += `\n✅ Step 5: File read successfully via Rust! Size: ${fileData.length} bytes`;
+      } catch (rustError: unknown) {
+        const rustErrorMsg = rustError instanceof Error ? rustError.message : String(rustError);
+        debugResults += `\n⚠️ Rust command failed: ${rustErrorMsg}`;
+        debugResults += '\n🔄 Falling back to plugin-fs readFile...';
+        
+        try {
+          // Fallback to plugin-fs when Rust command fails (e.g., permissions)
+          fileData = await readFilePlugin(cleanPath);
+          debugResults += `\n✅ Step 5: File read successfully via plugin fallback! Size: ${fileData.length} bytes`;
+        } catch (pluginError: unknown) {
+          const pluginErrorMsg = pluginError instanceof Error ? pluginError.message : String(pluginError);
+          debugResults += `\n❌ Plugin fallback also failed: ${pluginErrorMsg}`;
 
-        // Try alternative path formats
-        debugResults += '\n🔄 Trying alternative path formats...';
-        const altPaths = [
-          cleanPath.replace(/\\/g, '/'),
-          cleanPath.replace(/\//g, '\\'),
-          `"${cleanPath}"` // Try with quotes
-        ];
+          // Try alternative path formats with plugin fallback
+          debugResults += '\n🔄 Trying alternative path formats with plugin...';
+          const altPaths = [
+            cleanPath.replace(/\\/g, '/'),
+            cleanPath.replace(/\//g, '\\'),
+            `"${cleanPath}"` // Try with quotes
+          ];
 
-        let success = false;
-        for (const altPath of altPaths) {
-          try {
-            debugResults += `\n🔄 Trying: ${altPath}`;
-            fileData = await readFile(altPath);
-            debugResults += `\n✅ Success with alternative path!`;
-            cleanPath = altPath;
-            success = true;
-            break;
-          } catch (altError: unknown) {
-            const altErrorMsg = altError instanceof Error ? altError.message : String(altError);
-            debugResults += `\n❌ Failed: ${altErrorMsg}`;
+          let success = false;
+          for (const altPath of altPaths) {
+            try {
+              debugResults += `\n🔄 Trying: ${altPath}`;
+              fileData = await readFilePlugin(altPath);
+              debugResults += `\n✅ Success with alternative path!`;
+              cleanPath = altPath;
+              success = true;
+              break;
+            } catch (altError: unknown) {
+              const altErrorMsg = altError instanceof Error ? altError.message : String(altError);
+              debugResults += `\n❌ Failed: ${altErrorMsg}`;
+            }
           }
-        }
 
-        if (!success) {
-          debugResults += '\n❌ FINAL FAILURE: All path formats failed';
-          return false;
+          if (!success) {
+            debugResults += '\n❌ FINAL FAILURE: All path formats failed';
+            return false;
+          }
         }
       }
 
@@ -291,7 +297,7 @@
       debugResults += `\n✅ Step 7: File object created - ${file.name}, ${file.size} bytes`;
 
       // Step 8: Size check
-      if (file.size > 50 * 1024 * 1024) {
+      if (file.size > MAX_FILE_SIZE) {
         debugResults += '\n❌ FAILED: File too large';
         return false;
       }
@@ -408,7 +414,7 @@
 
     if (!isValidPdfUrl(url)) {
       console.log('Invalid PDF URL');
-      alert('Invalid PDF URL. Please provide a valid web address.');
+      toastStore.error('Invalid URL', 'Invalid PDF URL. Please provide a valid web address.');
       goto('/');
       return;
     }
@@ -637,7 +643,7 @@
 
   async function handleExportPDF() {
     if (!currentFile || !pdfViewer) {
-      alert('No PDF to export');
+      toastStore.warning('No PDF', 'No PDF to export');
       return;
     }
 
@@ -705,7 +711,7 @@
       }
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Export failed. Please try again.');
+      toastStore.error('Export Failed', 'Export failed. Please try again.');
     }
   }
 

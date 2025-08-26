@@ -134,8 +134,8 @@
     }
   }
 
-  function handleLogoClick() {
-    goto('/');
+  async function handleLogoClick() {
+    await navigateToHome();
   }
 
   function handleToolbarScroll() {

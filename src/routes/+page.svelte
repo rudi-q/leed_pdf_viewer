@@ -6,21 +6,23 @@
   import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
   import { listen } from '@tauri-apps/api/event';
   import { message } from '@tauri-apps/plugin-dialog';
-  import { readFile } from '@tauri-apps/plugin-fs';
+  import { readFile as readFilePlugin } from '@tauri-apps/plugin-fs';
   import { invoke } from '@tauri-apps/api/core';
   import PDFViewer from '$lib/components/PDFViewer.svelte';
   import Toolbar from '$lib/components/Toolbar.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
   import PageThumbnails from '$lib/components/PageThumbnails.svelte';
   import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
-  import { redo, setCurrentPDF, setTool, undo, pdfState } from '$lib/stores/drawingStore';
-  import { PDFExporter } from '$lib/utils/pdfExport';
-  import { isDarkMode } from '$lib/stores/themeStore';
+  import { pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
+  import { toastStore } from '$lib/stores/toastStore';
+  import { MAX_FILE_SIZE } from '$lib/constants';
   import { handleSearchLinkClick } from '$lib/utils/navigationUtils';
   import TemplatePicker from '$lib/components/TemplatePicker.svelte';
-  import { toastStore } from '$lib/stores/toastStore';
   import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
+  import DebugPanel from '$lib/components/DebugPanel.svelte';
   import { detectOS, isTauri } from '$lib/utils/tauriUtils';
+  import { getFormattedVersion } from '$lib/utils/version';
+  import { PDFExporter } from '$lib/utils/pdfExport';
 
   let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
@@ -35,16 +37,20 @@
   let focusMode = false;
   let showTemplatePicker = false;
   let showDownloadCard = true;
-
-  // Debug variables
-  let debugVisible = false;
-  let debugResults = 'Click button to test...';
+  let showDebugPanel = false;
 
   // File loading variables
-  let hasLoadedFromCommandLine = false;
-  let fileLoadingAttempts = 0;
-  let maxFileLoadingAttempts = 10;
-  let fileLoadingTimer: number | null = null;
+  // (hasLoadedFromCommandLine removed - was unused dead code)
+
+  // Debug state changes (development only)
+  $: if (import.meta.env.DEV) {
+    console.log('State changed:', { 
+      currentFile: !!currentFile, 
+      showWelcome, 
+      dragOver,
+      fileType: currentFile ? (typeof currentFile === 'string' ? 'string' : 'File') : 'null'
+    });
+  }
 
   // Redirect from /?pdf=URL to /pdf/URL for better URL structure
   $: if (browser && $page && $page.url) {
@@ -82,16 +88,33 @@
       return;
     }
 
-    console.log('Storing file and navigating to pdf-upload route');
+    console.log('Processing PDF file directly on current page');
+    console.log('Before state change - showWelcome:', showWelcome, 'currentFile:', !!currentFile);
     
-    // Use new IndexedDB storage system
-    const result = await storeUploadedFile(file);
-    
-    if (result.success && result.id) {
-      // Navigate with the file ID
-      goto(`/pdf-upload?fileId=${result.id}`);
+    try {
+      // Update state immediately
+      currentFile = file;
+      showWelcome = false;
+      
+      // Set current PDF for auto-save functionality
+      setCurrentPDF(file.name, file.size);
+      
+      console.log('After state change - showWelcome:', showWelcome, 'currentFile:', !!currentFile);
+      
+      // Show success toast
+      toastStore.success('PDF Loaded', `${file.name} has been loaded successfully!`);
+      
+      console.log('PDF loaded successfully:', { 
+        name: file.name, 
+        size: file.size, 
+        currentFile: !!currentFile,
+        showWelcome 
+      });
+      
+    } catch (error) {
+      console.error('Error loading PDF:', error);
+      toastStore.error('Load Error', 'Failed to load the PDF. Please try again.');
     }
-    // Error handling is done in the storage utility via toasts
   }
 
   function isValidPdfUrl(url: string): boolean {
@@ -146,50 +169,50 @@
   // Replace your handleFileFromCommandLine function with this enhanced debug version
 
   async function handleFileFromCommandLine(filePath: string): Promise<boolean> {
-    console.log('*** HANDLING FILE FROM COMMAND LINE ***');
-    console.log('File path:', filePath);
+    if (import.meta.env.DEV) {
+      console.log('*** HANDLING FILE FROM COMMAND LINE ***');
+      console.log('File path:', filePath);
+    }
 
-    // Mark that we've attempted to load from command line
-    hasLoadedFromCommandLine = true;
+    // File loading from command line initiated
 
     try {
       // Step 1: Validate path
       if (!filePath || typeof filePath !== 'string') {
-        debugResults += '\n❌ FAILED: Invalid file path received';
         throw new Error('Invalid file path received');
       }
-      debugResults += '\n✅ Step 1: Path validation passed';
 
       // Step 2: Sanitize path
       let cleanPath = filePath.trim();
       if (cleanPath.startsWith('"') && cleanPath.endsWith('"')) {
         cleanPath = cleanPath.slice(1, -1);
       }
-      debugResults += `\n✅ Step 2: Cleaned path: ${cleanPath}`;
 
       // Step 3: Extract filename
       const fileName = cleanPath.split(/[\\/]/).pop() || 'document.pdf';
-      debugResults += `\n✅ Step 3: Extracted filename: ${fileName}`;
 
       // Step 4: Check if it's a PDF
       if (!fileName.toLowerCase().endsWith('.pdf')) {
-        debugResults += '\n❌ FAILED: Not a PDF file';
         return false;
       }
-      debugResults += '\n✅ Step 4: PDF file check passed';
 
-      // Step 5: Try to read the file (this is probably where it fails)
-      debugResults += '\n🔄 Step 5: Reading file...';
+      // Step 5: Try to read the file
       let fileData: Uint8Array;
       try {
-        fileData = await readFile(cleanPath);
-        debugResults += `\n✅ Step 5: File read successfully! Size: ${fileData.length} bytes`;
+        // Try using the Rust command first to avoid glob pattern issues
+        const fileContent = await invoke('read_file_content', { filePath: cleanPath });
+        
+        // Validate the result before casting
+        if (!Array.isArray(fileContent) || !fileContent.every(x => typeof x === 'number')) {
+          throw new Error(`Invalid response from read_file_content: expected array of numbers, got ${typeof fileContent}`);
+        }
+        
+        fileData = new Uint8Array(fileContent);
       } catch (readError: unknown) {
         const errorMsg = readError instanceof Error ? readError.message : String(readError);
-        debugResults += `\n❌ FAILED at Step 5: File read error: ${errorMsg}`;
+        console.error('File read error:', errorMsg);
 
         // Try alternative path formats
-        debugResults += '\n🔄 Trying alternative path formats...';
         const altPaths = [
           cleanPath.replace(/\\/g, '/'),
           cleanPath.replace(/\//g, '\\'),
@@ -199,71 +222,58 @@
         let success = false;
         for (const altPath of altPaths) {
           try {
-            debugResults += `\n🔄 Trying: ${altPath}`;
-            fileData = await readFile(altPath);
-            debugResults += `\n✅ Success with alternative path!`;
+            fileData = await readFilePlugin(altPath);
             cleanPath = altPath;
             success = true;
             break;
           } catch (altError: unknown) {
-            const altErrorMsg = altError instanceof Error ? altError.message : String(altError);
-            debugResults += `\n❌ Failed: ${altErrorMsg}`;
+            console.warn('Alternative path failed:', altPath, altError);
           }
         }
 
         if (!success) {
-          debugResults += '\n❌ FINAL FAILURE: All path formats failed';
+          console.error('All path formats failed');
           return false;
         }
       }
 
       // Step 6: Validate PDF header
-      debugResults += '\n🔄 Step 6: Validating PDF header...';
       const pdfHeader = new Uint8Array(fileData!.slice(0, 4));
       const pdfSignature = String.fromCharCode(...pdfHeader);
       if (pdfSignature !== '%PDF') {
-        debugResults += `\n❌ FAILED: Invalid PDF signature: ${pdfSignature}`;
+        console.error('Invalid PDF signature:', pdfSignature);
         return false;
       }
-      debugResults += '\n✅ Step 6: PDF signature valid';
 
       // Step 7: Create File object
-      debugResults += '\n🔄 Step 7: Creating File object...';
       const file = new File([new Uint8Array(fileData!)], fileName, { type: 'application/pdf' });
-      debugResults += `\n✅ Step 7: File object created - ${file.name}, ${file.size} bytes`;
 
       // Step 8: Size check
-      if (file.size > 50 * 1024 * 1024) {
-        debugResults += '\n❌ FAILED: File too large';
+      if (file.size > MAX_FILE_SIZE) {
+        console.error('File too large:', file.size);
         return false;
       }
-      debugResults += '\n✅ Step 8: Size check passed';
 
-      // Step 9: Set state (this should hide welcome screen and show PDF)
-      debugResults += '\n🔄 Step 9: Setting application state...';
+      // Step 9: Set state
       currentFile = file;
       showWelcome = false;
-      debugResults += '\n✅ Step 9: State updated';
 
       // Step 10: Set PDF for auto-save
-      debugResults += '\n🔄 Step 10: Setting up auto-save...';
       setCurrentPDF(file.name, file.size);
-      debugResults += '\n✅ Step 10: Auto-save configured';
 
       // Step 11: Mark as processed
       try {
         await invoke('mark_file_processed');
-        debugResults += '\n✅ Step 11: Marked as processed in Rust';
       } catch (e) {
-        debugResults += '\n⚠️ Step 11: Could not mark as processed (not critical)';
+        console.warn('Could not mark as processed (not critical)');
       }
 
-      debugResults += '\n🎉 SUCCESS: PDF should now be loading!';
+      console.log('PDF loaded successfully from command line');
       return true;
 
     } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      debugResults += `\n💥 UNEXPECTED ERROR: ${errorMsg}`;
+      console.error('Unexpected error in handleFileFromCommandLine:', errorMsg);
       return false;
     }
   }
@@ -271,43 +281,71 @@
   // Multiple strategies for checking files
   async function checkForPendingFiles() {
     try {
-      console.log('Checking for pending files (strategy 1: command)...');
-      const pendingFile = await invoke('get_pending_file') as string | null;
+      if (import.meta.env.DEV) {
+        console.log('Checking for pending files (strategy 1: command)...');
+      }
+      const pendingFile = await invoke('get_pending_file');
+      
+      // Validate the result before casting
+      if (pendingFile !== null && typeof pendingFile !== 'string') {
+        if (import.meta.env.DEV) {
+          console.error('Invalid response from get_pending_file: expected string or null');
+        }
+        return;
+      }
 
       if (pendingFile) {
-        console.log('Found pending file via command:', pendingFile);
+        if (import.meta.env.DEV) {
+          console.log('Found pending file via command:', pendingFile);
+        }
         const success = await handleFileFromCommandLine(pendingFile);
 
         if (success) {
           // Check for more files
           setTimeout(checkForPendingFiles, 100);
         }
-      } else {
+      } else if (import.meta.env.DEV) {
         console.log('No pending files found via command');
       }
     } catch (error) {
-      console.error('Error checking for pending files:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error checking for pending files:', error);
+      }
     }
   }
 
   async function checkFileAssociations() {
     try {
-      console.log('Checking file associations (strategy 2: direct check)...');
-      const pdfFiles = await invoke('check_file_associations') as string[];
+      if (import.meta.env.DEV) {
+        console.log('Checking file associations (strategy 2: direct check)...');
+      }
+      const pdfFiles = await invoke('check_file_associations');
+      
+      // Validate the result before casting
+      if (!Array.isArray(pdfFiles) || !pdfFiles.every(x => typeof x === 'string')) {
+        if (import.meta.env.DEV) {
+          console.error('Invalid response from check_file_associations: expected array of strings');
+        }
+        return;
+      }
 
-      if (pdfFiles && pdfFiles.length > 0) {
-        console.log('Found PDF files via direct check:', pdfFiles);
+      if (pdfFiles.length > 0) {
+        if (import.meta.env.DEV) {
+          console.log('Found PDF files via direct check:', pdfFiles);
+        }
         for (const pdfFile of pdfFiles) {
           const success = await handleFileFromCommandLine(pdfFile);
           if (success) {
             break; // Only load the first one
           }
         }
-      } else {
+      } else if (import.meta.env.DEV) {
         console.log('No PDF files found via direct check');
       }
     } catch (error) {
-      console.error('Error checking file associations:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error checking file associations:', error);
+      }
     }
   }
 
@@ -350,7 +388,7 @@
 
     if (!isValidPdfUrl(url)) {
       console.log('Invalid PDF URL');
-      alert('Invalid PDF URL. Please provide a valid web address.');
+      toastStore.error('Invalid URL', 'Invalid PDF URL. Please provide a valid web address.');
       return;
     }
 
@@ -391,27 +429,65 @@
   }
 
   function handleDrop(event: DragEvent) {
+    console.log('=== DROP EVENT TRIGGERED ===');
     event.preventDefault();
+    event.stopPropagation();
+    
+    // Reset drag state immediately
     dragOver = false;
-
-    if (event.dataTransfer?.files) {
+    
+    if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
+      console.log('Files detected in drop:', event.dataTransfer.files.length);
+      console.log('File details:', {
+        name: event.dataTransfer.files[0]?.name,
+        type: event.dataTransfer.files[0]?.type,
+        size: event.dataTransfer.files[0]?.size
+      });
+      
+      // Process the files
       handleFileUpload(event.dataTransfer.files);
+    } else {
+      console.log('No files in drop event');
+      console.log('DataTransfer types:', event.dataTransfer?.types);
+      console.log('DataTransfer files:', event.dataTransfer?.files);
     }
   }
 
   function handleDragOver(event: DragEvent) {
     event.preventDefault();
-    dragOver = true;
+    event.stopPropagation();
+    
+    // Only set dragOver to true if we have files
+    if (event.dataTransfer?.types.includes('Files')) {
+      if (!dragOver) {
+        console.log('Drag over with files - setting dragOver to true');
+        dragOver = true;
+      }
+    }
+  }
+
+  function handleDragEnter(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Only set dragOver to true if we have files
+    if (event.dataTransfer?.types.includes('Files')) {
+      console.log('Drag enter with files - setting dragOver to true');
+      dragOver = true;
+    }
   }
 
   function handleDragLeave(event: DragEvent) {
-    // Only set dragOver to false if we're actually leaving the main container
-    // Check if the related target is outside the main element
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Check if we're actually leaving the main container
     const mainElement = event.currentTarget as Element;
     const relatedTarget = event.relatedTarget as Element;
     
     // If relatedTarget is null (leaving the window) or not a child of main, we're truly leaving
     if (!relatedTarget || !mainElement.contains(relatedTarget)) {
+      console.log('Drag leave - setting dragOver to false');
       dragOver = false;
     }
   }
@@ -578,7 +654,7 @@
 
   async function handleExportPDF() {
     if (!currentFile || !pdfViewer) {
-      alert('No PDF to export');
+      toastStore.warning('No PDF', 'No PDF to export');
       return;
     }
 
@@ -635,7 +711,7 @@
       }
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Export failed. Please try again.');
+      toastStore.error('Export Failed', 'Export failed. Please try again.');
     }
   }
 
@@ -722,7 +798,9 @@
 
   // Enhanced onMount with comprehensive file loading
   onMount(() => {
-    console.log('[onMount] Component mounted - setting up comprehensive file loading');
+    if (import.meta.env.DEV) {
+      console.log('[onMount] Component mounted - setting up comprehensive file loading');
+    }
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     // Check if the download card was dismissed
     if (browser) {
@@ -731,42 +809,64 @@
     }
 
     // Strategy 1: Immediate checks
-    console.log('Starting immediate file checks...');
+    if (import.meta.env.DEV) {
+      console.log('Starting immediate file checks...');
+    }
     checkForPendingFiles();
     checkFileAssociations();
 
     // Strategy 2: Event listeners
-    console.log('Setting up event listeners...');
+    if (import.meta.env.DEV) {
+      console.log('Setting up event listeners...');
+    }
 
     const unlistenFileOpened = listen('file-opened', (event) => {
-      console.log('*** FILE-OPENED EVENT RECEIVED ***');
-      console.log('Event payload:', event.payload);
+      if (import.meta.env.DEV) {
+        console.log('*** FILE-OPENED EVENT RECEIVED ***');
+        console.log('Event payload:', event.payload);
+      }
       handleFileFromCommandLine(event.payload as string);
     });
 
     const unlistenStartupReady = listen('startup-file-ready', (event) => {
-      console.log('*** STARTUP-FILE-READY EVENT RECEIVED ***');
-      console.log('Event payload:', event.payload);
+      if (import.meta.env.DEV) {
+        console.log('*** STARTUP-FILE-READY EVENT RECEIVED ***');
+        console.log('Event payload:', event.payload);
+      }
       handleFileFromCommandLine(event.payload as string);
     });
 
     const unlistenDebug = listen('debug-info', (event) => {
-      console.log('TAURI DEBUG:', event.payload);
+      if (import.meta.env.DEV) {
+        console.log('TAURI DEBUG:', event.payload);
+      }
     });
 
     registerDeepLinkHandler();
 
-    console.log('✅ All file loading strategies initialized');
+    // Signal that frontend is ready to receive events
+    if (isTauri) {
+      if (import.meta.env.DEV) {
+        console.log('Signaling frontend is ready...');
+      }
+      invoke('frontend_ready').then(() => {
+        if (import.meta.env.DEV) {
+          console.log('Frontend ready signal sent');
+        }
+      }).catch(console.error);
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('✅ All file loading strategies initialized');
+    }
 
     return () => {
-      console.log('[onDestroy] Cleaning up file loading systems');
+      if (import.meta.env.DEV) {
+        console.log('[onDestroy] Cleaning up file loading systems');
+      }
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
 
-      if (fileLoadingTimer) {
-        clearInterval(fileLoadingTimer);
-      }
-
-      // Clean up all event listeners
+    // Clean up all event listeners
       unlistenFileOpened.then(fn => fn()).catch(console.error);
       unlistenStartupReady.then(fn => fn()).catch(console.error);
       unlistenDebug.then(fn => fn()).catch(console.error);
@@ -779,8 +879,9 @@
 <main
   class="w-screen h-screen relative overflow-hidden"
   class:drag-over={dragOver}
-  on:drop|nonpassive={handleDrop}
-  on:dragover|nonpassive={handleDragOver}
+  on:drop={handleDrop}
+  on:dragover={handleDragOver}
+  on:dragenter={handleDragEnter}
   on:dragleave={handleDragLeave}
 >
   {#if !focusMode}
@@ -842,40 +943,7 @@
               >
                 Open from URL
               </button>
-
             </div>
-
-            <!-- DEBUG BUTTON -->
-           <!-- <button
-              class="secondary-button text-sm px-4 py-2 bg-yellow-200 border-yellow-400"
-              on:click={async () => {
-                debugVisible = true;
-                debugResults = 'Testing...';
-
-                try {
-                  // Test 1: Check if invoke works
-                  debugResults = 'Step 1: Testing invoke function...';
-
-                  const pdfFiles = await invoke('check_file_associations') as string[];
-                  debugResults = `Step 2: SUCCESS! Found files: ${JSON.stringify(pdfFiles)}`;
-
-                  if (pdfFiles && pdfFiles.length > 0) {
-                    // Test 2: Try to load the file
-                    debugResults += '\nStep 3: Trying to load file...';
-                    await handleFileFromCommandLine(pdfFiles[0]);
-                    debugResults += '\nStep 4: File loading attempted!';
-                  } else {
-                    debugResults += '\nStep 3: No files found to load';
-                  }
-
-                } catch (error: unknown) {
-                  const errorMessage = error instanceof Error ? error.message : String(error);
-                  debugResults = `ERROR: ${errorMessage}`;
-                }
-              }}
-            >
-              🔧 DEBUG: Test File Loading
-            </button>-->
 
             <div class="text-sm text-slate">
               <span>or</span>
@@ -942,20 +1010,6 @@
             <p class="text-base sm:text-lg text-slate dark:text-gray-300 font-medium hidden sm:block">
               or drop a file anywhere
             </p>
-
-            <!-- Debug results display -->
-            {#if debugVisible}
-              <div class="mt-4 p-4 bg-gray-100 rounded-lg text-sm max-w-md mx-auto">
-                <h4 class="font-bold mb-2">Debug Results:</h4>
-                <pre class="whitespace-pre-wrap text-xs">{debugResults}</pre>
-                <button
-                  class="mt-2 text-xs px-2 py-1 bg-gray-300 rounded"
-                  on:click={() => debugVisible = false}
-                >
-                  Close
-                </button>
-              </div>
-            {/if}
           </div>
 
         </div>
@@ -978,11 +1032,12 @@
   </div>
 
   {#if dragOver}
-    <div class="absolute inset-0 bg-sage/20 backdrop-blur-sm flex items-center justify-center z-40">
-      <div class="text-center">
-        <div class="text-6xl mb-4">📄</div>
+    <div class="absolute inset-0 bg-sage/40 backdrop-blur-sm flex items-center justify-center z-40 transition-all duration-200 ease-out pointer-events-none">
+      <div class="text-center transform scale-105 transition-transform duration-200">
+        <div class="text-6xl mb-4 animate-bounce">📄</div>
         <h3 class="text-2xl font-bold text-charcoal mb-2">Drop your PDF here</h3>
         <p class="text-slate">Release to start drawing</p>
+        <div class="mt-4 text-sm text-sage font-medium">Ready to receive PDF</div>
       </div>
     </div>
   {/if}
@@ -1044,24 +1099,34 @@
       <span>Made by Rudi K</span>
       <a aria-label="Credit" href="https://github.com/rudi-q/leed_pdf_viewer" class="text-charcoal/60 dark:text-gray-300 hover:text-sage dark:hover:text-sage transition-colors" target="_blank" rel="noopener" title="View on GitHub">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.30 3.297-1.30.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.30.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.30 3.297-1.30.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
         </svg>
       </a>
     </div>
-
-    <button
-      class="absolute bottom-4 left-4 text-xs text-charcoal dark:text-gray-100 hover:text-sage dark:hover:text-sage transition-colors flex items-center gap-1 bg-white/80 hover:bg-white/90 dark:bg-gray-800/80 dark:hover:bg-gray-700/90 px-2 py-1 rounded-lg backdrop-blur-sm border border-charcoal/10 dark:border-gray-600/20"
-      on:click={() => showShortcuts = true}
-      title="Show keyboard shortcuts (? or F1)"
-    >
-      <span>?</span>
-      <span>Help</span>
-    </button>
+      
+    <!-- Help button and version display -->
+    <div class="absolute bottom-4 left-4 flex items-center gap-2">
+      <button
+        class="text-xs text-charcoal dark:text-gray-100 hover:text-sage dark:hover:text-sage transition-colors flex items-center gap-1 bg-white/80 hover:bg-white/90 dark:bg-gray-800/80 dark:hover:bg-gray-700/90 px-2 py-1 rounded-lg backdrop-blur-sm border border-charcoal/10 dark:border-gray-600/20"
+        on:click={() => showShortcuts = true}
+        title="Show keyboard shortcuts (? or F1)"
+      >
+        <span>?</span>
+        <span>Help</span>
+      </button>
+      
+      <!-- Version display -->
+      <div class="text-xs text-charcoal/50 dark:text-gray-400 px-2 py-1 bg-white/60 dark:bg-gray-800/60 rounded-lg backdrop-blur-sm border border-charcoal/5 dark:border-gray-600/10">
+        {getFormattedVersion()}
+      </div>
+    </div>
+      
   {/if}
 </main>
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => showShortcuts = false} />
 <TemplatePicker bind:isOpen={showTemplatePicker} on:close={() => showTemplatePicker = false} />
+<DebugPanel bind:isVisible={showDebugPanel} />
 
 <!-- Hidden file input -->
 <input

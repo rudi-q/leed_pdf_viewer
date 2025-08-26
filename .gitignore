@@ -47,3 +47,16 @@ test-*.html
 # Playwright test artifacts
 playwright-report/
 test-results/
+
+# Dev Assistance Tools
+# Exclude all .md files except specific project documentation
+*.md
+!CHANGELOG.md
+!README.md
+!README.test.md
+!SECURITY.md
+!CODE_OF_CONDUCT.md
+!CONTRIBUTING.md
+!URL_LOADING_FEATURE.md
+!docs/SEARCH_FEATURE.md
+!todo.md

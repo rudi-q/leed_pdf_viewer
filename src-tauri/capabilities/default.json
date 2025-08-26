@@ -7,7 +7,6 @@
   ],
   "permissions": [
     "core:default",
-
     "updater:default",
 
     "fs:allow-read-file",
@@ -32,12 +31,18 @@
       "identifier": "fs:allow-read-file",
       "allow": [
         { "path": "$HOME/**", "platform": "macOS" },
+        { "path": "$HOME/Documents/**", "platform": "macOS" },
+        { "path": "$HOME/Desktop/**", "platform": "macOS" },
+        { "path": "$HOME/Downloads/**", "platform": "macOS" },
         { "path": "C:\\**", "platform": "windows" }
       ]
     },
     {
       "identifier": "fs:allow-write-file",
       "allow": [
+        { "path": "$HOME/Downloads/**", "platform": "macOS" },
+        { "path": "$HOME/Documents/**", "platform": "macOS" },
+        { "path": "$HOME/Desktop/**", "platform": "macOS" },
         { "path": "$HOME/**", "platform": "macOS" },
         { "path": "C:\\**", "platform": "windows" }
       ]
