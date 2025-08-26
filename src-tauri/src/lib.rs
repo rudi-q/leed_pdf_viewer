@@ -523,7 +523,8 @@ pub fn run() {
             
             match event {
                 // Handle macOS file association events
-                RunEvent::Opened { urls } => {
+                #[cfg(any(target_os = "macos", target_os = "ios"))]
+                    RunEvent::Opened { urls } => {
                     println!("*** FILE ASSOCIATION EVENT RECEIVED ***");
                     println!("Received opened event with URLs: {:?}", urls);
                     
