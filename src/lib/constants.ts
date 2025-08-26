@@ -1,8 +1,5 @@
-// File loading configuration
-export const MAX_FILE_LOADING_ATTEMPTS = 10;
-
 // File size limits (in bytes)
-export const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 export const WARNING_FILE_SIZE = 15 * 1024 * 1024; // 15MB
 export const SESSION_MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB for sessionStorage fallback
 

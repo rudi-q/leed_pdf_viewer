@@ -15,7 +15,7 @@
   import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
   import { redo, setCurrentPDF, setTool, undo, pdfState, forceSaveAllAnnotations } from '$lib/stores/drawingStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
-  import { MAX_FILE_LOADING_ATTEMPTS } from '$lib/constants';
+  import { MAX_FILE_SIZE } from '$lib/constants';
 
   const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
 
@@ -34,9 +34,6 @@
 
   // File loading variables
   let hasLoadedFromCommandLine = false;
-  let fileLoadingAttempts = 0;
-  let maxFileLoadingAttempts = MAX_FILE_LOADING_ATTEMPTS;
-  let fileLoadingTimer: number | null = null;
 
   // Extract and decode URL parameter
   $: if (browser && $page && $page.params.url) {
@@ -116,10 +113,6 @@
     console.log('[PDF Route] Cleaning up');
     document.removeEventListener('fullscreenchange', handleFullscreenChange);
 
-    if (fileLoadingTimer) {
-      clearInterval(fileLoadingTimer);
-    }
-
     // Clean up Tauri event listeners
     if (window.__pdfRouteCleanup) {
       const { unlistenFileOpened, unlistenStartupReady, unlistenDebug } = window.__pdfRouteCleanup;
@@ -141,7 +134,7 @@
       return;
     }
 
-    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+    if (file.size > MAX_FILE_SIZE) { // 50MB limit
       console.log('File too large');
       alert('File too large. Please choose a file under 50MB.');
       return;
@@ -305,7 +298,7 @@
       debugResults += `\n✅ Step 7: File object created - ${file.name}, ${file.size} bytes`;
 
       // Step 8: Size check
-      if (file.size > 50 * 1024 * 1024) {
+      if (file.size > MAX_FILE_SIZE) {
         debugResults += '\n❌ FAILED: File too large';
         return false;
       }

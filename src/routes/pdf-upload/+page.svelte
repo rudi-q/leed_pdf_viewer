@@ -17,7 +17,7 @@
   import { PDFExporter } from '$lib/utils/pdfExport';
   import { toastStore } from '$lib/stores/toastStore';
   import { retrieveUploadedFile } from '$lib/utils/fileStorageUtils';
-  import { MAX_FILE_LOADING_ATTEMPTS } from '$lib/constants';
+  import { MAX_FILE_SIZE } from '$lib/constants';
   import DebugPanel from '$lib/components/DebugPanel.svelte';
 
   const isTauri = typeof window !== 'undefined' && !!window.__TAURI_EVENT_PLUGIN_INTERNALS__;
@@ -34,9 +34,6 @@
 
   // File loading variables
   let hasLoadedFromCommandLine = false;
-  let fileLoadingAttempts = 0;
-  let maxFileLoadingAttempts = MAX_FILE_LOADING_ATTEMPTS;
-  let fileLoadingTimer: number | null = null;
 
   // Check if we have a file from the previous page or URL parameters
   $: if (browser && $page && $page.url) {
@@ -162,10 +159,6 @@
     console.log('[PDF Upload Route] Cleaning up');
     document.removeEventListener('fullscreenchange', handleFullscreenChange);
 
-    if (fileLoadingTimer) {
-      clearInterval(fileLoadingTimer);
-    }
-
     // Clean up Tauri event listeners
     if (window.__pdfUploadCleanup) {
       const { unlistenFileOpened, unlistenStartupReady, unlistenDebug } = window.__pdfUploadCleanup;
@@ -187,7 +180,7 @@
       return;
     }
 
-    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+    if (file.size > MAX_FILE_SIZE) { // 50MB limit
       console.log('File too large');
       alert('File too large. Please choose a file under 50MB.');
       return;
@@ -313,7 +306,7 @@
       const file = new File([new Uint8Array(fileData!)], fileName, { type: 'application/pdf' });
 
       // Step 8: Size check
-      if (file.size > 50 * 1024 * 1024) {
+      if (file.size > MAX_FILE_SIZE) {
         console.error('File too large:', file.size);
         return false;
       }

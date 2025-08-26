@@ -15,6 +15,7 @@
   import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
   import { redo, setCurrentPDF, setTool, undo, pdfState, forceSaveAllAnnotations } from '$lib/stores/drawingStore';
   import { PDFExporter } from '$lib/utils/pdfExport';
+  import { MAX_FILE_SIZE } from '$lib/constants';
 
   // Get the page data from the load function
   export let data;
@@ -119,7 +120,7 @@
       return;
     }
 
-    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+    if (file.size > MAX_FILE_SIZE) { // 50MB limit
       console.log('File too large');
       alert('File too large. Please choose a file under 50MB.');
       return;
@@ -210,7 +211,7 @@
 
       const file = new File([new Uint8Array(fileData)], fileName, { type: 'application/pdf' });
 
-      if (file.size > 50 * 1024 * 1024) {
+      if (file.size > MAX_FILE_SIZE) {
         return false;
       }
 

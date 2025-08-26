@@ -14,13 +14,12 @@
   import PageThumbnails from '$lib/components/PageThumbnails.svelte';
   import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
   import { redo, setCurrentPDF, setTool, undo, pdfState } from '$lib/stores/drawingStore';
-  import { PDFExporter } from '$lib/utils/pdfExport';
+  import { toastStore } from '$lib/stores/toastStore';
+  import { MAX_FILE_SIZE } from '$lib/constants';
   import { isDarkMode } from '$lib/stores/themeStore';
   import { handleSearchLinkClick } from '$lib/utils/navigationUtils';
   import TemplatePicker from '$lib/components/TemplatePicker.svelte';
-  import { toastStore } from '$lib/stores/toastStore';
   import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
-  import { MAX_FILE_LOADING_ATTEMPTS } from '$lib/constants';
   import DebugPanel from '$lib/components/DebugPanel.svelte';
   import { detectOS, isTauri } from '$lib/utils/tauriUtils';
 
@@ -41,9 +40,6 @@
 
   // File loading variables
   let hasLoadedFromCommandLine = false;
-  let fileLoadingAttempts = 0;
-  let maxFileLoadingAttempts = MAX_FILE_LOADING_ATTEMPTS;
-  let fileLoadingTimer: number | null = null;
 
   // Debug state changes (development only)
   $: if (import.meta.env.DEV) {
@@ -253,7 +249,7 @@
       const file = new File([new Uint8Array(fileData!)], fileName, { type: 'application/pdf' });
 
       // Step 8: Size check
-      if (file.size > 50 * 1024 * 1024) {
+      if (file.size > MAX_FILE_SIZE) {
         console.error('File too large:', file.size);
         return false;
       }
@@ -870,11 +866,7 @@
       }
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
 
-      if (fileLoadingTimer) {
-        clearInterval(fileLoadingTimer);
-      }
-
-      // Clean up all event listeners
+    // Clean up all event listeners
       unlistenFileOpened.then(fn => fn()).catch(console.error);
       unlistenStartupReady.then(fn => fn()).catch(console.error);
       unlistenDebug.then(fn => fn()).catch(console.error);
