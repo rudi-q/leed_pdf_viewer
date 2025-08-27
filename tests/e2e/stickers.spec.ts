@@ -1,5 +1,28 @@
 import { expect, test } from '@playwright/test';
 
+// Helper function to get the correct stamp tool based on viewport
+async function getStampTool(page: any) {
+	const viewport = page.viewportSize();
+	const isMobile = viewport ? viewport.width < 1024 : false;
+	
+	if (isMobile) {
+		// Mobile: Look in bottom toolbar first, fallback to top toolbar
+		const mobileStampTool = page.locator('.toolbar-bottom button[title*="Stamps"]').first();
+		if (await mobileStampTool.count() > 0) {
+			return mobileStampTool;
+		}
+	} else {
+		// Desktop: Look in top toolbar first, fallback to any stamp tool
+		const desktopStampTool = page.locator('.toolbar-top button[title*="Stamps"]').first();
+		if (await desktopStampTool.count() > 0) {
+			return desktopStampTool;
+		}
+	}
+	
+	// Fallback: Return first available stamp tool
+	return page.locator('button[title*="Stamps"]').first();
+}
+
 test.describe('Sticker/Stamp Functionality', () => {
 	test.beforeEach(async ({ page, browserName, isMobile }) => {
 		// Skip all sticker tests on mobile devices due to known UI issues
@@ -16,11 +39,14 @@ test.describe('Sticker/Stamp Functionality', () => {
 		// Wait for page to load
 		await page.waitForLoadState('networkidle');
 		
-		// Note: Toolbar is only visible when PDF is loaded, so this test may not find elements
-		// Look for stamp/sticker tool button in toolbar
-		const stampTool = page.locator('button[title*="Stamps"]').or(
-			page.locator('button[title*="Stickers"]')
-		);
+		// Get viewport size to determine which toolbar to check
+		const viewport = page.viewportSize();
+		const isMobile = viewport ? viewport.width < 1024 : false;
+		
+		// Look for stamp/sticker tool button in appropriate toolbar
+		const stampTool = isMobile 
+			? page.locator('.toolbar-bottom button[title*="Stamps"]').first()
+			: page.locator('.toolbar-top button[title*="Stamps"]').first();
 
 		// Check if toolbar exists (only when PDF is loaded)
 		if ((await stampTool.count()) > 0) {
@@ -40,10 +66,8 @@ test.describe('Sticker/Stamp Functionality', () => {
 	});
 
 	test('should open stamp palette when stamp tool is clicked', async ({ page }) => {
-		// Click stamp tool button
-		const stampTool = page.locator('button[title*="Stamps"]').or(
-			page.locator('button[title*="Stickers"]')
-		);
+		// Get the correct stamp tool based on viewport
+		const stampTool = await getStampTool(page);
 
 		if (await stampTool.count() > 0) {
 			// Click stamp tool button
@@ -52,7 +76,7 @@ test.describe('Sticker/Stamp Functionality', () => {
 			await page.waitForTimeout(300);
 
 			// Should show "Choose a Stamp" heading
-			const paletteHeading = page.locator('text=Choose a Stamp');
+			const paletteHeading = page.locator('text=Choose a Stamp').first();
 			await expect(paletteHeading).toBeVisible();
 
 			// Should display available stamps
@@ -66,10 +90,8 @@ test.describe('Sticker/Stamp Functionality', () => {
 	});
 
 	test('should display realistic sticker borders in stamp palette', async ({ page }) => {
-		// Open stamp palette
-		const stampTool = page.locator('button[title*="Stamps"]').or(
-			page.locator('button[title*="Stickers"]')
-		);
+		// Get the correct stamp tool based on viewport
+		const stampTool = await getStampTool(page);
 
 		if (await stampTool.count() > 0) {
 			await stampTool.scrollIntoViewIfNeeded();
@@ -97,10 +119,8 @@ test.describe('Sticker/Stamp Functionality', () => {
 	});
 
 	test('should allow selecting different stamp types', async ({ page }) => {
-		// Open stamp palette
-		const stampTool = page.locator('button[title*="Stamps"]').or(
-			page.locator('button[title*="Stickers"]')
-		);
+		// Get the correct stamp tool based on viewport
+		const stampTool = await getStampTool(page);
 
 		if (await stampTool.count() > 0) {
 			await stampTool.scrollIntoViewIfNeeded();
@@ -145,10 +165,8 @@ test.describe('Sticker/Stamp Functionality', () => {
 	});
 
 	test('should show selection indicator for active stamp', async ({ page }) => {
-		// Open stamp palette
-		const stampTool = page.locator('button[title*="Stamps"]').or(
-			page.locator('button[title*="Stickers"]')
-		);
+		// Get the correct stamp tool based on viewport
+		const stampTool = await getStampTool(page);
 
 		if (await stampTool.count() > 0) {
 			await stampTool.scrollIntoViewIfNeeded();
@@ -186,15 +204,13 @@ test.describe('Sticker/Stamp Functionality', () => {
 		await page.waitForTimeout(300);
 
 		// Should open stamp palette
-		const paletteHeading = page.locator('text=Choose a Stamp');
+		const paletteHeading = page.locator('text=Choose a Stamp').first();
 		if (await paletteHeading.count() > 0) {
 			await expect(paletteHeading).toBeVisible();
 		}
 
 		// Or verify stamp tool is selected
-		const stampTool = page.locator('button[title*="Stamps"]').or(
-			page.locator('button[title*="Stickers"]')
-		);
+		const stampTool = await getStampTool(page);
 		
 		if (await stampTool.count() > 0) {
 			// Should have active/selected state
@@ -204,10 +220,8 @@ test.describe('Sticker/Stamp Functionality', () => {
 	});
 
 	test('should close stamp palette when clicking outside', async ({ page }) => {
-		// Open stamp palette
-		const stampTool = page.locator('button[title*="Stamps"]').or(
-			page.locator('button[title*="Stickers"]')
-		);
+		// Get the correct stamp tool based on viewport
+		const stampTool = await getStampTool(page);
 
 		if (await stampTool.count() > 0) {
 			await stampTool.scrollIntoViewIfNeeded();
@@ -215,7 +229,7 @@ test.describe('Sticker/Stamp Functionality', () => {
 			await page.waitForTimeout(300);
 
 			// Verify palette is open
-			const paletteHeading = page.locator('text=Choose a Stamp');
+			const paletteHeading = page.locator('text=Choose a Stamp').first();
 			await expect(paletteHeading).toBeVisible();
 
 			// Click outside the palette
@@ -228,10 +242,8 @@ test.describe('Sticker/Stamp Functionality', () => {
 	});
 
 	test('should display helpful subtitle in stamp palette', async ({ page }) => {
-		// Open stamp palette
-		const stampTool = page.locator('button[title*="Stamps"]').or(
-			page.locator('button[title*="Stickers"]')
-		);
+		// Get the correct stamp tool based on viewport
+		const stampTool = await getStampTool(page);
 
 		if (await stampTool.count() > 0) {
 			await stampTool.scrollIntoViewIfNeeded();
@@ -241,7 +253,7 @@ test.describe('Sticker/Stamp Functionality', () => {
 			// Should show helpful subtitle about usage
 			const subtitle = page.locator('text=Perfect for feedback').or(
 				page.locator('text=grading')
-			);
+			).first();
 			
 			await expect(subtitle).toBeVisible();
 			
@@ -255,10 +267,8 @@ test.describe('Sticker/Stamp Functionality', () => {
 		// This test would require a loaded PDF, but we can test the interaction
 		// Note: In a real test suite, you'd load a test PDF first
 
-		// Select stamp tool
-		const stampTool = page.locator('button[title*="Stamps"]').or(
-			page.locator('button[title*="Stickers"]')
-		);
+		// Get the correct stamp tool based on viewport
+		const stampTool = await getStampTool(page);
 
 		if (await stampTool.count() > 0) {
 			await stampTool.scrollIntoViewIfNeeded();
@@ -292,10 +302,8 @@ test.describe('Sticker/Stamp Functionality', () => {
 	});
 
 	test('should maintain stamp selection across palette open/close', async ({ page }) => {
-		// Open stamp palette
-		const stampTool = page.locator('button[title*="Stamps"]').or(
-			page.locator('button[title*="Stickers"]')
-		);
+		// Get the correct stamp tool based on viewport
+		const stampTool = await getStampTool(page);
 
 		if (await stampTool.count() > 0) {
 			await stampTool.scrollIntoViewIfNeeded();
@@ -326,10 +334,8 @@ test.describe('Sticker/Stamp Functionality', () => {
 	});
 
 	test('should have proper accessibility for stamp palette', async ({ page }) => {
-		// Open stamp palette
-		const stampTool = page.locator('button[title*="Stamps"]').or(
-			page.locator('button[title*="Stickers"]')
-		);
+		// Get the correct stamp tool based on viewport
+		const stampTool = await getStampTool(page);
 
 		if (await stampTool.count() > 0) {
 			await stampTool.scrollIntoViewIfNeeded();
@@ -337,7 +343,7 @@ test.describe('Sticker/Stamp Functionality', () => {
 			await page.waitForTimeout(300);
 
 			// Should have proper heading structure - use specific selector for stamp palette
-			const stampPaletteHeading = page.locator('text=Choose a Stamp');
+			const stampPaletteHeading = page.locator('text=Choose a Stamp').first();
 			if (await stampPaletteHeading.count() > 0) {
 				await expect(stampPaletteHeading).toBeVisible();
 				const headingText = await stampPaletteHeading.textContent();

@@ -60,6 +60,7 @@ Transform any PDF into an interactive canvas. Draw, annotate, and collaborate wi
 ### 📱 **Universal Access**
 - Works on **any device** - desktop, tablet, or phone
 - **Touch-optimized** with Apple Pencil support
+- **Mobile-friendly** interface that works seamlessly on smartphones and tablets
 - **No installation required** - runs in your browser
 - **Offline capable** after first visit (PWA)
 
