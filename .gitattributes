@@ -1,0 +1,6 @@
+*.svelte linguist-language=Svelte
+*.ts linguist-language=TypeScript
+*.rs linguist-language=Rust
+
+# Exclude third-party and generated files
+static/pdfjs/* linguist-vendored
