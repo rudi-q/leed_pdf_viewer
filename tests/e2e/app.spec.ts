@@ -5,15 +5,23 @@ test.describe('LeedPDF Application', () => {
 		await page.goto('/');
 	});
 
-	test('should display welcome screen initially', async ({ page }) => {
+	test('should display welcome screen initially', async ({ page, isMobile }) => {
 		// Wait for page to load
 		await page.waitForLoadState('networkidle');
 		
 		// Check if the welcome screen is displayed
 		const heading = page.locator('h1', { hasText: /LeedPDF/i });
 		await expect(heading).toBeVisible();
-		await expect(page.getByText(/or drop a file anywhere/i)).toBeVisible();
-		await expect(page.getByText(/Add drawings and notes to any PDF/i)).toBeVisible();
+		
+		// The "or drop a file anywhere" text is hidden on mobile (sm:block class)
+		if (!isMobile) {
+			await expect(page.getByText(/or drop a file anywhere/i)).toBeVisible();
+		}
+		
+		// The subtitle is also hidden on mobile (md:block class)
+		if (!isMobile) {
+			await expect(page.getByText(/Add drawings and notes to any PDF/i)).toBeVisible();
+		}
 	});
 
 	test('should show loading state when PDF is being processed', async ({ page }) => {
