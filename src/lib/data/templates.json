@@ -9,6 +9,18 @@
     "name": "CollegeRuled",
     "title": "College Ruled Paper",
     "description": "Standard college-ruled lined paper for general writing and note-taking",
+    "icon": "📄"
+  },
+  {
+    "name": "CollegeRuled2",
+    "title": "College Ruled Paper (Alternative)",
+    "description": "Alternative college-ruled lined paper template with different formatting",
     "icon": "📝"
+  },
+  {
+    "name": "Cornell",
+    "title": "Cornell Notes",
+    "description": "Cornell note-taking system template with cue column and summary section",
+    "icon": "🎓"
   }
 ]
