@@ -57,9 +57,6 @@ importers:
       '@playwright/test':
         specifier: ^1.55.0
         version: 1.55.0
-      '@sveltejs/adapter-static':
-        specifier: ^3.0.9
-        version: 3.0.9(@sveltejs/kit@2.36.2(@sveltejs/vite-plugin-svelte@5.1.1(svelte@5.38.3)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.1)))(svelte@5.38.3)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.1)))
       '@sveltejs/adapter-vercel':
         specifier: ^5.10.2
         version: 5.10.2(@sveltejs/kit@2.36.2(@sveltejs/vite-plugin-svelte@5.1.1(svelte@5.38.3)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.1)))(svelte@5.38.3)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.1)))(rollup@2.79.2)
@@ -1336,11 +1333,6 @@ packages:
     resolution: {integrity: sha512-IwQk4yfwLdibDlrXVE04jTZYlLnwsTT2PIOQQGNLWfjavGifnk1JD1LcZjZaBTRcxZu2FfPfNLOE04DSu9lqtQ==}
     peerDependencies:
       acorn: ^8.9.0
-
-  '@sveltejs/adapter-static@3.0.9':
-    resolution: {integrity: sha512-aytHXcMi7lb9ljsWUzXYQ0p5X1z9oWud2olu/EpmH7aCu4m84h7QLvb5Wp+CFirKcwoNnYvYWhyP/L8Vh1ztdw==}
-    peerDependencies:
-      '@sveltejs/kit': ^2.0.0
 
   '@sveltejs/adapter-vercel@5.10.2':
     resolution: {integrity: sha512-uWm0jtXbwvXxmELiIXSQ7tcPjlG8roadujxImIxqbKKZ64itZDwTbUsVXYEfUX59LvLjolW9jaODhL6sBTh5NQ==}
@@ -5020,10 +5012,6 @@ snapshots:
   '@sveltejs/acorn-typescript@1.0.5(acorn@8.15.0)':
     dependencies:
       acorn: 8.15.0
-
-  '@sveltejs/adapter-static@3.0.9(@sveltejs/kit@2.36.2(@sveltejs/vite-plugin-svelte@5.1.1(svelte@5.38.3)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.1)))(svelte@5.38.3)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.1)))':
-    dependencies:
-      '@sveltejs/kit': 2.36.2(@sveltejs/vite-plugin-svelte@5.1.1(svelte@5.38.3)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.1)))(svelte@5.38.3)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.1))
 
   '@sveltejs/adapter-vercel@5.10.2(@sveltejs/kit@2.36.2(@sveltejs/vite-plugin-svelte@5.1.1(svelte@5.38.3)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.1)))(svelte@5.38.3)(vite@6.3.5(jiti@1.21.7)(terser@5.43.1)(yaml@2.8.1)))(rollup@2.79.2)':
     dependencies:
