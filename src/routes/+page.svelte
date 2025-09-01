@@ -11,18 +11,19 @@
   import PDFViewer from '$lib/components/PDFViewer.svelte';
   import Toolbar from '$lib/components/Toolbar.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
+  import TemplatePicker from '$lib/components/TemplatePicker.svelte';
+  import DebugPanel from '$lib/components/DebugPanel.svelte';
+  import HelpButton from '$lib/components/HelpButton.svelte';
   import PageThumbnails from '$lib/components/PageThumbnails.svelte';
-  import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
   import { pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
   import { toastStore } from '$lib/stores/toastStore';
   import { MAX_FILE_SIZE } from '$lib/constants';
   import { handleSearchLinkClick } from '$lib/utils/navigationUtils';
-  import TemplatePicker from '$lib/components/TemplatePicker.svelte';
   import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
-  import DebugPanel from '$lib/components/DebugPanel.svelte';
   import { detectOS, isTauri } from '$lib/utils/tauriUtils';
   import { getFormattedVersion } from '$lib/utils/version';
   import { PDFExporter } from '$lib/utils/pdfExport';
+  import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
 
   let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
@@ -88,32 +89,31 @@
       return;
     }
 
-    console.log('Processing PDF file directly on current page');
-    console.log('Before state change - showWelcome:', showWelcome, 'currentFile:', !!currentFile);
+    // Check file size before attempting to store
+    if (file.size > MAX_FILE_SIZE) {
+      console.log('File too large');
+      toastStore.error('File Too Large', `File size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum limit of ${(MAX_FILE_SIZE / (1024 * 1024))}MB.`);
+      return;
+    }
+
+    console.log('Storing file and navigating to pdf-upload page');
     
     try {
-      // Update state immediately
-      currentFile = file;
-      showWelcome = false;
+      // Store the file in IndexedDB/sessionStorage
+      const result = await storeUploadedFile(file);
       
-      // Set current PDF for auto-save functionality
-      setCurrentPDF(file.name, file.size);
-      
-      console.log('After state change - showWelcome:', showWelcome, 'currentFile:', !!currentFile);
-      
-      // Show success toast
-      toastStore.success('PDF Loaded', `${file.name} has been loaded successfully!`);
-      
-      console.log('PDF loaded successfully:', { 
-        name: file.name, 
-        size: file.size, 
-        currentFile: !!currentFile,
-        showWelcome 
-      });
+      if (result.success && result.id) {
+        // Navigate to pdf-upload page with the file ID
+        console.log('File stored successfully, navigating to pdf-upload with ID:', result.id);
+        goto(`/pdf-upload?fileId=${result.id}`);
+      } else {
+        console.error('Failed to store file:', result.error);
+        // Error toast is already shown by the storage utility
+      }
       
     } catch (error) {
-      console.error('Error loading PDF:', error);
-      toastStore.error('Load Error', 'Failed to load the PDF. Please try again.');
+      console.error('Error during file upload process:', error);
+      toastStore.error('Upload Error', 'Failed to process the PDF file. Please try again.');
     }
   }
 
@@ -1106,14 +1106,9 @@
       
     <!-- Help button and version display -->
     <div class="absolute bottom-4 left-4 flex items-center gap-2">
-      <button
-        class="text-xs text-charcoal dark:text-gray-100 hover:text-sage dark:hover:text-sage transition-colors flex items-center gap-1 bg-white/80 hover:bg-white/90 dark:bg-gray-800/80 dark:hover:bg-gray-700/90 px-2 py-1 rounded-lg backdrop-blur-sm border border-charcoal/10 dark:border-gray-600/20"
+      <HelpButton
         on:click={() => showShortcuts = true}
-        title="Show keyboard shortcuts (? or F1)"
-      >
-        <span>?</span>
-        <span>Help</span>
-      </button>
+      />
       
       <!-- Version display -->
       <div class="text-xs text-charcoal/50 dark:text-gray-400 px-2 py-1 bg-white/60 dark:bg-gray-800/60 rounded-lg backdrop-blur-sm border border-charcoal/5 dark:border-gray-600/10">

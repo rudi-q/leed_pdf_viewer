@@ -1,28 +1,29 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
-  import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
-  import { browser } from '$app/environment';
-  import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
-  import { listen } from '@tauri-apps/api/event';
-  import { message } from '@tauri-apps/plugin-dialog';
-  import { readFile } from '@tauri-apps/plugin-fs';
-  import { invoke } from '@tauri-apps/api/core';
-  import PDFViewer from '$lib/components/PDFViewer.svelte';
-  import Toolbar from '$lib/components/Toolbar.svelte';
-  import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
-  import PageThumbnails from '$lib/components/PageThumbnails.svelte';
-  import { isValidPDFFile } from '$lib/utils/pdfUtils';
-  import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
-  import { PDFExporter } from '$lib/utils/pdfExport';
-  import { toastStore } from '$lib/stores/toastStore';
-  import { retrieveUploadedFile } from '$lib/utils/fileStorageUtils';
-  import { MAX_FILE_SIZE } from '$lib/constants';
-  import DebugPanel from '$lib/components/DebugPanel.svelte';
-  import { isTauri } from '$lib/utils/tauriUtils';
+	import { onDestroy, onMount } from 'svelte';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
+	import { listen } from '@tauri-apps/api/event';
+	import { message } from '@tauri-apps/plugin-dialog';
+	import { readFile } from '@tauri-apps/plugin-fs';
+	import { invoke } from '@tauri-apps/api/core';
+	import PDFViewer from '$lib/components/PDFViewer.svelte';
+	import Toolbar from '$lib/components/Toolbar.svelte';
+	import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
+	import PageThumbnails from '$lib/components/PageThumbnails.svelte';
+	import DebugPanel from '$lib/components/DebugPanel.svelte';
+	import HelpButton from '$lib/components/HelpButton.svelte';
+	import HomeButton from '$lib/components/HomeButton.svelte';
+	import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
+	import { PDFExporter } from '$lib/utils/pdfExport';
+	import { toastStore } from '$lib/stores/toastStore';
+	import { retrieveUploadedFile } from '$lib/utils/fileStorageUtils';
+	import { MAX_FILE_SIZE } from '$lib/constants';
+	import { isTauri } from '$lib/utils/tauriUtils';
+	import { isValidPDFFile } from '$lib/utils/pdfUtils';
 
-
-  let pdfViewer: PDFViewer;
+	let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
   let dragOver = false;
   let showShortcuts = false;
@@ -728,9 +729,6 @@
     isFullscreen = !!document.fullscreenElement;
   }
 
-  function goHome() {
-    goto('/');
-  }
 </script>
 
 <svelte:window on:keydown={handleKeyboard} on:wheel={handleWheel} />
@@ -801,14 +799,12 @@
         </a>
       </div>
 
-      <button
-        class="absolute bottom-4 left-4 text-xs text-charcoal/60 dark:text-gray-300 hover:text-charcoal dark:hover:text-white transition-colors flex items-center gap-1 bg-white/50 hover:bg-white/80 px-2 py-1 rounded-lg backdrop-blur-sm hidden lg:flex"
+      <HelpButton
+        position="absolute"
+        positionClasses="bottom-4 left-4"
+        showOnDesktopOnly={true}
         on:click={() => showShortcuts = true}
-        title="Show keyboard shortcuts (? or F1)"
-      >
-        <span>?</span>
-        <span>Help</span>
-      </button>
+      />
 
       <!-- Debug button (only visible in development mode) -->
       {#if isTauri && import.meta.env.DEV}
@@ -822,18 +818,9 @@
         </button>
       {/if}
 
-      <button
-        class="absolute top-16 text-sm text-charcoal/60 dark:text-gray-300 hover:text-charcoal dark:hover:text-white transition-colors flex items-center gap-2 bg-white/50 hover:bg-white/80 px-3 py-2 rounded-lg backdrop-blur-sm"
-        class:left-4={!showThumbnails}
-        class:left-52={showThumbnails}
-        on:click={goHome}
-        title="Go back to home"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z"/>
-        </svg>
-        <span>Home</span>
-      </button>
+      <HomeButton
+        {showThumbnails}
+      />
     {/if}
   {/if}
 </main>
