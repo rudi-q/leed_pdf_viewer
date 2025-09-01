@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { updateStore } from '$lib/stores/updateStore';
-	import { onDestroy } from 'svelte';
+  import { updateStore } from '$lib/stores/updateStore';
+  import { onDestroy } from 'svelte';
 
-	$: updateState = $updateStore;
+  $: updateState = $updateStore;
   $: progressPercentage = updateState.contentLength > 0 
     ? Math.round((updateState.downloaded / updateState.contentLength) * 100) 
     : 0;

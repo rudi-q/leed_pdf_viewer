@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { availableStamps, drawingState, setStampId, type StampDefinition } from '../stores/drawingStore';
+  import { availableStamps, drawingState, setStampId, type StampDefinition } from '../stores/drawingStore';
 
-	// Svelte component - no need for explicit default export
+  // Svelte component - no need for explicit default export
   
   export let isOpen = false;
   export let onClose: () => void = () => {};
