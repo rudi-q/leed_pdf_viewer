@@ -415,9 +415,13 @@
             aria-label="Choose line thickness"
           >
             <div 
-              class="rounded-full bg-charcoal"
-              style="width: {Math.max($drawingState.lineWidth * 2, 4)}px; height: {Math.max($drawingState.lineWidth * 2, 4)}px;"
-            ></div>
+              class="rounded-full bg-white dark:bg-white p-0.5 border border-gray-200 dark:border-white/30"
+              style="width: {Math.max($drawingState.lineWidth * 2 + 4, 8)}px; height: {Math.max($drawingState.lineWidth * 2 + 4, 8)}px;"
+            >
+              <div 
+                class="rounded-full bg-charcoal w-full h-full"
+              ></div>
+            </div>
           </button>
 
           {#if showLineWidthPicker}
@@ -431,10 +435,14 @@
                     title="Line width {width}px"
                   >
                     <div 
-                      class="rounded-full bg-charcoal"
-                      style="width: {Math.max(width * 2, 4)}px; height: {Math.max(width * 2, 4)}px;"
-                    ></div>
-                    <span class="ml-2 text-sm text-charcoal">{width}px</span>
+                      class="rounded-full bg-white dark:bg-white p-0.5 border border-gray-200 dark:border-white/30"
+                      style="width: {Math.max(width * 2 + 4, 8)}px; height: {Math.max(width * 2 + 4, 8)}px;"
+                    >
+                      <div 
+                        class="rounded-full bg-charcoal w-full h-full"
+                      ></div>
+                    </div>
+                    <span class="ml-2 text-sm text-charcoal dark:text-gray-200">{width}px</span>
                   </button>
                 {/each}
               </div>
@@ -452,9 +460,13 @@
               aria-label="Choose eraser size"
             >
               <div 
-                class="rounded-full bg-charcoal opacity-50"
-                style="width: {Math.max($drawingState.eraserSize / 2, 6)}px; height: {Math.max($drawingState.eraserSize / 2, 6)}px;"
-              ></div>
+                class="rounded-full bg-white dark:bg-white p-0.5 border border-gray-200 dark:border-white/30"
+                style="width: {Math.max($drawingState.eraserSize / 2 + 4, 10)}px; height: {Math.max($drawingState.eraserSize / 2 + 4, 10)}px;"
+              >
+                <div 
+                  class="rounded-full bg-charcoal opacity-50 w-full h-full"
+                ></div>
+              </div>
             </button>
 
             {#if showEraserSizePicker}
@@ -468,10 +480,14 @@
                       title="Eraser size {size}px"
                     >
                       <div 
-                        class="rounded-full bg-charcoal opacity-50"
-                        style="width: {Math.max(size / 2, 6)}px; height: {Math.max(size / 2, 6)}px;"
-                      ></div>
-                      <span class="ml-2 text-sm text-charcoal">{size}px</span>
+                        class="rounded-full bg-white dark:bg-white p-0.5 border border-gray-200 dark:border-white/30"
+                        style="width: {Math.max(size / 2 + 4, 10)}px; height: {Math.max(size / 2 + 4, 10)}px;"
+                      >
+                        <div 
+                          class="rounded-full bg-charcoal opacity-50 w-full h-full"
+                        ></div>
+                      </div>
+                      <span class="ml-2 text-sm text-charcoal dark:text-gray-200">{size}px</span>
                     </button>
                   {/each}
                 </div>
@@ -838,9 +854,13 @@
           aria-label="Choose line thickness"
         >
           <div 
-            class="rounded-full bg-charcoal"
-            style="width: {Math.max($drawingState.lineWidth * 2, 4)}px; height: {Math.max($drawingState.lineWidth * 2, 4)}px;"
-          ></div>
+            class="rounded-full bg-white dark:bg-white p-0.5 border border-gray-200 dark:border-white/30"
+            style="width: {Math.max($drawingState.lineWidth * 2 + 4, 8)}px; height: {Math.max($drawingState.lineWidth * 2 + 4, 8)}px;"
+          >
+            <div 
+              class="rounded-full bg-charcoal w-full h-full"
+            ></div>
+          </div>
         </button>
       </div>
 
@@ -854,9 +874,13 @@
             aria-label="Choose eraser size"
           >
             <div 
-              class="rounded-full bg-charcoal opacity-50"
-              style="width: {Math.max($drawingState.eraserSize / 2, 6)}px; height: {Math.max($drawingState.eraserSize / 2, 6)}px;"
-            ></div>
+              class="rounded-full bg-white dark:bg-white p-0.5 border border-gray-200 dark:border-white/30"
+              style="width: {Math.max($drawingState.eraserSize / 2 + 4, 10)}px; height: {Math.max($drawingState.eraserSize / 2 + 4, 10)}px;"
+            >
+              <div 
+                class="rounded-full bg-charcoal opacity-50 w-full h-full"
+              ></div>
+            </div>
           </button>
         </div>
       {/if}
@@ -945,10 +969,14 @@
             title="Line width {width}px"
           >
             <div 
-              class="rounded-full bg-charcoal"
-              style="width: {Math.max(width * 2, 4)}px; height: {Math.max(width * 2, 4)}px;"
-            ></div>
-            <span class="ml-2 text-sm text-charcoal">{width}px</span>
+              class="rounded-full bg-white dark:bg-white p-0.5 border border-gray-200 dark:border-white/30"
+              style="width: {Math.max(width * 2 + 4, 8)}px; height: {Math.max(width * 2 + 4, 8)}px;"
+            >
+              <div 
+                class="rounded-full bg-charcoal w-full h-full"
+              ></div>
+            </div>
+            <span class="ml-2 text-sm text-charcoal dark:text-gray-200">{width}px</span>
           </button>
         {/each}
       </div>
@@ -968,10 +996,14 @@
             title="Eraser size {size}px"
           >
             <div 
-              class="rounded-full bg-charcoal opacity-50"
-              style="width: {Math.max(size / 2, 6)}px; height: {Math.max(size / 2, 6)}px;"
-            ></div>
-            <span class="ml-2 text-sm text-charcoal">{size}px</span>
+              class="rounded-full bg-white dark:bg-white p-0.5 border border-gray-200 dark:border-white/30"
+              style="width: {Math.max(size / 2 + 4, 10)}px; height: {Math.max(size / 2 + 4, 10)}px;"
+            >
+              <div 
+                class="rounded-full bg-charcoal opacity-50 w-full h-full"
+              ></div>
+            </div>
+            <span class="ml-2 text-sm text-charcoal dark:text-gray-200">{size}px</span>
           </button>
         {/each}
       </div>
