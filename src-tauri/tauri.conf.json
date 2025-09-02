@@ -42,7 +42,7 @@
         "ext": ["pdf"],
         "role": "Editor",
         "rank": "Owner",
-        "description": "PDF Drawing and Annotation Tool"
+        "description": "LeedPDF Annotatable Document"
       }
     ]
   },
