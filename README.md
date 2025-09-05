@@ -20,12 +20,12 @@
 
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-FF3E00?style=flat&logo=svelte&logoColor=white)](https://kit.svelte.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tauri](https://img.shields.io/badge/Tauri-24C8D8?style=flat&logo=tauri&logoColor=white)](https://tauri.app/)
 [![PDF.js](https://img.shields.io/badge/PDF.js-000000?style=flat&logo=mozilla&logoColor=white)](https://mozilla.github.io/pdf.js/)
-[![Brave Search API](https://img.shields.io/badge/Brave%20Search-FF6B35?style=flat&logo=brave&logoColor=white)](https://api.search.brave.com/)
+[![Brave Search API](https://img.shields.io/badge/Brave%20Search-FB542B?style=flat&logo=brave&logoColor=white)](https://api.search.brave.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![Tauri](https://img.shields.io/badge/Tauri-FFC131?style=flat&logo=tauri&logoColor=black)](https://tauri.app/)
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![CodeRabbit](https://img.shields.io/badge/CodeRabbit-AI-FF6B9D?style=flat&logo=rabbitmq&logoColor=white)](https://coderabbit.ai/)
+[![CodeRabbit](https://img.shields.io/badge/CodeRabbit-FF570A?style=flat&logo=coderabbit&logoColor=white)](https://coderabbit.ai/)
 [![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat&logo=vercel&logoColor=white)](https://vercel.com/)
 
 </div>
