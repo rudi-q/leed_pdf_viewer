@@ -45,11 +45,11 @@
         "description": "LeedPDF Annotatable PDF Document"
       },
       {
-        "name": "MD Document",
+        "name": "Markdown Document",
         "ext": ["md"],
         "role": "Editor",
         "rank": "Owner",
-        "description": "LeedPDF Annotatable MarkDown Document"
+        "description": "LeedPDF Annotatable Markdown Document"
       }
     ]
   },
