@@ -13,9 +13,9 @@ test.describe('LeedPDF Application', () => {
 		const heading = page.locator('h1', { hasText: /LeedPDF/i });
 		await expect(heading).toBeVisible();
 		
-		// The "or drop a file anywhere" text is hidden on mobile (sm:block class)
+		// The "or drop a PDF or Markdown file anywhere" text is hidden on mobile (sm:block class)
 		if (!isMobile) {
-			await expect(page.getByText(/or drop a file anywhere/i)).toBeVisible();
+			await expect(page.getByText(/or drop a PDF or Markdown file anywhere/i)).toBeVisible();
 		}
 		
 		// The subtitle is also hidden on mobile (md:block class)

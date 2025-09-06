@@ -1,29 +1,34 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
-  import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
-  import { browser } from '$app/environment';
-  import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
-  import { listen } from '@tauri-apps/api/event';
-  import { message } from '@tauri-apps/plugin-dialog';
-  import { readFile } from '@tauri-apps/plugin-fs';
-  import { invoke } from '@tauri-apps/api/core';
-  import PDFViewer from '$lib/components/PDFViewer.svelte';
-  import Toolbar from '$lib/components/Toolbar.svelte';
-  import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
-  import PageThumbnails from '$lib/components/PageThumbnails.svelte';
-  import DebugPanel from '$lib/components/DebugPanel.svelte';
-  import HelpButton from '$lib/components/HelpButton.svelte';
-  import HomeButton from '$lib/components/HomeButton.svelte';
-  import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
-  import { PDFExporter } from '$lib/utils/pdfExport';
-  import { toastStore } from '$lib/stores/toastStore';
-  import { retrieveUploadedFile } from '$lib/utils/fileStorageUtils';
-  import { MAX_FILE_SIZE } from '$lib/constants';
-  import { isTauri } from '$lib/utils/tauriUtils';
-  import { isValidPDFFile } from '$lib/utils/pdfUtils';
+	import { onDestroy, onMount } from 'svelte';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
+	import { listen } from '@tauri-apps/api/event';
+	import { message } from '@tauri-apps/plugin-dialog';
+	import { readFile } from '@tauri-apps/plugin-fs';
+	import { invoke } from '@tauri-apps/api/core';
+	import PDFViewer from '$lib/components/PDFViewer.svelte';
+	import Toolbar from '$lib/components/Toolbar.svelte';
+	import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
+	import PageThumbnails from '$lib/components/PageThumbnails.svelte';
+	import DebugPanel from '$lib/components/DebugPanel.svelte';
+	import HelpButton from '$lib/components/HelpButton.svelte';
+	import HomeButton from '$lib/components/HomeButton.svelte';
+	import DragOverlay from '$lib/components/DragOverlay.svelte';
+	import Footer from '$lib/components/Footer.svelte';
+	import GlobalStyles from '$lib/components/GlobalStyles.svelte';
+	import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
+	import { PDFExporter } from '$lib/utils/pdfExport';
+	import { toastStore } from '$lib/stores/toastStore';
+	import { retrieveUploadedFile } from '$lib/utils/fileStorageUtils';
+	import { MAX_FILE_SIZE } from '$lib/constants';
+	import { isTauri } from '$lib/utils/tauriUtils';
+	import { getFormattedVersion } from '$lib/utils/version';
+	import { isValidMarkdownFile, isValidPDFFile } from '$lib/utils/pdfUtils';
+	import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
 
-  let pdfViewer: PDFViewer;
+	let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
   let dragOver = false;
   let showShortcuts = false;
@@ -170,14 +175,18 @@
     }
   }
 
-  function handleFileUpload(files: FileList) {
+  async function handleFileUpload(files: FileList) {
     console.log('handleFileUpload called with:', files);
     const file = files[0];
     console.log('Selected file:', file?.name, 'Type:', file?.type, 'Size:', file?.size);
 
-    if (!isValidPDFFile(file)) {
-      console.log('Invalid PDF file');
-      toastStore.error('Invalid File', 'Please choose a valid PDF file.');
+    // Check if it's a PDF or Markdown file
+    const isPDF = isValidPDFFile(file);
+    const isMarkdown = isValidMarkdownFile(file);
+    
+    if (!isPDF && !isMarkdown) {
+      console.log('Invalid file type');
+      toastStore.error('Invalid File', 'Please choose a valid PDF or Markdown file.');
       return;
     }
 
@@ -187,13 +196,32 @@
       return;
     }
 
-    console.log('Setting currentFile');
-    currentFile = file;
-    isLoading = false;
+    try {
+      let fileToUse = file;
+      
+      // If it's a markdown file, convert it to PDF first
+      if (isMarkdown) {
+        console.log('Converting markdown file to PDF...');
+        toastStore.info('Converting...', 'Converting markdown to PDF, please wait...');
+        
+        const markdownContent = await readMarkdownFile(file);
+        const pdfFilename = file.name.replace(/\.(md|markdown|mdown|mkd|mkdn)$/i, '.pdf');
+        fileToUse = await convertMarkdownToPDF(markdownContent, pdfFilename);
+        console.log('Markdown converted to PDF successfully');
+      }
+      
+      console.log('Setting currentFile');
+      currentFile = fileToUse;
+      isLoading = false;
 
-    // Set current PDF for auto-save functionality
-    setCurrentPDF(file.name, file.size);
-    console.log('Updated state:', { currentFile: !!currentFile });
+      // Set current PDF for auto-save functionality
+      setCurrentPDF(fileToUse.name, fileToUse.size);
+      console.log('Updated state:', { currentFile: !!currentFile });
+    } catch (conversionError) {
+      console.error('Failed to process file:', conversionError);
+      toastStore.error('Processing Failed', 'Failed to process the file. Please check your file.');
+      return;
+    }
   }
 
   function isValidPdfUrl(url: string): boolean {
@@ -779,26 +807,7 @@
       </div>
     </div>
 
-    {#if dragOver}
-      <div class="absolute inset-0 bg-sage/20 backdrop-blur-sm flex items-center justify-center z-40">
-        <div class="text-center">
-          <div class="text-6xl mb-4">📄</div>
-          <h3 class="text-2xl font-bold text-charcoal mb-2">Drop your new PDF here</h3>
-          <p class="text-slate">Release to replace current PDF</p>
-        </div>
-      </div>
-    {/if}
-
     {#if !focusMode}
-      <div class="absolute bottom-4 right-4 text-xs text-charcoal/60 dark:text-gray-300 flex items-center gap-2 hidden lg:flex">
-        <span>Made by Rudi K</span>
-        <a aria-label="Credit" href="https://github.com/rudi-q/leed_pdf_viewer" class="text-charcoal/60 dark:text-gray-300 hover:text-sage dark:hover:text-sage transition-colors" target="_blank" rel="noopener" title="View on GitHub">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.30 3.297-1.30.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-          </svg>
-        </a>
-      </div>
-
       <HelpButton
         position="absolute"
         positionClasses="bottom-4 left-4"
@@ -823,7 +832,15 @@
       />
     {/if}
   {/if}
+
+  <Footer
+    {focusMode}
+    getFormattedVersion={getFormattedVersion}
+    on:helpClick={() => showShortcuts = true}
+  />
 </main>
+
+<DragOverlay {dragOver} />
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => showShortcuts = false} />
 <DebugPanel bind:isVisible={showDebugPanel} />
@@ -831,7 +848,7 @@
 <!-- Hidden file input -->
 <input
   type="file"
-  accept=".pdf,application/pdf"
+  accept=".pdf,.md,.markdown,application/pdf,text/markdown"
   multiple={false}
   class="hidden"
   on:change={(event) => {
@@ -842,24 +859,5 @@
   }}
 />
 
-<style>
-  main {
-    background: linear-gradient(135deg, #FDF6E3 0%, #F7F3E9 50%, #F0EFEB 100%);
-  }
-  
-  :global(.dark) main {
-    background: linear-gradient(135deg, #111827 0%, #1f2937 50%, #374151 100%);
-  }
+<GlobalStyles />
 
-  .drag-over {
-    background: linear-gradient(135deg, #FDF6E3 0%, #E8F5E8 50%, #F0EFEB 100%);
-  }
-  
-  :global(.dark) .drag-over {
-    background: linear-gradient(135deg, #111827 0%, #065f46 50%, #374151 100%);
-  }
-
-  :global(body) {
-    font-family: 'Inter', system-ui, sans-serif;
-  }
-</style>

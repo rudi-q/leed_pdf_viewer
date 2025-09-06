@@ -42,7 +42,14 @@
         "ext": ["pdf"],
         "role": "Editor",
         "rank": "Owner",
-        "description": "LeedPDF Annotatable Document"
+        "description": "LeedPDF Annotatable PDF Document"
+      },
+      {
+        "name": "Markdown Document",
+        "ext": ["md"],
+        "role": "Editor",
+        "rank": "Owner",
+        "description": "LeedPDF Annotatable Markdown Document"
       }
     ]
   },

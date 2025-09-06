@@ -1,54 +1,54 @@
 <script lang="ts">
-  import {
-    availableColors,
-    availableEraserSizes,
-    availableLineWidths,
-    availableStamps,
-    clearCurrentPageDrawings,
-    drawingPaths,
-    drawingState,
-    type DrawingTool,
-    pdfState,
-    redo,
-    redoStack,
-    setColor,
-    setEraserSize,
-    setLineWidth,
-    setStampId,
-    setTool,
-    undo,
-    undoStack
-  } from '../stores/drawingStore';
-  import { isDarkMode, toggleTheme } from '../stores/themeStore';
-  import { handleSearchLinkClick } from '../utils/navigationUtils';
-  import { goto } from '$app/navigation';
-  import StampPalette from './StampPalette.svelte';
-  // Feather Icons
-  import {
-    ArrowRight,
-    ChevronLeft,
-    ChevronRight,
-    Download,
-    Edit3,
-    Folder,
-    Highlighter,
-    Layout,
-    Moon,
-    MoreHorizontal,
-    Redo2,
-    Search,
-    Square,
-    Sticker,
-    StickyNote,
-    Sun,
-    Trash2,
-    Type,
-    Undo2,
-    ZoomIn,
-    ZoomOut
-  } from 'lucide-svelte';
+	import {
+		availableColors,
+		availableEraserSizes,
+		availableLineWidths,
+		availableStamps,
+		clearCurrentPageDrawings,
+		drawingPaths,
+		drawingState,
+		type DrawingTool,
+		pdfState,
+		redo,
+		redoStack,
+		setColor,
+		setEraserSize,
+		setLineWidth,
+		setStampId,
+		setTool,
+		undo,
+		undoStack
+	} from '../stores/drawingStore';
+	import { isDarkMode, toggleTheme } from '../stores/themeStore';
+	import { handleSearchLinkClick } from '../utils/navigationUtils';
+	import { goto } from '$app/navigation';
+	import StampPalette from './StampPalette.svelte';
+	// Feather Icons
+	import {
+		ArrowRight,
+		ChevronLeft,
+		ChevronRight,
+		Download,
+		Edit3,
+		Folder,
+		Highlighter,
+		Layout,
+		Moon,
+		MoreHorizontal,
+		Redo2,
+		Search,
+		Square,
+		Sticker,
+		StickyNote,
+		Sun,
+		Trash2,
+		Type,
+		Undo2,
+		ZoomIn,
+		ZoomOut
+	} from 'lucide-svelte';
 
-  // Auto-save indicator
+	// Auto-save indicator
   let showAutoSaveIndicator = false;
   let autoSaveTimeout: number;
   
@@ -1019,7 +1019,7 @@
 <input
   bind:this={fileInput}
   type="file"
-  accept=".pdf,application/pdf"
+  accept=".pdf,.md,.markdown,application/pdf,text/markdown"
   multiple={false}
   class="hidden"
   on:change={handleFileChange}

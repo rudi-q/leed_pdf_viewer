@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
-  import { licenseManager } from '$lib/utils/licenseManager';
-  import { invoke } from '@tauri-apps/api/core';
-  import { isTauri } from '$lib/utils/tauriUtils';
+	import { createEventDispatcher, onMount } from 'svelte';
+	import { licenseManager } from '$lib/utils/licenseManager';
+	import { invoke } from '@tauri-apps/api/core';
+	import { isTauri } from '$lib/utils/tauriUtils';
 
-  export let isOpen: boolean = false;
+	export let isOpen: boolean = false;
   export let needsActivation: boolean = true; // true = activation, false = validation
   
   const dispatch = createEventDispatcher();

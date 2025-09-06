@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { browser } from '$app/environment';
-  import { isTauri } from '$lib/utils/tauriUtils';
-  import { Blocks } from 'lucide-svelte';
+	import { browser } from '$app/environment';
+	import { isTauri } from '$lib/utils/tauriUtils';
+	import { Blocks } from 'lucide-svelte';
 
-  export let focusMode = false;
+	export let focusMode = false;
 </script>
 
 {#if !focusMode && browser && !isTauri}

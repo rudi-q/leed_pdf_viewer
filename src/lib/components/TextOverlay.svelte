@@ -1,18 +1,23 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
-  import {
-    addTextAnnotation,
-    currentPageTextAnnotations,
-    deleteTextAnnotation,
-    drawingState,
-    pdfState,
-    type TextAnnotation,
-    updateTextAnnotation
-  } from '../stores/drawingStore';
+	import { onMount, tick } from 'svelte';
+	import {
+		addTextAnnotation,
+		currentPageTextAnnotations,
+		deleteTextAnnotation,
+		drawingState,
+		pdfState,
+		type TextAnnotation,
+		updateTextAnnotation
+	} from '../stores/drawingStore';
 
-  export let canvasWidth: number = 0; // Actual displayed canvas width
+	export let canvasWidth: number = 0; // Actual displayed canvas width
   export let canvasHeight: number = 0; // Actual displayed canvas height
   export let currentScale: number = 1; // Current PDF scale
+  
+  // Helper function to get safe scale (prevent division by zero)
+  function getSafeScale(): number {
+    return currentScale > 0 ? currentScale : 1;
+  }
 
   let editingAnnotation: TextAnnotation | null = null;
   let editInput: HTMLTextAreaElement;
@@ -36,12 +41,13 @@
     const y = event.clientY - rect.top;
     
     // Convert to base scale for storage
-    const baseX = x / currentScale;
-    const baseY = y / currentScale;
+    const safeScale = getSafeScale();
+    const baseX = x / safeScale;
+    const baseY = y / safeScale;
 
     // Store as relative position (0-1 range) - relative to base dimensions
-    const baseWidth = canvasWidth / currentScale;
-    const baseHeight = canvasHeight / currentScale;
+    const baseWidth = canvasWidth / safeScale;
+    const baseHeight = canvasHeight / safeScale;
     const relativeX = baseWidth > 0 ? baseX / baseWidth : 0;
     const relativeY = baseHeight > 0 ? baseY / baseHeight : 0;
 
@@ -118,24 +124,26 @@
   // Calculate display position from stored coordinates
   function getDisplayPosition(annotation: TextAnnotation) {
     // Annotations are stored at base scale, need to scale up for current display
-    const baseWidth = canvasWidth / currentScale;
-    const baseHeight = canvasHeight / currentScale;
+    const safeScale = getSafeScale();
+    const baseWidth = canvasWidth / safeScale;
+    const baseHeight = canvasHeight / safeScale;
     const baseX = annotation.x !== undefined ? annotation.x : annotation.relativeX * baseWidth;
     const baseY = annotation.y !== undefined ? annotation.y : annotation.relativeY * baseHeight;
     return {
-      x: baseX * currentScale,
-      y: baseY * currentScale
+      x: baseX * safeScale,
+      y: baseY * safeScale
     };
   }
 
   // Update position when annotation is moved
   function updatePosition(annotation: TextAnnotation, displayX: number, displayY: number) {
     // Convert from display coordinates to base scale for storage
-    const baseX = displayX / currentScale;
-    const baseY = displayY / currentScale;
+    const safeScale = getSafeScale();
+    const baseX = displayX / safeScale;
+    const baseY = displayY / safeScale;
     
-    const baseWidth = canvasWidth / currentScale;
-    const baseHeight = canvasHeight / currentScale;
+    const baseWidth = canvasWidth / safeScale;
+    const baseHeight = canvasHeight / safeScale;
     const relativeX = baseWidth > 0 ? baseX / baseWidth : annotation.relativeX;
     const relativeY = baseHeight > 0 ? baseY / baseHeight : annotation.relativeY;
     

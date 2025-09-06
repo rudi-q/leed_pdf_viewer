@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { browser } from '$app/environment';
-  import { detectOS, isTauri } from '$lib/utils/tauriUtils';
+	import { browser } from '$app/environment';
+	import { detectOS, isTauri } from '$lib/utils/tauriUtils';
 
-  export let focusMode = false;
+	export let focusMode = false;
   export let showDownloadCard = true;
   
   // Function to handle card dismissal
