@@ -1,16 +1,16 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
-  import {
-    addTextAnnotation,
-    currentPageTextAnnotations,
-    deleteTextAnnotation,
-    drawingState,
-    pdfState,
-    type TextAnnotation,
-    updateTextAnnotation
-  } from '../stores/drawingStore';
+	import { onMount, tick } from 'svelte';
+	import {
+		addTextAnnotation,
+		currentPageTextAnnotations,
+		deleteTextAnnotation,
+		drawingState,
+		pdfState,
+		type TextAnnotation,
+		updateTextAnnotation
+	} from '../stores/drawingStore';
 
-  export let canvasWidth: number = 0; // Actual displayed canvas width
+	export let canvasWidth: number = 0; // Actual displayed canvas width
   export let canvasHeight: number = 0; // Actual displayed canvas height
   export let currentScale: number = 1; // Current PDF scale
 

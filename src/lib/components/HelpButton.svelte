@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher } from 'svelte';
 
-  export let position: 'fixed' | 'absolute' | 'relative' | 'static' = 'static';
+	export let position: 'fixed' | 'absolute' | 'relative' | 'static' = 'static';
   export let positionClasses: string = '';
   export let showOnDesktopOnly: boolean = false;
   export let additionalClasses: string = '';

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
+	import { goto } from '$app/navigation';
 
-  export let position: 'fixed' | 'absolute' | 'relative' | 'static' = 'absolute';
+	export let position: 'fixed' | 'absolute' | 'relative' | 'static' = 'absolute';
   export let positionClasses: string = 'top-16';
   export let showThumbnails: boolean = false;
   export let additionalClasses: string = '';

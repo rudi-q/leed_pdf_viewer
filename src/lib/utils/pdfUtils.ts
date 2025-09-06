@@ -329,15 +329,15 @@ export function isValidPDFFile(file: File): boolean {
 export function isValidMarkdownFile(file: File): boolean {
 	const validTypes = ['text/markdown', 'text/x-markdown', 'text/plain'];
 	const validExtensions = ['.md', '.markdown', '.mdown', '.mkd', '.mkdn'];
-	
+
 	// Check MIME type
 	if (validTypes.includes(file.type)) {
 		return true;
 	}
-	
+
 	// Check file extension
 	const fileName = file.name.toLowerCase();
-	return validExtensions.some(ext => fileName.endsWith(ext));
+	return validExtensions.some((ext) => fileName.endsWith(ext));
 }
 
 // Utility function to format file size

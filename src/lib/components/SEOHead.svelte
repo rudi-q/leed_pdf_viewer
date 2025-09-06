@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { page } from '$app/stores';
-  import type { SEOData } from '$lib/utils/seo';
-  import { defaultSEOData, generateLDJSON, pageSEOData, softwareApplicationData } from '$lib/utils/seo';
+	import { page } from '$app/stores';
+	import type { SEOData } from '$lib/utils/seo';
+	import { defaultSEOData, generateLDJSON, pageSEOData, softwareApplicationData } from '$lib/utils/seo';
 
-  export let customSEO: Partial<SEOData> = {};
+	export let customSEO: Partial<SEOData> = {};
   
   // Get page-specific SEO data based on current route
   $: currentPageSEO = pageSEOData[$page.route?.id || '/'] || {};

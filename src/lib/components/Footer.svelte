@@ -1,8 +1,8 @@
 <script lang="ts">
-  import HelpButton from './HelpButton.svelte';
-  import { createEventDispatcher } from 'svelte';
+	import HelpButton from './HelpButton.svelte';
+	import { createEventDispatcher } from 'svelte';
 
-  export let focusMode = false;
+	export let focusMode = false;
   export let getFormattedVersion: () => string;
 
   const dispatch = createEventDispatcher<{

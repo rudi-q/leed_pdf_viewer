@@ -27,7 +27,7 @@
   import { isTauri } from '$lib/utils/tauriUtils';
   import { getFormattedVersion } from '$lib/utils/version';
   import { PDFExporter } from '$lib/utils/pdfExport';
-  import { createBlankPDF, isValidPDFFile, isValidMarkdownFile } from '$lib/utils/pdfUtils';
+  import { createBlankPDF, isValidMarkdownFile, isValidPDFFile } from '$lib/utils/pdfUtils';
   import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
 
   let pdfViewer: PDFViewer;

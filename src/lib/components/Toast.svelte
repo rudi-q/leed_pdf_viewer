@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { fly } from 'svelte/transition';
-  import { type Toast, toastStore } from '$lib/stores/toastStore';
-  import { AlertTriangle, CheckCircle, Info, X, XCircle } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { type Toast, toastStore } from '$lib/stores/toastStore';
+	import { AlertTriangle, CheckCircle, Info, X, XCircle } from 'lucide-svelte';
 
-  export let toast: Toast;
+	export let toast: Toast;
 
   let toastElement: HTMLDivElement;
 
