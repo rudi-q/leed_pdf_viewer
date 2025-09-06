@@ -4,10 +4,10 @@ import { isValidMarkdownFile } from './pdfUtils';
 
 // Initialize markdown parser with sensible defaults
 const markdownParser = new MarkdownIt({
-	html: false,       // Disable HTML tags for security (prevent XSS)
-	linkify: true,     // Autoconvert URL-like text to links
+	html: false, // Disable HTML tags for security (prevent XSS)
+	linkify: true, // Autoconvert URL-like text to links
 	typographer: true, // Enable quotes beautification
-	breaks: true       // Convert '\n' to <br>
+	breaks: true // Convert '\n' to <br>
 });
 
 export interface MarkdownToPDFOptions {
@@ -58,7 +58,7 @@ async function convertMarkdownContentToPDF(
 	const doc = new jsPDF();
 	const pageWidth = doc.internal.pageSize.width;
 	const pageHeight = doc.internal.pageSize.height;
-	
+
 	// Apply options or use working defaults
 	const margin = options.margin || 20;
 	const lineHeight = 8; // Keep original working line height
@@ -106,7 +106,7 @@ async function convertMarkdownContentToPDF(
 		}
 
 		// Add the text with word wrapping
-		const wrappedLines = doc.splitTextToSize(line.text, pageWidth - (margin * 2));
+		const wrappedLines = doc.splitTextToSize(line.text, pageWidth - margin * 2);
 		for (const wrappedLine of wrappedLines) {
 			if (yPosition > pageHeight - margin) {
 				doc.addPage();
@@ -122,7 +122,7 @@ async function convertMarkdownContentToPDF(
 		}
 	}
 
-return new Uint8Array(doc.output('arraybuffer'));
+	return new Uint8Array(doc.output('arraybuffer'));
 }
 
 /**
@@ -180,7 +180,6 @@ function parseMarkdownToLines(markdown: string): Array<{ type: string; text: str
 
 	return lines;
 }
-
 
 /**
  * Read markdown file content

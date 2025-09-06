@@ -10,7 +10,7 @@
 		updateTextAnnotation
 	} from '../stores/drawingStore';
 
-  export let canvasWidth: number = 0; // Actual displayed canvas width
+	export let canvasWidth: number = 0; // Actual displayed canvas width
   export let canvasHeight: number = 0; // Actual displayed canvas height
   export let currentScale: number = 1; // Current PDF scale
   

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { FileText } from 'lucide-svelte';
+	import { FileText } from 'lucide-svelte';
 
-  export let dragOver = false;
+	export let dragOver = false;
 </script>
 
 {#if dragOver}
