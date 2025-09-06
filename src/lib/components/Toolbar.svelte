@@ -1019,7 +1019,7 @@
 <input
   bind:this={fileInput}
   type="file"
-  accept=".pdf,application/pdf"
+  accept=".pdf,.md,.markdown,application/pdf,text/markdown"
   multiple={false}
   class="hidden"
   on:change={handleFileChange}

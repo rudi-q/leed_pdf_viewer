@@ -964,7 +964,7 @@
                 class="primary-button text-base sm:text-lg px-4 sm:px-6 py-3 sm:py-4 w-48 sm:w-56 h-14 sm:h-16 flex items-center justify-center"
                 on:click={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
               >
-                Choose PDF or Markdown
+                Choose PDF or MD
               </button>
 
               <button
