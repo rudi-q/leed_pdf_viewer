@@ -1,12 +1,13 @@
 import MarkdownIt from 'markdown-it';
 import jsPDF from 'jspdf';
+import { isValidMarkdownFile } from './pdfUtils';
 
 // Initialize markdown parser with sensible defaults
 const markdownParser = new MarkdownIt({
-	html: true, // Enable HTML tags in source
-	linkify: true, // Autoconvert URL-like text to links
+	html: false,       // Disable HTML tags for security (prevent XSS)
+	linkify: true,     // Autoconvert URL-like text to links
 	typographer: true, // Enable quotes beautification
-	breaks: true // Convert '\n' to <br>
+	breaks: true       // Convert '\n' to <br>
 });
 
 export interface MarkdownToPDFOptions {
@@ -53,11 +54,14 @@ async function convertMarkdownContentToPDF(
 	markdownContent: string,
 	options: MarkdownToPDFOptions
 ): Promise<Uint8Array> {
+	// Use default jsPDF setup (working configuration)
 	const doc = new jsPDF();
 	const pageWidth = doc.internal.pageSize.width;
 	const pageHeight = doc.internal.pageSize.height;
-	const margin = 20;
-	const lineHeight = 8;
+	
+	// Apply options or use working defaults
+	const margin = options.margin || 20;
+	const lineHeight = 8; // Keep original working line height
 	let yPosition = margin;
 
 	// Parse markdown and convert to simple text with formatting
@@ -70,7 +74,7 @@ async function convertMarkdownContentToPDF(
 			yPosition = margin;
 		}
 
-		// Apply formatting based on line type
+		// Apply formatting based on line type (restored working version)
 		switch (line.type) {
 			case 'h1':
 				doc.setFontSize(24);
@@ -92,13 +96,17 @@ async function convertMarkdownContentToPDF(
 				doc.setFontSize(10);
 				doc.setFont('courier', 'normal');
 				break;
+			case 'quote':
+				doc.setFontSize(11);
+				doc.setFont('helvetica', 'italic');
+				break;
 			default:
 				doc.setFontSize(12);
 				doc.setFont('helvetica', 'normal');
 		}
 
 		// Add the text with word wrapping
-		const wrappedLines = doc.splitTextToSize(line.text, pageWidth - margin * 2);
+		const wrappedLines = doc.splitTextToSize(line.text, pageWidth - (margin * 2));
 		for (const wrappedLine of wrappedLines) {
 			if (yPosition > pageHeight - margin) {
 				doc.addPage();
@@ -156,7 +164,7 @@ function parseMarkdownToLines(markdown: string): Array<{ type: string; text: str
 		}
 		// Blockquotes
 		else if (line.startsWith('> ')) {
-			lines.push({ type: 'normal', text: '" ' + line.substring(2) + ' "' });
+			lines.push({ type: 'quote', text: line.substring(2) });
 		}
 		// Normal text
 		else {
@@ -173,22 +181,6 @@ function parseMarkdownToLines(markdown: string): Array<{ type: string; text: str
 	return lines;
 }
 
-/**
- * Validate if file is a markdown file
- */
-export function isValidMarkdownFile(file: File): boolean {
-	const validTypes = ['text/markdown', 'text/x-markdown', 'text/plain'];
-	const validExtensions = ['.md', '.markdown', '.mdown', '.mkd', '.mkdn'];
-
-	// Check MIME type
-	if (validTypes.includes(file.type)) {
-		return true;
-	}
-
-	// Check file extension
-	const fileName = file.name.toLowerCase();
-	return validExtensions.some((ext) => fileName.endsWith(ext));
-}
 
 /**
  * Read markdown file content
