@@ -568,9 +568,9 @@
             title="Toggle light/dark mode"
           >
             {#if $isDarkMode}
-              🌞
+              <Sun size={16} />
             {:else}
-              🌙
+              <Moon size={16} />
             {/if}
           </button>
         </div>
@@ -690,11 +690,15 @@
                     class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
                     on:click={() => { toggleTheme(); showMoreMenu = false; }}
                   >
-                    {#if $isDarkMode}
-                      🌞 Light mode
-                    {:else}
-                      🌙 Dark mode
-                    {/if}
+                    <div class="flex items-center gap-2">
+                      {#if $isDarkMode}
+                        <Sun size={14} />
+                        <span>Light mode</span>
+                      {:else}
+                        <Moon size={14} />
+                        <span>Dark mode</span>
+                      {/if}
+                    </div>
                   </button>
                 </div>
 

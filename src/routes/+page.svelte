@@ -13,14 +13,18 @@
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
   import TemplatePicker from '$lib/components/TemplatePicker.svelte';
   import DebugPanel from '$lib/components/DebugPanel.svelte';
-  import HelpButton from '$lib/components/HelpButton.svelte';
   import PageThumbnails from '$lib/components/PageThumbnails.svelte';
+  import Footer from '$lib/components/Footer.svelte';
+  import GlobalStyles from '$lib/components/GlobalStyles.svelte';
+  import DragOverlay from '$lib/components/DragOverlay.svelte';
+  import BrowserExtensionPromotion from '$lib/components/BrowserExtensionPromotion.svelte';
+  import DesktopDownloadCard from '$lib/components/DesktopDownloadCard.svelte';
   import { pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
   import { toastStore } from '$lib/stores/toastStore';
   import { MAX_FILE_SIZE } from '$lib/constants';
   import { handleSearchLinkClick } from '$lib/utils/navigationUtils';
   import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
-  import { detectOS, isTauri } from '$lib/utils/tauriUtils';
+  import { isTauri } from '$lib/utils/tauriUtils';
   import { getFormattedVersion } from '$lib/utils/version';
   import { PDFExporter } from '$lib/utils/pdfExport';
   import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
@@ -928,6 +932,8 @@
             <i>Works with mouse, touch, or stylus - completely free and private.</i>
           </h2>
 
+          <BrowserExtensionPromotion {focusMode} />
+
           <div class="space-y-4 flex flex-col items-center">
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
               <button
@@ -1031,92 +1037,16 @@
     {/if}
   </div>
 
-  {#if dragOver}
-    <div class="absolute inset-0 bg-sage/40 backdrop-blur-sm flex items-center justify-center z-40 transition-all duration-200 ease-out pointer-events-none">
-      <div class="text-center transform scale-105 transition-transform duration-200">
-        <div class="text-6xl mb-4 animate-bounce">📄</div>
-        <h3 class="text-2xl font-bold text-charcoal mb-2">Drop your PDF here</h3>
-        <p class="text-slate">Release to start drawing</p>
-        <div class="mt-4 text-sm text-sage font-medium">Ready to receive PDF</div>
-      </div>
-    </div>
-  {/if}
+  <DragOverlay {dragOver} />
 
-  {#if !focusMode && browser && !isTauri && showDownloadCard && detectOS() === 'Windows'}
-    <!-- Optimized Desktop App Download Card -->
-    <div class="absolute bottom-16 right-4 w-72 animate-fade-in download-card">
-      <div class="floating-panel p-4 group hover:scale-[1.01] transition-all duration-300 hover:shadow-xl">
-        <div class="flex items-start gap-3">
-          <div class="flex-shrink-0 mt-0.5">
-            <div class="w-9 h-9 bg-gradient-to-br from-sage to-mint rounded-xl flex items-center justify-center shadow-sm">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="white" class="drop-shadow-sm">
-                <path d="M13 5v6h1.17L12 13.17 9.83 11H11V5h2m2-2H9v6H5l7 7 7-7h-4V3zm4 15H5v2h14v-2z"/>
-              </svg>
-            </div>
-          </div>
-          <div class="flex-1 min-w-0 pr-2">
-            <h3 class="font-semibold text-charcoal dark:text-gray-100 text-sm mb-1.5 group-hover:text-sage transition-colors leading-tight">
-              Download LeedPDF Desktop
-            </h3>
-            <p class="text-xs text-slate dark:text-gray-400 mb-3 leading-relaxed">
-              Better performance and offline access
-            </p>
-            <a 
-              href="/download-for-windows"
-              target="_blank" 
-              rel="noopener noreferrer"
-              class="inline-flex items-center gap-1.5 text-xs font-medium text-sage hover:text-sage/80 transition-colors group/link"
-            >
-              <span>Download Now</span>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" class="group-hover/link:translate-x-0.5 transition-transform">
-                <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-              </svg>
-            </a>
-          </div>
-          <button 
-            class="flex-shrink-0 text-slate/40 hover:text-slate/70 transition-colors p-1.5 -mt-1 -mr-1 rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50"
-            on:click={() => {
-              // Store dismissal in localStorage and hide the card
-              localStorage.setItem('leedpdf-download-card-dismissed', 'true');
-              showDownloadCard = false;
-            }}
-            title="Dismiss"
-            aria-label="Dismiss download card"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
-          </button>
-        </div>
-        <!-- Subtle decorative gradient border -->
-        <div class="absolute inset-0 rounded-2xl bg-gradient-to-r from-sage/8 via-mint/8 to-lavender/8 -z-10 blur-sm group-hover:blur-md transition-all duration-300"></div>
-      </div>
-    </div>
-  {/if}
 
-  {#if !focusMode}
-    <div class="absolute bottom-4 right-4 text-xs text-charcoal/60 dark:text-gray-300 flex items-center gap-2">
-      <span>Made by Rudi K</span>
-      <a aria-label="Credit" href="https://github.com/rudi-q/leed_pdf_viewer" class="text-charcoal/60 dark:text-gray-300 hover:text-sage dark:hover:text-sage transition-colors" target="_blank" rel="noopener" title="View on GitHub">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.30.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.30 3.297-1.30.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-        </svg>
-      </a>
-    </div>
-      
-    <!-- Help button and version display -->
-    <div class="absolute bottom-4 left-4 flex items-center gap-2">
-      <HelpButton
-        on:click={() => showShortcuts = true}
-      />
-      
-      <!-- Version display -->
-      <div class="text-xs text-charcoal/50 dark:text-gray-400 px-2 py-1 bg-white/60 dark:bg-gray-800/60 rounded-lg backdrop-blur-sm border border-charcoal/5 dark:border-gray-600/10">
-        {getFormattedVersion()}
-      </div>
-    </div>
-      
-  {/if}
+  <DesktopDownloadCard {focusMode} bind:showDownloadCard />
+
+  <Footer
+    {focusMode}
+    getFormattedVersion={getFormattedVersion}
+    on:helpClick={() => showShortcuts = true}
+  />
 </main>
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => showShortcuts = false} />
@@ -1137,24 +1067,4 @@
   }}
 />
 
-<style>
-  main {
-    background: linear-gradient(135deg, #FDF6E3 0%, #F7F3E9 50%, #F0EFEB 100%);
-  }
-  
-  :global(.dark) main {
-    background: linear-gradient(135deg, #111827 0%, #1f2937 50%, #374151 100%);
-  }
-
-  .drag-over {
-    background: linear-gradient(135deg, #FDF6E3 0%, #E8F5E8 50%, #F0EFEB 100%);
-  }
-  
-  :global(.dark) .drag-over {
-    background: linear-gradient(135deg, #111827 0%, #065f46 50%, #374151 100%);
-  }
-
-  :global(body) {
-    font-family: 'Inter', system-ui, sans-serif;
-  }
-</style>
+<GlobalStyles />
