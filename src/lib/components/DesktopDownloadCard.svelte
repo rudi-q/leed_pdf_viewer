@@ -1,7 +1,7 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { isTauri, detectOS } from '$lib/utils/tauriUtils';
-  
+  import { detectOS, isTauri } from '$lib/utils/tauriUtils';
+
   export let focusMode = false;
   export let showDownloadCard = true;
   

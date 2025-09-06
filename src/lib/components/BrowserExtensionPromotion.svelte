@@ -2,7 +2,7 @@
   import { browser } from '$app/environment';
   import { isTauri } from '$lib/utils/tauriUtils';
   import { Blocks } from 'lucide-svelte';
-  
+
   export let focusMode = false;
 </script>
 
