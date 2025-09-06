@@ -114,7 +114,7 @@ async function convertMarkdownContentToPDF(
 		}
 	}
 
-	return doc.output('arraybuffer') as ArrayBuffer;
+return new Uint8Array(doc.output('arraybuffer'));
 }
 
 /**
