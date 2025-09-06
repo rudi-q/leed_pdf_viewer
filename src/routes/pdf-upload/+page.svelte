@@ -21,7 +21,8 @@
   import { retrieveUploadedFile } from '$lib/utils/fileStorageUtils';
   import { MAX_FILE_SIZE } from '$lib/constants';
   import { isTauri } from '$lib/utils/tauriUtils';
-  import { isValidPDFFile } from '$lib/utils/pdfUtils';
+import { isValidPDFFile, isValidMarkdownFile } from '$lib/utils/pdfUtils';
+import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
 
   let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
@@ -170,14 +171,18 @@
     }
   }
 
-  function handleFileUpload(files: FileList) {
+  async function handleFileUpload(files: FileList) {
     console.log('handleFileUpload called with:', files);
     const file = files[0];
     console.log('Selected file:', file?.name, 'Type:', file?.type, 'Size:', file?.size);
 
-    if (!isValidPDFFile(file)) {
-      console.log('Invalid PDF file');
-      toastStore.error('Invalid File', 'Please choose a valid PDF file.');
+    // Check if it's a PDF or Markdown file
+    const isPDF = isValidPDFFile(file);
+    const isMarkdown = isValidMarkdownFile(file);
+    
+    if (!isPDF && !isMarkdown) {
+      console.log('Invalid file type');
+      toastStore.error('Invalid File', 'Please choose a valid PDF or Markdown file.');
       return;
     }
 
@@ -187,13 +192,32 @@
       return;
     }
 
-    console.log('Setting currentFile');
-    currentFile = file;
-    isLoading = false;
+    try {
+      let fileToUse = file;
+      
+      // If it's a markdown file, convert it to PDF first
+      if (isMarkdown) {
+        console.log('Converting markdown file to PDF...');
+        toastStore.info('Converting...', 'Converting markdown to PDF, please wait...');
+        
+        const markdownContent = await readMarkdownFile(file);
+        const pdfFilename = file.name.replace(/\.(md|markdown|mdown|mkd|mkdn)$/i, '.pdf');
+        fileToUse = await convertMarkdownToPDF(markdownContent, pdfFilename);
+        console.log('Markdown converted to PDF successfully');
+      }
+      
+      console.log('Setting currentFile');
+      currentFile = fileToUse;
+      isLoading = false;
 
-    // Set current PDF for auto-save functionality
-    setCurrentPDF(file.name, file.size);
-    console.log('Updated state:', { currentFile: !!currentFile });
+      // Set current PDF for auto-save functionality
+      setCurrentPDF(fileToUse.name, fileToUse.size);
+      console.log('Updated state:', { currentFile: !!currentFile });
+    } catch (conversionError) {
+      console.error('Failed to process file:', conversionError);
+      toastStore.error('Processing Failed', 'Failed to process the file. Please check your file.');
+      return;
+    }
   }
 
   function isValidPdfUrl(url: string): boolean {
@@ -831,7 +855,7 @@
 <!-- Hidden file input -->
 <input
   type="file"
-  accept=".pdf,application/pdf"
+  accept=".pdf,.md,.markdown,application/pdf,text/markdown"
   multiple={false}
   class="hidden"
   on:change={(event) => {

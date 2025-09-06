@@ -27,7 +27,8 @@
   import { isTauri } from '$lib/utils/tauriUtils';
   import { getFormattedVersion } from '$lib/utils/version';
   import { PDFExporter } from '$lib/utils/pdfExport';
-  import { createBlankPDF, isValidPDFFile } from '$lib/utils/pdfUtils';
+  import { createBlankPDF, isValidPDFFile, isValidMarkdownFile } from '$lib/utils/pdfUtils';
+  import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
 
   let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
@@ -87,9 +88,13 @@
       return;
     }
 
-    if (!isValidPDFFile(file)) {
-      console.log('Invalid PDF file');
-      toastStore.error('Invalid File', 'Please choose a valid PDF file.');
+    // Check if it's a PDF or Markdown file
+    const isPDF = isValidPDFFile(file);
+    const isMarkdown = isValidMarkdownFile(file);
+    
+    if (!isPDF && !isMarkdown) {
+      console.log('Invalid file type');
+      toastStore.error('Invalid File', 'Please choose a valid PDF or Markdown file.');
       return;
     }
 
@@ -100,11 +105,30 @@
       return;
     }
 
-    console.log('Storing file and navigating to pdf-upload page');
+    console.log('Processing file and navigating to pdf-upload page');
     
     try {
-      // Store the file in IndexedDB/sessionStorage
-      const result = await storeUploadedFile(file);
+      let fileToStore = file;
+      
+      // If it's a markdown file, convert it to PDF first
+      if (isMarkdown) {
+        console.log('Converting markdown file to PDF...');
+        toastStore.info('Converting...', 'Converting markdown to PDF, please wait...');
+        
+        try {
+          const markdownContent = await readMarkdownFile(file);
+          const pdfFilename = file.name.replace(/\.(md|markdown|mdown|mkd|mkdn)$/i, '.pdf');
+          fileToStore = await convertMarkdownToPDF(markdownContent, pdfFilename);
+          console.log('Markdown converted to PDF successfully');
+        } catch (conversionError) {
+          console.error('Failed to convert markdown to PDF:', conversionError);
+          toastStore.error('Conversion Failed', 'Failed to convert markdown to PDF. Please check your file.');
+          return;
+        }
+      }
+      
+      // Store the file (original PDF or converted from markdown) in IndexedDB/sessionStorage
+      const result = await storeUploadedFile(fileToStore);
       
       if (result.success && result.id) {
         // Navigate to pdf-upload page with the file ID
@@ -940,7 +964,7 @@
                 class="primary-button text-base sm:text-lg px-4 sm:px-6 py-3 sm:py-4 w-48 sm:w-56 h-14 sm:h-16 flex items-center justify-center"
                 on:click={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
               >
-                Choose PDF File
+                Choose PDF or Markdown
               </button>
 
               <button
@@ -1014,7 +1038,7 @@
             {/if}
 
             <p class="text-base sm:text-lg text-slate dark:text-gray-300 font-medium hidden sm:block">
-              or drop a file anywhere
+              or drop a PDF/Markdown file anywhere
             </p>
           </div>
 
@@ -1056,7 +1080,7 @@
 <!-- Hidden file input -->
 <input
   type="file"
-  accept=".pdf,application/pdf"
+  accept=".pdf,.md,.markdown,application/pdf,text/markdown"
   multiple={false}
   class="hidden"
   on:change={(event) => {

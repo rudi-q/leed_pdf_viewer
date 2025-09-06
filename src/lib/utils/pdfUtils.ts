@@ -325,6 +325,21 @@ export function isValidPDFFile(file: File): boolean {
 	return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 }
 
+// Utility function to validate markdown file
+export function isValidMarkdownFile(file: File): boolean {
+	const validTypes = ['text/markdown', 'text/x-markdown', 'text/plain'];
+	const validExtensions = ['.md', '.markdown', '.mdown', '.mkd', '.mkdn'];
+	
+	// Check MIME type
+	if (validTypes.includes(file.type)) {
+		return true;
+	}
+	
+	// Check file extension
+	const fileName = file.name.toLowerCase();
+	return validExtensions.some(ext => fileName.endsWith(ext));
+}
+
 // Utility function to format file size
 export function formatFileSize(bytes: number): string {
 	if (bytes === 0) return '0 Bytes';
