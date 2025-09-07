@@ -1,9 +1,47 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { onMount } from 'svelte';
 	import { isTauri } from '$lib/utils/tauriUtils';
 	import { Blocks } from 'lucide-svelte';
 
 	export let focusMode = false;
+
+	let detectedBrowser = '';
+
+	// Detect user's browser (only Chromium-based browsers support extensions)
+	function detectBrowser(): string {
+		if (!browser) return '';
+		
+		const userAgent = navigator.userAgent.toLowerCase();
+		
+		// Check for specific Chromium-based browsers (order matters for accurate detection)
+		if (userAgent.includes('arc/')) {
+			return 'Arc';
+		} else if (userAgent.includes('brave/') || (navigator as any)?.brave) {
+			return 'Brave';
+		} else if (userAgent.includes('comet/') || userAgent.includes('cometbrowser')) {
+			return 'Comet';
+		} else if (userAgent.includes('dia/') || userAgent.includes('diabrowser')) {
+			return 'Dia';
+		} else if (userAgent.includes('edg/') || userAgent.includes('edge/')) {
+			return 'Edge';
+		} else if (userAgent.includes('opr/') || userAgent.includes('opera/')) {
+			return 'Opera';
+		} else if (userAgent.includes('chrome/') && !userAgent.includes('edg/')) {
+			return 'Chrome';
+		}
+		
+		return ''; // Unknown or unsupported browser - will use fallback text
+	}
+
+	// Get the appropriate extension installation text based on detected browser
+	$: extensionInstallationText = detectedBrowser 
+		? `Install LeedPDF Extension for ${detectedBrowser}` 
+		: 'Install LeedPDF Browser Extension';
+
+	onMount(() => {
+		detectedBrowser = detectBrowser();
+	});
 </script>
 
 {#if !focusMode && browser && !isTauri}
@@ -24,7 +62,7 @@
         </div>
         <div class="flex-1 min-w-0">
           <h3 class="text-sm font-semibold text-charcoal dark:text-gray-100 group-hover:text-sage transition-colors leading-tight mb-1.5">
-            Install LeedPDF Browser Extension
+            {extensionInstallationText}
           </h3>
           <p class="text-xs text-slate dark:text-gray-400 leading-relaxed">
             Auto-open any PDF you find online in LeedPDF
