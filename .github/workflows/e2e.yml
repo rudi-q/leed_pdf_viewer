@@ -9,7 +9,8 @@ jobs:
   e2e:
     name: End-to-End Tests
     runs-on: ubuntu-latest
-
+    env:
+      PUBLIC_POSTHOG_KEY: ${{ vars.PUBLIC_POSTHOG_KEY }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5

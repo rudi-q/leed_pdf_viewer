@@ -34,7 +34,7 @@
 		"@tauri-apps/cli": "^2.8.2",
 		"@testing-library/jest-dom": "^6.8.0",
 		"@typescript-eslint/eslint-plugin": "^8.40.0",
-		"@typescript-eslint/parser": "^8.39.1",
+		"@typescript-eslint/parser": "^8.40.0",
 		"@vite-pwa/sveltekit": "^1.0.0",
 		"@vitest/coverage-v8": "^1.6.1",
 		"@vitest/ui": "^1.6.1",
@@ -72,6 +72,7 @@
 		"pdf-lib": "^1.17.1",
 		"pdfjs-dist": "5.4.54",
 		"postcss": "^8.5.6",
+		"posthog-js": "^1.261.7",
 		"tailwindcss": "^3.4.17"
 	}
 }
