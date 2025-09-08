@@ -19,6 +19,7 @@
   import DragOverlay from '$lib/components/DragOverlay.svelte';
   import BrowserExtensionPromotion from '$lib/components/BrowserExtensionPromotion.svelte';
   import DesktopDownloadCard from '$lib/components/DesktopDownloadCard.svelte';
+  import DropboxChooser from '$lib/components/DropboxChooser.svelte';
   import { pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
   import { toastStore } from '$lib/stores/toastStore';
   import { MAX_FILE_SIZE } from '$lib/constants';
@@ -44,6 +45,7 @@
   let showTemplatePicker = false;
   let showDownloadCard = true;
   let showDebugPanel = false;
+  let dropboxChooser: DropboxChooser;
 
   // File loading variables
   // (hasLoadedFromCommandLine removed - was unused dead code)
@@ -824,6 +826,31 @@
     }
   }
 
+  function handleDropboxImport() {
+    if (dropboxChooser) {
+      dropboxChooser.openDropboxChooser();
+    }
+  }
+
+  function handleDropboxFileSelected(event: CustomEvent<{url: string; fileName: string; fileSize: number}>) {
+    const { url, fileName, fileSize } = event.detail;
+    console.log('Dropbox file selected:', { url, fileName, fileSize });
+    
+    // Navigate to the PDF viewer with the Dropbox URL
+    const encodedUrl = encodeURIComponent(url);
+    goto(`/pdf/${encodedUrl}`);
+  }
+
+  function handleDropboxCancel() {
+    console.log('Dropbox import cancelled by user');
+  }
+
+  function handleDropboxError(event: CustomEvent<{message: string}>) {
+    const { message } = event.detail;
+    console.error('Dropbox import error:', message);
+    toastStore.error('Dropbox Error', message);
+  }
+
   // Enhanced onMount with comprehensive file loading
   onMount(() => {
     if (import.meta.env.DEV) {
@@ -975,6 +1002,19 @@
               </button>
             </div>
 
+            <div class="flex justify-center">
+              <button
+                class="dropbox-button text-base sm:text-lg px-4 sm:px-6 py-3 sm:py-4 w-48 sm:w-56 h-14 sm:h-16 flex items-center justify-center bg-[#0061FF] hover:bg-[#0052D4] text-white rounded-2xl transition-all duration-300 transform hover:scale-105 font-medium shadow-lg hover:shadow-xl"
+                on:click={handleDropboxImport}
+                title="Import PDF from your Dropbox account"
+              >
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 2L0 6l6 4 6-4-6-4zM18 2l-6 4 6 4 6-4-6-4zM0 14l6-4 6 4-6 4-6-4zM18 10l6 4-6 4-6-4 6-4zM6 16l6 4 6-4-6-4-6 4z"/>
+                </svg>
+                Import from Dropbox
+              </button>
+            </div>
+
             <div class="text-sm text-slate">
               <span>or</span>
             </div>
@@ -1076,6 +1116,14 @@
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => showShortcuts = false} />
 <TemplatePicker bind:isOpen={showTemplatePicker} on:close={() => showTemplatePicker = false} />
 <DebugPanel bind:isVisible={showDebugPanel} />
+
+<!-- Dropbox Chooser Component -->
+<DropboxChooser 
+  bind:this={dropboxChooser}
+  on:fileSelected={handleDropboxFileSelected}
+  on:cancel={handleDropboxCancel}
+  on:error={handleDropboxError}
+/>
 
 <!-- Hidden file input -->
 <input
