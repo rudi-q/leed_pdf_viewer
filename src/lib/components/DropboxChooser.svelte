@@ -129,14 +129,45 @@
 -->
 
 {#if isLoading}
-  <!-- Optional: You can add a loading indicator here if needed -->
-  <div class="dropbox-chooser-loading" style="display: none;">
-    <p>Opening Dropbox Chooser...</p>
+  <div class="dropbox-chooser-loading fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-2xl flex flex-col items-center space-y-4 max-w-sm mx-4">
+      <!-- Dropbox logo with spin animation -->
+      <div class="animate-spin">
+        <svg class="w-12 h-12 text-[#0061FF]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 2L0 6l6 4 6-4-6-4zM18 2l-6 4 6 4 6-4-6-4zM0 14l6-4 6 4-6 4-6-4zM18 10l6 4-6 4-6-4 6-4zM6 16l6 4 6-4-6-4-6 4z"/>
+        </svg>
+      </div>
+      
+      <div class="text-center">
+        <h3 class="text-lg font-medium text-charcoal dark:text-gray-100 mb-2">Opening Dropbox</h3>
+        <p class="text-sm text-slate dark:text-gray-400">
+          Please wait while we connect to your Dropbox account...
+        </p>
+      </div>
+      
+      <!-- Animated dots -->
+      <div class="flex space-x-1">
+        <div class="w-2 h-2 bg-[#0061FF] rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+        <div class="w-2 h-2 bg-[#0061FF] rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+        <div class="w-2 h-2 bg-[#0061FF] rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+      </div>
+    </div>
   </div>
 {/if}
 
 <style>
   .dropbox-chooser-loading {
-    /* Styles for loading indicator if needed */
+    /* Ensure it appears above everything else */
+    backdrop-filter: blur(4px);
+  }
+  
+  /* Custom bounce animation for dots */
+  @keyframes bounce {
+    0%, 80%, 100% {
+      transform: scale(0);
+    }
+    40% {
+      transform: scale(1);
+    }
   }
 </style>
