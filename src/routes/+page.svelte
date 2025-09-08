@@ -833,14 +833,17 @@
       dropboxChooser.openDropboxChooser();
     }
   }
-
   function handleDropboxFileSelected(event: CustomEvent<{url: string; fileName: string; fileSize: number}>) {
     const { url, fileName, fileSize } = event.detail;
     console.log('Dropbox file selected:', { url, fileName, fileSize });
     isDropboxLoading = false;
     
-    // Navigate to the PDF viewer with the Dropbox URL
-    const encodedUrl = encodeURIComponent(url);
+    // Fix Dropbox URL to ensure it's a direct download link with proper CORS support
+    const fixedUrl = fixDropboxUrl(url);
+    console.log('Fixed Dropbox URL:', { original: url, fixed: fixedUrl });
+    
+    // Navigate to the PDF viewer with the fixed Dropbox URL
+    const encodedUrl = encodeURIComponent(fixedUrl);
     goto(`/pdf/${encodedUrl}`);
   }
 

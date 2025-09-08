@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment';
   import { toastStore } from '../stores/toastStore';
 
@@ -19,23 +19,81 @@
   // State
   let isDropboxSupported = false;
   let isLoading = false;
+  
+  // Cleanup tracking
+  let pollTimer: number | undefined;
+  let scriptLoadListener: (() => void) | undefined;
 
   // Check if Dropbox API is available and browser is supported
   onMount(() => {
     if (browser && typeof window !== 'undefined') {
-      // Wait for Dropbox API to load
-      const checkDropbox = () => {
+      // First check if Dropbox is already available
+      if (window.Dropbox && window.Dropbox.isBrowserSupported) {
+        isDropboxSupported = window.Dropbox.isBrowserSupported();
+        if (!isDropboxSupported) {
+          console.warn('Dropbox Chooser is not supported in this browser');
+        }
+        return;
+      }
+      
+      // Find the Dropbox script tag and add load listener if it exists
+      const dropboxScript = document.getElementById('dropboxjs');
+      if (dropboxScript) {
+        scriptLoadListener = () => {
+          if (window.Dropbox && window.Dropbox.isBrowserSupported) {
+            isDropboxSupported = window.Dropbox.isBrowserSupported();
+            if (!isDropboxSupported) {
+              console.warn('Dropbox Chooser is not supported in this browser');
+            }
+          }
+        };
+        dropboxScript.addEventListener('load', scriptLoadListener);
+        
+        // Also check if script already loaded but event missed
+        if (window.Dropbox) {
+          scriptLoadListener();
+        }
+      }
+      
+      // Bounded fallback polling with timeout
+      let attempts = 0;
+      const maxAttempts = 50; // 5 seconds total (50 * 100ms)
+      
+      const checkDropboxBounded = () => {
+        attempts++;
+        
         if (window.Dropbox && window.Dropbox.isBrowserSupported) {
           isDropboxSupported = window.Dropbox.isBrowserSupported();
           if (!isDropboxSupported) {
             console.warn('Dropbox Chooser is not supported in this browser');
           }
+        } else if (attempts < maxAttempts) {
+          pollTimer = window.setTimeout(checkDropboxBounded, 100);
         } else {
-          // Retry after a short delay if Dropbox API hasn't loaded yet
-          setTimeout(checkDropbox, 100);
+          console.warn('Dropbox API failed to load within timeout period');
         }
       };
-      checkDropbox();
+      
+      // Start bounded polling as fallback
+      pollTimer = window.setTimeout(checkDropboxBounded, 100);
+    }
+  });
+  
+  // Cleanup on component destroy
+  onDestroy(() => {
+    // Clear any pending timer
+    if (pollTimer) {
+      clearTimeout(pollTimer);
+      pollTimer = undefined;
+    }
+    
+    // Remove script load listener
+    if (scriptLoadListener && browser) {
+      const dropboxScript = document.getElementById('dropboxjs');
+      if (dropboxScript) {
+        dropboxScript.removeEventListener('load', scriptLoadListener);
+      }
+      scriptLoadListener = undefined;
     }
   });
 
