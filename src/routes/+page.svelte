@@ -1009,7 +1009,7 @@
 
             <div class="flex justify-center">
               <button
-                class="dropbox-button text-base sm:text-lg px-4 sm:px-6 py-3 sm:py-4 w-48 sm:w-56 h-14 sm:h-16 flex items-center justify-center bg-[#0061FF] hover:bg-[#0052D4] text-white rounded-2xl transition-all duration-300 transform hover:scale-105 font-medium shadow-lg hover:shadow-xl"
+                class="secondary-button text-base sm:text-lg px-4 sm:px-6 py-3 sm:py-4 w-48 sm:w-56 h-14 sm:h-16 flex items-center justify-center"
                 class:opacity-75={isDropboxLoading}
                 class:cursor-not-allowed={isDropboxLoading}
                 disabled={isDropboxLoading}
@@ -1017,14 +1017,14 @@
                 title="Import PDF from your Dropbox account"
               >
                 {#if isDropboxLoading}
-                  <div class="animate-spin w-5 h-5 mr-2">
+                  <div class="animate-spin w-5 h-5 mr-2 text-[#0061FF]">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                   </div>
                   Opening Dropbox...
                 {:else}
-                  <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <svg class="w-5 h-5 mr-2 text-[#0061FF]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M6 2L0 6l6 4 6-4-6-4zM18 2l-6 4 6 4 6-4-6-4zM0 14l6-4 6 4-6 4-6-4zM18 10l6 4-6 4-6-4 6-4zM6 16l6 4 6-4-6-4-6 4z"/>
                   </svg>
                   Import from Dropbox
