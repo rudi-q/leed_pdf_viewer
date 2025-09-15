@@ -65,20 +65,29 @@ export async function isEUUser(): Promise<boolean> {
 }
 
 /**
- * Fallback: Client-side EU detection based on timezone
+ * Fallback: Client-side EU detection based on strict EU/EEA timezones
  */
 function detectEUFromTimezone(): boolean {
 	try {
 		const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-		const euTimezones = [
-			'Europe/Amsterdam', 'Europe/Athens', 'Europe/Berlin', 'Europe/Brussels',
-			'Europe/Budapest', 'Europe/Copenhagen', 'Europe/Dublin', 'Europe/Helsinki',
-			'Europe/Lisbon', 'Europe/London', 'Europe/Luxembourg', 'Europe/Madrid',
-			'Europe/Oslo', 'Europe/Paris', 'Europe/Prague', 'Europe/Rome',
-			'Europe/Stockholm', 'Europe/Vienna', 'Europe/Warsaw', 'Europe/Zurich'
+		// Strict EU/EEA timezones only (matches server-side list)
+		const strictEuEeaTimezones = [
+			// EU Member States
+			'Europe/Amsterdam', 'Europe/Athens', 'Europe/Berlin', 'Europe/Bratislava',
+			'Europe/Brussels', 'Europe/Bucharest', 'Europe/Budapest', 'Europe/Copenhagen',
+			'Europe/Dublin', 'Europe/Helsinki', 'Europe/Lisbon', 'Europe/Ljubljana',
+			'Europe/Luxembourg', 'Europe/Madrid', 'Europe/Malta', 'Europe/Paris',
+			'Europe/Prague', 'Europe/Riga', 'Europe/Rome', 'Europe/Sofia',
+			'Europe/Stockholm', 'Europe/Tallinn', 'Europe/Vienna', 'Europe/Vilnius',
+			'Europe/Warsaw', 'Europe/Zagreb',
+			// EEA Countries
+			'Europe/Oslo', 'Europe/Reykjavik',
+			// UK (post-Brexit but similar privacy laws)
+			'Europe/London'
+			// Removed: Europe/Zurich, Europe/Istanbul, Europe/Belgrade, etc.
 		];
 		
-		const isEU = euTimezones.includes(timezone);
+		const isEU = strictEuEeaTimezones.includes(timezone);
 		console.log(`Timezone fallback: ${isEU ? 'EU' : 'Non-EU'} (timezone: ${timezone})`);
 		return isEU;
 	} catch (error) {

@@ -16,8 +16,18 @@
 
 	onMount(async () => {
 		try {
-			// Initialize consent store with EU detection
-			const isEU = await isEUUser();
+			// Prefer cached EU status to avoid redundant API calls
+			let isEU;
+			if (typeof window.__isEUUser !== 'undefined') {
+				isEU = window.__isEUUser;
+				console.log('Cookie banner using cached EU status:', isEU);
+			} else {
+				// Fallback to geo detection if not cached
+				isEU = await isEUUser();
+				window.__isEUUser = isEU;
+				console.log('Cookie banner detected EU status:', isEU);
+			}
+			
 			consentStore.initialize(isEU);
 			isInitialized = true;
 			
@@ -26,6 +36,7 @@
 			console.error('Error initializing cookie banner:', error);
 			// Default to EU for safety
 			consentStore.initialize(true);
+			window.__isEUUser = true;
 			isInitialized = true;
 		}
 	});
@@ -281,3 +292,13 @@
 		}
 	}
 </style>
+
+<script context="module" lang="ts">
+	// Type augmentation for global window properties
+	declare global {
+		interface Window {
+			__isEUUser?: boolean;
+			__posthogInitialized?: boolean;
+		}
+	}
+</script>

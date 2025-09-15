@@ -13,19 +13,43 @@ const EU_COUNTRIES = new Set([
 	'GB'
 ]);
 
-// EU timezones (approximate list of major EU timezones)
-const EU_TIMEZONES = new Set([
-	'Europe/Amsterdam', 'Europe/Andorra', 'Europe/Athens', 'Europe/Belfast',
-	'Europe/Belgrade', 'Europe/Berlin', 'Europe/Bratislava', 'Europe/Brussels',
-	'Europe/Bucharest', 'Europe/Budapest', 'Europe/Copenhagen', 'Europe/Dublin',
-	'Europe/Helsinki', 'Europe/Istanbul', 'Europe/Lisbon', 'Europe/Ljubljana',
-	'Europe/London', 'Europe/Luxembourg', 'Europe/Madrid', 'Europe/Malta',
-	'Europe/Monaco', 'Europe/Oslo', 'Europe/Paris', 'Europe/Prague',
-	'Europe/Reykjavik', 'Europe/Riga', 'Europe/Rome', 'Europe/San_Marino',
-	'Europe/Sarajevo', 'Europe/Skopje', 'Europe/Sofia', 'Europe/Stockholm',
-	'Europe/Tallinn', 'Europe/Tirane', 'Europe/Vaduz', 'Europe/Vatican',
-	'Europe/Vienna', 'Europe/Vilnius', 'Europe/Warsaw', 'Europe/Zagreb',
-	'Europe/Zurich'
+// Strict EU/EEA timezones only (legally accurate for GDPR compliance)
+// Excludes non-EU countries like Turkey, Switzerland, Bosnia, etc.
+const STRICT_EU_EEA_TIMEZONES = new Set([
+	// EU Member States
+	'Europe/Amsterdam', // Netherlands
+	'Europe/Athens',    // Greece
+	'Europe/Berlin',    // Germany
+	'Europe/Bratislava', // Slovakia
+	'Europe/Brussels',  // Belgium
+	'Europe/Bucharest', // Romania
+	'Europe/Budapest',  // Hungary
+	'Europe/Copenhagen', // Denmark
+	'Europe/Dublin',    // Ireland
+	'Europe/Helsinki',  // Finland
+	'Europe/Lisbon',    // Portugal
+	'Europe/Ljubljana', // Slovenia
+	'Europe/Luxembourg', // Luxembourg
+	'Europe/Madrid',    // Spain
+	'Europe/Malta',     // Malta
+	'Europe/Paris',     // France
+	'Europe/Prague',    // Czech Republic
+	'Europe/Riga',      // Latvia
+	'Europe/Rome',      // Italy
+	'Europe/Sofia',     // Bulgaria
+	'Europe/Stockholm', // Sweden
+	'Europe/Tallinn',   // Estonia
+	'Europe/Vienna',    // Austria
+	'Europe/Vilnius',   // Lithuania
+	'Europe/Warsaw',    // Poland
+	'Europe/Zagreb',    // Croatia
+	// EEA Countries (non-EU but GDPR applies)
+	'Europe/Oslo',      // Norway
+	'Europe/Reykjavik', // Iceland
+	// UK (post-Brexit but similar privacy laws)
+	'Europe/London'     // United Kingdom
+	// Removed: Europe/Istanbul (Turkey), Europe/Zurich (Switzerland), 
+	// Europe/Belgrade (Serbia), Europe/Sarajevo (Bosnia), etc.
 ]);
 
 function detectEUFromHeaders(request: Request): boolean | null {
@@ -80,10 +104,11 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		// If headers don't provide clear info, check if client sent timezone
+		// Note: Timezone detection is used as supporting evidence, not definitive
 		const body = await request.json().catch(() => ({}));
 		const { timezone } = body;
 		
-		if (timezone && EU_TIMEZONES.has(timezone)) {
+		if (timezone && STRICT_EU_EEA_TIMEZONES.has(timezone)) {
 			return json({ 
 				isEU: true, 
 				method: 'timezone',
@@ -91,10 +116,11 @@ export const POST: RequestHandler = async ({ request }) => {
 			});
 		}
 
-		// Default to non-EU if we can't determine
+		// Default to EU-safe behavior when detection is inconclusive
+		// Better to show consent banner unnecessarily than violate GDPR
 		return json({ 
-			isEU: false, 
-			method: 'default',
+			isEU: true, 
+			method: 'default_eu_safe',
 			timestamp: new Date().toISOString() 
 		});
 		

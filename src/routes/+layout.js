@@ -12,9 +12,24 @@ export const ssr = false; // Disable SSR for the full client-side app
 
 export const load = async () => {
 	if (browser && !dev && PUBLIC_POSTHOG_KEY) {
+		// Check if PostHog is already initialized to prevent duplicate initialization
+		if (window.__posthogInitialized) {
+			console.log('PostHog already initialized, skipping...');
+			return;
+		}
+		
 		try {
-			// Detect if user is from EU
-			const isEU = await isEUUser();
+			// Check if EU status is already determined to avoid redundant API calls
+			let isEU;
+			if (typeof window.__isEUUser !== 'undefined') {
+				isEU = window.__isEUUser;
+				console.log('Reusing cached EU status:', isEU);
+			} else {
+				// First time - detect if user is from EU
+				isEU = await isEUUser();
+				window.__isEUUser = isEU;
+				console.log('Detected EU status:', isEU);
+			}
 			
 			// Initialize PostHog with conditional settings
 			if (isEU) {
@@ -32,10 +47,11 @@ export const load = async () => {
 				});
 			}
 			
+			// Mark as initialized
+			window.__posthogInitialized = true;
+			
 			console.log(`Analytics initialized: ${isEU ? 'EU (awaiting consent)' : 'Non-EU (with cookies)'}`);
 			
-			// Store EU status globally for the consent banner
-			window.__isEUUser = isEU;
 		} catch (error) {
 			console.error('Error initializing analytics with geo detection:', error);
 			// Fallback to EU mode (show consent banner) if detection fails
@@ -45,7 +61,9 @@ export const load = async () => {
 				person_profiles: 'always'
 			});
 			
+			// Set fallback values and mark as initialized
 			window.__isEUUser = true; // Default to EU mode for safety
+			window.__posthogInitialized = true;
 		}
 	}
 };
