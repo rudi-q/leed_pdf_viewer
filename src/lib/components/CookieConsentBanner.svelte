@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { consentStore } from '$lib/stores/consentStore';
 	import { isEUUser } from '$lib/utils/geoDetection';
-	import { X, Cookie, Shield, Eye } from 'lucide-svelte';
+	import { X, Shield, Eye } from 'lucide-svelte';
 
 	let showBanner = false;
 	let isInitialized = false;
@@ -61,7 +61,7 @@
 			<!-- Header -->
 			<div class="cookie-banner-header">
 				<div class="cookie-banner-icon">
-					<Cookie size={24} class="text-blue-600" />
+					<Shield size={24} />
 				</div>
 				<h3 id="cookie-banner-title" class="cookie-banner-title">
 					Your Privacy Matters
@@ -85,11 +85,11 @@
 				<!-- Benefits -->
 				<div class="cookie-banner-benefits">
 					<div class="benefit-item">
-						<Shield size={16} class="text-green-600" />
+						<Shield size={16} class="text-sage" />
 						<span>Your PDFs stay private & local</span>
 					</div>
 					<div class="benefit-item">
-						<Eye size={16} class="text-blue-600" />
+						<Eye size={16} class="text-sage" />
 						<span>Help us improve the app</span>
 					</div>
 				</div>
@@ -131,126 +131,202 @@
 		left: 0;
 		right: 0;
 		z-index: 9999;
-		background: linear-gradient(transparent, rgba(0, 0, 0, 0.1));
 		padding: 1rem;
 		animation: slideUp 0.3s ease-out;
 	}
 
 	.cookie-banner {
-		max-width: 500px;
+		max-width: 480px;
 		margin: 0 auto;
-		background: white;
-		border-radius: 12px;
-		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-		border: 1px solid #e5e7eb;
+		/* LeedPDF's floating-panel style */
+		background: rgba(255, 255, 255, 0.9);
+		backdrop-filter: blur(16px);
+		border-radius: 1.5rem;
+		box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1);
+		border: 1px solid rgba(255, 255, 255, 0.2);
 		overflow: hidden;
+	}
+
+	:global(.dark) .cookie-banner {
+		background: rgba(31, 41, 55, 0.9);
+		border-color: rgba(107, 114, 128, 0.2);
 	}
 
 	.cookie-banner-header {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		padding: 1.25rem 1.25rem 0;
+		padding: 1.5rem 1.5rem 0;
 		position: relative;
 	}
 
 	.cookie-banner-icon {
 		flex-shrink: 0;
+		color: #87A96B; /* LeedPDF sage color */
 	}
 
 	.cookie-banner-title {
 		flex: 1;
 		font-size: 1.125rem;
 		font-weight: 600;
-		color: #1f2937;
+		color: #374151; /* LeedPDF charcoal */
 		margin: 0;
+	}
+
+	:global(.dark) .cookie-banner-title {
+		color: #f9fafb;
 	}
 
 	.cookie-banner-close {
 		position: absolute;
-		top: 1rem;
-		right: 1rem;
-		background: none;
-		border: none;
+		top: 1.25rem;
+		right: 1.25rem;
+		background: rgba(255, 255, 255, 0.5);
+		border: 1px solid rgba(55, 65, 81, 0.1);
 		color: #6b7280;
 		cursor: pointer;
-		padding: 0.25rem;
-		border-radius: 4px;
+		padding: 0.375rem;
+		border-radius: 0.5rem;
 		transition: all 0.2s;
+		backdrop-filter: blur(4px);
 	}
 
 	.cookie-banner-close:hover {
-		background: #f3f4f6;
+		background: rgba(255, 255, 255, 0.8);
 		color: #374151;
+		transform: scale(1.05);
+	}
+
+	:global(.dark) .cookie-banner-close {
+		background: rgba(31, 41, 55, 0.7);
+		border-color: rgba(107, 114, 128, 0.2);
+		color: #9ca3af;
+	}
+
+	:global(.dark) .cookie-banner-close:hover {
+		background: rgba(31, 41, 55, 0.9);
+		color: #e5e7eb;
 	}
 
 	.cookie-banner-content {
-		padding: 1rem 1.25rem;
+		padding: 1rem 1.5rem;
 	}
 
 	.cookie-banner-text {
-		color: #4b5563;
+		color: #6b7280;
 		font-size: 0.875rem;
-		line-height: 1.5;
-		margin: 0 0 1rem 0;
+		line-height: 1.6;
+		margin: 0 0 1.25rem 0;
+	}
+
+	:global(.dark) .cookie-banner-text {
+		color: #d1d5db;
 	}
 
 	.cookie-banner-benefits {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 0.75rem;
 	}
 
 	.benefit-item {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		font-size: 0.8rem;
+		gap: 0.75rem;
+		font-size: 0.8125rem;
 		color: #6b7280;
+		padding: 0.5rem 0.75rem;
+		background: rgba(135, 169, 107, 0.05); /* Sage tint */
+		border-radius: 0.75rem;
+	}
+
+	:global(.dark) .benefit-item {
+		color: #d1d5db;
+		background: rgba(135, 169, 107, 0.1);
 	}
 
 	.cookie-banner-actions {
 		display: flex;
 		gap: 0.75rem;
-		padding: 0 1.25rem;
+		padding: 0 1.5rem;
+		margin-top: 0.5rem;
 	}
 
-	.btn-primary, .btn-secondary {
+	/* LeedPDF button styles */
+	.btn-primary {
 		flex: 1;
-		padding: 0.75rem 1rem;
-		border-radius: 8px;
+		padding: 0.75rem 1.25rem;
+		border-radius: 0.75rem;
 		font-size: 0.875rem;
 		font-weight: 500;
 		cursor: pointer;
 		transition: all 0.2s;
-		border: 1px solid;
-	}
-
-	.btn-primary {
-		background: #3b82f6;
-		color: white;
-		border-color: #3b82f6;
+		border: none;
+		/* LeedPDF primary-button style */
+		background: #87A96B; /* sage */
+		color: #121212;
+		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 	}
 
 	.btn-primary:hover {
-		background: #2563eb;
-		border-color: #2563eb;
+		background: rgba(135, 169, 107, 0.9);
+		transform: scale(1.02);
+		box-shadow: 0 8px 25px -8px rgba(135, 169, 107, 0.4);
 	}
 
 	.btn-secondary {
-		background: white;
-		color: #374151;
-		border-color: #d1d5db;
+		flex: 1;
+		padding: 0.75rem 1.25rem;
+		border-radius: 0.75rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all 0.2s;
+		/* LeedPDF secondary-button style */
+		background: rgba(255, 255, 255, 0.7);
+		color: #374151; /* charcoal */
+		border: 1px solid rgba(55, 65, 81, 0.1);
 	}
 
 	.btn-secondary:hover {
-		background: #f9fafb;
-		border-color: #9ca3af;
+		background: rgba(255, 255, 255, 0.9);
+		transform: scale(1.02);
+		border-color: rgba(55, 65, 81, 0.2);
+	}
+
+	:global(.dark) .btn-secondary {
+		background: rgba(31, 41, 55, 0.7);
+		color: #e5e7eb;
+		border-color: rgba(107, 114, 128, 0.2);
+	}
+
+	:global(.dark) .btn-secondary:hover {
+		background: rgba(55, 65, 81, 0.9);
+		border-color: rgba(107, 114, 128, 0.3);
 	}
 
 	.cookie-banner-footer {
-		padding: 0.75rem 1.25rem 1.25rem;
+		padding: 1rem 1.5rem 1.5rem;
 		text-align: center;
+	}
+
+	.cookie-banner-footer p {
+		color: #9ca3af;
+		font-size: 0.75rem;
+		margin: 0;
+	}
+
+	.cookie-banner-footer a {
+		color: #87A96B; /* sage */
+		transition: color 0.2s;
+	}
+
+	.cookie-banner-footer a:hover {
+		color: rgba(135, 169, 107, 0.8);
+	}
+
+	:global(.dark) .cookie-banner-footer p {
+		color: #6b7280;
 	}
 
 	@keyframes slideUp {
@@ -272,23 +348,25 @@
 
 		.cookie-banner {
 			max-width: none;
+			margin: 0;
 		}
 
 		.cookie-banner-header {
-			padding: 1rem 1rem 0;
+			padding: 1.25rem 1.25rem 0;
 		}
 
 		.cookie-banner-content {
-			padding: 0.75rem 1rem;
+			padding: 1rem 1.25rem;
 		}
 
 		.cookie-banner-actions {
 			flex-direction: column;
-			padding: 0 1rem;
+			padding: 0 1.25rem;
+			gap: 0.5rem;
 		}
 
 		.cookie-banner-footer {
-			padding: 0.75rem 1rem 1rem;
+			padding: 1rem 1.25rem 1.25rem;
 		}
 	}
 </style>
