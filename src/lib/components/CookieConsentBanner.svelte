@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { consentStore } from '$lib/stores/consentStore';
 	import { isEUUser } from '$lib/utils/geoDetection';
+	import { isTauri } from '$lib/utils/tauriUtils';
 	import { X, Shield, Eye } from 'lucide-svelte';
 
 	let showBanner = false;
@@ -15,6 +16,13 @@
 	}
 
 	onMount(async () => {
+		// Skip cookie banner entirely for desktop (Tauri) app
+		if (isTauri) {
+			console.log('Cookie banner disabled for desktop app');
+			isInitialized = true;
+			return;
+		}
+		
 		try {
 			// Prefer cached EU status to avoid redundant API calls
 			let isEU;
@@ -117,7 +125,7 @@
 			<div class="cookie-banner-footer">
 				<p class="text-xs text-gray-500">
 					Declining cookies enables privacy-first analytics. 
-					<a href="/privacy" class="underline hover:no-underline">Learn more</a>
+					<a href="/privacy" target="_blank" rel="noopener noreferrer" class="underline hover:no-underline">Learn more</a>
 				</p>
 			</div>
 		</div>
@@ -127,17 +135,15 @@
 <style>
 	.cookie-banner-overlay {
 		position: fixed;
-		bottom: 0;
-		left: 0;
-		right: 0;
+		bottom: 5rem; /* Position above help/version cards (bottom-4 = 1rem, so 5rem gives clearance) */
+		left: 1rem; /* Align with help cards (left-4 = 1rem) */
 		z-index: 9999;
-		padding: 1rem;
 		animation: slideUp 0.3s ease-out;
 	}
 
 	.cookie-banner {
-		max-width: 480px;
-		margin: 0 auto;
+		max-width: 400px; /* Slightly smaller to fit in corner */
+		width: 100%;
 		/* LeedPDF's floating-panel style */
 		background: rgba(255, 255, 255, 0.9);
 		backdrop-filter: blur(16px);
@@ -343,12 +349,15 @@
 	/* Mobile responsive */
 	@media (max-width: 640px) {
 		.cookie-banner-overlay {
-			padding: 0.75rem;
+			/* On mobile, use bottom positioning to avoid covering main content */
+			bottom: 1rem;
+			left: 0.75rem;
+			right: 0.75rem;
 		}
 
 		.cookie-banner {
 			max-width: none;
-			margin: 0;
+			width: 100%;
 		}
 
 		.cookie-banner-header {
@@ -367,6 +376,13 @@
 
 		.cookie-banner-footer {
 			padding: 1rem 1.25rem 1.25rem;
+		}
+	}
+
+	/* Tablet breakpoint - adjust positioning */
+	@media (min-width: 641px) and (max-width: 1024px) {
+		.cookie-banner {
+			max-width: 350px;
 		}
 	}
 </style>

@@ -5,7 +5,7 @@
 
 interface GeoDetectionResponse {
 	isEU: boolean;
-	method: 'headers' | 'timezone' | 'default' | 'error_fallback';
+	method: 'headers' | 'timezone' | 'default_eu_safe' | 'error_fallback';
 	timestamp: string;
 }
 
