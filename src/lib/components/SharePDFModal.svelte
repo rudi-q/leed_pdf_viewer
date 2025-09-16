@@ -33,7 +33,8 @@
   
   // Initialize editable filename when originalFileName changes
   $: if (originalFileName && !editableFileName) {
-    editableFileName = originalFileName;
+    // Remove .pdf extension for editing, we'll add it back programmatically
+    editableFileName = originalFileName.replace(/\.pdf$/i, '');
   }
   
   function close() {
@@ -53,7 +54,7 @@
     hasDownloadLimit = false;
     maxDownloads = 10;
     copied = false;
-    editableFileName = originalFileName; // Reset to original filename
+    editableFileName = originalFileName.replace(/\.pdf$/i, ''); // Reset to original filename without .pdf
   }
   
   function validateFileName(filename: string): boolean {
@@ -85,6 +86,9 @@
       return;
     }
     
+    // Always add .pdf extension since we only store the base name
+    const finalFileName = `${trimmedFileName}.pdf`;
+    
     if (requiresPassword && !password.trim()) {
       toastStore.error('Password Required', 'Please enter a password or disable password protection');
       return;
@@ -100,7 +104,7 @@
     isSharing = true;
     
     try {
-      const result = await PDFSharingService.sharePDF(pdfFile, trimmedFileName, options);
+      const result = await PDFSharingService.sharePDF(pdfFile, finalFileName, options);
       
       if (result.success && result.shareUrl && result.shareId) {
         shareResult = {
@@ -139,7 +143,7 @@
   function shareViaEmail() {
     if (!shareResult?.shareUrl) return;
     
-    const subject = encodeURIComponent(`Shared PDF: ${editableFileName}`);
+    const subject = encodeURIComponent(`Shared PDF: ${editableFileName}.pdf`);
     const body = encodeURIComponent(`I've shared a PDF with you via LeedPDF:\n\n${shareResult.shareUrl}\n\nPowered by LeedPDF - https://leed.my`);
     window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
   }
@@ -202,15 +206,20 @@
                 <FileText size={18} class="text-sage flex-shrink-0" />
                 <div class="flex-1">
                   <label for="filename-input" class="block text-xs text-slate dark:text-gray-400 mb-1">Filename:</label>
-                  <input
-                    id="filename-input"
-                    type="text"
-                    bind:value={editableFileName}
-                    placeholder="Enter filename"
-                    class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sage focus:border-transparent dark:bg-gray-700 dark:text-white"
-                    class:border-red-500={!validateFileName(editableFileName)}
-                    class:dark:border-red-500={!validateFileName(editableFileName)}
-                  />
+                  <div class="relative">
+                    <input
+                      id="filename-input"
+                      type="text"
+                      bind:value={editableFileName}
+                      placeholder="Enter filename"
+                      class="w-full px-3 py-2 pr-12 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sage focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      class:border-red-500={!validateFileName(editableFileName)}
+                      class:dark:border-red-500={!validateFileName(editableFileName)}
+                    />
+                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-slate dark:text-gray-400 pointer-events-none">
+                      .pdf
+                    </span>
+                  </div>
                 </div>
               </div>
               {#if editableFileName && !validateFileName(editableFileName)}
@@ -372,9 +381,10 @@
               />
               <button
                 on:click={copyToClipboard}
-                class="px-4 py-2 text-sm bg-sage text-white rounded-lg hover:bg-sage/90 transition-colors flex items-center gap-2"
+                class="px-4 py-2 text-sm bg-sage text-charcoal rounded-lg hover:bg-sage/90 transition-colors flex items-center gap-2"
                 class:bg-green-600={copied}
                 class:hover:bg-green-700={copied}
+                class:text-white={copied}
               >
                 {#if copied}
                   <Check size={16} />
