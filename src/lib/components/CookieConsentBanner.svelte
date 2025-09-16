@@ -22,7 +22,7 @@
 			isInitialized = true;
 			return;
 		}
-		
+
 		try {
 			// Prefer cached EU status to avoid redundant API calls
 			let isEU;
