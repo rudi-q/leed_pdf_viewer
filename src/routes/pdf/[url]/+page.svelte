@@ -18,9 +18,10 @@
 	import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { PDFExporter } from '$lib/utils/pdfExport';
-	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
-	import { MAX_FILE_SIZE } from '$lib/constants';
-	import { isTauri } from '$lib/utils/tauriUtils';
+import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
+import { MAX_FILE_SIZE } from '$lib/constants';
+import { isTauri } from '$lib/utils/tauriUtils';
+import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
 
 	let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
@@ -153,23 +154,25 @@
       try {
         const result = await importLPDFFile(file);
         if (result.success && result.pdfFile) {
-          console.log('🎉 LPDF imported successfully, navigating to pdf-upload...');
+          console.log('🎉 LPDF imported successfully, loading PDF...');
           
-          // Store the extracted PDF file and navigate to pdf-upload route (like main route does)
-          const fileReader = new FileReader();
-          fileReader.onload = (e) => {
-            const arrayBuffer = e.target?.result as ArrayBuffer;
-            const fileData = {
-              name: result.pdfFile!.name,
-              size: result.pdfFile!.size,
-              type: result.pdfFile!.type,
-              data: Array.from(new Uint8Array(arrayBuffer))
-            };
-            sessionStorage.setItem('tempPdfFile', JSON.stringify(fileData));
-            console.log('Extracted PDF stored in sessionStorage, navigating...');
-            goto('/pdf-upload');
-          };
-          fileReader.readAsArrayBuffer(result.pdfFile);
+          // Validate extracted PDF size to prevent bypass of upload size limits
+          if (result.pdfFile.size > MAX_FILE_SIZE) {
+            console.log('Extracted PDF too large:', result.pdfFile.size);
+            toastStore.error('Extracted PDF Too Large', `The PDF inside the LPDF file (${(result.pdfFile.size / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum limit of ${(MAX_FILE_SIZE / (1024 * 1024))}MB.`);
+            return;
+          }
+          
+          // Store the extracted PDF file using IndexedDB (same as main route)
+          const storeResult = await storeUploadedFile(result.pdfFile);
+          
+          if (storeResult.success && storeResult.id) {
+            console.log('Extracted PDF stored successfully, navigating to pdf-upload with ID:', storeResult.id);
+            goto(`/pdf-upload?fileId=${storeResult.id}`);
+          } else {
+            console.error('Failed to store extracted PDF:', storeResult.error);
+            toastStore.error('Storage Error', 'Failed to load the PDF from LPDF file.');
+          }
         } else {
           console.log('❌ LPDF import failed or was cancelled');
         }
@@ -181,21 +184,23 @@
     }
 
     console.log('Storing file and navigating to pdf-upload route');
-    // Store file in sessionStorage temporarily and navigate to upload route
-    const fileReader = new FileReader();
-    fileReader.onload = (e) => {
-      const arrayBuffer = e.target?.result as ArrayBuffer;
-      const fileData = {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        data: Array.from(new Uint8Array(arrayBuffer))
-      };
-      sessionStorage.setItem('tempPdfFile', JSON.stringify(fileData));
-      console.log('File stored in sessionStorage, navigating...');
-      goto('/pdf-upload');
-    };
-    fileReader.readAsArrayBuffer(file);
+    
+    try {
+      // Store file using IndexedDB (same as main route)
+      const storeResult = await storeUploadedFile(file);
+      
+      if (storeResult.success && storeResult.id) {
+        console.log('File stored successfully, navigating to pdf-upload with ID:', storeResult.id);
+        goto(`/pdf-upload?fileId=${storeResult.id}`);
+      } else {
+        console.error('Failed to store file:', storeResult.error);
+        toastStore.error('Storage Error', 'Failed to store the PDF file.');
+      }
+      
+    } catch (error) {
+      console.error('Error during file storage:', error);
+      toastStore.error('Storage Error', 'Failed to process the PDF file. Please try again.');
+    }
   }
 
   function isValidPdfUrl(url: string): boolean {

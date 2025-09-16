@@ -3,6 +3,11 @@ export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 export const WARNING_FILE_SIZE = 15 * 1024 * 1024; // 15MB
 export const SESSION_MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB for sessionStorage fallback
 
+// LPDF security limits
+export const LPDF_MAX_PDF_SIZE = MAX_FILE_SIZE; // Max size for PDF inside LPDF
+export const LPDF_MAX_JSON_SIZE = 10 * 1024 * 1024; // 10MB max for annotations.json
+export const LPDF_MAX_TOTAL_UNCOMPRESSED = 100 * 1024 * 1024; // 100MB max total uncompressed size
+
 // Storage configuration
 export const MAX_STORAGE_TIME = 2 * 60 * 60 * 1000; // 2 hours
 export const AUTO_CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 minutes

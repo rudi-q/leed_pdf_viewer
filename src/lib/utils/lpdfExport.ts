@@ -21,6 +21,7 @@ import { pdfState } from '$lib/stores/drawingStore';
 import { get } from 'svelte/store';
 import { toastStore } from '$lib/stores/toastStore';
 import { PDFExporter } from './pdfExport';
+import { LPDF_MAX_PDF_SIZE, LPDF_MAX_JSON_SIZE, LPDF_MAX_TOTAL_UNCOMPRESSED } from '$lib/constants';
 
 /**
  * Complete annotation data structure for .lpdf format
@@ -330,7 +331,7 @@ export class LPDFExporter {
 		annotations: LPDFAnnotationData;
 	}> {
 	try {
-		console.log('Starting .lpdf import...');
+		console.log('Starting secure .lpdf import...');
 		
 		// Dynamically import JSZip to reduce initial bundle size
 		console.log('Loading JSZip...');
@@ -338,37 +339,97 @@ export class LPDFExporter {
 		
 		// Read the ZIP file
 		const zip = await JSZip.loadAsync(lpdfFile);
+		
+		// SECURITY: Enumerate and validate all entries first
+		const allowedFiles = ['original.pdf', 'annotations.json'];
+		const entries = Object.keys(zip.files);
+		
+		console.log('ZIP entries found:', entries);
+		
+		// Validate all entries
+		for (const filename of entries) {
+			const entry = zip.files[filename];
 			
-			// Extract original PDF
-			const pdfZipEntry = zip.file('original.pdf');
-			if (!pdfZipEntry) {
-				throw new Error('Invalid .lpdf file: missing original.pdf');
+			// SECURITY: Only allow exact filenames we expect
+			if (!allowedFiles.includes(filename)) {
+				throw new Error(`Invalid .lpdf file: unexpected file '${filename}'. Only 'original.pdf' and 'annotations.json' are allowed.`);
 			}
 			
-			const pdfBytes = await pdfZipEntry.async('uint8array');
-			// Create a new Uint8Array to ensure proper typing and avoid potential ArrayBufferLike issues
-			const pdfUint8Array = new Uint8Array(pdfBytes);
-			const pdfFile = new File([pdfUint8Array], 'document.pdf', { type: 'application/pdf' });
-			
-			// Extract annotations
-			const annotationsZipEntry = zip.file('annotations.json');
-			if (!annotationsZipEntry) {
-				throw new Error('Invalid .lpdf file: missing annotations.json');
+			// SECURITY: Check for path traversal attacks
+			if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+				throw new Error(`Invalid .lpdf file: filename '${filename}' contains path separators or directory traversal sequences.`);
 			}
 			
-			const annotationsJson = await annotationsZipEntry.async('text');
-			const annotations: LPDFAnnotationData = JSON.parse(annotationsJson);
+			// SECURITY: Ensure it's not a directory entry
+			if (entry.dir) {
+				throw new Error(`Invalid .lpdf file: '${filename}' is a directory entry, only files are allowed.`);
+			}
+		}
+		
+		// Ensure we have exactly the required files
+		if (!entries.includes('original.pdf')) {
+			throw new Error('Invalid .lpdf file: missing original.pdf');
+		}
+		if (!entries.includes('annotations.json')) {
+			throw new Error('Invalid .lpdf file: missing annotations.json');
+		}
+		
+		console.log('ZIP structure validation passed');
+		
+		// Extract and validate original PDF
+		const pdfZipEntry = zip.files['original.pdf'];
+		
+		// SECURITY: Extract PDF and check actual size after decompression
+		const pdfBytes = await pdfZipEntry.async('uint8array');
+		
+		// SECURITY: Check actual PDF size after extraction
+		if (pdfBytes.length > LPDF_MAX_PDF_SIZE) {
+			throw new Error(`Invalid .lpdf file: original.pdf size (${Math.round(pdfBytes.length / (1024 * 1024))}MB) exceeds limit of ${Math.round(LPDF_MAX_PDF_SIZE / (1024 * 1024))}MB.`);
+		}
+		// Create a new Uint8Array to ensure proper typing and avoid potential ArrayBufferLike issues
+		const pdfUint8Array = new Uint8Array(pdfBytes);
+		const pdfFile = new File([pdfUint8Array], 'document.pdf', { type: 'application/pdf' });
+		
+		// Extract and validate annotations JSON
+		const annotationsZipEntry = zip.files['annotations.json'];
+		
+		// SECURITY: Extract JSON and check actual size after decompression
+		const annotationsJson = await annotationsZipEntry.async('text');
+		
+		// SECURITY: Check actual JSON size after extraction
+		if (annotationsJson.length > LPDF_MAX_JSON_SIZE) {
+			throw new Error(`Invalid .lpdf file: annotations.json size (${Math.round(annotationsJson.length / (1024 * 1024))}MB) exceeds limit of ${Math.round(LPDF_MAX_JSON_SIZE / (1024 * 1024))}MB.`);
+		}
+		
+		// SECURITY: Parse JSON with try/catch and validation
+		let annotations: LPDFAnnotationData;
+		try {
+			annotations = JSON.parse(annotationsJson);
 			
-			console.log('Successfully parsed .lpdf file:', {
-				pdfSize: pdfBytes.length,
-				annotationPages: Object.keys(annotations.drawings).length + 
-					Object.keys(annotations.textAnnotations).length + 
-					Object.keys(annotations.stickyNotes).length + 
-					Object.keys(annotations.stamps).length + 
-					Object.keys(annotations.arrows).length
-			});
+			// Basic structure validation
+			if (!annotations || typeof annotations !== 'object') {
+				throw new Error('Annotations data is not a valid object');
+			}
 			
-			return { pdfFile, annotations };
+			// Ensure required properties exist
+			if (!annotations.metadata || !annotations.drawings || !annotations.textAnnotations || !annotations.stickyNotes || !annotations.stamps || !annotations.arrows) {
+				throw new Error('Annotations data is missing required properties');
+			}
+			
+		} catch (jsonError) {
+			throw new Error(`Invalid .lpdf file: annotations.json contains invalid JSON data - ${jsonError instanceof Error ? jsonError.message : 'Unknown error'}`);
+		}
+		
+		console.log('Successfully parsed .lpdf file:', {
+			pdfSize: pdfBytes.length,
+			annotationPages: Object.keys(annotations.drawings).length + 
+				Object.keys(annotations.textAnnotations).length + 
+				Object.keys(annotations.stickyNotes).length + 
+				Object.keys(annotations.stamps).length + 
+				Object.keys(annotations.arrows).length
+		});
+		
+		return { pdfFile, annotations };
 		} catch (error) {
 			console.error('Error reading .lpdf file:', error);
 			throw new Error(`Failed to read .lpdf file: ${error instanceof Error ? error.message : 'Unknown error'}`);

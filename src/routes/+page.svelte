@@ -118,6 +118,13 @@
         if (result.success && result.pdfFile) {
           console.log('🎉 LPDF imported successfully, loading PDF...');
           
+          // Validate extracted PDF size to prevent bypass of upload size limits
+          if (result.pdfFile.size > MAX_FILE_SIZE) {
+            console.log('Extracted PDF too large:', result.pdfFile.size);
+            toastStore.error('Extracted PDF Too Large', `The PDF inside the LPDF file (${(result.pdfFile.size / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum limit of ${(MAX_FILE_SIZE / (1024 * 1024))}MB.`);
+            return;
+          }
+          
           // Store the extracted PDF file and navigate like a normal PDF upload
           const storeResult = await storeUploadedFile(result.pdfFile);
           
