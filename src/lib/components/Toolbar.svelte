@@ -39,6 +39,7 @@
 		Package,
 		Redo2,
 		Search,
+		Share,
 		Square,
 		Sticker,
 		StickyNote,
@@ -73,10 +74,12 @@
   export let onFitToHeight: () => void;
   export let onExportPDF: () => void;
   export let onExportLPDF: () => void;
+  export let onSharePDF: (() => void) | undefined = undefined;
   
   // Thumbnail panel control
   export let showThumbnails = false;
   export let onToggleThumbnails: (show: boolean) => void;
+  export let isSharedView = false;
 
   let fileInput: HTMLInputElement;
   let showColorPalette = false;
@@ -559,6 +562,19 @@
             <Trash2 size={16} class="lg:w-3.5 lg:h-3.5" />
           </button>
 
+          <!-- Share Button (if not in shared view) -->
+          {#if onSharePDF && !isSharedView}
+            <button
+              class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+              class:opacity-50={!$pdfState.document}
+              disabled={!$pdfState.document}
+              on:click={onSharePDF}
+              title="Share PDF with link"
+            >
+              <Share size={16} class="lg:w-3.5 lg:h-3.5" />
+            </button>
+          {/if}
+
           <!-- Export Menu -->
           <div class="relative export-menu-container">
             <button
@@ -574,6 +590,18 @@
             {#if showExportMenu}
               <div class="absolute top-full mt-2 right-0 z-50 min-w-[180px]">
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-2">
+                  {#if onSharePDF && !isSharedView}
+                    <button
+                      class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
+                      class:opacity-50={!$pdfState.document}
+                      disabled={!$pdfState.document}
+                      on:click={() => { onSharePDF(); showExportMenu = false; }}
+                    >
+                      <Share size={16} class="text-blue-600" />
+                      Share with Link
+                    </button>
+                    <div class="border-t border-gray-200 dark:border-gray-600 my-1"></div>
+                  {/if}
                   <button
                     class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
                     on:click={() => { onExportPDF(); showExportMenu = false; }}
@@ -675,8 +703,18 @@
                   </button>
                 </div>
 
-                <!-- Export operations -->
+                <!-- Share and Export operations -->
                 <div class="space-y-1 mb-3">
+                  {#if onSharePDF && !isSharedView}
+                    <button
+                      class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
+                      class:opacity-50={!$pdfState.document}
+                      disabled={!$pdfState.document}
+                      on:click={() => { onSharePDF(); showMoreMenu = false; }}
+                    >
+                      🔗 Share with Link
+                    </button>
+                  {/if}
                   <button
                     class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
                     class:opacity-50={!$pdfState.document}

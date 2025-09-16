@@ -26,8 +26,9 @@
 	import { MAX_FILE_SIZE } from '$lib/constants';
 	import { isTauri } from '$lib/utils/tauriUtils';
 	import { getFormattedVersion } from '$lib/utils/version';
-	import { isValidMarkdownFile, isValidPDFFile, isValidLPDFFile } from '$lib/utils/pdfUtils';
-	import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
+import { isValidMarkdownFile, isValidPDFFile, isValidLPDFFile } from '$lib/utils/pdfUtils';
+import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
+import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 
 	let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
@@ -38,6 +39,7 @@
   let focusMode = false;
   let isLoading = true;
   let showDebugPanel = false;
+  let showShareModal = false;
 
   // File loading variables
   // (hasLoadedFromCommandLine removed - was unused dead code)
@@ -819,6 +821,19 @@
     isFullscreen = !!document.fullscreenElement;
   }
 
+  function handleSharePDF() {
+    showShareModal = true;
+  }
+
+  function getOriginalFileName(): string {
+    if (typeof currentFile === 'string') {
+      return extractFilenameFromUrl(currentFile);
+    } else if (currentFile) {
+      return currentFile.name;
+    }
+    return 'document.pdf';
+  }
+
 </script>
 
 <svelte:window on:keydown={handleKeyboard} on:wheel={handleWheel} />
@@ -850,6 +865,7 @@
         onFitToHeight={() => pdfViewer?.fitToHeight()}
         onExportPDF={handleExportPDF}
         onExportLPDF={handleExportLPDF}
+        onSharePDF={handleSharePDF}
         {showThumbnails}
         onToggleThumbnails={handleToggleThumbnails}
       />
@@ -907,6 +923,18 @@
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => showShortcuts = false} />
 <DebugPanel bind:isVisible={showDebugPanel} />
+
+<!-- Share PDF Modal -->
+<SharePDFModal 
+  bind:isOpen={showShareModal}
+  pdfFile={currentFile}
+  originalFileName={getOriginalFileName()}
+  on:close={() => showShareModal = false}
+  on:shared={(event) => {
+    console.log('PDF shared successfully:', event.detail);
+    showShareModal = false;
+  }}
+/>
 
 <!-- Hidden file input -->
 <input
