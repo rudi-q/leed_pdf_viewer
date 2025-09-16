@@ -125,6 +125,13 @@
 
     // If it's an LPDF file, import it and navigate to pdf-upload with the extracted PDF
     if (isLPDF) {
+      // Check file size for LPDF files too
+      if (file.size > MAX_FILE_SIZE) {
+        console.log('LPDF file too large');
+        toastStore.error('File Too Large', `File size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum limit of ${(MAX_FILE_SIZE / (1024 * 1024))}MB.`);
+        return;
+      }
+      
       console.log('LPDF file detected, importing...');
       try {
         const result = await importLPDFFile(file);

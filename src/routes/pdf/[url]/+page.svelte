@@ -140,6 +140,13 @@
       return;
     }
 
+    // Check file size for all file types before processing
+    if (file.size > MAX_FILE_SIZE) {
+      console.log('File too large');
+      toastStore.error('File Too Large', 'File too large. Please choose a file under 50MB.');
+      return;
+    }
+
     // If it's an LPDF file, import it and navigate to pdf-upload with the extracted PDF
     if (isLPDF) {
       console.log('LPDF file detected, importing...');
@@ -170,12 +177,6 @@
         console.error('LPDF import failed:', error);
         toastStore.error('Import Failed', 'LPDF import failed. Please try again.');
       }
-      return;
-    }
-
-    if (file.size > MAX_FILE_SIZE) { // 50MB limit
-      console.log('File too large');
-      toastStore.error('File Too Large', 'File too large. Please choose a file under 50MB.');
       return;
     }
 

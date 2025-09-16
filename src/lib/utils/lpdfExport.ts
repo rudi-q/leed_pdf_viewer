@@ -338,7 +338,9 @@ export class LPDFExporter {
 			}
 			
 			const pdfBytes = await pdfZipEntry.async('uint8array');
-			const pdfFile = new File([pdfBytes.buffer as ArrayBuffer], 'document.pdf', { type: 'application/pdf' });
+			// Create a new Uint8Array to ensure proper typing and avoid potential ArrayBufferLike issues
+			const pdfUint8Array = new Uint8Array(pdfBytes);
+			const pdfFile = new File([pdfUint8Array], 'document.pdf', { type: 'application/pdf' });
 			
 			// Extract annotations
 			const annotationsZipEntry = zip.file('annotations.json');
