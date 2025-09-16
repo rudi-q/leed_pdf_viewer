@@ -5,9 +5,12 @@
   import { goto } from '$app/navigation';
   import PDFViewer from '$lib/components/PDFViewer.svelte';
   import Toolbar from '$lib/components/Toolbar.svelte';
+  import Footer from '$lib/components/Footer.svelte';
+  import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
   import { PDFSharingService } from '$lib/services/pdfSharingService';
   import { toastStore } from '$lib/stores/toastStore';
   import { setCurrentPDF } from '$lib/stores/drawingStore';
+  import { getFormattedVersion } from '$lib/utils/version';
   
   let isLoading = true;
   let currentFile: File | string | null = null;
@@ -16,6 +19,7 @@
   let password = '';
   let sharedPDFData: any = null;
   let errorMessage = '';
+  let showShortcuts = false;
   
   onMount(async () => {
     if (browser && $page.params.shareId) {
@@ -224,20 +228,17 @@
       </div>
     {/if}
 
-    <!-- Credit -->
-    <div class="absolute bottom-4 right-4 text-xs text-charcoal/60 dark:text-gray-300 flex items-center gap-2 hidden lg:flex">
-      <span>Powered by LeedPDF</span>
-      <a 
-        href="https://leed.my" 
-        class="text-sage hover:text-sage/80 transition-colors"
-        target="_blank"
-        rel="noopener"
-      >
-        Try it free
-      </a>
-    </div>
+    <!-- Footer with all cards -->
+    <Footer
+      focusMode={false}
+      getFormattedVersion={getFormattedVersion}
+      on:helpClick={() => showShortcuts = true}
+    />
   {/if}
 </main>
+
+<!-- Help/Shortcuts Modal -->
+<KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => showShortcuts = false} />
 
 <style>
   main {
