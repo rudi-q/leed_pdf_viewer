@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import { PDFSharingService, type SharePDFOptions } from '$lib/services/pdfSharingService';
   import { toastStore } from '$lib/stores/toastStore';
+  import { FileText, Mail, MessageCircle, Twitter, Copy, Check, PartyPopper } from 'lucide-svelte';
   
   export let isOpen = false;
   export let pdfFile: File | string | null = null;
@@ -163,9 +164,10 @@
         <div class="p-6 space-y-6">
           <div>
             <h3 class="text-sm font-medium text-charcoal dark:text-white mb-2">File to Share</h3>
-            <p class="text-sm text-slate dark:text-gray-400 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-              📄 {originalFileName}
-            </p>
+            <div class="flex items-center gap-3 text-sm text-slate dark:text-gray-400 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+              <FileText size={18} class="text-sage" />
+              <span>{originalFileName}</span>
+            </div>
           </div>
           
           <!-- Privacy Settings -->
@@ -300,7 +302,9 @@
         <!-- Share success result -->
         <div class="p-6 space-y-6">
           <div class="text-center">
-            <div class="text-4xl mb-4">🎉</div>
+            <div class="mb-4 flex justify-center">
+              <PartyPopper size={48} class="text-sage" />
+            </div>
             <h3 class="text-lg font-bold text-charcoal dark:text-white mb-2">PDF Shared Successfully!</h3>
             <p class="text-sm text-slate dark:text-gray-400">Your PDF is now available via the link below</p>
           </div>
@@ -322,14 +326,10 @@
                 class:hover:bg-green-700={copied}
               >
                 {#if copied}
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                  </svg>
+                  <Check size={16} />
                   Copied!
                 {:else}
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
+                  <Copy size={16} />
                   Copy
                 {/if}
               </button>
@@ -342,28 +342,34 @@
             <div class="flex flex-wrap gap-2">
               <button
                 on:click={shareViaEmail}
-                class="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
               >
-                📧 Email
+                <Mail size={16} />
+                Email
               </button>
               <button
                 on:click={shareViaWhatsApp}
-                class="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
               >
-                💬 WhatsApp
+                <MessageCircle size={16} />
+                WhatsApp
               </button>
               <button
                 on:click={shareViaTwitter}
-                class="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
               >
-                🐦 Twitter
+                <Twitter size={16} />
+                Twitter
               </button>
             </div>
           </div>
           
           <!-- Share info -->
           <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-            <h4 class="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">📋 Share Summary</h4>
+            <div class="flex items-center gap-2 mb-2">
+              <FileText size={16} class="text-blue-900 dark:text-blue-100" />
+              <h4 class="text-sm font-medium text-blue-900 dark:text-blue-100">Share Summary</h4>
+            </div>
             <ul class="text-xs text-blue-800 dark:text-blue-200 space-y-1">
               <li>• Access: {isPublic ? 'Public' : 'Private'} {requiresPassword ? '(Password Protected)' : ''}</li>
               {#if hasExpiration}

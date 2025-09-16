@@ -15,9 +15,10 @@
 	import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { PDFExporter } from '$lib/utils/pdfExport';
-	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
-	import { MAX_FILE_SIZE } from '$lib/constants';
-	import { isTauri } from '$lib/utils/tauriUtils';
+import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
+import { MAX_FILE_SIZE } from '$lib/constants';
+import { isTauri } from '$lib/utils/tauriUtils';
+import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 
 	// Get the page data from the load function
   export let data;
@@ -31,6 +32,7 @@
   let focusMode = false;
   let isLoading = true;
   let templateError = false;
+  let showShareModal = false;
 
   // Load template PDF if it exists
   $: if (browser && data) {
@@ -610,6 +612,19 @@
   function handleFullscreenChange() {
     isFullscreen = !!document.fullscreenElement;
   }
+
+  function handleSharePDF() {
+    showShareModal = true;
+  }
+
+  function getOriginalFileName(): string {
+    if (typeof currentFile === 'string') {
+      return data.templateName || 'template.pdf';
+    } else if (currentFile) {
+      return currentFile.name;
+    }
+    return 'document.pdf';
+  }
 </script>
 
 <svelte:window on:keydown={handleKeyboard} on:wheel={handleWheel} />
@@ -633,6 +648,7 @@
       onFitToHeight={() => pdfViewer?.fitToHeight()}
       onExportPDF={handleExportPDF}
       onExportLPDF={handleExportLPDF}
+      onSharePDF={handleSharePDF}
       {showThumbnails}
       onToggleThumbnails={handleToggleThumbnails}
     />
@@ -686,6 +702,18 @@
 
 <!-- Keyboard shortcuts modal -->
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => showShortcuts = false} />
+
+<!-- Share PDF Modal -->
+<SharePDFModal 
+  bind:isOpen={showShareModal}
+  pdfFile={currentFile}
+  originalFileName={getOriginalFileName()}
+  on:close={() => showShareModal = false}
+  on:shared={(event) => {
+    console.log('PDF shared successfully:', event.detail);
+    showShareModal = false;
+  }}
+/>
 
 <style>
   .drag-over {
