@@ -50,7 +50,7 @@ fn check_file_associations() -> Vec<String> {
 
     for arg in &args[1..] {
         let clean_arg = sanitize_path(arg);
-        if clean_arg.to_lowercase().ends_with(".pdf") {
+        if clean_arg.to_lowercase().ends_with(".pdf") || clean_arg.to_lowercase().ends_with(".lpdf") {
             pdf_files.push(clean_arg);
         }
     }
@@ -475,9 +475,9 @@ pub fn run() {
                         let clean_arg = sanitize_path(arg);
                         debug_msg.push_str(&format!("Processing argument: {} -> {}\n", arg, clean_arg));
 
-                        if clean_arg.to_lowercase().ends_with(".pdf") {
+                        if clean_arg.to_lowercase().ends_with(".pdf") || clean_arg.to_lowercase().ends_with(".lpdf") {
                             pdf_files.push(clean_arg.clone());
-                            debug_msg.push_str(&format!("Found PDF file: {}\n", clean_arg));
+                            debug_msg.push_str(&format!("Found PDF/LPDF file: {}\n", clean_arg));
                         }
                     }
 
@@ -501,7 +501,7 @@ pub fn run() {
                     let mut pdf_files: Vec<String> = Vec::new();
                     for arg in &args[1..] {
                         let clean_arg = sanitize_path(arg);
-                        if clean_arg.to_lowercase().ends_with(".pdf") {
+                        if clean_arg.to_lowercase().ends_with(".pdf") || clean_arg.to_lowercase().ends_with(".lpdf") {
                             pdf_files.push(clean_arg.clone());
                         }
                     }
@@ -540,9 +540,9 @@ pub fn run() {
                             
                             println!("Decoded path: {}", decoded_path);
                             
-                            if decoded_path.to_lowercase().ends_with(".pdf") {
+                            if decoded_path.to_lowercase().ends_with(".pdf") || decoded_path.to_lowercase().ends_with(".lpdf") {
                                 pdf_files.push(decoded_path.to_string());
-                                println!("Found PDF file from opened event: {}", decoded_path);
+                                println!("Found PDF/LPDF file from opened event: {}", decoded_path);
                             } else {
                                 println!("Not a PDF file: {}", decoded_path);
                             }

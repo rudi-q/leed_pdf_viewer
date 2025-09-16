@@ -1174,7 +1174,7 @@
             {/if}
 
             <p class="text-base sm:text-lg text-slate dark:text-gray-300 font-medium hidden sm:block">
-              or drop a PDF, Markdown, or LPDF file anywhere
+              or drop a PDF or Markdown file anywhere
             </p>
           </div>
 
