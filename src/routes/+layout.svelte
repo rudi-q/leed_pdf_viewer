@@ -5,6 +5,7 @@
 	import UpdateManager from '$lib/components/UpdateManager.svelte';
 	import UpdateNotification from '$lib/components/UpdateNotification.svelte';
 	import LicenseModal from '$lib/components/LicenseModal.svelte';
+	import CookieConsentBanner from '$lib/components/CookieConsentBanner.svelte';
 	import { fileStorage } from '$lib/utils/fileStorageUtils';
 	import { licenseManager } from '$lib/utils/licenseManager';
 	import { browser } from '$app/environment';
@@ -98,6 +99,7 @@
 <slot />
 <ToastContainer />
 <UpdateNotification />
+<CookieConsentBanner />
 
 <!-- License Modal for Tauri Desktop App -->
 <LicenseModal 
