@@ -167,7 +167,12 @@
   <!-- Modal backdrop -->
   <div 
     class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-    on:click={close}
+    on:click={(e) => {
+      // Only close if clicked on backdrop, not modal content
+      if (e.target === e.currentTarget) {
+        close();
+      }
+    }}
     on:keydown={(e) => e.key === 'Escape' && close()}
     role="dialog"
     aria-modal="true"
@@ -178,15 +183,6 @@
     <div 
       class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
       role="document"
-      on:click|stopPropagation
-      on:keydown={(e) => {
-        // Handle Escape key for accessibility
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          close();
-        }
-      }}
-      tabindex="-1"
     >
       <!-- Header -->
       <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
