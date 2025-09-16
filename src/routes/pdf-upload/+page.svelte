@@ -20,12 +20,13 @@
 	import GlobalStyles from '$lib/components/GlobalStyles.svelte';
 	import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
 	import { PDFExporter } from '$lib/utils/pdfExport';
+	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { retrieveUploadedFile } from '$lib/utils/fileStorageUtils';
 	import { MAX_FILE_SIZE } from '$lib/constants';
 	import { isTauri } from '$lib/utils/tauriUtils';
 	import { getFormattedVersion } from '$lib/utils/version';
-	import { isValidMarkdownFile, isValidPDFFile } from '$lib/utils/pdfUtils';
+	import { isValidMarkdownFile, isValidPDFFile, isValidLPDFFile } from '$lib/utils/pdfUtils';
 	import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
 
 	let pdfViewer: PDFViewer;
@@ -40,6 +41,18 @@
 
   // File loading variables
   // (hasLoadedFromCommandLine removed - was unused dead code)
+  
+  // Helper function to extract filename from URL
+  function extractFilenameFromUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname;
+      const filename = pathname.split('/').pop() || 'document.pdf';
+      return filename.toLowerCase().endsWith('.pdf') ? filename : filename + '.pdf';
+    } catch {
+      return 'document.pdf';
+    }
+  }
 
   // Check if we have a file from the previous page or URL parameters
   $: if (browser && $page && $page.url) {
@@ -180,13 +193,39 @@
     const file = files[0];
     console.log('Selected file:', file?.name, 'Type:', file?.type, 'Size:', file?.size);
 
-    // Check if it's a PDF or Markdown file
+    // Check if it's a PDF, Markdown, or LPDF file
     const isPDF = isValidPDFFile(file);
     const isMarkdown = isValidMarkdownFile(file);
+    const isLPDF = isValidLPDFFile(file);
     
-    if (!isPDF && !isMarkdown) {
+    if (!isPDF && !isMarkdown && !isLPDF) {
       console.log('Invalid file type');
-      toastStore.error('Invalid File', 'Please choose a valid PDF or Markdown file.');
+      toastStore.error('Invalid File', 'Please choose a valid PDF, Markdown, or LPDF file.');
+      return;
+    }
+
+    // If it's an LPDF file, import it and set the extracted PDF as currentFile
+    if (isLPDF) {
+      console.log('LPDF file detected, importing...');
+      try {
+        const result = await importLPDFFile(file);
+        if (result.success && result.pdfFile) {
+          console.log('🎉 LPDF imported successfully, loading PDF...');
+          
+          // Set the extracted PDF as the current file
+          currentFile = result.pdfFile;
+          isLoading = false;
+          
+          // Set current PDF for auto-save functionality
+          setCurrentPDF(result.pdfFile.name, result.pdfFile.size);
+          console.log('LPDF imported and PDF loaded successfully');
+        } else {
+          console.log('❌ LPDF import failed or was cancelled');
+        }
+      } catch (error) {
+        console.error('LPDF import failed:', error);
+        toastStore.error('Import Failed', 'LPDF import failed. Please try again.');
+      }
       return;
     }
 
@@ -463,28 +502,6 @@
     console.log('PDF URL setup completed');
   }
 
-  function extractFilenameFromUrl(url: string): string {
-    try {
-      const urlObj = new URL(url);
-
-      // For Dropbox URLs, extract from path
-      if (urlObj.hostname.includes('dropbox.com')) {
-        const pathMatch = urlObj.pathname.match(/\/scl\/fi\/[^\/]+\/(.+)/);
-        if (pathMatch) {
-          return pathMatch[1];
-        }
-      }
-
-      const pathname = urlObj.pathname;
-      const filename = pathname.split('/').pop() || 'document.pdf';
-
-      // Ensure .pdf extension
-      return filename.toLowerCase().endsWith('.pdf') ? filename : filename + '.pdf';
-    } catch {
-      return 'document.pdf';
-    }
-  }
-
   function handleDrop(event: DragEvent) {
     event.preventDefault();
     dragOver = false;
@@ -745,6 +762,50 @@
     }
   }
 
+  async function handleExportLPDF() {
+    if (!currentFile || !pdfViewer) {
+      toastStore.warning('No PDF', 'No PDF to export');
+      return;
+    }
+
+    try {
+      console.log('Starting LPDF export with all annotations...');
+      
+      // Force save all annotations to localStorage before export
+      forceSaveAllAnnotations();
+      console.log('✅ All annotations force-saved to localStorage before LPDF export');
+      
+      let pdfBytes: Uint8Array;
+      let originalName: string;
+
+      if (typeof currentFile === 'string') {
+        console.log('Fetching PDF data from URL for LPDF export:', currentFile);
+        const response = await fetch(currentFile);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
+        originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
+      } else {
+        const arrayBuffer = await currentFile.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
+        originalName = currentFile.name.replace(/\.pdf$/i, '');
+      }
+
+      const success = await exportCurrentPDFAsLPDF(pdfBytes, `${originalName}.pdf`);
+      if (success) {
+        console.log('🎉 LPDF exported successfully');
+      } else {
+        console.log('📄 LPDF export was cancelled by user');
+      }
+    } catch (error) {
+      console.error('LPDF export failed:', error);
+      toastStore.error('Export Failed', 'LPDF export failed. Please try again.');
+    }
+  }
+
+
   function handleToggleThumbnails(show: boolean) {
     showThumbnails = show;
   }
@@ -787,6 +848,7 @@
         onFitToWidth={() => pdfViewer?.fitToWidth()}
         onFitToHeight={() => pdfViewer?.fitToHeight()}
         onExportPDF={handleExportPDF}
+        onExportLPDF={handleExportLPDF}
         {showThumbnails}
         onToggleThumbnails={handleToggleThumbnails}
       />
@@ -848,7 +910,7 @@
 <!-- Hidden file input -->
 <input
   type="file"
-  accept=".pdf,.md,.markdown,application/pdf,text/markdown"
+  accept=".pdf,.md,.markdown,.lpdf,application/pdf,text/markdown"
   multiple={false}
   class="hidden"
   on:change={(event) => {

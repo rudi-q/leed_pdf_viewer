@@ -14,10 +14,11 @@
 	import PageThumbnails from '$lib/components/PageThumbnails.svelte';
 	import HelpButton from '$lib/components/HelpButton.svelte';
 	import HomeButton from '$lib/components/HomeButton.svelte';
-	import { isValidPDFFile } from '$lib/utils/pdfUtils';
+	import { isValidPDFFile, isValidLPDFFile } from '$lib/utils/pdfUtils';
 	import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { PDFExporter } from '$lib/utils/pdfExport';
+	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
 	import { MAX_FILE_SIZE } from '$lib/constants';
 	import { isTauri } from '$lib/utils/tauriUtils';
 
@@ -125,14 +126,36 @@
     }
   }
 
-  function handleFileUpload(files: FileList) {
+  async function handleFileUpload(files: FileList) {
     console.log('handleFileUpload called with:', files);
     const file = files[0];
     console.log('Selected file:', file?.name, 'Type:', file?.type, 'Size:', file?.size);
 
-    if (!isValidPDFFile(file)) {
-      console.log('Invalid PDF file');
-      toastStore.error('Invalid File', 'Please choose a valid PDF file.');
+    const isPDF = isValidPDFFile(file);
+    const isLPDF = isValidLPDFFile(file);
+
+    if (!isPDF && !isLPDF) {
+      console.log('Invalid file type');
+      toastStore.error('Invalid File', 'Please choose a valid PDF or LPDF file.');
+      return;
+    }
+
+    // If it's an LPDF file, import it directly
+    if (isLPDF) {
+      console.log('LPDF file detected, importing...');
+      try {
+        const success = await importLPDFFile(file);
+        if (success) {
+          console.log('🎉 LPDF imported successfully');
+          // Force refresh to show imported content
+          window.location.reload();
+        } else {
+          console.log('❌ LPDF import failed or was cancelled');
+        }
+      } catch (error) {
+        console.error('LPDF import failed:', error);
+        toastStore.error('Import Failed', 'LPDF import failed. Please try again.');
+      }
       return;
     }
 
@@ -717,6 +740,48 @@
     }
   }
 
+  async function handleExportLPDF() {
+    if (!currentFile || !pdfViewer) {
+      toastStore.warning('No PDF', 'No PDF to export');
+      return;
+    }
+
+    try {
+      // Force save all annotations to localStorage before export
+      forceSaveAllAnnotations();
+      console.log('✅ All annotations force-saved to localStorage before export');
+
+      let pdfBytes: Uint8Array;
+      let originalName: string;
+
+      if (typeof currentFile === 'string') {
+        console.log('Fetching PDF data from URL for LPDF export:', currentFile);
+        const response = await fetch(currentFile);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
+        originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
+      } else {
+        const arrayBuffer = await currentFile.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
+        originalName = currentFile.name.replace(/\.pdf$/i, '');
+      }
+
+      const success = await exportCurrentPDFAsLPDF(pdfBytes, `${originalName}.pdf`);
+      if (success) {
+        console.log('🎉 LPDF exported successfully');
+      } else {
+        console.log('📄 LPDF export was cancelled by user');
+      }
+    } catch (error) {
+      console.error('LPDF export failed:', error);
+      toastStore.error('Export Failed', 'LPDF export failed. Please try again.');
+    }
+  }
+
+
   function handleToggleThumbnails(show: boolean) {
     showThumbnails = show;
   }
@@ -759,6 +824,7 @@
         onFitToWidth={() => pdfViewer?.fitToWidth()}
         onFitToHeight={() => pdfViewer?.fitToHeight()}
         onExportPDF={handleExportPDF}
+        onExportLPDF={handleExportLPDF}
         {showThumbnails}
         onToggleThumbnails={handleToggleThumbnails}
       />
@@ -818,7 +884,7 @@
 <!-- Hidden file input -->
 <input
   type="file"
-  accept=".pdf,application/pdf"
+  accept=".pdf,.lpdf,application/pdf"
   multiple={false}
   class="hidden"
   on:change={(event) => {

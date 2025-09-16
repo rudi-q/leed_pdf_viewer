@@ -217,7 +217,8 @@ export class PDFExporter {
 			'application/pdf': 'PDF Documents',
 			'image/png': 'PNG Images',
 			'image/jpeg': 'JPEG Images',
-			'image/webp': 'WebP Images'
+			'image/webp': 'WebP Images',
+			'application/zip': 'LPDF Files'
 		};
 		return filterNames[mimeType] || 'All Files';
 	}
@@ -244,7 +245,8 @@ export class PDFExporter {
 			'application/pdf': '.pdf',
 			'image/png': '.png',
 			'image/jpeg': '.jpg',
-			'image/webp': '.webp'
+			'image/webp': '.webp',
+			'application/zip': '.lpdf'
 		};
 		return extensions[mimeType] || '.bin';
 	}

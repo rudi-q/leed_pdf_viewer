@@ -67,6 +67,7 @@
 		"@vercel/analytics": "^1.5.0",
 		"autoprefixer": "^10.4.21",
 		"jspdf": "^3.0.2",
+		"jszip": "^3.10.1",
 		"lucide-svelte": "^0.544.0",
 		"markdown-it": "^14.1.0",
 		"pdf-lib": "^1.17.1",
