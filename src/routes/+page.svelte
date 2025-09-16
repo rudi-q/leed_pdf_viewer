@@ -19,6 +19,7 @@
   import DragOverlay from '$lib/components/DragOverlay.svelte';
   import BrowserExtensionPromotion from '$lib/components/BrowserExtensionPromotion.svelte';
   import DesktopDownloadCard from '$lib/components/DesktopDownloadCard.svelte';
+  import DropboxChooser from '$lib/components/DropboxChooser.svelte';
   import { pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
   import { toastStore } from '$lib/stores/toastStore';
   import { MAX_FILE_SIZE } from '$lib/constants';
@@ -44,6 +45,8 @@
   let showTemplatePicker = false;
   let showDownloadCard = true;
   let showDebugPanel = false;
+  let dropboxChooser: DropboxChooser;
+  let isDropboxLoading = false;
 
   // File loading variables
   // (hasLoadedFromCommandLine removed - was unused dead code)
@@ -824,6 +827,38 @@
     }
   }
 
+  function handleDropboxImport() {
+    if (dropboxChooser) {
+      isDropboxLoading = true;
+      dropboxChooser.openDropboxChooser();
+    }
+  }
+  function handleDropboxFileSelected(event: CustomEvent<{url: string; fileName: string; fileSize: number}>) {
+    const { url, fileName, fileSize } = event.detail;
+    console.log('Dropbox file selected:', { url, fileName, fileSize });
+    isDropboxLoading = false;
+    
+    // Fix Dropbox URL to ensure it's a direct download link with proper CORS support
+    const fixedUrl = fixDropboxUrl(url);
+    console.log('Fixed Dropbox URL:', { original: url, fixed: fixedUrl });
+    
+    // Navigate to the PDF viewer with the fixed Dropbox URL
+    const encodedUrl = encodeURIComponent(fixedUrl);
+    goto(`/pdf/${encodedUrl}`);
+  }
+
+  function handleDropboxCancel() {
+    console.log('Dropbox import cancelled by user');
+    isDropboxLoading = false;
+  }
+
+  function handleDropboxError(event: CustomEvent<{message: string}>) {
+    const { message } = event.detail;
+    console.error('Dropbox import error:', message);
+    isDropboxLoading = false;
+    toastStore.error('Dropbox Error', message);
+  }
+
   // Enhanced onMount with comprehensive file loading
   onMount(() => {
     if (import.meta.env.DEV) {
@@ -975,6 +1010,31 @@
               </button>
             </div>
 
+            <div class="flex justify-center">
+              <button
+                class="secondary-button text-base sm:text-lg px-4 sm:px-6 py-3 sm:py-4 w-48 sm:w-56 h-14 sm:h-16 flex items-center justify-center"
+                class:opacity-75={isDropboxLoading}
+                class:cursor-not-allowed={isDropboxLoading}
+                disabled={isDropboxLoading}
+                on:click={handleDropboxImport}
+                title="Import PDF from your Dropbox account"
+              >
+                {#if isDropboxLoading}
+                  <div class="animate-spin w-5 h-5 mr-2 text-[#0061FF]">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </div>
+                  Opening Dropbox...
+                {:else}
+                  <svg class="w-5 h-5 mr-2 text-[#0061FF]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6 2L0 6l6 4 6-4-6-4zM18 2l-6 4 6 4 6-4-6-4zM0 14l6-4 6 4-6 4-6-4zM18 10l6 4-6 4-6-4 6-4zM6 16l6 4 6-4-6-4-6 4z"/>
+                  </svg>
+                  Import from Dropbox
+                {/if}
+              </button>
+            </div>
+
             <div class="text-sm text-slate">
               <span>or</span>
             </div>
@@ -1076,6 +1136,14 @@
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => showShortcuts = false} />
 <TemplatePicker bind:isOpen={showTemplatePicker} on:close={() => showTemplatePicker = false} />
 <DebugPanel bind:isVisible={showDebugPanel} />
+
+<!-- Dropbox Chooser Component -->
+<DropboxChooser 
+  bind:this={dropboxChooser}
+  on:fileSelected={handleDropboxFileSelected}
+  on:cancel={handleDropboxCancel}
+  on:error={handleDropboxError}
+/>
 
 <!-- Hidden file input -->
 <input
