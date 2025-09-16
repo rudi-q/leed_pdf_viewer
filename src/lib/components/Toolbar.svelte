@@ -25,11 +25,14 @@
 	import StampPalette from './StampPalette.svelte';
 	// Feather Icons
 	import {
+		ArrowLeftRight,
 		ArrowRight,
+		ArrowUpDown,
 		ChevronLeft,
 		ChevronRight,
 		Download,
 		Edit3,
+		FileText,
 		Folder,
 		FolderOpen,
 		Highlighter,
@@ -38,6 +41,7 @@
 		MoreHorizontal,
 		Package,
 		Redo2,
+		RotateCcw,
 		Search,
 		Share,
 		Square,
@@ -696,10 +700,11 @@
                 <!-- File operations -->
                 <div class="space-y-1 mb-3">
                   <button
-                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
+                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
                     on:click={() => { handleFileSelect(); showMoreMenu = false; }}
                   >
-                    📁 Open PDF file
+                    <FileText size={14} />
+                    Open PDF file
                   </button>
                 </div>
 
@@ -707,81 +712,90 @@
                 <div class="space-y-1 mb-3">
                   {#if onSharePDF && !isSharedView}
                     <button
-                      class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
+                      class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
                       class:opacity-50={!$pdfState.document}
                       disabled={!$pdfState.document}
                       on:click={() => { onSharePDF(); showMoreMenu = false; }}
                     >
-                      🔗 Share with Link
+                      <Share size={14} />
+                      Share with Link
                     </button>
                   {/if}
                   <button
-                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
+                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
                     class:opacity-50={!$pdfState.document}
                     disabled={!$pdfState.document}
                     on:click={() => { onExportPDF(); showMoreMenu = false; }}
                   >
-                    📄 Export as PDF
+                    <Download size={14} />
+                    Export as PDF
                   </button>
                   <button
-                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
+                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
                     class:opacity-50={!$pdfState.document}
                     disabled={!$pdfState.document}
                     on:click={() => { onExportLPDF(); showMoreMenu = false; }}
                   >
-                    📦 Export as LPDF
+                    <Package size={14} />
+                    Export as LPDF
                   </button>
                 </div>
 
                 <!-- Zoom controls -->
                 <div class="space-y-1 mb-3">
                   <button
-                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
+                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
                     on:click={() => { onResetZoom(); showMoreMenu = false; }}
                   >
-                    🔍 Reset size
+                    <RotateCcw size={14} />
+                    Reset size
                   </button>
                   <button
-                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
+                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
                     on:click={() => { onFitToWidth(); showMoreMenu = false; }}
                   >
-                    ↔️ Fit width
+                    <ArrowLeftRight size={14} />
+                    Fit width
                   </button>
                   <button
-                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
+                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
                     on:click={() => { onFitToHeight(); showMoreMenu = false; }}
                   >
-                    ↕️ Fit height
+                    <ArrowUpDown size={14} />
+                    Fit height
                   </button>
                 </div>
 
                 <!-- Navigation -->
                 <div class="space-y-1 mb-3">
                   <button
-                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
+                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
                     class:opacity-50={$pdfState.currentPage <= 1}
                     disabled={$pdfState.currentPage <= 1}
                     on:click={() => { onPreviousPage(); showMoreMenu = false; }}
                   >
-                    ⬅️ Previous page
+                    <ChevronLeft size={14} />
+                    Previous page
                   </button>
                   <button
-                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
+                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
                     class:opacity-50={$pdfState.currentPage >= $pdfState.totalPages}
                     disabled={$pdfState.currentPage >= $pdfState.totalPages}
                     on:click={() => { onNextPage(); showMoreMenu = false; }}
                   >
-                    ➡️ Next page
+                    <ChevronRight size={14} />
+                    Next page
                   </button>
                 </div>
 
                 <!-- Actions -->
                 <div class="space-y-1 mb-3">
                   <button
-                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
+                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
                     on:click={() => { handleClear(); showMoreMenu = false; }}
                   >
-                    🗑️ Delete changes
+                    <Trash2 size={14} />
+                    Delete changes
                   </button>
                 </div>
 
@@ -1024,7 +1038,7 @@
       <div class="border-t border-gray-200/50 dark:border-gray-600/50 pt-2 mt-2">
         <div class="text-center">
           <span class="text-xs text-charcoal/60 dark:text-gray-400">
-            Perfect for feedback & grading ✨
+            Perfect for feedback & grading
           </span>
         </div>
       </div>

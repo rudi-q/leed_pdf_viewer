@@ -28,6 +28,14 @@
   // Copy to clipboard state
   let copied = false;
   
+  // Editable filename
+  let editableFileName = '';
+  
+  // Initialize editable filename when originalFileName changes
+  $: if (originalFileName && !editableFileName) {
+    editableFileName = originalFileName;
+  }
+  
   function close() {
     isOpen = false;
     dispatch('close');
@@ -45,11 +53,35 @@
     hasDownloadLimit = false;
     maxDownloads = 10;
     copied = false;
+    editableFileName = originalFileName; // Reset to original filename
+  }
+  
+  function validateFileName(filename: string): boolean {
+    // Remove invalid filename characters and check length
+    const invalidChars = /[<>:"/\\|?*]/g;
+    return filename.length > 0 && filename.length <= 255 && !invalidChars.test(filename);
+  }
+  
+  function sanitizeFileName(filename: string): string {
+    // Remove invalid characters and trim whitespace
+    return filename.replace(/[<>:"/\\|?*]/g, '').trim();
   }
   
   async function handleShare() {
     if (!pdfFile) {
       toastStore.error('No PDF', 'No PDF file to share');
+      return;
+    }
+    
+    // Validate filename
+    const trimmedFileName = editableFileName.trim();
+    if (!trimmedFileName) {
+      toastStore.error('Filename Required', 'Please enter a filename for the PDF');
+      return;
+    }
+    
+    if (!validateFileName(trimmedFileName)) {
+      toastStore.error('Invalid Filename', 'Filename contains invalid characters or is too long (max 255 characters)');
       return;
     }
     
@@ -68,7 +100,7 @@
     isSharing = true;
     
     try {
-      const result = await PDFSharingService.sharePDF(pdfFile, originalFileName, options);
+      const result = await PDFSharingService.sharePDF(pdfFile, trimmedFileName, options);
       
       if (result.success && result.shareUrl && result.shareId) {
         shareResult = {
@@ -107,7 +139,7 @@
   function shareViaEmail() {
     if (!shareResult?.shareUrl) return;
     
-    const subject = encodeURIComponent(`Shared PDF: ${originalFileName}`);
+    const subject = encodeURIComponent(`Shared PDF: ${editableFileName}`);
     const body = encodeURIComponent(`I've shared a PDF with you via LeedPDF:\n\n${shareResult.shareUrl}\n\nPowered by LeedPDF - https://leed.my`);
     window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
   }
@@ -142,6 +174,7 @@
     <div 
       class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
       role="document"
+      on:click|stopPropagation
     >
       <!-- Header -->
       <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
@@ -164,9 +197,27 @@
         <div class="p-6 space-y-6">
           <div>
             <h3 class="text-sm font-medium text-charcoal dark:text-white mb-2">File to Share</h3>
-            <div class="flex items-center gap-3 text-sm text-slate dark:text-gray-400 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-              <FileText size={18} class="text-sage" />
-              <span>{originalFileName}</span>
+            <div class="space-y-2">
+              <div class="flex items-center gap-3 text-sm">
+                <FileText size={18} class="text-sage flex-shrink-0" />
+                <div class="flex-1">
+                  <label for="filename-input" class="block text-xs text-slate dark:text-gray-400 mb-1">Filename:</label>
+                  <input
+                    id="filename-input"
+                    type="text"
+                    bind:value={editableFileName}
+                    placeholder="Enter filename"
+                    class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sage focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    class:border-red-500={!validateFileName(editableFileName)}
+                    class:dark:border-red-500={!validateFileName(editableFileName)}
+                  />
+                </div>
+              </div>
+              {#if editableFileName && !validateFileName(editableFileName)}
+                <p class="text-xs text-red-600 dark:text-red-400">
+                  Invalid filename: contains invalid characters or is too long (max 255 characters)
+                </p>
+              {/if}
             </div>
           </div>
           
@@ -284,7 +335,7 @@
           <button
             on:click={handleShare}
             disabled={isSharing}
-            class="px-6 py-2 text-sm bg-sage text-white rounded-lg hover:bg-sage/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+            class="primary-button px-6 py-2 text-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
           >
             {#if isSharing}
               <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -386,7 +437,7 @@
         <div class="flex justify-end p-6 border-t border-gray-200 dark:border-gray-700">
           <button
             on:click={close}
-            class="px-6 py-2 text-sm bg-sage text-white rounded-lg hover:bg-sage/90 transition-colors"
+            class="primary-button px-6 py-2 text-sm rounded-lg transition-colors"
           >
             Done
           </button>
