@@ -1,4 +1,4 @@
-import JSZip from 'jszip';
+// JSZip will be dynamically imported when needed to reduce initial bundle size
 import type {
 	DrawingPath,
 	TextAnnotation,
@@ -274,6 +274,10 @@ export class LPDFExporter {
 		try {
 			console.log('Starting .lpdf export...');
 			
+			// Dynamically import JSZip to reduce initial bundle size
+			console.log('Loading JSZip...');
+			const JSZip = (await import('jszip')).default;
+			
 			// Force save all annotations to ensure we have the latest data
 			forceSaveAllAnnotations();
 			
@@ -325,11 +329,15 @@ export class LPDFExporter {
 		pdfFile: File;
 		annotations: LPDFAnnotationData;
 	}> {
-		try {
-			console.log('Starting .lpdf import...');
-			
-			// Read the ZIP file
-			const zip = await JSZip.loadAsync(lpdfFile);
+	try {
+		console.log('Starting .lpdf import...');
+		
+		// Dynamically import JSZip to reduce initial bundle size
+		console.log('Loading JSZip...');
+		const JSZip = (await import('jszip')).default;
+		
+		// Read the ZIP file
+		const zip = await JSZip.loadAsync(lpdfFile);
 			
 			// Extract original PDF
 			const pdfZipEntry = zip.file('original.pdf');
