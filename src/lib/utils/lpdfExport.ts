@@ -123,6 +123,8 @@ export interface LPDFAnnotationData {
 		appVersion: string;
 		totalPages: number;
 		stamps?: StampDefinition[]; // Include available stamps for compatibility
+		originalFilename?: string; // Original PDF filename before LPDF export
+		originalSize?: number; // Original PDF size in bytes
 	};
 }
 
@@ -259,7 +261,9 @@ export class LPDFExporter {
 				created: Date.now(),
 				appVersion: '2.7.0', // From package.json
 				totalPages: currentPdfState.totalPages,
-				stamps: availableStamps // Include stamp definitions for compatibility
+				stamps: availableStamps, // Include stamp definitions for compatibility
+				originalFilename: this.currentFileName || 'document.pdf', // Preserve original filename
+				originalSize: this.originalPdfBytes ? this.originalPdfBytes.length : undefined // Preserve original size
 			}
 		};
 	}
@@ -388,7 +392,8 @@ export class LPDFExporter {
 		}
 		// Create a new Uint8Array to ensure proper typing and avoid potential ArrayBufferLike issues
 		const pdfUint8Array = new Uint8Array(pdfBytes);
-		const pdfFile = new File([pdfUint8Array], 'document.pdf', { type: 'application/pdf' });
+		
+		// NOTE: We'll determine the filename after parsing annotations to access metadata
 		
 		// Extract and validate annotations JSON
 		const annotationsZipEntry = zip.files['annotations.json'];
@@ -420,8 +425,31 @@ export class LPDFExporter {
 			throw new Error(`Invalid .lpdf file: annotations.json contains invalid JSON data - ${jsonError instanceof Error ? jsonError.message : 'Unknown error'}`);
 		}
 		
+		// Determine the filename: prefer metadata.originalFilename, fallback to LPDF basename
+		let restoredFilename = 'document.pdf'; // Final fallback
+		
+		if (annotations.metadata?.originalFilename) {
+			// Use the preserved original filename from metadata
+			restoredFilename = annotations.metadata.originalFilename;
+			// Ensure it has .pdf extension
+			if (!restoredFilename.toLowerCase().endsWith('.pdf')) {
+				restoredFilename += '.pdf';
+			}
+		} else {
+			// Fallback: use LPDF file basename with .pdf extension
+			const lpdfBasename = lpdfFile.name.replace(/\.lpdf$/i, '');
+			if (lpdfBasename && lpdfBasename !== lpdfFile.name) {
+				restoredFilename = `${lpdfBasename}.pdf`;
+			}
+		}
+		
+		// Create the PDF file with the restored filename
+		const pdfFile = new File([pdfUint8Array], restoredFilename, { type: 'application/pdf' });
+		
 		console.log('Successfully parsed .lpdf file:', {
 			pdfSize: pdfBytes.length,
+			restoredFilename: restoredFilename,
+			originalFilename: annotations.metadata?.originalFilename || 'not available',
 			annotationPages: Object.keys(annotations.drawings).length + 
 				Object.keys(annotations.textAnnotations).length + 
 				Object.keys(annotations.stickyNotes).length + 
@@ -581,8 +609,11 @@ export class LPDFExporter {
 			// Parse the .lpdf file
 			const { pdfFile, annotations } = await LPDFExporter.importFromLPDF(lpdfFile);
 			
-			// Load the annotations into stores
-			await LPDFExporter.loadAnnotationsIntoStores(annotations, pdfFile.name, pdfFile.size);
+			// Use original size from metadata if available, otherwise use current file size
+			const originalSize = annotations.metadata?.originalSize ?? pdfFile.size;
+			
+			// Load the annotations into stores with preserved filename and size
+			await LPDFExporter.loadAnnotationsIntoStores(annotations, pdfFile.name, originalSize);
 			
 			return { success: true, pdfFile };
 		} catch (error) {
