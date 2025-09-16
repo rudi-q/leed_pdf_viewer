@@ -178,7 +178,7 @@
 <input
   bind:this={fileInput}
   type="file"
-  accept=".pdf,.lpdf,application/pdf"
+  accept=".pdf,.lpdf,.md,.markdown"
   on:change={handleFileChange}
   class="hidden"
   aria-hidden="true"

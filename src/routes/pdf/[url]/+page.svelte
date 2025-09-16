@@ -898,7 +898,7 @@
 <!-- Hidden file input -->
 <input
   type="file"
-  accept=".pdf,.lpdf,application/pdf"
+  accept=".pdf,.lpdf,.md,.markdown"
   multiple={false}
   class="hidden"
   on:change={(event) => {
