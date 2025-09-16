@@ -33,7 +33,7 @@
   
   // Initialize editable filename when originalFileName changes
   $: if (originalFileName && !editableFileName) {
-    // Remove .pdf extension for editing, we'll add it back programmatically
+    // Remove .pdf extension for editing, we'll add .lpdf back programmatically
     editableFileName = originalFileName.replace(/\.pdf$/i, '');
   }
   
@@ -86,7 +86,7 @@
       return;
     }
     
-    // Always add .pdf extension since we only store the base name
+    // Always add .pdf extension for the original filename (we share as LPDF but maintain PDF name)
     const finalFileName = `${trimmedFileName}.pdf`;
     
     if (requiresPassword && !password.trim()) {
@@ -143,7 +143,7 @@
   function shareViaEmail() {
     if (!shareResult?.shareUrl) return;
     
-    const subject = encodeURIComponent(`Shared PDF: ${editableFileName}.pdf`);
+    const subject = encodeURIComponent(`Shared PDF: ${editableFileName}.lpdf`);
     const body = encodeURIComponent(`I've shared a PDF with you via LeedPDF:\n\n${shareResult.shareUrl}\n\nPowered by LeedPDF - https://leed.my`);
     window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
   }
@@ -179,6 +179,14 @@
       class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
       role="document"
       on:click|stopPropagation
+      on:keydown={(e) => {
+        // Handle Escape key for accessibility
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          close();
+        }
+      }}
+      tabindex="-1"
     >
       <!-- Header -->
       <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
@@ -217,7 +225,7 @@
                       class:dark:border-red-500={!validateFileName(editableFileName)}
                     />
                     <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-slate dark:text-gray-400 pointer-events-none">
-                      .pdf
+                      .lpdf
                     </span>
                   </div>
                 </div>

@@ -10,7 +10,7 @@
   import { setCurrentPDF } from '$lib/stores/drawingStore';
   
   let isLoading = true;
-  let currentFile: string | null = null;
+  let currentFile: File | string | null = null;
   let pdfViewer: PDFViewer;
   let requiresPassword = false;
   let password = '';
@@ -42,28 +42,46 @@
         return;
       }
       
-      // Set the PDF URL for viewing
-      currentFile = result.pdfUrl || null;
       sharedPDFData = result.sharedPDF;
       
-      // Set current PDF for the store (for auto-save functionality)
-      if (result.sharedPDF) {
-        setCurrentPDF(
-          result.sharedPDF.originalFileName,
-          result.sharedPDF.metadata?.fileSize || 0
-        );
-      }
-      
-      // Apply annotations if they exist
-      if (result.annotations && result.annotations.length > 0) {
-        // Wait a bit for the PDF to load before applying annotations
-        setTimeout(async () => {
-          try {
-            await PDFSharingService.applyAnnotations(result.annotations!);
-          } catch (error) {
-            console.warn('Failed to apply annotations:', error);
+      // Download and process LPDF file
+      if (result.lpdfUrl) {
+        try {
+          // Fetch the LPDF file
+          const lpdfResponse = await fetch(result.lpdfUrl);
+          if (!lpdfResponse.ok) {
+            throw new Error('Failed to download LPDF file');
           }
-        }, 1000);
+          
+          const lpdfBlob = await lpdfResponse.blob();
+          const lpdfFile = new File([lpdfBlob], result.sharedPDF?.originalFileName || 'shared.lpdf', { type: 'application/x-lpdf' });
+          
+          // Import LPDF to extract PDF and annotations
+          const { LPDFExporter } = await import('$lib/utils/lpdfExport');
+          const importResult = await LPDFExporter.importFromLPDF(lpdfFile);
+          
+          if (importResult.pdfFile && importResult.annotations) {
+            // Set the extracted PDF for viewing
+            currentFile = importResult.pdfFile;
+            
+            // Get the original file size from metadata or use current size
+            const originalSize = importResult.annotations.metadata?.originalSize ?? importResult.pdfFile.size;
+            const originalFileName = importResult.annotations.metadata?.originalFilename || result.sharedPDF?.originalFileName || importResult.pdfFile.name;
+            
+            // Load annotations into stores properly
+            console.log('Loading annotations into stores for shared PDF:', importResult.annotations);
+            await LPDFExporter.loadAnnotationsIntoStores(importResult.annotations, originalFileName, originalSize);
+            
+            console.log('Successfully loaded shared LPDF with annotations');
+          } else {
+            throw new Error('Failed to extract PDF from LPDF file');
+          }
+        } catch (error) {
+          console.error('Error processing LPDF file:', error);
+          throw new Error(`Failed to load LPDF file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      } else {
+        throw new Error('No LPDF file found');
       }
       
       requiresPassword = false;

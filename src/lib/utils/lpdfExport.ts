@@ -625,10 +625,17 @@ export class LPDFExporter {
 }
 
 // Convenience functions for easy usage
-export async function exportCurrentPDFAsLPDF(pdfBytes: Uint8Array, fileName: string = 'document.pdf'): Promise<boolean> {
+export async function exportCurrentPDFAsLPDF(pdfBytes: Uint8Array, fileName: string = 'document.pdf', returnData: boolean = false): Promise<boolean | Uint8Array> {
 	const exporter = new LPDFExporter();
 	exporter.setOriginalPDF(pdfBytes, fileName);
-	return await exporter.exportLPDFFile();
+	
+	if (returnData) {
+		// Return the LPDF data instead of downloading
+		return await exporter.exportToLPDF();
+	} else {
+		// Download the file
+		return await exporter.exportLPDFFile();
+	}
 }
 
 export async function importLPDFFile(lpdfFile: File): Promise<{ success: boolean; pdfFile?: File }> {

@@ -49,79 +49,62 @@ export class PDFSharingService {
       
       toastStore.info('Sharing PDF', 'Uploading PDF and annotations...');
 
-      // Step 1: Upload PDF to storage
-      let pdfStorageId: string;
+      // Step 1: Generate and upload LPDF file
+      let lpdfStorageId: string;
       
+      // Get PDF bytes for LPDF generation
+      let pdfBytes: Uint8Array;
       if (typeof pdfFile === 'string') {
-        // If it's a URL, fetch and upload
         const response = await fetch(pdfFile);
         if (!response.ok) {
           throw new Error('Failed to fetch PDF from URL');
         }
-        const pdfBlob = await response.blob();
-        const pdfFileObject = new File([pdfBlob], originalFileName, { type: 'application/pdf' });
-        
-        const pdfUploadResult = await storage.createFile(
-          STORAGE_BUCKET_ID,
-          ID.unique(),
-          pdfFileObject
-        );
-        pdfStorageId = pdfUploadResult.$id;
+        const arrayBuffer = await response.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
       } else {
-        // Upload file directly
-        const pdfUploadResult = await storage.createFile(
-          STORAGE_BUCKET_ID,
-          ID.unique(),
-          pdfFile
-        );
-        pdfStorageId = pdfUploadResult.$id;
+        const arrayBuffer = await pdfFile.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
       }
-
-      // Step 2: Collect and upload annotations if they exist
-      let annotationsStorageId: string | undefined;
-      const annotations = await PDFSharingService.collectAllAnnotations();
       
-      if (annotations.length > 0) {
-        const annotationsData = {
-          annotations,
-          metadata: {
-            totalPages: get(pdfState).totalPages,
-            exportedAt: new Date().toISOString()
-          }
-        };
-        
-        const annotationsBlob = new Blob([JSON.stringify(annotationsData, null, 2)], {
-          type: 'application/json'
-        });
-        
-        const annotationsFile = new File([annotationsBlob], `${shareId}_annotations.json`, {
-          type: 'application/json'
-        });
-        
-        const annotationsUploadResult = await storage.createFile(
-          STORAGE_BUCKET_ID,
-          `${shareId}_annotations`,
-          annotationsFile
-        );
-        annotationsStorageId = annotationsUploadResult.$id;
+      // Generate LPDF with current annotations
+      const { exportCurrentPDFAsLPDF } = await import('$lib/utils/lpdfExport');
+      const lpdfData = await exportCurrentPDFAsLPDF(pdfBytes, originalFileName, true) as Uint8Array; // true = return data instead of download
+      
+      if (!lpdfData || !(lpdfData instanceof Uint8Array)) {
+        throw new Error('Failed to generate LPDF data');
       }
+      
+      // Create LPDF file and upload
+      const lpdfFileName = originalFileName.replace(/\.pdf$/i, '.lpdf');
+      const lpdfFile = new File([new Uint8Array(lpdfData)], lpdfFileName, { type: 'application/x-lpdf' });
+      
+      const lpdfUploadResult = await storage.createFile(
+        STORAGE_BUCKET_ID,
+        ID.unique(),
+        lpdfFile
+      );
+      lpdfStorageId = lpdfUploadResult.$id;
+
+      // Step 2: LPDF already contains annotations, so no separate upload needed
+      const annotations = await PDFSharingService.collectAllAnnotations();
+      const hasAnnotations = annotations.length > 0;
 
       // Step 3: Create database record
-      const fileSize = typeof pdfFile === 'string' ? 0 : pdfFile.size;
+      const fileSize = lpdfFile.size;
       const pageCount = get(pdfState).totalPages || 1;
       
       const sharedPDFData = {
         filename: originalFileName,
-        file_id: pdfStorageId,
+        file_id: lpdfStorageId,
         original_filename: originalFileName,
         file_size: fileSize,
-        mime_type: 'application/pdf',
+        mime_type: 'application/x-lpdf',
         uploaded_at: new Date().toISOString(),
         uploaded_by: shareId, // Using shareId as uploader reference
         share_token: shareId, // Using shareId as the share token
         is_public: options.isPublic,
-        description: annotations.length > 0 ? `PDF with ${annotations.length} annotations` : 'Shared PDF',
-        tags: annotations.length > 0 ? ['annotated'] : ['shared'],
+        description: hasAnnotations ? `LPDF with ${annotations.length} annotations` : 'Shared LPDF',
+        tags: hasAnnotations ? ['annotated', 'lpdf'] : ['shared', 'lpdf'],
         page_count: pageCount
       };
 
@@ -162,7 +145,7 @@ export class PDFSharingService {
   static async getSharedPDF(shareId: string, password?: string): Promise<{
     success: boolean;
     sharedPDF?: SharedPDF;
-    pdfUrl?: string;
+    lpdfUrl?: string;
     annotations?: any[];
     error?: string;
   }> {
@@ -186,35 +169,15 @@ export class PDFSharingService {
       // Note: Expiration and password features not implemented in current schema
       // These would need additional fields if required in the future
 
-      // Get PDF download URL using file_id
-      const pdfUrl = storage.getFileView(STORAGE_BUCKET_ID, sharedPDF.file_id);
-
-      // Get annotations if they exist
-      // For now, we'll store annotations as a separate JSON file in storage
-      // and find it by looking for files with the shareId in the name
-      let annotations: any[] = [];
-      
-      // Try to find annotations file (this is a simplified approach)
-      // In a production setup, you'd want to store the annotations file ID in the database
-      try {
-        const annotationsResponse = await storage.getFileDownload(
-          STORAGE_BUCKET_ID,
-          `${shareId}_annotations`
-        );
-        const annotationsBlob = new Blob([annotationsResponse]);
-        const annotationsText = await annotationsBlob.text();
-        const annotationsData = JSON.parse(annotationsText);
-        annotations = annotationsData.annotations || [];
-      } catch (annotationError) {
-        // No annotations file found or error loading - continue without annotations
-        console.log('No annotations found for this PDF');
-      }
+      // Get LPDF download URL using file_id
+      const lpdfUrl = storage.getFileView(STORAGE_BUCKET_ID, sharedPDF.file_id);
 
       return {
         success: true,
         sharedPDF,
-        pdfUrl,
-        annotations
+        lpdfUrl,
+        // LPDF files contain both PDF and annotations, so no separate annotations array needed
+        annotations: [] // Will be loaded from LPDF when imported
       };
 
     } catch (error) {
