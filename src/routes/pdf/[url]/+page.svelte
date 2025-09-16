@@ -140,15 +140,29 @@
       return;
     }
 
-    // If it's an LPDF file, import it directly
+    // If it's an LPDF file, import it and navigate to pdf-upload with the extracted PDF
     if (isLPDF) {
       console.log('LPDF file detected, importing...');
       try {
-        const success = await importLPDFFile(file);
-        if (success) {
-          console.log('🎉 LPDF imported successfully');
-          // Force refresh to show imported content
-          window.location.reload();
+        const result = await importLPDFFile(file);
+        if (result.success && result.pdfFile) {
+          console.log('🎉 LPDF imported successfully, navigating to pdf-upload...');
+          
+          // Store the extracted PDF file and navigate to pdf-upload route (like main route does)
+          const fileReader = new FileReader();
+          fileReader.onload = (e) => {
+            const arrayBuffer = e.target?.result as ArrayBuffer;
+            const fileData = {
+              name: result.pdfFile!.name,
+              size: result.pdfFile!.size,
+              type: result.pdfFile!.type,
+              data: Array.from(new Uint8Array(arrayBuffer))
+            };
+            sessionStorage.setItem('tempPdfFile', JSON.stringify(fileData));
+            console.log('Extracted PDF stored in sessionStorage, navigating...');
+            goto('/pdf-upload');
+          };
+          fileReader.readAsArrayBuffer(result.pdfFile);
         } else {
           console.log('❌ LPDF import failed or was cancelled');
         }
