@@ -190,7 +190,7 @@
             <button
               on:click={handlePasswordSubmit}
               disabled={!password.trim()}
-              class="flex-1 px-4 py-2 bg-sage text-white rounded-lg hover:bg-sage/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              class="flex-1 px-4 py-2 bg-sage text-charcoal rounded-lg hover:bg-sage/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Access PDF
             </button>
@@ -210,7 +210,7 @@
         
         <button
           on:click={goHome}
-          class="px-6 py-2 bg-sage text-white rounded-lg hover:bg-sage/90 transition-colors"
+          class="px-6 py-2 bg-sage text-charcoal rounded-lg hover:bg-sage/90 transition-colors"
         >
           Go Home
         </button>
