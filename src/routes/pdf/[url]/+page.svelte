@@ -22,6 +22,7 @@ import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
 import { MAX_FILE_SIZE } from '$lib/constants';
 import { isTauri } from '$lib/utils/tauriUtils';
 import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
+import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 
 	let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
@@ -31,6 +32,7 @@ import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
   let showThumbnails = false;
   let focusMode = false;
   let isLoading = true;
+  let showShareModal = false;
 
   // Debug variables
   let debugVisible = false;
@@ -810,6 +812,19 @@ import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
     pdfViewer?.goToPage(pageNumber);
   }
 
+  function handleSharePDF() {
+    showShareModal = true;
+  }
+
+  function getOriginalFileName(): string {
+    if (typeof currentFile === 'string') {
+      return extractFilenameFromUrl(currentFile);
+    } else if (currentFile) {
+      return currentFile.name;
+    }
+    return 'document.pdf';
+  }
+
   function handleFullscreenChange() {
     isFullscreen = !!document.fullscreenElement;
   }
@@ -845,6 +860,7 @@ import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
         onFitToHeight={() => pdfViewer?.fitToHeight()}
         onExportPDF={handleExportPDF}
         onExportLPDF={handleExportLPDF}
+        onSharePDF={handleSharePDF}
         {showThumbnails}
         onToggleThumbnails={handleToggleThumbnails}
       />
@@ -900,6 +916,18 @@ import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
 </main>
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => showShortcuts = false} />
+
+<!-- Share PDF Modal -->
+<SharePDFModal 
+  bind:isOpen={showShareModal}
+  pdfFile={currentFile}
+  originalFileName={getOriginalFileName()}
+  on:close={() => showShareModal = false}
+  on:shared={(event) => {
+    console.log('PDF shared successfully:', event.detail);
+    showShareModal = false;
+  }}
+/>
 
 <!-- Hidden file input -->
 <input

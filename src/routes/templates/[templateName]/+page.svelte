@@ -12,12 +12,19 @@
 	import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
 	import PageThumbnails from '$lib/components/PageThumbnails.svelte';
 	import { isValidPDFFile, isValidLPDFFile } from '$lib/utils/pdfUtils';
-	import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
-	import { toastStore } from '$lib/stores/toastStore';
-	import { PDFExporter } from '$lib/utils/pdfExport';
-	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
-	import { MAX_FILE_SIZE } from '$lib/constants';
-	import { isTauri } from '$lib/utils/tauriUtils';
+import { forceSaveAllAnnotations, pdfState, setCurrentPDF, setTool, redo, undo } from '$lib/stores/drawingStore';
+import { PDFExporter } from '$lib/utils/pdfExport';
+import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
+import { toastStore } from '$lib/stores/toastStore';
+import { getFormattedVersion } from '$lib/utils/version';
+import { isTauri } from '$lib/utils/tauriUtils';
+import { MAX_FILE_SIZE } from '$lib/constants';
+import HelpButton from '$lib/components/HelpButton.svelte';
+import HomeButton from '$lib/components/HomeButton.svelte';
+import Footer from '$lib/components/Footer.svelte';
+import DragOverlay from '$lib/components/DragOverlay.svelte';
+import GlobalStyles from '$lib/components/GlobalStyles.svelte';
+import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 
 	// Get the page data from the load function
   export let data;
@@ -31,6 +38,7 @@
   let focusMode = false;
   let isLoading = true;
   let templateError = false;
+  let showShareModal = false;
 
   // Load template PDF if it exists
   $: if (browser && data) {
@@ -610,6 +618,19 @@
   function handleFullscreenChange() {
     isFullscreen = !!document.fullscreenElement;
   }
+
+  function handleSharePDF() {
+    showShareModal = true;
+  }
+
+  function getOriginalFileName(): string {
+    if (typeof currentFile === 'string') {
+      return data.templateName || 'template.pdf';
+    } else if (currentFile) {
+      return currentFile.name;
+    }
+    return 'document.pdf';
+  }
 </script>
 
 <svelte:window on:keydown={handleKeyboard} on:wheel={handleWheel} />
@@ -633,6 +654,7 @@
       onFitToHeight={() => pdfViewer?.fitToHeight()}
       onExportPDF={handleExportPDF}
       onExportLPDF={handleExportLPDF}
+      onSharePDF={handleSharePDF}
       {showThumbnails}
       onToggleThumbnails={handleToggleThumbnails}
     />
@@ -682,10 +704,45 @@
       </div>
     {/if}
   </div>
+
+  {#if !focusMode}
+    <HelpButton
+      position="absolute"
+      positionClasses="bottom-4 left-4"
+      showOnDesktopOnly={true}
+      on:click={() => showShortcuts = true}
+    />
+
+    <HomeButton
+      {showThumbnails}
+    />
+  {/if}
+
+  <Footer
+    {focusMode}
+    getFormattedVersion={getFormattedVersion}
+    on:helpClick={() => showShortcuts = true}
+  />
 </main>
+
+<DragOverlay {dragOver} />
 
 <!-- Keyboard shortcuts modal -->
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => showShortcuts = false} />
+
+<!-- Share PDF Modal -->
+<SharePDFModal 
+  bind:isOpen={showShareModal}
+  pdfFile={currentFile}
+  originalFileName={getOriginalFileName()}
+  on:close={() => showShareModal = false}
+  on:shared={(event) => {
+    console.log('PDF shared successfully:', event.detail);
+    // Let the modal handle its own state - don't auto-close to show success feedback
+  }}
+/>
+
+<GlobalStyles />
 
 <style>
   .drag-over {
