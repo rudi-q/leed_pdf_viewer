@@ -11,10 +11,11 @@
 	import Toolbar from '$lib/components/Toolbar.svelte';
 	import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
 	import PageThumbnails from '$lib/components/PageThumbnails.svelte';
-	import { isValidPDFFile } from '$lib/utils/pdfUtils';
+	import { isValidPDFFile, isValidLPDFFile } from '$lib/utils/pdfUtils';
 	import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { PDFExporter } from '$lib/utils/pdfExport';
+	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
 	import { MAX_FILE_SIZE } from '$lib/constants';
 	import { isTauri } from '$lib/utils/tauriUtils';
 
@@ -108,14 +109,57 @@
     }
   }
 
-  function handleFileUpload(files: FileList) {
+  async function handleFileUpload(files: FileList) {
     console.log('handleFileUpload called with:', files);
     const file = files[0];
     console.log('Selected file:', file?.name, 'Type:', file?.type, 'Size:', file?.size);
 
-    if (!isValidPDFFile(file)) {
-      console.log('Invalid PDF file');
-      toastStore.error('Invalid File', 'Please choose a valid PDF file.');
+    const isPDF = isValidPDFFile(file);
+    const isLPDF = isValidLPDFFile(file);
+
+    if (!isPDF && !isLPDF) {
+      console.log('Invalid file type');
+      toastStore.error('Invalid File', 'Please choose a valid PDF or LPDF file.');
+      return;
+    }
+
+    // If it's an LPDF file, import it and navigate to pdf-upload with the extracted PDF
+    if (isLPDF) {
+      // Check file size for LPDF files too
+      if (file.size > MAX_FILE_SIZE) {
+        console.log('LPDF file too large');
+        toastStore.error('File Too Large', `File size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum limit of ${(MAX_FILE_SIZE / (1024 * 1024))}MB.`);
+        return;
+      }
+      
+      console.log('LPDF file detected, importing...');
+      try {
+        const result = await importLPDFFile(file);
+        if (result.success && result.pdfFile) {
+          console.log('🎉 LPDF imported successfully, navigating to pdf-upload...');
+          
+          // Store the extracted PDF file and navigate to pdf-upload route (like main route does)
+          const fileReader = new FileReader();
+          fileReader.onload = (e) => {
+            const arrayBuffer = e.target?.result as ArrayBuffer;
+            const fileData = {
+              name: result.pdfFile!.name,
+              size: result.pdfFile!.size,
+              type: result.pdfFile!.type,
+              data: Array.from(new Uint8Array(arrayBuffer))
+            };
+            sessionStorage.setItem('tempPdfFile', JSON.stringify(fileData));
+            console.log('Extracted PDF stored in sessionStorage, navigating...');
+            goto('/pdf-upload');
+          };
+          fileReader.readAsArrayBuffer(result.pdfFile);
+        } else {
+          console.log('❌ LPDF import failed or was cancelled');
+        }
+      } catch (error) {
+        console.error('LPDF import failed:', error);
+        toastStore.error('Import Failed', 'LPDF import failed. Please try again.');
+      }
       return;
     }
 
@@ -513,6 +557,48 @@
     }
   }
 
+  async function handleExportLPDF() {
+    if (!currentFile || !pdfViewer) {
+      toastStore.warning('No PDF', 'No PDF to export');
+      return;
+    }
+
+    try {
+      // Force save all annotations to localStorage before export
+      forceSaveAllAnnotations();
+      console.log('✅ All annotations force-saved to localStorage before export');
+
+      let pdfBytes: Uint8Array;
+      let originalName: string;
+
+      if (typeof currentFile === 'string') {
+        // Template URL - fetch the PDF data
+        const response = await fetch(currentFile);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch template: ${response.statusText}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
+        originalName = data.templateName || 'template';
+      } else {
+        const arrayBuffer = await currentFile.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
+        originalName = currentFile.name.replace(/\.pdf$/i, '');
+      }
+
+      const success = await exportCurrentPDFAsLPDF(pdfBytes, `${originalName}.pdf`);
+      if (success) {
+        console.log('🎉 LPDF exported successfully');
+      } else {
+        console.log('📄 LPDF export was cancelled by user');
+      }
+    } catch (error) {
+      console.error('LPDF export failed:', error);
+      toastStore.error('Export Failed', 'LPDF export failed. Please try again.');
+    }
+  }
+
+
   function handleToggleThumbnails(show: boolean) {
     showThumbnails = show;
   }
@@ -546,6 +632,7 @@
       onFitToWidth={() => pdfViewer?.fitToWidth()}
       onFitToHeight={() => pdfViewer?.fitToHeight()}
       onExportPDF={handleExportPDF}
+      onExportLPDF={handleExportLPDF}
       {showThumbnails}
       onToggleThumbnails={handleToggleThumbnails}
     />

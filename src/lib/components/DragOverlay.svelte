@@ -11,7 +11,7 @@
         <FileText class="w-16 h-16 mx-auto" />
       </div>
       <h3 class="text-2xl font-bold text-charcoal mb-2">Drop your file here</h3>
-      <p class="text-slate">Release to start (PDF or Markdown)</p>
+      <p class="text-slate">Release to start (PDF, Markdown, or LPDF)</p>
       <div class="mt-4 text-sm text-sage font-medium">Ready to receive file</div>
     </div>
   </div>

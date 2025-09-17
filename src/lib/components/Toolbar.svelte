@@ -31,10 +31,12 @@
 		Download,
 		Edit3,
 		Folder,
+		FolderOpen,
 		Highlighter,
 		Layout,
 		Moon,
 		MoreHorizontal,
+		Package,
 		Redo2,
 		Search,
 		Square,
@@ -70,6 +72,7 @@
   export let onFitToWidth: () => void;
   export let onFitToHeight: () => void;
   export let onExportPDF: () => void;
+  export let onExportLPDF: () => void;
   
   // Thumbnail panel control
   export let showThumbnails = false;
@@ -81,6 +84,7 @@
   let showEraserSizePicker = false;
   let showStampPalette = false;
   let showMoreMenu = false;
+  let showExportMenu = false;
   let toolbarScrollContainer: HTMLDivElement;
   let showLeftFade = false;
   let showRightFade = true;
@@ -119,6 +123,7 @@
       onFileUpload(input.files);
     }
   }
+
 
   function handleUndo() {
     undo();
@@ -161,10 +166,24 @@
     if (!target.closest('.stamp-palette-container')) {
       showStampPalette = false;
     }
+    if (!target.closest('.export-menu-container')) {
+      showExportMenu = false;
+    }
   }
 </script>
 
 <svelte:window on:click={handleClickOutside} />
+
+<!-- Hidden file inputs -->
+<input
+  bind:this={fileInput}
+  type="file"
+  accept=".pdf,.lpdf,.md,.markdown"
+  on:change={handleFileChange}
+  class="hidden"
+  aria-hidden="true"
+/>
+
 
 <!-- Top Toolbar - Always visible -->
 <div class="toolbar-top fixed top-2 left-4 right-4 z-50">
@@ -540,15 +559,39 @@
             <Trash2 size={16} class="lg:w-3.5 lg:h-3.5" />
           </button>
 
-          <button
-            class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-sage hover:bg-sage/10"
-            class:opacity-50={!$pdfState.document}
-            disabled={!$pdfState.document}
-            on:click={onExportPDF}
-            title="Export annotated PDF"
-          >
-            <Download size={16} class="lg:w-3.5 lg:h-3.5" />
-          </button>
+          <!-- Export Menu -->
+          <div class="relative export-menu-container">
+            <button
+              class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-sage hover:bg-sage/10"
+              class:opacity-50={!$pdfState.document}
+              disabled={!$pdfState.document}
+              on:click={() => showExportMenu = !showExportMenu}
+              title="Export options"
+            >
+              <Download size={16} class="lg:w-3.5 lg:h-3.5" />
+            </button>
+
+            {#if showExportMenu}
+              <div class="absolute top-full mt-2 right-0 z-50 min-w-[180px]">
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-2">
+                  <button
+                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
+                    on:click={() => { onExportPDF(); showExportMenu = false; }}
+                  >
+                    <Download size={16} class="text-sage" />
+                    Export as PDF
+                  </button>
+                  <button
+                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
+                    on:click={() => { onExportLPDF(); showExportMenu = false; }}
+                  >
+                    <Package size={16} class="text-sage" />
+                    Export as LPDF
+                  </button>
+                </div>
+              </div>
+            {/if}
+          </div>
         </div>
 
         <!-- Desktop: Current tool indicator, Light/Dark mode -->
@@ -628,7 +671,27 @@
                     class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
                     on:click={() => { handleFileSelect(); showMoreMenu = false; }}
                   >
-                    📁 Open other file
+                    📁 Open PDF file
+                  </button>
+                </div>
+
+                <!-- Export operations -->
+                <div class="space-y-1 mb-3">
+                  <button
+                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
+                    class:opacity-50={!$pdfState.document}
+                    disabled={!$pdfState.document}
+                    on:click={() => { onExportPDF(); showMoreMenu = false; }}
+                  >
+                    📄 Export as PDF
+                  </button>
+                  <button
+                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm"
+                    class:opacity-50={!$pdfState.document}
+                    disabled={!$pdfState.document}
+                    on:click={() => { onExportLPDF(); showMoreMenu = false; }}
+                  >
+                    📦 Export as LPDF
                   </button>
                 </div>
 
@@ -1014,16 +1077,6 @@
     </div>
   </div>
 {/if}
-
-<!-- Hidden file input -->
-<input
-  bind:this={fileInput}
-  type="file"
-  accept=".pdf,.md,.markdown,application/pdf,text/markdown"
-  multiple={false}
-  class="hidden"
-  on:change={handleFileChange}
-/>
 
 <style>
   .toolbar-top,

@@ -340,6 +340,13 @@ export function isValidMarkdownFile(file: File): boolean {
 	return validExtensions.some((ext) => fileName.endsWith(ext));
 }
 
+// Utility function to validate LPDF file
+export function isValidLPDFFile(file: File): boolean {
+	// Check file extension (LPDF files should end with .lpdf)
+	const fileName = file.name.toLowerCase();
+	return fileName.endsWith('.lpdf');
+}
+
 // Utility function to format file size
 export function formatFileSize(bytes: number): string {
 	if (bytes === 0) return '0 Bytes';
