@@ -34,6 +34,78 @@ export interface SharePDFResult {
   error?: string;
 }
 
+// Specific error types for share access
+export enum ShareAccessError {
+  NOT_FOUND = 'SHARE_NOT_FOUND',
+  PASSWORD_REQUIRED = 'PASSWORD_REQUIRED', 
+  INVALID_PASSWORD = 'INVALID_PASSWORD',
+  EXPIRED = 'SHARE_EXPIRED',
+  DOWNLOAD_LIMIT_EXCEEDED = 'DOWNLOAD_LIMIT_EXCEEDED'
+}
+
+export interface GetSharedPDFResult {
+  success: boolean;
+  sharedPDF?: SharedPDF;
+  lpdfUrl?: string;
+  annotations?: any[];
+  error?: string;
+  errorType?: ShareAccessError;
+}
+
+// Password security utilities
+export class PasswordUtils {
+  /**
+   * Generate a random salt for password hashing
+   */
+  static generateSalt(): string {
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  /**
+   * Hash a password using PBKDF2
+   */
+  static async hashPassword(password: string, salt: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const saltBuffer = encoder.encode(salt);
+    
+    // Import password as key material
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      data,
+      'PBKDF2',
+      false,
+      ['deriveBits']
+    );
+    
+    // Derive key using PBKDF2
+    const derivedBits = await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt: saltBuffer,
+        iterations: 100000, // 100k iterations for security
+        hash: 'SHA-256'
+      },
+      keyMaterial,
+      256 // 32 bytes
+    );
+    
+    // Convert to hex string
+    const hashArray = new Uint8Array(derivedBits);
+    return Array.from(hashArray, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  /**
+   * Verify a password against its hash
+   */
+  static async verifyPassword(password: string, hash: string, salt: string): Promise<boolean> {
+    const computedHash = await this.hashPassword(password, salt);
+    return computedHash === hash;
+  }
+}
+
 export class PDFSharingService {
   /**
    * Share a PDF with annotations
@@ -89,23 +161,56 @@ export class PDFSharingService {
       const annotations = await PDFSharingService.collectAllAnnotations();
       const hasAnnotations = annotations.length > 0;
 
-      // Step 3: Create database record
+      // Step 3: Process security options
+      let passwordHash: string | undefined;
+      let passwordSalt: string | undefined;
+      let expiresAt: string | undefined;
+      
+      // Handle password protection
+      if (options.password && options.password.trim()) {
+        passwordSalt = PasswordUtils.generateSalt();
+        passwordHash = await PasswordUtils.hashPassword(options.password.trim(), passwordSalt);
+        console.log('Password protection enabled for share');
+      }
+      
+      // Calculate expiration date
+      if (options.expiresInDays && options.expiresInDays > 0) {
+        const expireDate = new Date();
+        expireDate.setDate(expireDate.getDate() + options.expiresInDays);
+        expiresAt = expireDate.toISOString();
+        console.log(`Share will expire on: ${expireDate.toLocaleDateString()}`);
+      }
+
+      // Step 4: Create database record with security fields
       const fileSize = lpdfFile.size;
       const pageCount = get(pdfState).totalPages || 1;
+      const now = new Date().toISOString();
       
       const sharedPDFData = {
+        // File metadata
         filename: originalFileName,
         file_id: lpdfStorageId,
         original_filename: originalFileName,
         file_size: fileSize,
         mime_type: 'application/x-lpdf',
-        uploaded_at: new Date().toISOString(),
+        page_count: pageCount,
+        
+        // Share metadata
+        share_token: shareId,
+        uploaded_at: now,
         uploaded_by: shareId, // Using shareId as uploader reference
-        share_token: shareId, // Using shareId as the share token
         is_public: options.isPublic,
         description: hasAnnotations ? `LPDF with ${annotations.length} annotations` : 'Shared LPDF',
         tags: hasAnnotations ? ['annotated', 'lpdf'] : ['shared', 'lpdf'],
-        page_count: pageCount
+        
+        // Security fields
+        ...(passwordHash && { password_hash: passwordHash }),
+        ...(passwordSalt && { password_salt: passwordSalt }),
+        ...(expiresAt && { expires_at: expiresAt }),
+        ...(options.maxDownloads && options.maxDownloads > 0 && { max_downloads: options.maxDownloads }),
+        
+        // Download tracking
+        download_count: 0 // Initialize download counter
       };
 
       await databases.createDocument(
@@ -140,15 +245,9 @@ export class PDFSharingService {
   }
 
   /**
-   * Retrieve a shared PDF
+   * Retrieve a shared PDF with full security enforcement
    */
-  static async getSharedPDF(shareId: string, password?: string): Promise<{
-    success: boolean;
-    sharedPDF?: SharedPDF;
-    lpdfUrl?: string;
-    annotations?: any[];
-    error?: string;
-  }> {
+  static async getSharedPDF(shareId: string, password?: string): Promise<GetSharedPDFResult> {
     try {
       // Find the shared PDF record using share_token field
       const response = await databases.listDocuments(
@@ -160,23 +259,108 @@ export class PDFSharingService {
       if (response.documents.length === 0) {
         return {
           success: false,
-          error: 'Shared PDF not found'
+          error: 'Share not found. The link may be invalid or the shared PDF may have been deleted.',
+          errorType: ShareAccessError.NOT_FOUND
         };
       }
 
-      const sharedPDF = response.documents[0] as any; // Using any since schema changed
+      const doc = response.documents[0] as any;
 
-      // Note: Expiration and password features not implemented in current schema
-      // These would need additional fields if required in the future
+      // Security Check 1: Check if share has expired
+      if (doc.expires_at) {
+        const expirationDate = new Date(doc.expires_at);
+        const now = new Date();
+        if (now > expirationDate) {
+          return {
+            success: false,
+            error: `This shared PDF expired on ${expirationDate.toLocaleDateString()}. Please request a new share link.`,
+            errorType: ShareAccessError.EXPIRED
+          };
+        }
+      }
+
+      // Security Check 2: Password verification
+      if (doc.password_hash && doc.password_salt) {
+        if (!password || !password.trim()) {
+          return {
+            success: false,
+            error: 'This shared PDF is password protected. Please provide the password.',
+            errorType: ShareAccessError.PASSWORD_REQUIRED
+          };
+        }
+
+        const isPasswordValid = await PasswordUtils.verifyPassword(
+          password.trim(), 
+          doc.password_hash, 
+          doc.password_salt
+        );
+
+        if (!isPasswordValid) {
+          return {
+            success: false,
+            error: 'Invalid password. Please check your password and try again.',
+            errorType: ShareAccessError.INVALID_PASSWORD
+          };
+        }
+      }
+
+      // Security Check 3: Download limit enforcement
+      const currentDownloadCount = doc.download_count || 0;
+      const maxDownloads = doc.max_downloads;
+      
+      if (maxDownloads && currentDownloadCount >= maxDownloads) {
+        return {
+          success: false,
+          error: `Download limit reached. This PDF has been accessed ${currentDownloadCount} time(s) out of ${maxDownloads} allowed.`,
+          errorType: ShareAccessError.DOWNLOAD_LIMIT_EXCEEDED
+        };
+      }
+
+      // All security checks passed - proceed with access
+      
+      // Atomic increment of download counter to prevent race conditions
+      try {
+        await databases.updateDocument(
+          DATABASE_ID,
+          COLLECTIONS.SHARED_PDFS,
+          doc.$id,
+          {
+            download_count: currentDownloadCount + 1
+          }
+        );
+        console.log(`Download count incremented to ${currentDownloadCount + 1} for share ${shareId}`);
+      } catch (updateError) {
+        console.warn('Failed to update download count:', updateError);
+        // Continue anyway - don't block access for counter update failures
+      }
 
       // Get LPDF download URL using file_id
-      const lpdfUrl = storage.getFileView(STORAGE_BUCKET_ID, sharedPDF.file_id);
+      const lpdfUrl = storage.getFileView(STORAGE_BUCKET_ID, doc.file_id);
+
+      // Create SharedPDF object with proper typing
+      const sharedPDF: SharedPDF = {
+        $id: doc.$id,
+        shareId: shareId,
+        originalFileName: doc.original_filename || doc.filename,
+        pdfStorageId: doc.file_id,
+        createdAt: doc.uploaded_at,
+        expiresAt: doc.expires_at,
+        isPublic: doc.is_public || false,
+        passwordHash: doc.password_hash,
+        passwordSalt: doc.password_salt,
+        downloadCount: currentDownloadCount + 1, // Updated count
+        maxDownloads: doc.max_downloads,
+        metadata: {
+          fileSize: doc.file_size || 0,
+          pageCount: doc.page_count || 1,
+          hasAnnotations: doc.tags?.includes('annotated') || false
+        }
+      };
 
       return {
         success: true,
         sharedPDF,
         lpdfUrl,
-        // LPDF files contain both PDF and annotations, so no separate annotations array needed
         annotations: [] // Will be loaded from LPDF when imported
       };
 
@@ -186,7 +370,7 @@ export class PDFSharingService {
       
       return {
         success: false,
-        error: errorMessage
+        error: `Unable to load shared PDF: ${errorMessage}`
       };
     }
   }

@@ -15,7 +15,8 @@ const requiredEnvVars = [
 
 // Check for missing environment variables
 const missingVars = requiredEnvVars.filter(varName => !env[varName]);
-const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+// For client-side code, we can detect production by checking the hostname or use a public env var
+const isProduction = env.PUBLIC_NODE_ENV === 'production' || typeof window !== 'undefined' && (window.location.hostname === 'leed.my' || window.location.hostname.endsWith('vercel.app'));
 
 if (missingVars.length > 0) {
   const errorMessage = `Missing required Appwrite environment variables: ${missingVars.join(', ')}`;
@@ -66,11 +67,14 @@ export interface SharedPDF {
   pdfStorageId: string; // Reference to PDF file in storage
   annotationsStorageId?: string; // Reference to annotations file in storage
   createdAt: string;
-  expiresAt?: string;
+  expiresAt?: string; // ISO date string when the share expires
   isPublic: boolean;
-  password?: string;
-  downloadCount: number;
-  maxDownloads?: number;
+  // Password security fields
+  passwordHash?: string; // Hashed password using PBKDF2
+  passwordSalt?: string; // Salt for password hashing
+  // Download tracking fields
+  downloadCount: number; // Current number of downloads/views
+  maxDownloads?: number; // Maximum allowed downloads (undefined = unlimited)
   metadata?: {
     fileSize: number;
     pageCount: number;
