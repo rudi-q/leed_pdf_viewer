@@ -7,7 +7,7 @@
   import Toolbar from '$lib/components/Toolbar.svelte';
   import Footer from '$lib/components/Footer.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
-  import { PDFSharingService } from '$lib/services/pdfSharingService';
+  import { PDFSharingService, ShareAccessError } from '$lib/services/pdfSharingService';
   import { toastStore } from '$lib/stores/toastStore';
   import { setCurrentPDF } from '$lib/stores/drawingStore';
   import { getFormattedVersion } from '$lib/utils/version';
@@ -28,23 +28,48 @@
   });
   
   async function loadSharedPDF(shareId: string, providedPassword?: string) {
+    isLoading = true;
+    errorMessage = '';
+    requiresPassword = false; // Reset password requirement
+    
+    let result;
+    
     try {
-      isLoading = true;
-      errorMessage = '';
-      
-      const result = await PDFSharingService.getSharedPDF(shareId, providedPassword);
-      
-      if (!result.success) {
-        if (result.error === 'Invalid password') {
-          requiresPassword = true;
-          isLoading = false;
-          return;
+      result = await PDFSharingService.getSharedPDF(shareId, providedPassword);
+    } catch (error) {
+      console.error('Error calling PDFSharingService.getSharedPDF:', error);
+      errorMessage = 'Failed to load shared PDF. Please try again.';
+      isLoading = false;
+      return;
+    }
+    
+    if (!result.success) {
+      // Check if password is required or invalid
+      if (result.errorType === ShareAccessError.PASSWORD_REQUIRED || 
+          result.errorType === ShareAccessError.INVALID_PASSWORD ||
+          (result.error && (result.error.includes('password protected') || result.error.includes('Invalid password')))) {
+        
+        requiresPassword = true;
+        isLoading = false;
+        errorMessage = ''; // Ensure error message is cleared
+        
+        // Show a toast for invalid password attempts
+        if (result.errorType === ShareAccessError.INVALID_PASSWORD || 
+            (result.error && result.error.includes('Invalid password'))) {
+          toastStore.error('Invalid Password', 'Please check your password and try again.');
         }
         
-        errorMessage = result.error || 'Failed to load shared PDF';
-        isLoading = false;
         return;
       }
+      
+      errorMessage = result.error || 'Failed to load shared PDF';
+      requiresPassword = false;
+      isLoading = false;
+      return;
+    }
+    
+    // Success case - process the PDF
+    try {
       
       sharedPDFData = result.sharedPDF;
       
@@ -92,8 +117,8 @@
       isLoading = false;
       
     } catch (error) {
-      console.error('Error loading shared PDF:', error);
-      errorMessage = 'Failed to load shared PDF. Please try again.';
+      console.error('Error processing LPDF file:', error);
+      errorMessage = 'Failed to process shared PDF. Please try again.';
       isLoading = false;
     }
   }
