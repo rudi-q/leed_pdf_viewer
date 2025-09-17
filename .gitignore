@@ -37,6 +37,9 @@ Thumbs.db
 !.env.example
 !.env.test
 
+# Appwrite
+appwrite.config.json
+
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*

@@ -30,6 +30,11 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+  
+  /* Set checkbox accent color to brand sage green */
+  input[type="checkbox"] {
+    accent-color: #87A96B; /* sage green */
+  }
 }
 
 /* Custom drawing canvas styles */

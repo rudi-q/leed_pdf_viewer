@@ -386,14 +386,23 @@ export class LPDFExporter {
 		// SECURITY: Extract PDF and check actual size after decompression
 		const pdfBytes = await pdfZipEntry.async('uint8array');
 		
-		// SECURITY: Check actual PDF size after extraction
+		// SECURITY: Check actual PDF size after extraction (byte-accurate)
 		if (pdfBytes.length > LPDF_MAX_PDF_SIZE) {
 			throw new Error(`Invalid .lpdf file: original.pdf size (${Math.round(pdfBytes.length / (1024 * 1024))}MB) exceeds limit of ${Math.round(LPDF_MAX_PDF_SIZE / (1024 * 1024))}MB.`);
 		}
+		
 		// Create a new Uint8Array to ensure proper typing and avoid potential ArrayBufferLike issues
 		const pdfUint8Array = new Uint8Array(pdfBytes);
 		
-		// NOTE: We'll determine the filename after parsing annotations to access metadata
+		// SECURITY: PDF header sanity check - verify it starts with "%PDF-"
+		if (pdfUint8Array.length < 5 || 
+		    pdfUint8Array[0] !== 0x25 || // %
+		    pdfUint8Array[1] !== 0x50 || // P
+		    pdfUint8Array[2] !== 0x44 || // D
+		    pdfUint8Array[3] !== 0x46 || // F
+		    pdfUint8Array[4] !== 0x2D) {  // -
+			throw new Error('Invalid .lpdf file: original.pdf does not have a valid PDF header. File may be corrupted or not a real PDF.');
+		}
 		
 		// Extract and validate annotations JSON
 		const annotationsZipEntry = zip.files['annotations.json'];
@@ -401,9 +410,16 @@ export class LPDFExporter {
 		// SECURITY: Extract JSON and check actual size after decompression
 		const annotationsJson = await annotationsZipEntry.async('text');
 		
-		// SECURITY: Check actual JSON size after extraction
-		if (annotationsJson.length > LPDF_MAX_JSON_SIZE) {
-			throw new Error(`Invalid .lpdf file: annotations.json size (${Math.round(annotationsJson.length / (1024 * 1024))}MB) exceeds limit of ${Math.round(LPDF_MAX_JSON_SIZE / (1024 * 1024))}MB.`);
+		// SECURITY: Check actual JSON size after extraction (byte-accurate)
+		const annotationsBytes = new TextEncoder().encode(annotationsJson);
+		if (annotationsBytes.length > LPDF_MAX_JSON_SIZE) {
+			throw new Error(`Invalid .lpdf file: annotations.json size (${Math.round(annotationsBytes.length / (1024 * 1024))}MB) exceeds limit of ${Math.round(LPDF_MAX_JSON_SIZE / (1024 * 1024))}MB.`);
+		}
+		
+		// SECURITY: Check combined uncompressed byte size
+		const totalUncompressedSize = pdfBytes.length + annotationsBytes.length;
+		if (totalUncompressedSize > LPDF_MAX_TOTAL_UNCOMPRESSED) {
+			throw new Error(`Invalid .lpdf file: combined uncompressed size (${Math.round(totalUncompressedSize / (1024 * 1024))}MB) exceeds limit of ${Math.round(LPDF_MAX_TOTAL_UNCOMPRESSED / (1024 * 1024))}MB.`);
 		}
 		
 		// SECURITY: Parse JSON with try/catch and validation
@@ -625,10 +641,17 @@ export class LPDFExporter {
 }
 
 // Convenience functions for easy usage
-export async function exportCurrentPDFAsLPDF(pdfBytes: Uint8Array, fileName: string = 'document.pdf'): Promise<boolean> {
+export async function exportCurrentPDFAsLPDF(pdfBytes: Uint8Array, fileName: string = 'document.pdf', returnData: boolean = false): Promise<boolean | Uint8Array> {
 	const exporter = new LPDFExporter();
 	exporter.setOriginalPDF(pdfBytes, fileName);
-	return await exporter.exportLPDFFile();
+	
+	if (returnData) {
+		// Return the LPDF data instead of downloading
+		return await exporter.exportToLPDF();
+	} else {
+		// Download the file
+		return await exporter.exportLPDFFile();
+	}
 }
 
 export async function importLPDFFile(lpdfFile: File): Promise<{ success: boolean; pdfFile?: File }> {

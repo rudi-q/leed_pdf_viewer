@@ -26,6 +26,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![CodeRabbit](https://img.shields.io/badge/CodeRabbit-FF570A?style=flat&logo=coderabbit&logoColor=white)](https://coderabbit.ai/)
+[![Appwrite](https://img.shields.io/badge/Appwrite-F02E65?style=flat&logo=appwrite&logoColor=white)](https://appwrite.io/)
 [![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat&logo=vercel&logoColor=white)](https://vercel.com/)
 
 </div>
@@ -62,7 +63,7 @@ Transform any PDF into an interactive canvas. Draw, annotate, and collaborate wi
 - **Touch-optimized** with Apple Pencil support
 - **Mobile-friendly** interface that works seamlessly on smartphones and tablets
 - **No installation required** - runs in your browser
-- **Offline capable** after first visit (PWA)
+- **Fast loading** with optimized caching
 
 ### ♿ **Accessibility First**
 - **WCAG AAA compliant** - exceeds accessibility standards with 7.06:1 contrast ratios
@@ -115,7 +116,6 @@ Open `http://localhost:4173` in your browser.
 - **Drawing Engine**: HTML5 Canvas
 - **Styling**: Tailwind CSS
 - **Build**: Vite
-- **PWA**: @vite-pwa/sveltekit
 
 ## 📖 Usage
 
