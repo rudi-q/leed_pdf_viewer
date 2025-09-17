@@ -11,6 +11,7 @@
   import { toastStore } from '$lib/stores/toastStore';
   import { setCurrentPDF } from '$lib/stores/drawingStore';
   import { getFormattedVersion } from '$lib/utils/version';
+  import { Lock, Frown, Link } from 'lucide-svelte';
   
   let isLoading = true;
   let currentFile: File | string | null = null;
@@ -158,7 +159,9 @@
     <div class="h-full flex items-center justify-center bg-gradient-to-br from-cream to-pearl">
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-md w-full mx-4">
         <div class="text-center mb-6">
-          <div class="text-4xl mb-4">🔐</div>
+          <div class="flex justify-center mb-4">
+            <Lock class="w-12 h-12 text-sage" />
+          </div>
           <h2 class="text-2xl font-bold text-charcoal dark:text-white mb-2">Password Required</h2>
           <p class="text-slate dark:text-gray-400">This shared PDF is password protected</p>
         </div>
@@ -199,7 +202,9 @@
   {:else if errorMessage}
     <div class="h-full flex items-center justify-center bg-gradient-to-br from-cream to-pearl">
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-md w-full mx-4 text-center">
-        <div class="text-6xl mb-4">😞</div>
+        <div class="flex justify-center mb-4">
+          <Frown class="w-16 h-16 text-slate dark:text-gray-400" />
+        </div>
         <h2 class="text-2xl font-bold text-charcoal dark:text-white mb-2">Oops!</h2>
         <p class="text-slate dark:text-gray-400 mb-6">{errorMessage}</p>
         
@@ -237,7 +242,7 @@
     {#if sharedPDFData}
       <div class="absolute top-14 left-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg px-3 py-2 text-sm shadow-lg border border-gray-200 dark:border-gray-600">
         <div class="flex items-center gap-2">
-          <span class="text-sage">🔗</span>
+          <Link class="w-4 h-4 text-sage" />
           <div>
             <div class="font-medium text-charcoal dark:text-white">
               {sharedPDFData.originalFileName}
