@@ -738,7 +738,7 @@ import SharePDFModal from '$lib/components/SharePDFModal.svelte';
   on:close={() => showShareModal = false}
   on:shared={(event) => {
     console.log('PDF shared successfully:', event.detail);
-    showShareModal = false;
+    // Let the modal handle its own state - don't auto-close to show success feedback
   }}
 />
 
