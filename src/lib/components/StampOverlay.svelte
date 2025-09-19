@@ -16,6 +16,7 @@
 	export let containerWidth: number = 0; // Base viewport width at scale 1.0
 	export let containerHeight: number = 0; // Base viewport height at scale 1.0
 	export let scale: number = 1; // Current zoom scale
+	export let viewOnlyMode = false; // If true, disable all editing interactions
 
 	let overlayElement: HTMLDivElement;
 	let isCreatingStamp = false;
@@ -28,7 +29,7 @@
 
 	// Handle click to create new stamp
 	const handleContainerClick = (event: MouseEvent) => {
-		if (!isStampTool || isCreatingStamp) return;
+		if (!isStampTool || isCreatingStamp || viewOnlyMode) return;
 
 		// Don't create stamp if clicking on an existing stamp
 		const target = event.target as HTMLElement;

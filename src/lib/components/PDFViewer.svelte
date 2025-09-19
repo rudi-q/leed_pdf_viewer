@@ -57,6 +57,7 @@
   }
 
 	export let pdfFile: File | string | null = null;
+	export let viewOnlyMode = false;
 
   let pdfCanvas: HTMLCanvasElement;
   let drawingCanvas: HTMLCanvasElement;
@@ -395,7 +396,7 @@
 
 function handlePointerDown(event: PointerEvent) {
     console.log('Canvas handlePointerDown called:', $drawingState.tool, event.target);
-    if (!drawingEngine) return;
+    if (!drawingEngine || viewOnlyMode) return;
     
     // If Ctrl is pressed, let the container handle panning
     if (event.ctrlKey) {
@@ -1735,6 +1736,7 @@ function handlePointerUp(event: PointerEvent) {
           canvasWidth={canvasDisplayWidth}
           canvasHeight={canvasDisplayHeight}
           currentScale={$pdfState.scale}
+          {viewOnlyMode}
         />
       {/if}
       
@@ -1744,6 +1746,7 @@ function handlePointerUp(event: PointerEvent) {
           containerWidth={canvasDisplayWidth}
           containerHeight={canvasDisplayHeight}
           scale={$pdfState.scale}
+          {viewOnlyMode}
         />
       {/if}
       
@@ -1753,6 +1756,7 @@ function handlePointerUp(event: PointerEvent) {
           containerWidth={canvasDisplayWidth}
           containerHeight={canvasDisplayHeight}
           scale={$pdfState.scale}
+          {viewOnlyMode}
         />
       {/if}
       
@@ -1762,6 +1766,7 @@ function handlePointerUp(event: PointerEvent) {
           containerWidth={canvasDisplayWidth}
           containerHeight={canvasDisplayHeight}
           scale={$pdfState.scale}
+          {viewOnlyMode}
         />
       {/if}
       

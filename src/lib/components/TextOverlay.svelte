@@ -13,6 +13,7 @@
 	export let canvasWidth: number = 0; // Actual displayed canvas width
   export let canvasHeight: number = 0; // Actual displayed canvas height
   export let currentScale: number = 1; // Current PDF scale
+  export let viewOnlyMode = false; // If true, disable all editing interactions
   
   // Helper function to get safe scale (prevent division by zero)
   function getSafeScale(): number {
@@ -30,8 +31,8 @@
 
   // Handle click on overlay to create new text annotation
   function handleOverlayClick(event: MouseEvent) {
-    // Only handle clicks when text tool is active
-    if ($drawingState.tool !== 'text') return;
+    // Only handle clicks when text tool is active and not in view-only mode
+    if ($drawingState.tool !== 'text' || viewOnlyMode) return;
     
     // Don't create new annotation if clicking on existing text
     if (event.target !== overlayContainer) return;
@@ -158,6 +159,7 @@
 
   // Handle double-click to edit existing annotation
   function handleAnnotationDoubleClick(annotation: TextAnnotation) {
+    if (viewOnlyMode) return; // Disable editing in view-only mode
     startEditing(annotation);
   }
 
@@ -167,8 +169,8 @@
   let annotationStart = { x: 0, y: 0 };
 
   function handleMouseDown(event: MouseEvent, annotation: TextAnnotation) {
-    // Don't start drag if we're editing
-    if (editingAnnotation) return;
+    // Don't start drag if we're editing or in view-only mode
+    if (editingAnnotation || viewOnlyMode) return;
     
     draggedAnnotation = annotation;
     dragStart = { x: event.clientX, y: event.clientY };

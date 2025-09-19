@@ -14,6 +14,7 @@
 	export let containerWidth: number = 0; // Base viewport width at scale 1.0
 	export let containerHeight: number = 0; // Base viewport height at scale 1.0
 	export let scale: number = 1; // Current zoom scale
+	export let viewOnlyMode = false; // If true, disable all editing interactions
 
 	let overlayElement: HTMLDivElement;
 
@@ -27,7 +28,7 @@
 	let startY = 0;
 
 	const handleContainerMouseDown = (event: MouseEvent) => {
-		if (!isArrowTool) return;
+		if (!isArrowTool || viewOnlyMode) return;
 
 		// Don't create new arrows if clicking on existing arrow elements
 		const target = event.target as Element;

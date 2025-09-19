@@ -6,6 +6,7 @@
 	export let scale: number = 1; // Current PDF scale
 	export let containerWidth: number = 0; // Actual displayed canvas width
 	export let containerHeight: number = 0; // Actual displayed canvas height
+	export let viewOnlyMode = false; // If true, disable all editing interactions
 
 	const dispatch = createEventDispatcher<{
 		update: StickyNoteAnnotation;
@@ -88,6 +89,7 @@
 
 	// Handle text changes
 	const handleTextChange = (event: Event) => {
+		if (viewOnlyMode) return; // Block text changes in view-only mode
 		const target = event.target as HTMLTextAreaElement;
 		const updatedNote: StickyNoteAnnotation = {
 			...note,
@@ -99,15 +101,14 @@
 
 	// Handle double-click to start editing
 	const handleDoubleClick = () => {
-		if (!isEditing) {
-			isEditing = true;
-			setTimeout(() => {
-				if (textareaRef) {
-					textareaRef.focus();
-					textareaRef.select();
-				}
-			}, 0);
-		}
+		if (viewOnlyMode) return; // Disable editing in view-only mode
+		isEditing = true;
+		setTimeout(() => {
+			if (textareaRef) {
+				textareaRef.focus();
+				textareaRef.select();
+			}
+		  }, 0);
 	};
 
 	// Handle blur to stop editing
@@ -132,7 +133,7 @@
 
 	// Handle mouse down for dragging
 	const handleMouseDown = (event: MouseEvent) => {
-		if (isEditing) return;
+		if (isEditing || viewOnlyMode) return; // Disable dragging in view-only mode
 
 		event.preventDefault();
 		event.stopPropagation();
@@ -218,6 +219,7 @@
 
 	// Handle resize handle mouse down
 	const handleResizeMouseDown = (event: MouseEvent) => {
+		if (viewOnlyMode) return; // Disable resizing in view-only mode
 		event.preventDefault();
 		event.stopPropagation();
 
@@ -233,6 +235,7 @@
 
 	// Handle delete
 	const handleDelete = () => {
+		if (viewOnlyMode) return; // Disable delete in view-only mode
 		dispatch('delete', note.id);
 	};
 
@@ -278,14 +281,16 @@
 		aria-label="Sticky note: {note.text || 'Empty note'}"
 	>
 	<!-- Delete button -->
-	<button
-		class="delete-btn"
-		on:click|stopPropagation={handleDelete}
-		title="Delete sticky note"
-		aria-label="Delete sticky note"
-	>
-		×
-	</button>
+	{#if !viewOnlyMode}
+		<button
+			class="delete-btn"
+			on:click|stopPropagation={handleDelete}
+			title="Delete sticky note"
+			aria-label="Delete sticky note"
+		>
+			×
+		</button>
+	{/if}
 
 	<!-- Content area -->
 	{#if isEditing}
@@ -313,15 +318,17 @@
 	{/if}
 
 		<!-- Resize handle -->
-		<!-- svelte-ignore a11y-no-static-element-interactions -->
-		<div
-			class="resize-handle"
-			on:mousedown|stopPropagation={handleResizeMouseDown}
-			title="Drag to resize"
-			role="button"
-			tabindex="0"
-			aria-label="Resize sticky note"
-		></div>
+		{#if !viewOnlyMode}
+			<!-- svelte-ignore a11y-no-static-element-interactions -->
+			<div
+				class="resize-handle"
+				on:mousedown|stopPropagation={handleResizeMouseDown}
+				title="Drag to resize"
+				role="button"
+				tabindex="0"
+				aria-label="Resize sticky note"
+			></div>
+		{/if}
 </div>
 
 <style>

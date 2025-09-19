@@ -25,6 +25,8 @@ export interface SharePDFOptions {
   password?: string;
   expiresInDays?: number;
   maxDownloads?: number;
+  viewOnly?: boolean;
+  allowDownloading?: boolean;
 }
 
 export interface SharePDFResult {
@@ -209,6 +211,10 @@ export class PDFSharingService {
         ...(expiresAt && { expires_at: expiresAt }),
         ...(options.maxDownloads && options.maxDownloads > 0 && { max_downloads: options.maxDownloads }),
         
+        // Permission fields
+        view_only: options.viewOnly || false,
+        allow_downloading: options.allowDownloading !== undefined ? options.allowDownloading : true,
+        
         // Download tracking
         download_count: 0 // Initialize download counter
       };
@@ -350,6 +356,8 @@ export class PDFSharingService {
         passwordSalt: doc.password_salt,
         downloadCount: currentDownloadCount + 1, // Updated count
         maxDownloads: doc.max_downloads,
+        viewOnly: doc.view_only || false,
+        allowDownloading: doc.allow_downloading !== undefined ? doc.allow_downloading : true,
         metadata: {
           fileSize: doc.file_size || 0,
           pageCount: doc.page_count || 1,

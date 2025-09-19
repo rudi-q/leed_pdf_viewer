@@ -75,6 +75,9 @@ export interface SharedPDF {
   // Download tracking fields
   downloadCount: number; // Current number of downloads/views
   maxDownloads?: number; // Maximum allowed downloads (undefined = unlimited)
+  // Permission fields
+  viewOnly?: boolean; // If true, recipients can only view, no editing
+  allowDownloading?: boolean; // If false, recipients cannot download the file
   metadata?: {
     fileSize: number;
     pageCount: number;
