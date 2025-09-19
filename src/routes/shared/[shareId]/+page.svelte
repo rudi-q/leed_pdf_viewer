@@ -7,9 +7,10 @@
   import Toolbar from '$lib/components/Toolbar.svelte';
   import Footer from '$lib/components/Footer.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
+  import PageThumbnails from '$lib/components/PageThumbnails.svelte';
   import { PDFSharingService, ShareAccessError } from '$lib/services/pdfSharingService';
   import { toastStore } from '$lib/stores/toastStore';
-  import { setCurrentPDF } from '$lib/stores/drawingStore';
+  import { setCurrentPDF, setTool, undo, redo } from '$lib/stores/drawingStore';
   import { getFormattedVersion } from '$lib/utils/version';
   import { Lock, Frown, Link } from 'lucide-svelte';
   
@@ -21,6 +22,8 @@
   let sharedPDFData: any = null;
   let errorMessage = '';
   let showShortcuts = false;
+  let showThumbnails = false;
+  let focusMode = false;
   
   onMount(async () => {
     if (browser && $page.params.shareId) {
@@ -133,18 +136,157 @@
     await loadSharedPDF($page.params.shareId!, password);
   }
   
-  function handleKeyDown(event: KeyboardEvent) {
-    if (event.key === 'Enter' && requiresPassword) {
-      handlePasswordSubmit();
-    }
-  }
   
   function goHome() {
     goto('/');
   }
+
+  // Keyboard shortcuts handler (copied from regular PDF route)
+  function handleKeyboard(event: KeyboardEvent) {
+    const isTyping = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+    
+    // Handle password submission
+    if (event.key === 'Enter' && requiresPassword && isTyping) {
+      handlePasswordSubmit();
+      return;
+    }
+    
+    if (isTyping && event.key !== 'Escape') {
+      return;
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+      switch (event.key) {
+        case 'z':
+          if (event.shiftKey) {
+            event.preventDefault();
+            redo();
+          } else {
+            event.preventDefault();
+            undo();
+          }
+          break;
+        case 'y':
+          event.preventDefault();
+          redo();
+          break;
+        case '=':
+        case '+':
+          event.preventDefault();
+          pdfViewer?.zoomIn();
+          break;
+        case '-':
+          event.preventDefault();
+          pdfViewer?.zoomOut();
+          break;
+        case '0':
+          event.preventDefault();
+          pdfViewer?.resetZoom();
+          break;
+      }
+    } else {
+      switch (event.key) {
+        case 'ArrowLeft':
+          pdfViewer?.previousPage();
+          break;
+        case 'ArrowRight':
+          pdfViewer?.nextPage();
+          break;
+        case '1':
+          event.preventDefault();
+          setTool('pencil');
+          break;
+        case '2':
+          event.preventDefault();
+          setTool('eraser');
+          break;
+        case '3':
+          event.preventDefault();
+          setTool('text');
+          break;
+        case '4':
+          event.preventDefault();
+          setTool('arrow');
+          break;
+        case '5':
+          event.preventDefault();
+          setTool('highlight');
+          break;
+        case '6':
+          event.preventDefault();
+          setTool('note');
+          break;
+        case 'h':
+        case 'H':
+          event.preventDefault();
+          pdfViewer?.fitToHeight();
+          break;
+        case 'w':
+        case 'W':
+          event.preventDefault();
+          pdfViewer?.fitToWidth();
+          break;
+        case '?':
+          event.preventDefault();
+          showShortcuts = true;
+          break;
+        case 'F1':
+          event.preventDefault();
+          showShortcuts = true;
+          break;
+        case 't':
+        case 'T':
+          event.preventDefault();
+          showThumbnails = !showThumbnails;
+          break;
+        case 'f':
+        case 'F':
+          event.preventDefault();
+          focusMode = !focusMode;
+          break;
+        case 's':
+        case 'S':
+          event.preventDefault();
+          setTool('stamp');
+          // Also open the stamp palette
+          const stampButton = document.querySelector('.stamp-palette-container button');
+          if (stampButton) {
+            (stampButton as HTMLButtonElement).click();
+          }
+          break;
+        case 'Escape':
+          if (showShortcuts) {
+            showShortcuts = false;
+          }
+          break;
+      }
+    }
+  }
+
+  // Thumbnail and page navigation handlers
+  function handleToggleThumbnails(show: boolean) {
+    showThumbnails = show;
+  }
+
+  function handlePageSelect(pageNumber: number) {
+    pdfViewer?.goToPage(pageNumber);
+  }
+
+  // Wheel zoom handler
+  function handleWheel(event: WheelEvent) {
+    if (event.ctrlKey) {
+      event.preventDefault();
+      const zoomIn = event.deltaY < 0;
+      if (zoomIn) {
+        pdfViewer?.zoomIn();
+      } else {
+        pdfViewer?.zoomOut();
+      }
+    }
+  }
 </script>
 
-<svelte:window on:keydown={handleKeyDown} />
+<svelte:window on:keydown={handleKeyboard} on:wheel={handleWheel} />
 
 <main class="w-screen h-screen relative overflow-hidden">
   {#if isLoading}
@@ -218,28 +360,41 @@
     </div>
     
   {:else if currentFile}
-    <Toolbar
-      onFileUpload={() => {}}
-      onPreviousPage={() => pdfViewer?.previousPage()}
-      onNextPage={() => pdfViewer?.nextPage()}
-      onZoomIn={() => pdfViewer?.zoomIn()}
-      onZoomOut={() => pdfViewer?.zoomOut()}
-      onResetZoom={() => pdfViewer?.resetZoom()}
-      onFitToWidth={() => pdfViewer?.fitToWidth()}
-      onFitToHeight={() => pdfViewer?.fitToHeight()}
-      onExportPDF={() => {}}
-      onExportLPDF={() => {}}
-      showThumbnails={false}
-      onToggleThumbnails={() => {}}
-      isSharedView={true}
-    />
+    {#if !focusMode}
+      <Toolbar
+        onFileUpload={() => {}}
+        onPreviousPage={() => pdfViewer?.previousPage()}
+        onNextPage={() => pdfViewer?.nextPage()}
+        onZoomIn={() => pdfViewer?.zoomIn()}
+        onZoomOut={() => pdfViewer?.zoomOut()}
+        onResetZoom={() => pdfViewer?.resetZoom()}
+        onFitToWidth={() => pdfViewer?.fitToWidth()}
+        onFitToHeight={() => pdfViewer?.fitToHeight()}
+        onExportPDF={() => {}}
+        onExportLPDF={() => {}}
+        {showThumbnails}
+        onToggleThumbnails={handleToggleThumbnails}
+        isSharedView={true}
+      />
+    {/if}
 
-    <div class="w-full h-full pt-12">
-      <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} />
+    <div class="w-full h-full" class:pt-12={!focusMode}>
+      <div class="flex h-full">
+        {#if showThumbnails}
+          <PageThumbnails
+            isVisible={showThumbnails}
+            onPageSelect={handlePageSelect}
+          />
+        {/if}
+
+        <div class="flex-1">
+          <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} />
+        </div>
+      </div>
     </div>
 
-    <!-- Shared PDF Info -->
-    {#if sharedPDFData}
+    <!-- Shared PDF Info (positioned properly based on focus mode) -->
+    {#if sharedPDFData && !focusMode}
       <div class="absolute top-14 left-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg px-3 py-2 text-sm shadow-lg border border-gray-200 dark:border-gray-600">
         <div class="flex items-center gap-2">
           <Link class="w-4 h-4 text-sage" />
