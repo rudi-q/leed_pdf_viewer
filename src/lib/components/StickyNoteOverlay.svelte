@@ -85,11 +85,13 @@
 
 	// Handle sticky note updates
 	const handleNoteUpdate = (event: CustomEvent<StickyNoteAnnotation>) => {
+		if (viewOnlyMode) return; // Block updates in view-only mode
 		updateStickyNoteAnnotation(event.detail);
 	};
 
 	// Handle sticky note deletion
 	const handleNoteDelete = (event: CustomEvent<string>) => {
+		if (viewOnlyMode) return; // Block deletions in view-only mode
 		deleteStickyNoteAnnotation(event.detail, $pdfState.currentPage);
 	};
 
@@ -136,6 +138,7 @@
 			{scale}
 			{containerWidth}
 			{containerHeight}
+			{viewOnlyMode}
 			on:update={handleNoteUpdate}
 			on:delete={handleNoteDelete}
 		/>

@@ -734,24 +734,26 @@
                       Share with Link
                     </button>
                   {/if}
-                  <button
-                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
-                    class:opacity-50={!$pdfState.document}
-                    disabled={!$pdfState.document}
-                    on:click={() => { onExportPDF(); showMoreMenu = false; }}
-                  >
-                    <Download size={14} />
-                    Export as PDF
-                  </button>
-                  <button
-                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
-                    class:opacity-50={!$pdfState.document}
-                    disabled={!$pdfState.document}
-                    on:click={() => { onExportLPDF(); showMoreMenu = false; }}
-                  >
-                    <Package size={14} />
-                    Export as LPDF
-                  </button>
+                  {#if allowDownloading}
+                    <button
+                      class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
+                      class:opacity-50={!$pdfState.document}
+                      disabled={!$pdfState.document}
+                      on:click={() => { onExportPDF(); showMoreMenu = false; }}
+                    >
+                      <Download size={14} />
+                      Export as PDF
+                    </button>
+                    <button
+                      class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
+                      class:opacity-50={!$pdfState.document}
+                      disabled={!$pdfState.document}
+                      on:click={() => { onExportLPDF(); showMoreMenu = false; }}
+                    >
+                      <Package size={14} />
+                      Export as LPDF
+                    </button>
+                  {/if}
                 </div>
 
                 <!-- Zoom controls -->
