@@ -3,6 +3,7 @@
   import { PDFSharingService, type SharePDFOptions } from '$lib/services/pdfSharingService';
   import { toastStore } from '$lib/stores/toastStore';
   import { FileText, Mail, MessageCircle, Twitter, Copy, Check, PartyPopper } from 'lucide-svelte';
+  import Toggle from './Toggle.svelte';
   
   export let isOpen = false;
   export let pdfFile: File | string | null = null;
@@ -245,28 +246,20 @@
             <h3 class="text-sm font-medium text-charcoal dark:text-white">Privacy Settings</h3>
             
             <div class="space-y-3">
-              <label class="flex items-start gap-3">
-                <input 
-                  type="checkbox" 
-                  bind:checked={isPublic}
-                  class="mt-1 h-4 w-4 text-sage border-gray-300 rounded focus:ring-sage"
-                />
+              <label class="flex items-center justify-between">
                 <div>
                   <div class="text-sm font-medium text-charcoal dark:text-white">Public Access</div>
                   <div class="text-xs text-slate dark:text-gray-400">Anyone with the link can view this PDF</div>
                 </div>
+                <Toggle bind:checked={isPublic} size="sm" ariaLabel="Toggle public access" />
               </label>
               
-              <label class="flex items-start gap-3">
-                <input 
-                  type="checkbox" 
-                  bind:checked={requiresPassword}
-                  class="mt-1 h-4 w-4 text-sage border-gray-300 rounded focus:ring-sage"
-                />
+              <label class="flex items-center justify-between">
                 <div>
                   <div class="text-sm font-medium text-charcoal dark:text-white">Password Protection</div>
                   <div class="text-xs text-slate dark:text-gray-400">Require a password to access the PDF</div>
                 </div>
+                <Toggle bind:checked={requiresPassword} size="sm" ariaLabel="Toggle password protection" />
               </label>
               
               {#if requiresPassword}
@@ -286,17 +279,17 @@
           <div class="space-y-4">
             <h3 class="text-sm font-medium text-charcoal dark:text-white">Expiration</h3>
             
-            <label class="flex items-start gap-3">
-              <input 
-                type="checkbox" 
-                bind:checked={hasExpiration}
-                class="mt-1 h-4 w-4 text-sage border-gray-300 rounded focus:ring-sage"
-              />
-              <div class="flex-1">
-                <div class="text-sm font-medium text-charcoal dark:text-white">Auto-expire</div>
-                <div class="text-xs text-slate dark:text-gray-400 mb-2">Automatically delete the shared PDF after a set time</div>
-                
-                {#if hasExpiration}
+            <div class="space-y-3">
+              <label class="flex items-center justify-between">
+                <div>
+                  <div class="text-sm font-medium text-charcoal dark:text-white">Auto-expire</div>
+                  <div class="text-xs text-slate dark:text-gray-400">Automatically delete the shared PDF after a set time</div>
+                </div>
+                <Toggle bind:checked={hasExpiration} size="sm" ariaLabel="Toggle auto-expire" />
+              </label>
+              
+              {#if hasExpiration}
+                <div class="ml-6">
                   <div class="flex items-center gap-2">
                     <input
                       type="number"
@@ -307,26 +300,26 @@
                     />
                     <span class="text-sm text-slate dark:text-gray-400">days</span>
                   </div>
-                {/if}
-              </div>
-            </label>
+                </div>
+              {/if}
+            </div>
           </div>
           
           <!-- Download Limits -->
           <div class="space-y-4">
             <h3 class="text-sm font-medium text-charcoal dark:text-white">Download Limits</h3>
             
-            <label class="flex items-start gap-3">
-              <input 
-                type="checkbox" 
-                bind:checked={hasDownloadLimit}
-                class="mt-1 h-4 w-4 text-sage border-gray-300 rounded focus:ring-sage"
-              />
-              <div class="flex-1">
-                <div class="text-sm font-medium text-charcoal dark:text-white">Limit downloads</div>
-                <div class="text-xs text-slate dark:text-gray-400 mb-2">Restrict how many times the PDF can be accessed</div>
-                
-                {#if hasDownloadLimit}
+            <div class="space-y-3">
+              <label class="flex items-center justify-between">
+                <div>
+                  <div class="text-sm font-medium text-charcoal dark:text-white">Limit downloads</div>
+                  <div class="text-xs text-slate dark:text-gray-400">Restrict how many times the PDF can be accessed</div>
+                </div>
+                <Toggle bind:checked={hasDownloadLimit} size="sm" ariaLabel="Toggle download limits" />
+              </label>
+              
+              {#if hasDownloadLimit}
+                <div class="ml-6">
                   <div class="flex items-center gap-2">
                     <input
                       type="number"
@@ -337,25 +330,21 @@
                     />
                     <span class="text-sm text-slate dark:text-gray-400">max views</span>
                   </div>
-                {/if}
-              </div>
-            </label>
+                </div>
+              {/if}
+            </div>
           </div>
           
           <!-- View Permissions -->
           <div class="space-y-4">
             <h3 class="text-sm font-medium text-charcoal dark:text-white">View Permissions</h3>
             
-            <label class="flex items-start gap-3">
-              <input 
-                type="checkbox" 
-                bind:checked={viewOnly}
-                class="mt-1 h-4 w-4 text-sage border-gray-300 rounded focus:ring-sage"
-              />
+            <label class="flex items-center justify-between">
               <div>
                 <div class="text-sm font-medium text-charcoal dark:text-white">View Only Mode</div>
                 <div class="text-xs text-slate dark:text-gray-400">Recipients can only view the PDF, no editing or annotations allowed</div>
               </div>
+              <Toggle bind:checked={viewOnly} size="sm" ariaLabel="Toggle view-only mode" />
             </label>
           </div>
           
@@ -363,16 +352,12 @@
           <div class="space-y-4">
             <h3 class="text-sm font-medium text-charcoal dark:text-white">Download Permissions</h3>
             
-            <label class="flex items-start gap-3">
-              <input 
-                type="checkbox" 
-                bind:checked={allowDownloading}
-                class="mt-1 h-4 w-4 text-sage border-gray-300 rounded focus:ring-sage"
-              />
+            <label class="flex items-center justify-between">
               <div>
                 <div class="text-sm font-medium text-charcoal dark:text-white">Allow Downloading</div>
                 <div class="text-xs text-slate dark:text-gray-400">Recipients can download the PDF file</div>
               </div>
+              <Toggle bind:checked={allowDownloading} size="sm" ariaLabel="Toggle allow downloading" />
             </label>
           </div>
         </div>
