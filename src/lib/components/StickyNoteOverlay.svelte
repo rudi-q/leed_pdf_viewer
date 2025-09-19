@@ -14,6 +14,7 @@
 	export let containerWidth: number = 0; // Actual displayed canvas width
 	export let containerHeight: number = 0; // Actual displayed canvas height
 	export let scale: number = 1; // Current PDF scale
+	export let viewOnlyMode = false; // If true, disable all editing interactions
 
 	let overlayElement: HTMLDivElement;
 	let isCreatingNote = false;
@@ -23,7 +24,7 @@
 
 	// Handle click to create new sticky note
 	const handleContainerClick = (event: MouseEvent) => {
-		if (!isNoteTool || isCreatingNote) return;
+		if (!isNoteTool || isCreatingNote || viewOnlyMode) return;
 
 		// Don't create note if clicking on an existing note
 		const target = event.target as HTMLElement;

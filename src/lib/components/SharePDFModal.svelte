@@ -24,6 +24,8 @@
   let expirationDays = 30;
   let hasDownloadLimit = false;
   let maxDownloads = 10;
+  let viewOnly = false;
+  let allowDownloading = true;
   
   // Copy to clipboard state
   let copied = false;
@@ -53,6 +55,8 @@
     expirationDays = 30;
     hasDownloadLimit = false;
     maxDownloads = 10;
+    viewOnly = false;
+    allowDownloading = true;
     copied = false;
     editableFileName = originalFileName.replace(/\.pdf$/i, ''); // Reset to original filename without .pdf
   }
@@ -98,7 +102,9 @@
       isPublic,
       password: requiresPassword ? password : undefined,
       expiresInDays: hasExpiration ? expirationDays : undefined,
-      maxDownloads: hasDownloadLimit ? maxDownloads : undefined
+      maxDownloads: hasDownloadLimit ? maxDownloads : undefined,
+      viewOnly,
+      allowDownloading
     };
     
     isSharing = true;
@@ -335,6 +341,40 @@
               </div>
             </label>
           </div>
+          
+          <!-- View Permissions -->
+          <div class="space-y-4">
+            <h3 class="text-sm font-medium text-charcoal dark:text-white">View Permissions</h3>
+            
+            <label class="flex items-start gap-3">
+              <input 
+                type="checkbox" 
+                bind:checked={viewOnly}
+                class="mt-1 h-4 w-4 text-sage border-gray-300 rounded focus:ring-sage"
+              />
+              <div>
+                <div class="text-sm font-medium text-charcoal dark:text-white">View Only Mode</div>
+                <div class="text-xs text-slate dark:text-gray-400">Recipients can only view the PDF, no editing or annotations allowed</div>
+              </div>
+            </label>
+          </div>
+          
+          <!-- Download Permissions -->
+          <div class="space-y-4">
+            <h3 class="text-sm font-medium text-charcoal dark:text-white">Download Permissions</h3>
+            
+            <label class="flex items-start gap-3">
+              <input 
+                type="checkbox" 
+                bind:checked={allowDownloading}
+                class="mt-1 h-4 w-4 text-sage border-gray-300 rounded focus:ring-sage"
+              />
+              <div>
+                <div class="text-sm font-medium text-charcoal dark:text-white">Allow Downloading</div>
+                <div class="text-xs text-slate dark:text-gray-400">Recipients can download the PDF file</div>
+              </div>
+            </label>
+          </div>
         </div>
         
         <!-- Footer -->
@@ -437,6 +477,8 @@
             </div>
             <ul class="text-xs text-blue-800 dark:text-blue-200 space-y-1">
               <li>• Access: {isPublic ? 'Public' : 'Private'} {requiresPassword ? '(Password Protected)' : ''}</li>
+              <li>• View Mode: {viewOnly ? 'View Only' : 'Full Access'}</li>
+              <li>• Download: {allowDownloading ? 'Allowed' : 'Disabled'}</li>
               {#if hasExpiration}
                 <li>• Expires: In {expirationDays} days</li>
               {/if}

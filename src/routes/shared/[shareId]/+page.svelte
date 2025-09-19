@@ -375,6 +375,8 @@
         {showThumbnails}
         onToggleThumbnails={handleToggleThumbnails}
         isSharedView={true}
+        viewOnlyMode={sharedPDFData?.viewOnly || false}
+        allowDownloading={sharedPDFData?.allowDownloading !== false}
       />
     {/if}
 
@@ -388,7 +390,7 @@
         {/if}
 
         <div class="flex-1">
-          <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} />
+          <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} viewOnlyMode={sharedPDFData?.viewOnly || false} />
         </div>
       </div>
     </div>
@@ -406,6 +408,12 @@
               Shared PDF • {sharedPDFData.metadata?.pageCount || 0} pages
               {#if sharedPDFData.metadata?.hasAnnotations}
                 • With annotations
+              {/if}
+              {#if sharedPDFData.viewOnly}
+                • View Only
+              {/if}
+              {#if !sharedPDFData.allowDownloading}
+                • No Downloads
               {/if}
             </div>
           </div>
