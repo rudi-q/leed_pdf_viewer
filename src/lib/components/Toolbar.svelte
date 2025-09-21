@@ -84,6 +84,8 @@
   export let showThumbnails = false;
   export let onToggleThumbnails: (show: boolean) => void;
   export let isSharedView = false;
+  export let viewOnlyMode = false;
+  export let allowDownloading = true;
 
   let fileInput: HTMLInputElement;
   let showColorPalette = false;
@@ -294,12 +296,13 @@
       </div>
 
       <!-- Center section: Drawing tools (hidden on small screens) -->
-      <div class="hidden lg:flex items-center space-x-2">
+      <div class="hidden lg:flex items-center space-x-2" class:opacity-50={viewOnlyMode}>
         <button
           class="tool-button w-8 h-8 flex items-center justify-center"
           class:active={$drawingState.tool === 'pencil'}
-          on:click={() => handleToolChange('pencil')}
-          title="Pencil (1)"
+          disabled={viewOnlyMode}
+          on:click={() => !viewOnlyMode && handleToolChange('pencil')}
+          title={viewOnlyMode ? 'Drawing disabled in view-only mode' : 'Pencil (1)'}
         >
           <Edit3 size={14} />
         </button>
@@ -307,8 +310,9 @@
         <button
           class="tool-button w-8 h-8 flex items-center justify-center"
           class:active={$drawingState.tool === 'eraser'}
-          on:click={() => handleToolChange('eraser')}
-          title="Eraser (2)"
+          disabled={viewOnlyMode}
+          on:click={() => !viewOnlyMode && handleToolChange('eraser')}
+          title={viewOnlyMode ? 'Eraser disabled in view-only mode' : 'Eraser (2)'}
         >
           <Square size={14} />
         </button>
@@ -316,8 +320,9 @@
         <button
           class="tool-button w-8 h-8 flex items-center justify-center"
           class:active={$drawingState.tool === 'text'}
-          on:click={() => handleToolChange('text')}
-          title="Text (3)"
+          disabled={viewOnlyMode}
+          on:click={() => !viewOnlyMode && handleToolChange('text')}
+          title={viewOnlyMode ? 'Text tool disabled in view-only mode' : 'Text (3)'}
         >
           <Type size={14} />
         </button>
@@ -325,8 +330,9 @@
         <button
           class="tool-button w-8 h-8 flex items-center justify-center"
           class:active={$drawingState.tool === 'arrow'}
-          on:click={() => handleToolChange('arrow')}
-          title="Arrow (4)"
+          disabled={viewOnlyMode}
+          on:click={() => !viewOnlyMode && handleToolChange('arrow')}
+          title={viewOnlyMode ? 'Arrow tool disabled in view-only mode' : 'Arrow (4)'}
         >
           <ArrowRight size={14} />
         </button>
@@ -334,8 +340,9 @@
         <button
           class="tool-button w-8 h-8 flex items-center justify-center"
           class:active={$drawingState.tool === 'highlight'}
-          on:click={() => handleToolChange('highlight')}
-          title="Highlighter (8)"
+          disabled={viewOnlyMode}
+          on:click={() => !viewOnlyMode && handleToolChange('highlight')}
+          title={viewOnlyMode ? 'Highlighter disabled in view-only mode' : 'Highlighter (8)'}
         >
           <Highlighter size={14} />
         </button>
@@ -343,8 +350,9 @@
         <button
           class="tool-button w-8 h-8 flex items-center justify-center"
           class:active={$drawingState.tool === 'note'}
-          on:click={() => handleToolChange('note')}
-          title="Sticky Note (9)"
+          disabled={viewOnlyMode}
+          on:click={() => !viewOnlyMode && handleToolChange('note')}
+          title={viewOnlyMode ? 'Sticky note disabled in view-only mode' : 'Sticky Note (9)'}
         >
           <StickyNote size={14} />
         </button>
@@ -356,11 +364,14 @@
           <button
             class="tool-button w-8 h-8 flex items-center justify-center"
             class:active={$drawingState.tool === 'stamp'}
+            disabled={viewOnlyMode}
             on:click={() => {
-              handleToolChange('stamp');
-              showStampPalette = !showStampPalette;
+              if (!viewOnlyMode) {
+                handleToolChange('stamp');
+                showStampPalette = !showStampPalette;
+              }
             }}
-            title="Stamps/Stickers"
+            title={viewOnlyMode ? 'Stamps disabled in view-only mode' : 'Stamps/Stickers'}
           >
             <Sticker size={14} />
           </button>
@@ -529,20 +540,20 @@
         <div class="flex items-center space-x-2">
           <button
             class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
-            class:opacity-50={$undoStack.length === 0}
-            disabled={$undoStack.length === 0}
+            class:opacity-50={$undoStack.length === 0 || viewOnlyMode}
+            disabled={$undoStack.length === 0 || viewOnlyMode}
             on:click={handleUndo}
-            title="Undo (Ctrl+Z)"
+            title={viewOnlyMode ? 'Undo disabled in view-only mode' : 'Undo (Ctrl+Z)'}
           >
             <Undo2 size={16} class="lg:w-3.5 lg:h-3.5" />
           </button>
 
           <button
             class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
-            class:opacity-50={$redoStack.length === 0}
-            disabled={$redoStack.length === 0}
+            class:opacity-50={$redoStack.length === 0 || viewOnlyMode}
+            disabled={$redoStack.length === 0 || viewOnlyMode}
             on:click={handleRedo}
-            title="Redo (Ctrl+Y)"
+            title={viewOnlyMode ? 'Redo disabled in view-only mode' : 'Redo (Ctrl+Y)'}
           >
             <Redo2 size={16} class="lg:w-3.5 lg:h-3.5" />
           </button>
@@ -558,10 +569,10 @@
           <!-- Delete changes (trash icon) -->
           <button
             class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-            class:opacity-50={!$pdfState.document}
-            disabled={!$pdfState.document}
+            class:opacity-50={!$pdfState.document || viewOnlyMode}
+            disabled={!$pdfState.document || viewOnlyMode}
             on:click={handleClear}
-            title="Delete all changes"
+            title={viewOnlyMode ? 'Clear disabled in view-only mode' : 'Delete all changes'}
           >
             <Trash2 size={16} class="lg:w-3.5 lg:h-3.5" />
           </button>
@@ -580,16 +591,17 @@
           {/if}
 
           <!-- Export Menu -->
-          <div class="relative export-menu-container">
-            <button
-              class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-sage hover:bg-sage/10"
-              class:opacity-50={!$pdfState.document}
-              disabled={!$pdfState.document}
-              on:click={() => showExportMenu = !showExportMenu}
-              title="Export options"
-            >
-              <Download size={16} class="lg:w-3.5 lg:h-3.5" />
-            </button>
+          {#if allowDownloading}
+            <div class="relative export-menu-container">
+              <button
+                class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-sage hover:bg-sage/10"
+                class:opacity-50={!$pdfState.document}
+                disabled={!$pdfState.document}
+                on:click={() => showExportMenu = !showExportMenu}
+                title="Export options"
+              >
+                <Download size={16} class="lg:w-3.5 lg:h-3.5" />
+              </button>
 
             {#if showExportMenu}
               <div class="absolute top-full mt-2 right-0 z-50 min-w-[180px]">
@@ -623,7 +635,8 @@
                 </div>
               </div>
             {/if}
-          </div>
+            </div>
+          {/if}
         </div>
 
         <!-- Desktop: Current tool indicator, Light/Dark mode -->
@@ -721,24 +734,26 @@
                       Share with Link
                     </button>
                   {/if}
-                  <button
-                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
-                    class:opacity-50={!$pdfState.document}
-                    disabled={!$pdfState.document}
-                    on:click={() => { onExportPDF(); showMoreMenu = false; }}
-                  >
-                    <Download size={14} />
-                    Export as PDF
-                  </button>
-                  <button
-                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
-                    class:opacity-50={!$pdfState.document}
-                    disabled={!$pdfState.document}
-                    on:click={() => { onExportLPDF(); showMoreMenu = false; }}
-                  >
-                    <Package size={14} />
-                    Export as LPDF
-                  </button>
+                  {#if allowDownloading}
+                    <button
+                      class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
+                      class:opacity-50={!$pdfState.document}
+                      disabled={!$pdfState.document}
+                      on:click={() => { onExportPDF(); showMoreMenu = false; }}
+                    >
+                      <Download size={14} />
+                      Export as PDF
+                    </button>
+                    <button
+                      class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
+                      class:opacity-50={!$pdfState.document}
+                      disabled={!$pdfState.document}
+                      on:click={() => { onExportLPDF(); showMoreMenu = false; }}
+                    >
+                      <Package size={14} />
+                      Export as LPDF
+                    </button>
+                  {/if}
                 </div>
 
                 <!-- Zoom controls -->
