@@ -241,6 +241,18 @@
             </div>
           </div>
           
+          <!-- Server Upload Notice -->
+          <div class="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p class="text-xs text-gray-600 dark:text-gray-300">
+                <strong>Note:</strong> LeedPDF normally processes files locally. Sharing requires temporarily uploading your PDF to our secure servers to generate shareable links.
+              </p>
+            </div>
+          </div>
+          
           <!-- Privacy Settings -->
           <div class="space-y-4">
             <h3 class="text-sm font-medium text-charcoal dark:text-white">Privacy Settings</h3>
