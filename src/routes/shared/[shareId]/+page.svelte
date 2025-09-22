@@ -372,6 +372,7 @@
         onFitToHeight={() => pdfViewer?.fitToHeight()}
         onExportPDF={() => {}}
         onExportLPDF={() => {}}
+        onExportDOCX={() => {}}
         {showThumbnails}
         onToggleThumbnails={handleToggleThumbnails}
         isSharedView={true}

@@ -27,8 +27,9 @@
   import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
   import { isTauri } from '$lib/utils/tauriUtils';
   import { getFormattedVersion } from '$lib/utils/version';
-  import { PDFExporter } from '$lib/utils/pdfExport';
-  import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
+import { PDFExporter } from '$lib/utils/pdfExport';
+import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
+import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
   import { createBlankPDF, isValidMarkdownFile, isValidPDFFile, isValidLPDFFile } from '$lib/utils/pdfUtils';
   import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
 
@@ -820,6 +821,43 @@
     }
   }
 
+  async function handleExportDOCX() {
+    if (!currentFile || !pdfViewer) {
+      toastStore.warning('No PDF', 'No PDF to export');
+      return;
+    }
+
+    try {
+      let pdfBytes: Uint8Array;
+      let originalName: string;
+
+      if (typeof currentFile === 'string') {
+        console.log('Fetching PDF data from URL for DOCX export:', currentFile);
+        const response = await fetch(currentFile);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
+        originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
+      } else {
+        const arrayBuffer = await currentFile.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
+        originalName = currentFile.name.replace(/\.pdf$/i, '');
+      }
+
+      const success = await exportCurrentPDFAsDocx(pdfBytes, `${originalName}.pdf`);
+      if (success) {
+        console.log('🎉 DOCX exported successfully');
+      } else {
+        console.log('📄 DOCX export was cancelled by user');
+      }
+    } catch (error) {
+      console.error('DOCX export failed:', error);
+      toastStore.error('Export Failed', 'DOCX export failed. Please try again.');
+    }
+  }
+
 
   function handleToggleThumbnails(show: boolean) {
     showThumbnails = show;
@@ -1034,6 +1072,7 @@
       onFitToHeight={() => pdfViewer?.fitToHeight()}
       onExportPDF={handleExportPDF}
       onExportLPDF={handleExportLPDF}
+      onExportDOCX={handleExportDOCX}
       {showThumbnails}
       onToggleThumbnails={handleToggleThumbnails}
     />
