@@ -30,7 +30,7 @@
 		"@playwright/test": "^1.55.0",
 		"@sveltejs/adapter-vercel": "^5.10.2",
 		"@sveltejs/kit": "^2.36.2",
-		"@sveltejs/vite-plugin-svelte": "^5.1.1",
+		"@sveltejs/vite-plugin-svelte": "^6.2.0",
 		"@tauri-apps/api": "^2.7.0",
 		"@tauri-apps/cli": "^2.8.2",
 		"@testing-library/jest-dom": "^6.8.0",
