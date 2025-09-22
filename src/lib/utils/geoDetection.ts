@@ -1,6 +1,6 @@
 /**
- * Detects if the user is from the EU using server-side geo detection
- * Combined with client-side timezone detection as fallback
+ * Detects if the user is from the EU using external Appwrite API
+ * Falls back to EU-safe behavior if API fails
  */
 
 interface GeoDetectionResponse {
@@ -47,51 +47,16 @@ export async function isEUUser(): Promise<boolean> {
 	} catch (error) {
 		console.error('Error detecting user location:', error);
 		
-		// Fallback to timezone-based detection if API fails
-		const fallbackResult = detectEUFromTimezone();
-		
-		// Cache fallback result with shorter duration
+		// Default to showing cookie banner (EU-safe) if API fails
 		geoDetectionCache = {
-			showCookieBanner: fallbackResult,
+			showCookieBanner: true,
 			timestamp: Date.now() - (CACHE_DURATION / 2) // Shorter cache for fallback
 		};
 
-		return fallbackResult;
-	}
-}
-
-/**
- * Fallback: Client-side EU detection based on strict EU/EEA timezones
- */
-function detectEUFromTimezone(): boolean {
-	try {
-		const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-		// Strict EU/EEA timezones only (matches server-side list)
-		const strictEuEeaTimezones = [
-			// EU Member States
-			'Europe/Amsterdam', 'Europe/Athens', 'Europe/Berlin', 'Europe/Bratislava',
-			'Europe/Brussels', 'Europe/Bucharest', 'Europe/Budapest', 'Europe/Copenhagen',
-			'Europe/Dublin', 'Europe/Helsinki', 'Europe/Lisbon', 'Europe/Ljubljana',
-			'Europe/Luxembourg', 'Europe/Madrid', 'Europe/Malta', 'Europe/Paris',
-			'Europe/Prague', 'Europe/Riga', 'Europe/Rome', 'Europe/Sofia',
-			'Europe/Stockholm', 'Europe/Tallinn', 'Europe/Vienna', 'Europe/Vilnius',
-			'Europe/Warsaw', 'Europe/Zagreb',
-			// EEA Countries
-			'Europe/Oslo', 'Europe/Reykjavik',
-			// UK (post-Brexit but similar privacy laws)
-			'Europe/London'
-			// Removed: Europe/Zurich, Europe/Istanbul, Europe/Belgrade, etc.
-		];
-		
-		const isEU = strictEuEeaTimezones.includes(timezone);
-		console.log(`Timezone fallback: ${isEU ? 'EU' : 'Non-EU'} (timezone: ${timezone})`);
-		return isEU;
-	} catch (error) {
-		console.error('Error detecting timezone:', error);
-		// Default to EU for privacy compliance if all else fails
 		return true;
 	}
 }
+
 
 /**
  * Clear the geo detection cache (useful for testing)
