@@ -15,6 +15,7 @@
 import { forceSaveAllAnnotations, pdfState, setCurrentPDF, setTool, redo, undo } from '$lib/stores/drawingStore';
 import { PDFExporter } from '$lib/utils/pdfExport';
 import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
+import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
 import { toastStore } from '$lib/stores/toastStore';
 import { getFormattedVersion } from '$lib/utils/version';
 import { isTauri } from '$lib/utils/tauriUtils';
@@ -574,7 +575,7 @@ import SharePDFModal from '$lib/components/SharePDFModal.svelte';
     try {
       // Force save all annotations to localStorage before export
       forceSaveAllAnnotations();
-      console.log('✅ All annotations force-saved to localStorage before export');
+      console.log('\u2705 All annotations force-saved to localStorage before export');
 
       let pdfBytes: Uint8Array;
       let originalName: string;
@@ -591,18 +592,96 @@ import SharePDFModal from '$lib/components/SharePDFModal.svelte';
       } else {
         const arrayBuffer = await currentFile.arrayBuffer();
         pdfBytes = new Uint8Array(arrayBuffer);
-        originalName = currentFile.name.replace(/\.pdf$/i, '');
+        originalName = currentFile.name.replace(/\\.pdf$/i, '');
       }
 
       const success = await exportCurrentPDFAsLPDF(pdfBytes, `${originalName}.pdf`);
       if (success) {
-        console.log('🎉 LPDF exported successfully');
+        console.log('\ud83c\udf89 LPDF exported successfully');
       } else {
-        console.log('📄 LPDF export was cancelled by user');
+        console.log('\ud83d\udcc4 LPDF export was cancelled by user');
       }
     } catch (error) {
       console.error('LPDF export failed:', error);
       toastStore.error('Export Failed', 'LPDF export failed. Please try again.');
+    }
+  }
+
+  async function handleExportDOCX() {
+    if (!currentFile || !pdfViewer) {
+      toastStore.warning('No PDF', 'No PDF to export');
+      return;
+    }
+
+    try {
+      // Force save all annotations to localStorage before export
+      forceSaveAllAnnotations();
+      console.log('\u2705 All annotations force-saved to localStorage before DOCX export');
+
+      let pdfBytes: Uint8Array;
+      let originalName: string;
+
+      if (typeof currentFile === 'string') {
+        // Template URL - fetch the PDF data
+        const response = await fetch(currentFile);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch template: ${response.statusText}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
+        originalName = data.templateName || 'template';
+      } else {
+        const arrayBuffer = await currentFile.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
+        originalName = currentFile.name.replace(/\\.pdf$/i, '');
+      }
+
+      // Create annotated PDF first (same process as handleExportPDF)
+      const exporter = new PDFExporter();
+      exporter.setOriginalPDF(pdfBytes);
+
+      // Export all pages with annotations
+      console.log('Creating annotated PDF for DOCX export with', $pdfState.totalPages, 'pages');
+      let pagesWithAnnotations = 0;
+      const totalPages = $pdfState.totalPages;
+      
+      for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+        console.log(`Processing page ${pageNumber} for DOCX export...`);
+        
+        // Check if this page has any annotations
+        const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
+        
+        if (hasAnnotations) {
+          console.log(`📝 Page ${pageNumber} has annotations - creating merged canvas`);
+          const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
+          if (mergedCanvas) {
+            exporter.setPageCanvas(pageNumber, mergedCanvas);
+            pagesWithAnnotations++;
+            console.log(`✅ Added merged canvas for page ${pageNumber} to DOCX export`);
+          } else {
+            console.log(`❌ Failed to create merged canvas for page ${pageNumber}`);
+          }
+        } else {
+          console.log(`📄 Page ${pageNumber} has no annotations - will preserve original page`);
+        }
+      }
+      
+      console.log(`📊 DOCX Export summary: ${pagesWithAnnotations} pages with annotations out of ${totalPages} total pages`);
+
+      // Get the annotated PDF bytes
+      const annotatedPdfBytes = await exporter.exportToPDF();
+      console.log('Annotated PDF created for DOCX conversion, size:', annotatedPdfBytes.length);
+
+      // Now convert the annotated PDF to DOCX
+      const success = await exportCurrentPDFAsDocx(annotatedPdfBytes, `${originalName}.pdf`);
+      if (success) {
+        console.log('\ud83c\udf89 DOCX exported successfully with annotations');
+      } else {
+        console.log('\ud83d\udcc4 DOCX export was cancelled by user');
+      }
+    } catch (error) {
+      console.error('DOCX export failed:', error);
+      toastStore.error('Export Failed', 'DOCX export failed. Please try again.');
     }
   }
 
@@ -654,6 +733,7 @@ import SharePDFModal from '$lib/components/SharePDFModal.svelte';
       onFitToHeight={() => pdfViewer?.fitToHeight()}
       onExportPDF={handleExportPDF}
       onExportLPDF={handleExportLPDF}
+      onExportDOCX={handleExportDOCX}
       onSharePDF={handleSharePDF}
       {showThumbnails}
       onToggleThumbnails={handleToggleThumbnails}

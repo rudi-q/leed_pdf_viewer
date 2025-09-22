@@ -76,9 +76,10 @@
   export let onResetZoom: () => void;
   export let onFitToWidth: () => void;
   export let onFitToHeight: () => void;
-  export let onExportPDF: () => void;
-  export let onExportLPDF: () => void;
-  export let onSharePDF: (() => void) | undefined = undefined;
+	export let onExportPDF: () => void;
+	export let onExportLPDF: () => void;
+	export let onExportDOCX: () => void;
+	export let onSharePDF: (() => void) | undefined = undefined;
   
   // Thumbnail panel control
   export let showThumbnails = false;
@@ -632,6 +633,13 @@
                     <Package size={16} class="text-sage" />
                     Export as LPDF
                   </button>
+                  <button
+                    class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
+                    on:click={() => { onExportDOCX(); showExportMenu = false; }}
+                  >
+                    <FileText size={16} class="text-blue-600" />
+                    Export as DOCX
+                  </button>
                 </div>
               </div>
             {/if}
@@ -752,6 +760,15 @@
                     >
                       <Package size={14} />
                       Export as LPDF
+                    </button>
+                    <button
+                      class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
+                      class:opacity-50={!$pdfState.document}
+                      disabled={!$pdfState.document}
+                      on:click={() => { onExportDOCX(); showMoreMenu = false; }}
+                    >
+                      <FileText size={14} />
+                      Export as DOCX
                     </button>
                   {/if}
                 </div>
