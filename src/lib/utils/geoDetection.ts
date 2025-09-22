@@ -4,33 +4,29 @@
  */
 
 interface GeoDetectionResponse {
-	isEU: boolean;
-	method: 'headers' | 'timezone' | 'default_eu_safe' | 'error_fallback';
-	timestamp: string;
+	showCookieBanner: boolean;
+	country?: string;
+	ip?: string;
 }
 
-let geoDetectionCache: { isEU: boolean; timestamp: number } | null = null;
+let geoDetectionCache: { showCookieBanner: boolean; timestamp: number } | null = null;
 const CACHE_DURATION = 1000 * 60 * 60; // 1 hour
 
 /**
- * Detects if user is from EU using custom API endpoint
+ * Detects if user is from EU using external Appwrite API
  */
 export async function isEUUser(): Promise<boolean> {
 	// Check cache first
 	if (geoDetectionCache && Date.now() - geoDetectionCache.timestamp < CACHE_DURATION) {
-		return geoDetectionCache.isEU;
+		return geoDetectionCache.showCookieBanner;
 	}
 
 	try {
-		// Get client timezone as additional data point
-		const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-		
-		const response = await fetch('/api/geo', {
+		const response = await fetch('https://68cfe47c002decae7030.fra.appwrite.run//api/check-eu', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({ timezone })
+			}
 		});
 
 		if (!response.ok) {
@@ -41,12 +37,12 @@ export async function isEUUser(): Promise<boolean> {
 		
 		// Cache the result
 		geoDetectionCache = {
-			isEU: data.isEU,
+			showCookieBanner: data.showCookieBanner,
 			timestamp: Date.now()
 		};
 
-		console.log(`Geo detection: ${data.isEU ? 'EU' : 'Non-EU'} (method: ${data.method})`);
-		return data.isEU;
+		console.log(`Geo detection: ${data.showCookieBanner ? 'EU - Show Banner' : 'Non-EU - No Banner'} (Country: ${data.country || 'Unknown'})`);
+		return data.showCookieBanner;
 
 	} catch (error) {
 		console.error('Error detecting user location:', error);
@@ -56,7 +52,7 @@ export async function isEUUser(): Promise<boolean> {
 		
 		// Cache fallback result with shorter duration
 		geoDetectionCache = {
-			isEU: fallbackResult,
+			showCookieBanner: fallbackResult,
 			timestamp: Date.now() - (CACHE_DURATION / 2) // Shorter cache for fallback
 		};
 
