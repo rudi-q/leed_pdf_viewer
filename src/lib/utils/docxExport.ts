@@ -2,6 +2,38 @@ import { PDFExporter } from './pdfExport';
 import { toastStore } from '$lib/stores/toastStore';
 
 /**
+ * Convert PDF bytes to base64 using async chunk-based processing
+ * Avoids memory issues with large PDFs that btoa() can cause
+ */
+async function bytesToBase64(bytes: Uint8Array): Promise<string> {
+  return new Promise((resolve, reject) => {
+    try {
+      const blob = new Blob([bytes as BlobPart], { type: 'application/octet-stream' });
+      const reader = new FileReader();
+      
+      reader.onload = () => {
+        try {
+          const result = reader.result as string;
+          // Remove the data URL prefix (e.g., "data:application/octet-stream;base64,")
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        } catch (error) {
+          reject(new Error(`Failed to extract base64 data: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        }
+      };
+      
+      reader.onerror = () => {
+        reject(new Error('Failed to read PDF data for base64 conversion'));
+      };
+      
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      reject(new Error(`Failed to create blob for base64 conversion: ${error instanceof Error ? error.message : 'Unknown error'}`));
+    }
+  });
+}
+
+/**
  * Export annotated PDF to DOCX format using server-side conversion
  */
 export async function exportPDFToDocx(
@@ -14,8 +46,9 @@ export async function exportPDFToDocx(
 		// Show loading toast
 		toastStore.info('Converting PDF to DOCX', 'Please wait while we convert your annotated PDF...');
 		
-		// Convert PDF bytes to base64
-		const base64PDF = btoa(String.fromCharCode(...pdfBytes));
+		// Convert PDF bytes to base64 using safe async method
+		console.log('Converting PDF bytes to base64...', { size: pdfBytes.length });
+		const base64PDF = await bytesToBase64(pdfBytes);
 		
 		// Prepare payload matching server's expected format
 		const payload = {

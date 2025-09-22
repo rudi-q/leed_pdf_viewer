@@ -10,8 +10,10 @@
   import PageThumbnails from '$lib/components/PageThumbnails.svelte';
   import { PDFSharingService, ShareAccessError } from '$lib/services/pdfSharingService';
   import { toastStore } from '$lib/stores/toastStore';
-  import { setCurrentPDF, setTool, undo, redo } from '$lib/stores/drawingStore';
+  import { setCurrentPDF, setTool, undo, redo, pdfState } from '$lib/stores/drawingStore';
   import { getFormattedVersion } from '$lib/utils/version';
+  import { PDFExporter } from '$lib/utils/pdfExport';
+  import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
   import { Lock, Frown, Link } from 'lucide-svelte';
   
   let isLoading = true;
@@ -284,6 +286,79 @@
       }
     }
   }
+
+  // DOCX export handler for shared PDFs
+  async function handleExportDOCX() {
+    // Check if downloading is allowed for this shared PDF
+    if (sharedPDFData?.allowDownloading === false) {
+      toastStore.warning('Export Disabled', 'DOCX export is not allowed for this shared PDF.');
+      return;
+    }
+
+    if (!currentFile || !pdfViewer) {
+      toastStore.warning('No PDF', 'No PDF to export');
+      return;
+    }
+
+    try {
+      console.log('Starting DOCX export for shared PDF...');
+
+      // Get the PDF bytes (currentFile should be a File object from LPDF import)
+      if (typeof currentFile === 'string') {
+        throw new Error('Shared PDF export expects a File object, not a URL');
+      }
+      const arrayBuffer = await currentFile.arrayBuffer();
+      const pdfBytes = new Uint8Array(arrayBuffer);
+      const originalName = sharedPDFData?.originalFileName?.replace(/\.pdf$/i, '') || 'shared-document';
+
+      // Create annotated PDF first (same process as other pages)
+      const exporter = new PDFExporter();
+      exporter.setOriginalPDF(pdfBytes);
+
+      // Export all pages with annotations
+      console.log('Creating annotated PDF for DOCX export with', $pdfState.totalPages, 'pages');
+      const totalPages = $pdfState.totalPages;
+      let pagesWithAnnotations = 0;
+      
+      for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+        console.log(`Processing page ${pageNumber} for shared PDF DOCX export...`);
+        
+        // Check if this page has any annotations
+        const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
+        
+        if (hasAnnotations) {
+          console.log(`📝 Page ${pageNumber} has annotations - creating merged canvas`);
+          const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
+          if (mergedCanvas) {
+            exporter.setPageCanvas(pageNumber, mergedCanvas);
+            pagesWithAnnotations++;
+            console.log(`✅ Added merged canvas for page ${pageNumber} to shared PDF DOCX export`);
+          } else {
+            console.log(`❌ Failed to create merged canvas for page ${pageNumber}`);
+          }
+        } else {
+          console.log(`📄 Page ${pageNumber} has no annotations - will preserve original page`);
+        }
+      }
+      
+      console.log(`📊 Shared PDF DOCX Export summary: ${pagesWithAnnotations} pages with annotations out of ${totalPages} total pages`);
+
+      // Get the annotated PDF bytes
+      const annotatedPdfBytes = await exporter.exportToPDF();
+      console.log('Annotated PDF created for shared DOCX conversion, size:', annotatedPdfBytes.length);
+
+      // Now convert the annotated PDF to DOCX
+      const success = await exportCurrentPDFAsDocx(annotatedPdfBytes, `${originalName}.pdf`);
+      if (success) {
+        console.log('🎉 Shared PDF DOCX exported successfully with annotations');
+      } else {
+        console.log('📄 Shared PDF DOCX export was cancelled by user');
+      }
+    } catch (error) {
+      console.error('Shared PDF DOCX export failed:', error);
+      toastStore.error('Export Failed', 'DOCX export failed. Please try again.');
+    }
+  }
 </script>
 
 <svelte:window on:keydown={handleKeyboard} on:wheel={handleWheel} />
@@ -372,7 +447,7 @@
         onFitToHeight={() => pdfViewer?.fitToHeight()}
         onExportPDF={() => {}}
         onExportLPDF={() => {}}
-        onExportDOCX={() => {}}
+        onExportDOCX={handleExportDOCX}
         {showThumbnails}
         onToggleThumbnails={handleToggleThumbnails}
         isSharedView={true}
