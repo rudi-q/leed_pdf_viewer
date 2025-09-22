@@ -27,8 +27,9 @@
   import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
   import { isTauri } from '$lib/utils/tauriUtils';
   import { getFormattedVersion } from '$lib/utils/version';
-  import { PDFExporter } from '$lib/utils/pdfExport';
-  import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
+import { PDFExporter } from '$lib/utils/pdfExport';
+import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
+import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
   import { createBlankPDF, isValidMarkdownFile, isValidPDFFile, isValidLPDFFile } from '$lib/utils/pdfUtils';
   import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
 
@@ -820,6 +821,72 @@
     }
   }
 
+  async function handleExportDOCX() {
+    if (!currentFile || !pdfViewer) {
+      toastStore.warning('No PDF', 'No PDF to export');
+      return;
+    }
+
+    try {
+      let pdfBytes: Uint8Array;
+      let originalName: string;
+
+      if (typeof currentFile === 'string') {
+        console.log('Fetching PDF data from URL for DOCX export:', currentFile);
+        const response = await fetch(currentFile);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
+        originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
+      } else {
+        const arrayBuffer = await currentFile.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
+        originalName = currentFile.name.replace(/\.pdf$/i, '');
+      }
+
+      // Create annotated PDF first (same process as handleExportPDF)
+      const exporter = new PDFExporter();
+      exporter.setOriginalPDF(pdfBytes);
+
+      // Export all pages with annotations
+      console.log('Creating annotated PDF for DOCX export with', $pdfState.totalPages, 'pages');
+      
+      for (let pageNum = 1; pageNum <= $pdfState.totalPages; pageNum++) {
+        console.log(`Processing page ${pageNum} for DOCX export...`);
+        
+        // Check if this page has any annotations
+        const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNum);
+        
+        // Create merged canvas for all pages (including annotations if present)
+        console.log(`Page ${pageNum} has annotations: ${hasAnnotations}. Creating merged canvas...`);
+        const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNum);
+        if (mergedCanvas) {
+          exporter.setPageCanvas(pageNum, mergedCanvas);
+          console.log(`Added merged canvas for page ${pageNum} to DOCX export`);
+        } else {
+          console.log(`Failed to create merged canvas for page ${pageNum}`);
+        }
+      }
+
+      // Get the annotated PDF bytes
+      const annotatedPdfBytes = await exporter.exportToPDF();
+      console.log('Annotated PDF created for DOCX conversion, size:', annotatedPdfBytes.length);
+
+      // Now convert the annotated PDF to DOCX
+      const success = await exportCurrentPDFAsDocx(annotatedPdfBytes, `${originalName}.pdf`);
+      if (success) {
+        console.log('🎉 DOCX exported successfully with annotations');
+      } else {
+        console.log('📄 DOCX export was cancelled by user');
+      }
+    } catch (error) {
+      console.error('DOCX export failed:', error);
+      toastStore.error('Export Failed', 'DOCX export failed. Please try again.');
+    }
+  }
+
 
   function handleToggleThumbnails(show: boolean) {
     showThumbnails = show;
@@ -1034,6 +1101,7 @@
       onFitToHeight={() => pdfViewer?.fitToHeight()}
       onExportPDF={handleExportPDF}
       onExportLPDF={handleExportLPDF}
+      onExportDOCX={handleExportDOCX}
       {showThumbnails}
       onToggleThumbnails={handleToggleThumbnails}
     />

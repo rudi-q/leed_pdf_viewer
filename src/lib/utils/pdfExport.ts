@@ -218,7 +218,8 @@ export class PDFExporter {
 			'image/png': 'PNG Images',
 			'image/jpeg': 'JPEG Images',
 			'image/webp': 'WebP Images',
-			'application/zip': 'LPDF Files'
+			'application/zip': 'LPDF Files',
+			'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'Microsoft Word (.docx)'
 		};
 		return filterNames[mimeType] || 'All Files';
 	}
@@ -246,7 +247,8 @@ export class PDFExporter {
 			'image/png': '.png',
 			'image/jpeg': '.jpg',
 			'image/webp': '.webp',
-			'application/zip': '.lpdf'
+			'application/zip': '.lpdf',
+			'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx'
 		};
 		return extensions[mimeType] || '.bin';
 	}
