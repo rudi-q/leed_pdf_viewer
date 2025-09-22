@@ -846,9 +846,38 @@ import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
         originalName = currentFile.name.replace(/\.pdf$/i, '');
       }
 
-      const success = await exportCurrentPDFAsDocx(pdfBytes, `${originalName}.pdf`);
+      // Create annotated PDF first (same process as handleExportPDF)
+      const exporter = new PDFExporter();
+      exporter.setOriginalPDF(pdfBytes);
+
+      // Export all pages with annotations
+      console.log('Creating annotated PDF for DOCX export with', $pdfState.totalPages, 'pages');
+      
+      for (let pageNum = 1; pageNum <= $pdfState.totalPages; pageNum++) {
+        console.log(`Processing page ${pageNum} for DOCX export...`);
+        
+        // Check if this page has any annotations
+        const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNum);
+        
+        // Create merged canvas for all pages (including annotations if present)
+        console.log(`Page ${pageNum} has annotations: ${hasAnnotations}. Creating merged canvas...`);
+        const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNum);
+        if (mergedCanvas) {
+          exporter.setPageCanvas(pageNum, mergedCanvas);
+          console.log(`Added merged canvas for page ${pageNum} to DOCX export`);
+        } else {
+          console.log(`Failed to create merged canvas for page ${pageNum}`);
+        }
+      }
+
+      // Get the annotated PDF bytes
+      const annotatedPdfBytes = await exporter.exportToPDF();
+      console.log('Annotated PDF created for DOCX conversion, size:', annotatedPdfBytes.length);
+
+      // Now convert the annotated PDF to DOCX
+      const success = await exportCurrentPDFAsDocx(annotatedPdfBytes, `${originalName}.pdf`);
       if (success) {
-        console.log('🎉 DOCX exported successfully');
+        console.log('🎉 DOCX exported successfully with annotations');
       } else {
         console.log('📄 DOCX export was cancelled by user');
       }
