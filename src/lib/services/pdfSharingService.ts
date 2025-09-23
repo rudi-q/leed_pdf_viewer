@@ -196,6 +196,17 @@ export class PDFSharingService {
               pdfBytes[i] = binaryString.charCodeAt(i);
             }
             
+            // Validate PDF signature (same as direct fetch path)
+            if (pdfBytes.length < 4) {
+              throw new Error('Response too small to be a valid PDF file');
+            }
+            
+            const pdfHeader = pdfBytes.slice(0, 4);
+            const pdfSignature = String.fromCharCode(...pdfHeader);
+            if (pdfSignature !== '%PDF') {
+              throw new Error(`Invalid PDF signature from proxy: expected '%PDF', got '${pdfSignature}'`);
+            }
+            
             console.log(`Successfully fetched PDF via proxy: ${pdfBytes.length} bytes`);
             
           } catch (proxyError) {
