@@ -210,7 +210,7 @@
           title="Go to homepage"
           aria-label="Go to homepage"
         >
-          <img src="/favicon.png" alt="LeedPDF" class="w-5 h-5 lg:w-4 lg:h-4" />
+          <enhanced:img src="/static/./favicon.png" alt="LeedPDF" class="w-5 h-5 lg:w-4 lg:h-4" />
         </button>
         
         <div class="h-4 w-px bg-charcoal/20"></div>

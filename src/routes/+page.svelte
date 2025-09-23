@@ -1110,23 +1110,13 @@ import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
   <div class="w-full h-full" class:pt-12={!focusMode}>
     {#if showWelcome}
       <div class="h-full flex flex-col">
-      <!--  <div class="flex justify-center pt-8 pb-4">
-          <a href="https://peerlist.io/rudik/project/leedpdf" target="_blank" rel="noreferrer">
-            <img
-              src={`https://peerlist.io/api/v1/projects/embed/PRJHBARD8EREAG6RM1B78ODJOGA68D?showUpvote=true&theme=${$isDarkMode ? 'dark' : 'light'}`}
-              alt="LeedPDF"
-              style="width: auto; height: 72px;"
-              class="mx-auto"
-            />
-          </a>
-        </div>-->
         
         <!-- Main content, centered in remaining space -->
         <div class="flex-1 flex items-center justify-center">
           <div class="text-center max-w-md mx-auto px-6">
             <div class="mb-6 animate-bounce-soft">
-            <img src="/logo.png" alt="LeedPDF" class="w-24 h-24 mx-auto dark:hidden object-contain" />
-            <img src="/logo-dark.png" alt="LeedPDF" class="w-24 h-24 mx-auto hidden dark:block object-contain" />
+            <enhanced:img src="/static/./logo.png" alt="LeedPDF" class="w-24 h-24 mx-auto dark:hidden object-contain" />
+            <enhanced:img src="/static/./logo-dark.png" alt="LeedPDF" class="w-24 h-24 mx-auto hidden dark:block object-contain" />
           </div>
 
           <h1 class="text-xl sm:text-2xl md:text-3xl lg:text-4xl text-charcoal dark:text-gray-100 mb-4 text-center leading-tight px-2" style="font-family: 'Dancing Script', cursive; font-weight: 600;">LeedPDF - Free PDF Annotation Tool</h1>

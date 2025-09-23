@@ -190,7 +190,7 @@
   <div class="header">
     <div class="container">
       <div class="header-content">
-        <img src="/favicon.png" alt="LeedPDF" class="logo" />
+        <enhanced:img src="/static/./favicon.png" alt="LeedPDF" class="logo" />
         <h1 class="title">Download LeedPDF on {userOS !== 'Unknown' ? userOS : 'Windows, macOS & Linux'}</h1>
         <p class="subtitle">Free, fast, and powerful PDF editor with drawing capabilities</p>
       </div>
