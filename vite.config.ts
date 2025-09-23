@@ -1,6 +1,8 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
+export const dropConsoleAndDebug = (process.env.VITE_BUILDING_TAURI === 'true') as boolean || !((process.env.VITE_DEV_MODE === 'true') as boolean)
+
 export default defineConfig({
 	plugins: [
 		sveltekit()
@@ -31,8 +33,8 @@ export default defineConfig({
 		minify: 'terser',
 		terserOptions: {
 			compress: {
-				drop_console: true,
-				drop_debugger: true,
+				drop_console: dropConsoleAndDebug,
+				drop_debugger: dropConsoleAndDebug,
 				dead_code: false,
 				inline: false,
 				join_vars: false

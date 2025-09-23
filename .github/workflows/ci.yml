@@ -158,6 +158,7 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VITE_BUILDING_TAURI: "true"
 
       - name: Upload Tauri artifacts (PR only)
         if: github.event_name == 'pull_request'
