@@ -4,8 +4,7 @@ import { PUBLIC_POSTHOG_KEY } from '$env/static/public';
 import { isEUUser } from '$lib/utils/geoDetection';
 import { buildingTauri, enableAnalytics } from '$lib/utils/buildConstants';
 
-injectAnalytics({ mode: enableAnalytics ? 'development' : 'production' });
-
+injectAnalytics({ mode: enableAnalytics ? 'production' : 'development' });
 export const prerender = true;
 export const ssr = !buildingTauri;
 
