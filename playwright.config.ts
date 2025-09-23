@@ -64,5 +64,8 @@ export default defineConfig({
     port: 4173,
     timeout: 120_000, // 2 minutes timeout for build + preview
     reuseExistingServer: !process.env.CI,
+    env: {
+      VITE_E2E_TESTING: 'true', // Disable consent modal during e2e tests
+    },
   },
 });

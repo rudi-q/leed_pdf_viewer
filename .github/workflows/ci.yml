@@ -116,6 +116,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       PUBLIC_POSTHOG_KEY: ${{ vars.PUBLIC_POSTHOG_KEY }}
+      VITE_BUILDING_TAURI: "true"
     strategy:
       matrix:
         os: [windows-latest, macos-latest]

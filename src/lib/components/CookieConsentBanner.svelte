@@ -16,9 +16,9 @@
 	}
 
 	onMount(async () => {
-		// Skip cookie banner entirely for desktop (Tauri) app
-		if (isTauri) {
-			console.log('Cookie banner disabled for desktop app');
+		// Skip cookie banner entirely for desktop (Tauri) app or test environment
+		if (isTauri || import.meta.env.VITE_E2E_TESTING === 'true') {
+			console.log('Cookie banner disabled for', isTauri ? 'desktop app' : 'test environment');
 			isInitialized = true;
 			return;
 		}

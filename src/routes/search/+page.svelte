@@ -159,8 +159,8 @@
   <div class="header">
     <div class="container">
       <div class="header-content">
-        <img src="/favicon.png" alt="LeedPDF" class="logo dark:hidden" />
-        <img src="/logo-dark.png" alt="LeedPDF" class="logo hidden dark:block" />
+        <enhanced:img src="/static/./favicon.png" alt="LeedPDF" class="logo dark:hidden" />
+        <enhanced:img src="/static/./logo-dark.png" alt="LeedPDF" class="logo hidden dark:block" />
         <h1 class="title">PDF Search</h1>
         <p class="subtitle">Search for PDF documents across the web and open them directly in LeedPDF</p>
       </div>
