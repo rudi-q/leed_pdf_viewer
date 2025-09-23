@@ -20,16 +20,16 @@
 	import GlobalStyles from '$lib/components/GlobalStyles.svelte';
 	import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
 	import { PDFExporter } from '$lib/utils/pdfExport';
-import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
-import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
+	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
+	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { retrieveUploadedFile } from '$lib/utils/fileStorageUtils';
 	import { MAX_FILE_SIZE } from '$lib/constants';
 	import { isTauri } from '$lib/utils/tauriUtils';
 	import { getFormattedVersion } from '$lib/utils/version';
-import { isValidMarkdownFile, isValidPDFFile, isValidLPDFFile } from '$lib/utils/pdfUtils';
-import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
-import SharePDFModal from '$lib/components/SharePDFModal.svelte';
+	import { isValidLPDFFile, isValidMarkdownFile, isValidPDFFile } from '$lib/utils/pdfUtils';
+	import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
+	import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 
 	let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;

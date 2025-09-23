@@ -1,22 +1,22 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { page } from '$app/stores';
-  import { browser } from '$app/environment';
-  import { goto } from '$app/navigation';
-  import PDFViewer from '$lib/components/PDFViewer.svelte';
-  import Toolbar from '$lib/components/Toolbar.svelte';
-  import Footer from '$lib/components/Footer.svelte';
-  import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
-  import PageThumbnails from '$lib/components/PageThumbnails.svelte';
-  import { PDFSharingService, ShareAccessError } from '$lib/services/pdfSharingService';
-  import { toastStore } from '$lib/stores/toastStore';
-  import { setCurrentPDF, setTool, undo, redo, pdfState } from '$lib/stores/drawingStore';
-  import { getFormattedVersion } from '$lib/utils/version';
-  import { PDFExporter } from '$lib/utils/pdfExport';
-  import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
-  import { Lock, Frown, Link } from 'lucide-svelte';
-  
-  let isLoading = true;
+	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
+	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
+	import PDFViewer from '$lib/components/PDFViewer.svelte';
+	import Toolbar from '$lib/components/Toolbar.svelte';
+	import Footer from '$lib/components/Footer.svelte';
+	import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
+	import PageThumbnails from '$lib/components/PageThumbnails.svelte';
+	import { PDFSharingService, ShareAccessError } from '$lib/services/pdfSharingService';
+	import { toastStore } from '$lib/stores/toastStore';
+	import { pdfState, redo, setTool, undo } from '$lib/stores/drawingStore';
+	import { getFormattedVersion } from '$lib/utils/version';
+	import { PDFExporter } from '$lib/utils/pdfExport';
+	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
+	import { Frown, Link, Lock } from 'lucide-svelte';
+
+	let isLoading = true;
   let currentFile: File | string | null = null;
   let pdfViewer: PDFViewer;
   let requiresPassword = false;

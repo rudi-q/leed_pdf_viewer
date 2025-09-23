@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import { PDFSharingService, type SharePDFOptions } from '$lib/services/pdfSharingService';
-  import { toastStore } from '$lib/stores/toastStore';
-  import { FileText, Mail, MessageCircle, Twitter, Copy, Check, PartyPopper } from 'lucide-svelte';
-  import Toggle from './Toggle.svelte';
-  
-  export let isOpen = false;
+	import { createEventDispatcher } from 'svelte';
+	import { PDFSharingService, type SharePDFOptions } from '$lib/services/pdfSharingService';
+	import { toastStore } from '$lib/stores/toastStore';
+	import { Check, Copy, FileText, Mail, MessageCircle, PartyPopper, Twitter } from 'lucide-svelte';
+	import Toggle from './Toggle.svelte';
+
+	export let isOpen = false;
   export let pdfFile: File | string | null = null;
   export let originalFileName = '';
   

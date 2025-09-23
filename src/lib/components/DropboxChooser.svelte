@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
-  import { browser } from '$app/environment';
-  import { toastStore } from '../stores/toastStore';
+	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
+	import { browser } from '$app/environment';
+	import { toastStore } from '../stores/toastStore';
 
-  // Event dispatcher for parent components
+	// Event dispatcher for parent components
   const dispatch = createEventDispatcher<{
     fileSelected: { url: string; fileName: string; fileSize: number };
     cancel: void;

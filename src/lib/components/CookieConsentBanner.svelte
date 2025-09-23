@@ -3,7 +3,7 @@
 	import { consentStore } from '$lib/stores/consentStore';
 	import { isEUUser } from '$lib/utils/geoDetection';
 	import { isTauri } from '$lib/utils/tauriUtils';
-	import { X, Shield, Eye } from 'lucide-svelte';
+	import { Eye, Shield, X } from 'lucide-svelte';
 
 	let showBanner = false;
 	let isInitialized = false;

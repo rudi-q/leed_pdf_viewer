@@ -1,27 +1,27 @@
 // JSZip will be dynamically imported when needed to reduce initial bundle size
 import type {
-	DrawingPath,
-	TextAnnotation,
-	StickyNoteAnnotation,
-	StampAnnotation,
 	ArrowAnnotation,
-	StampDefinition
+	DrawingPath,
+	StampAnnotation,
+	StampDefinition,
+	StickyNoteAnnotation,
+	TextAnnotation
 } from '$lib/stores/drawingStore';
 import {
-	drawingPaths,
-	textAnnotations,
-	stickyNoteAnnotations,
-	stampAnnotations,
 	arrowAnnotations,
 	availableStamps,
+	drawingPaths,
+	forceSaveAllAnnotations,
+	pdfState,
 	setCurrentPDF,
-	forceSaveAllAnnotations
+	stampAnnotations,
+	stickyNoteAnnotations,
+	textAnnotations
 } from '$lib/stores/drawingStore';
-import { pdfState } from '$lib/stores/drawingStore';
 import { get } from 'svelte/store';
 import { toastStore } from '$lib/stores/toastStore';
 import { PDFExporter } from './pdfExport';
-import { LPDF_MAX_PDF_SIZE, LPDF_MAX_JSON_SIZE, LPDF_MAX_TOTAL_UNCOMPRESSED } from '$lib/constants';
+import { LPDF_MAX_JSON_SIZE, LPDF_MAX_PDF_SIZE, LPDF_MAX_TOTAL_UNCOMPRESSED } from '$lib/constants';
 
 /**
  * Complete annotation data structure for .lpdf format
