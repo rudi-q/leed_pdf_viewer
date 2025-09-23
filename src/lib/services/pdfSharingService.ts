@@ -129,12 +129,90 @@ export class PDFSharingService {
       // Get PDF bytes for LPDF generation
       let pdfBytes: Uint8Array;
       if (typeof pdfFile === 'string') {
-        const response = await fetch(pdfFile);
-        if (!response.ok) {
-          throw new Error('Failed to fetch PDF from URL');
+        try {
+          console.log('Fetching PDF from URL for sharing:', pdfFile);
+          
+          // Try with different fetch options to handle CORS issues
+          const fetchOptions = {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/pdf,*/*',
+              'Cache-Control': 'no-cache'
+            },
+            mode: 'cors' as RequestMode,
+            credentials: 'omit' as RequestCredentials
+          };
+          
+          const response = await fetch(pdfFile, fetchOptions);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          const contentType = response.headers.get('content-type');
+          if (contentType && !contentType.includes('pdf')) {
+            console.warn('Response content-type is not PDF:', contentType);
+          }
+          
+          const arrayBuffer = await response.arrayBuffer();
+          
+          if (arrayBuffer.byteLength === 0) {
+            throw new Error('Received empty response from PDF URL');
+          }
+          
+          pdfBytes = new Uint8Array(arrayBuffer);
+          console.log(`Successfully fetched PDF: ${pdfBytes.length} bytes`);
+          
+        } catch (fetchError) {
+          console.error('Direct fetch failed, trying proxy fallback...', fetchError);
+          
+          // Try using the proxy API as a fallback for CORS issues
+          try {
+            console.log('Attempting to fetch PDF via proxy server...');
+            
+            const proxyResponse = await fetch('/api/proxy-pdf', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ url: pdfFile })
+            });
+            
+            if (!proxyResponse.ok) {
+              const errorText = await proxyResponse.text();
+              throw new Error(`Proxy failed: ${proxyResponse.status} ${errorText}`);
+            }
+            
+            const proxyResult = await proxyResponse.json();
+            
+            if (!proxyResult.success || !proxyResult.data) {
+              throw new Error('Proxy returned invalid response');
+            }
+            
+            // Convert base64 back to Uint8Array
+            const binaryString = atob(proxyResult.data);
+            pdfBytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              pdfBytes[i] = binaryString.charCodeAt(i);
+            }
+            
+            console.log(`Successfully fetched PDF via proxy: ${pdfBytes.length} bytes`);
+            
+          } catch (proxyError) {
+            console.error('Proxy fallback also failed:', proxyError);
+            
+            // Provide helpful error messages based on the error type
+            if (fetchError instanceof TypeError && fetchError.message.includes('Failed to fetch')) {
+              throw new Error('Unable to access the PDF from the external URL due to CORS restrictions. The server may not allow cross-origin requests. Try downloading the PDF first and then uploading it to LeedPDF for sharing.');
+            } else if (proxyError instanceof Error && proxyError.message.includes('Proxy failed: 502')) {
+              throw new Error('The PDF server is not responding or the PDF file cannot be accessed. Please check if the URL is correct and accessible.');
+            } else if (proxyError instanceof Error && proxyError.message.includes('timeout')) {
+              throw new Error('The PDF server is taking too long to respond. Please try again later or download the PDF and upload it instead.');
+            } else {
+              throw new Error('Unable to access the PDF from the external URL. This may be due to server restrictions, network issues, or the PDF being password-protected. Try downloading the PDF first and then uploading it to LeedPDF for sharing.');
+            }
+          }
         }
-        const arrayBuffer = await response.arrayBuffer();
-        pdfBytes = new Uint8Array(arrayBuffer);
       } else {
         const arrayBuffer = await pdfFile.arrayBuffer();
         pdfBytes = new Uint8Array(arrayBuffer);

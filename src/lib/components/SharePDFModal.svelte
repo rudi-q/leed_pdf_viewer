@@ -79,6 +79,12 @@
       return;
     }
     
+    // Check if we're dealing with an external URL (string) that might have CORS issues
+    const isExternalUrl = typeof pdfFile === 'string';
+    if (isExternalUrl) {
+      console.log('Sharing external PDF URL:', pdfFile);
+    }
+    
     // Validate filename
     const trimmedFileName = editableFileName.trim();
     if (!trimmedFileName) {
@@ -252,6 +258,20 @@
               </p>
             </div>
           </div>
+          
+          {#if typeof pdfFile === 'string'}
+          <!-- External URL Warning -->
+          <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <div class="text-xs text-amber-700 dark:text-amber-300">
+                <strong>External PDF Detected:</strong> This PDF is loaded from an external URL. Some servers may block direct sharing due to CORS restrictions. If sharing fails, try downloading the PDF first and then uploading it to LeedPDF for sharing.
+              </div>
+            </div>
+          </div>
+          {/if}
           
           <!-- Privacy Settings -->
           <div class="space-y-4">
