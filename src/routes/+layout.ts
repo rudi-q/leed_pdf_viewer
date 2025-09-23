@@ -55,8 +55,10 @@ function updatePostHogSettings(isEU : boolean) {
 	if (!isEU) {
 		// Update to enable cookies for non-EU users
 		posthog.set_config({
-			cookieless_mode: undefined
+			cookieless_mode: undefined,
+			persistence: 'localStorage+cookie'
 		});
+		posthog.opt_in_capturing();
 		console.log('Updated PostHog for non-EU: cookies enabled');
 	}
 	console.log(`Geo detection complete: ${isEU ? 'EU' : 'Non-EU'}`);
