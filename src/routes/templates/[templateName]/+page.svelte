@@ -22,9 +22,10 @@
 	import { MAX_FILE_SIZE } from '$lib/constants';
 	import HelpButton from '$lib/components/HelpButton.svelte';
 	import HomeButton from '$lib/components/HomeButton.svelte';
-	import Footer from '$lib/components/Footer.svelte';
-	import DragOverlay from '$lib/components/DragOverlay.svelte';
-	import SharePDFModal from '$lib/components/SharePDFModal.svelte';
+import Footer from '$lib/components/Footer.svelte';
+import DragOverlay from '$lib/components/DragOverlay.svelte';
+import SharePDFModal from '$lib/components/SharePDFModal.svelte';
+import GlobalStyles from '$lib/components/GlobalStyles.svelte';
 
 	// Get the page data from the load function
   export let data;
