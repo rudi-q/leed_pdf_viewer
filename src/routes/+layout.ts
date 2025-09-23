@@ -29,7 +29,7 @@ export const load = async () => {
 		// Start geo detection in the background (non-blocking)
 		detectGeoAndUpdate();
 	}
-}
+};
 
 // Background function - doesn't block page load
 async function detectGeoAndUpdate() {
@@ -51,7 +51,7 @@ async function detectGeoAndUpdate() {
 	}
 }
 
-function updatePostHogSettings(isEU : boolean) {
+function updatePostHogSettings(isEU: boolean) {
 	if (!isEU) {
 		// Update to enable cookies for non-EU users
 		posthog.set_config({

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  
-  export let checked = false;
+	import { createEventDispatcher } from 'svelte';
+
+	export let checked = false;
   export let disabled = false;
   export let size: 'sm' | 'md' | 'lg' = 'md';
   export let ariaLabel = 'Toggle switch';

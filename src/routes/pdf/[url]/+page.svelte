@@ -14,16 +14,16 @@
 	import PageThumbnails from '$lib/components/PageThumbnails.svelte';
 	import HelpButton from '$lib/components/HelpButton.svelte';
 	import HomeButton from '$lib/components/HomeButton.svelte';
-	import { isValidPDFFile, isValidLPDFFile } from '$lib/utils/pdfUtils';
+	import { isValidLPDFFile, isValidPDFFile } from '$lib/utils/pdfUtils';
 	import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { PDFExporter } from '$lib/utils/pdfExport';
-import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
-import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
-import { MAX_FILE_SIZE } from '$lib/constants';
-import { isTauri } from '$lib/utils/tauriUtils';
-import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
-import SharePDFModal from '$lib/components/SharePDFModal.svelte';
+	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
+	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
+	import { MAX_FILE_SIZE } from '$lib/constants';
+	import { isTauri } from '$lib/utils/tauriUtils';
+	import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
+	import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 
 	let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;

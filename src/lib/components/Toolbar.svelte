@@ -34,7 +34,6 @@
 		Edit3,
 		FileText,
 		Folder,
-		FolderOpen,
 		Highlighter,
 		Layout,
 		Moon,

@@ -219,7 +219,8 @@ export class PDFExporter {
 			'image/jpeg': 'JPEG Images',
 			'image/webp': 'WebP Images',
 			'application/zip': 'LPDF Files',
-			'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'Microsoft Word (.docx)'
+			'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+				'Microsoft Word (.docx)'
 		};
 		return filterNames[mimeType] || 'All Files';
 	}

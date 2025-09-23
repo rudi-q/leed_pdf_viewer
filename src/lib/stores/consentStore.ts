@@ -24,28 +24,20 @@ const CONSENT_STORAGE_KEY = 'cookie_consent';
  */
 function clearPostHogCookies() {
 	if (!browser) return;
-	
+
 	try {
 		// Common PostHog cookie names
-		const posthogCookies = [
-			'ph_phc_',
-			'_posthog',
-			'posthog',
-			'ph_',
-			'__posthog'
-		];
-		
+		const posthogCookies = ['ph_phc_', '_posthog', 'posthog', 'ph_', '__posthog'];
+
 		// Get all cookies
 		const cookies = document.cookie.split(';');
-		
-		cookies.forEach(cookie => {
+
+		cookies.forEach((cookie) => {
 			const cookieName = cookie.split('=')[0].trim();
-			
+
 			// Check if it's a PostHog cookie
-			const isPostHogCookie = posthogCookies.some(prefix => 
-				cookieName.startsWith(prefix)
-			);
-			
+			const isPostHogCookie = posthogCookies.some((prefix) => cookieName.startsWith(prefix));
+
 			if (isPostHogCookie) {
 				// Delete the cookie by setting it to expire
 				document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
@@ -64,7 +56,7 @@ function clearPostHogCookies() {
  */
 function clearPostHogStorage() {
 	if (!browser) return;
-	
+
 	try {
 		// PostHog storage key patterns
 		const posthogKeys = [
@@ -77,20 +69,20 @@ function clearPostHogStorage() {
 			'anon_distinct_id',
 			'user_id'
 		];
-		
+
 		// Clear from localStorage
 		for (let i = localStorage.length - 1; i >= 0; i--) {
 			const key = localStorage.key(i);
-			if (key && posthogKeys.some(pattern => key.includes(pattern))) {
+			if (key && posthogKeys.some((pattern) => key.includes(pattern))) {
 				localStorage.removeItem(key);
 				console.log(`Cleared localStorage: ${key}`);
 			}
 		}
-		
+
 		// Clear from sessionStorage
 		for (let i = sessionStorage.length - 1; i >= 0; i--) {
 			const key = sessionStorage.key(i);
-			if (key && posthogKeys.some(pattern => key.includes(pattern))) {
+			if (key && posthogKeys.some((pattern) => key.includes(pattern))) {
 				sessionStorage.removeItem(key);
 				console.log(`Cleared sessionStorage: ${key}`);
 			}
@@ -105,14 +97,17 @@ function clearPostHogStorage() {
  */
 function loadConsentFromStorage(): ConsentState {
 	if (!browser) return defaultState;
-	
+
 	try {
 		const stored = localStorage.getItem(CONSENT_STORAGE_KEY);
 		if (stored) {
 			const parsed = JSON.parse(stored);
 			// Validate the stored data structure
-			if (parsed && typeof parsed === 'object' && 
-				['pending', 'accepted', 'declined'].includes(parsed.status)) {
+			if (
+				parsed &&
+				typeof parsed === 'object' &&
+				['pending', 'accepted', 'declined'].includes(parsed.status)
+			) {
 				return {
 					status: parsed.status,
 					timestamp: parsed.timestamp || null,
@@ -123,7 +118,7 @@ function loadConsentFromStorage(): ConsentState {
 	} catch (error) {
 		console.error('Error loading consent from storage:', error);
 	}
-	
+
 	return defaultState;
 }
 
@@ -132,7 +127,7 @@ function loadConsentFromStorage(): ConsentState {
  */
 function saveConsentToStorage(state: ConsentState) {
 	if (!browser) return;
-	
+
 	try {
 		localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(state));
 	} catch (error) {
@@ -147,83 +142,83 @@ function createConsentStore() {
 
 	return {
 		subscribe,
-		
+
 		/**
 		 * Initialize the consent store with EU detection result
 		 */
 		initialize: (isEU: boolean) => {
-			update(state => {
+			update((state) => {
 				// If we already have a stored consent decision, keep it
 				if (state.status !== 'pending') {
 					return { ...state, isEU };
 				}
-				
+
 				// Otherwise, set up initial state
 				const newState = { ...state, isEU };
 				saveConsentToStorage(newState);
 				return newState;
 			});
 		},
-		
+
 		/**
 		 * Accept cookies - triggers PostHog opt-in
 		 */
 		accept: () => {
-			update(state => {
+			update((state) => {
 				const newState: ConsentState = {
 					...state,
 					status: 'accepted',
 					timestamp: Date.now()
 				};
-				
+
 				saveConsentToStorage(newState);
-				
+
 				// Trigger PostHog opt-in if available
 				if (browser && window.posthog) {
 					window.posthog.opt_in_capturing();
 					console.log('✅ Cookies accepted - PostHog opt-in activated');
 				}
-				
+
 				return newState;
 			});
 		},
-		
+
 		/**
 		 * Decline cookies - triggers PostHog opt-out and comprehensive cleanup
 		 */
 		decline: () => {
-			update(state => {
+			update((state) => {
 				const newState: ConsentState = {
 					...state,
 					status: 'declined',
 					timestamp: Date.now()
 				};
-				
+
 				saveConsentToStorage(newState);
-				
+
 				// Comprehensive cleanup when user declines cookies
 				if (browser && window.posthog) {
 					// 1. Opt out of capturing
 					window.posthog.opt_out_capturing();
-					
+
 					// 2. Reset PostHog to clear identifiers if method exists
 					if (typeof window.posthog.reset === 'function') {
 						window.posthog.reset();
 					}
-					
+
 					// 3. Clear PostHog cookies
 					clearPostHogCookies();
-					
+
 					// 4. Clear PostHog data from storage
 					clearPostHogStorage();
-					
+
 					console.log('❌ Cookies declined - Complete PostHog cleanup performed');
 				}
-				
+
 				return newState;
 			});
 		},
-		
+
 		/**
 		 * Reset consent state (useful for testing)
 		 */
@@ -232,7 +227,7 @@ function createConsentStore() {
 			saveConsentToStorage(newState);
 			set(newState);
 		},
-		
+
 		/**
 		 * Check if banner should be shown
 		 */
