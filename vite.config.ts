@@ -1,7 +1,7 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
-export const dropConsoleAndDebug = (process.env.VITE_BUILDING_TAURI === 'true') as boolean || !((process.env.VITE_DEV_MODE === 'true') as boolean)
+export const dropConsoleAndDebug = (import.meta.env?.VITE_BUILDING_TAURI === 'true') as boolean || !((import.meta.env?.VITE_DEV_MODE === 'true') as boolean)
 
 export default defineConfig({
 	plugins: [
