@@ -1,10 +1,78 @@
 import { browser } from '$app/environment';
+import { dev } from '$app/environment';
 import { consentStore } from '$lib/stores/consentStore';
 import { get } from 'svelte/store';
 
 // Event properties interface for type safety
 interface EventProperties {
 	[key: string]: string | number | boolean | null | undefined;
+}
+
+// Normalized error interface
+interface NormalizedError {
+	message: string;
+	name: string;
+	stack?: string;
+}
+
+/**
+ * Safely normalize any error-like value to a consistent format
+ * Handles Error objects, strings, objects, and unknown values
+ */
+function normalizeError(error: unknown): NormalizedError {
+	if (error instanceof Error) {
+		return {
+			message: error.message,
+			name: error.name,
+			stack: error.stack?.substring(0, 1000) // Truncate stack to prevent huge payloads
+		};
+	}
+	
+	if (typeof error === 'string') {
+		return {
+			message: error,
+			name: 'StringError',
+			stack: undefined
+		};
+	}
+	
+	if (error && typeof error === 'object') {
+		const obj = error as any;
+		return {
+			message: obj.message || obj.reason || JSON.stringify(error).substring(0, 200),
+			name: obj.name || 'ObjectError',
+			stack: obj.stack?.substring(0, 1000)
+		};
+	}
+	
+	return {
+		message: String(error),
+		name: 'UnknownError',
+		stack: undefined
+	};
+}
+
+/**
+ * Safe URL parsing that strips sensitive query params and fragments
+ */
+function sanitizeUrl(urlString: string): string {
+	try {
+		const url = new URL(urlString);
+		return url.origin + url.pathname;
+	} catch {
+		return 'invalid_url';
+	}
+}
+
+/**
+ * Extract file extension from filename
+ */
+function extractFileExtension(filename: string): string {
+	const lastDot = filename.lastIndexOf('.');
+	if (lastDot === -1 || lastDot === filename.length - 1) {
+		return 'unknown';
+	}
+	return filename.substring(lastDot + 1).toLowerCase();
 }
 
 // Session tracking
@@ -33,20 +101,31 @@ export const trackEvent = (eventName: string, properties: EventProperties = {}):
 	// Type assertion for PostHog capture method
 	const posthog = window.posthog as any;
 
-		// Add common properties to all events
+		// Add common properties to all events (privacy-safe)
 		const enrichedProperties = {
 			...properties,
 			timestamp: new Date().toISOString(),
 			user_agent: navigator.userAgent,
 			viewport_width: window.innerWidth,
 			viewport_height: window.innerHeight,
-			url: window.location.href,
-			referrer: document.referrer || undefined
+			url: sanitizeUrl(window.location.href),
+			referrer: document.referrer ? sanitizeUrl(document.referrer) : undefined
 		};
 
-	// Capture the event
-	posthog.capture(eventName, enrichedProperties);
-		console.log(`Analytics: Tracked event "${eventName}"`, enrichedProperties);
+		// Determine if we should send with beacon for reliability
+		const useBeacon = document.visibilityState === 'hidden' || eventName === 'session_duration';
+		const captureOptions = useBeacon ? { send_instantly: true, transport: 'beacon' } : undefined;
+
+		// Capture the event
+		posthog.capture(eventName, enrichedProperties, captureOptions);
+		
+		// Development-only logging
+		if (dev) {
+			console.log(`Analytics: Tracked event "${eventName}"`, enrichedProperties);
+		} else {
+			// Production: minimal logging without sensitive data
+			console.debug(`Analytics: Tracked ${eventName}`);
+		}
 		
 		// Update last activity time for session tracking
 		updateLastActivity();
@@ -60,12 +139,13 @@ export const trackEvent = (eventName: string, properties: EventProperties = {}):
 /**
  * Track application crashes and errors
  */
-export const trackError = (error: Error, context?: string): void => {
+export const trackError = (error: unknown, context?: string): void => {
+	const normalizedError = normalizeError(error);
 	trackEvent('app_crashed', {
-		error_message: error.message,
-		error_stack: error.stack?.substring(0, 1000) || undefined, // Limit stack trace size
+		error_message: normalizedError.message.substring(0, 500), // Limit message size
+		error_stack: normalizedError.stack,
 		context: context || 'unknown',
-		error_name: error.name
+		error_name: normalizedError.name
 	});
 };
 
@@ -101,7 +181,9 @@ export const startSession = (): void => {
 			is_returning_user: isReturningUser
 		});
 		
-		console.log('Analytics: Session started');
+		if (dev) {
+			console.log('Analytics: Session started');
+		}
 	} catch (error) {
 		console.warn('Analytics: Failed to start session tracking:', error);
 	}
@@ -121,7 +203,9 @@ export const endSession = (): void => {
 			session_start: new Date(sessionStartTime).toISOString()
 		});
 		
-		console.log(`Analytics: Session ended - Duration: ${sessionDuration} minutes`);
+		if (dev) {
+			console.log(`Analytics: Session ended - Duration: ${sessionDuration} minutes`);
+		}
 		sessionStartTime = null;
 	} catch (error) {
 		console.warn('Analytics: Failed to end session tracking:', error);
@@ -142,7 +226,7 @@ export const trackPdfUpload = (file: File, uploadMethod: string = 'unknown'): vo
 	trackEvent('pdf_uploaded', {
 		file_size: file.size,
 		file_type: file.type,
-		file_name: file.name.replace(/[^a-zA-Z0-9.-]/g, '_'), // Sanitize filename
+		file_extension: extractFileExtension(file.name), // Privacy-safe: extension only
 		upload_method: uploadMethod,
 		file_size_mb: Math.round((file.size / 1024 / 1024) * 100) / 100
 	});
@@ -198,7 +282,9 @@ export const trackFirstAnnotation = (annotationType: string): void => {
 				first_annotation_time: new Date().toISOString()
 			});
 			
-			console.log(`Analytics: First annotation tracked (${annotationType})`);
+			if (dev) {
+				console.log(`Analytics: First annotation tracked (${annotationType})`);
+			}
 		} else {
 			// Already tracked in previous session, just set in-memory flag
 			firstAnnotationTracked = true;
@@ -218,7 +304,9 @@ export const trackFirstAnnotation = (annotationType: string): void => {
 				first_annotation_time: new Date().toISOString(),
 				note: 'localStorage_unavailable'
 			});
-			console.log(`Analytics: First annotation tracked as fallback (${annotationType})`);
+			if (dev) {
+				console.log(`Analytics: First annotation tracked as fallback (${annotationType})`);
+			}
 		} catch (trackingError) {
 			console.debug('Analytics: Failed to track first annotation:', trackingError);
 		}
@@ -278,18 +366,24 @@ export const initializeAnalytics = (): void => {
 		// Start session tracking
 		startSession();
 		
-		// Set up error tracking
+		// Set up error tracking with normalized errors
 		window.addEventListener('error', (event) => {
-			trackError(new Error(event.message), 'global_error_handler');
+			trackError(event.error || event.message, 'global_error_handler');
 		});
 		
 		window.addEventListener('unhandledrejection', (event) => {
-			trackError(new Error(event.reason), 'unhandled_promise_rejection');
+			trackError(event.reason, 'unhandled_promise_rejection');
 		});
 		
-		// Set up session end tracking
+		// Set up reliable session end tracking with beacon
 		window.addEventListener('beforeunload', endSession);
 		window.addEventListener('pagehide', endSession);
+		window.addEventListener('visibilitychange', () => {
+			if (document.visibilityState === 'hidden') {
+				// Page might be closing, send any pending events with beacon
+				endSession();
+			}
+		});
 		
 		// Track activity to extend session
 		const activityEvents = ['click', 'keydown', 'scroll', 'mousemove'];
@@ -297,7 +391,9 @@ export const initializeAnalytics = (): void => {
 			document.addEventListener(eventType, updateLastActivity, { passive: true });
 		});
 		
-		console.log('Analytics: Initialized successfully');
+		if (dev) {
+			console.log('Analytics: Initialized successfully');
+		}
 	} catch (error) {
 		console.warn('Analytics: Failed to initialize:', error);
 	}
