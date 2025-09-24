@@ -1,0 +1,271 @@
+name: ♿ Accessibility Issue
+description: Report accessibility barriers or compliance issues
+title: "[A11y]: "
+labels: ["accessibility", "a11y", "bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping make LeedPDF accessible to everyone! ♿
+        
+        LeedPDF aims to meet WCAG AAA standards. Your feedback helps us maintain and improve accessibility for users with disabilities.
+        
+        **Before submitting:**
+        - Test with the latest version at [leed.my](https://leed.my)
+        - Try different browsers if possible
+        - Consider testing with assistive technology if available
+
+  - type: dropdown
+    id: accessibility-type
+    attributes:
+      label: Accessibility Issue Type
+      description: What type of accessibility issue is this?
+      options:
+        - Screen reader compatibility
+        - Keyboard navigation
+        - Focus management
+        - Color contrast
+        - Text alternatives (alt text)
+        - Semantic HTML structure
+        - ARIA labels/attributes
+        - Touch/mobile accessibility
+        - Cognitive accessibility
+        - Motor accessibility
+        - Visual accessibility
+        - Audio accessibility
+        - WCAG compliance
+        - Other accessibility barrier
+    validations:
+      required: true
+
+  - type: dropdown
+    id: wcag-level
+    attributes:
+      label: WCAG Level
+      description: If known, which WCAG success criterion does this relate to?
+      options:
+        - WCAG A (Level A)
+        - WCAG AA (Level AA)
+        - WCAG AAA (Level AAA)
+        - Not sure/Unknown
+        - Multiple levels
+        - Not WCAG related
+
+  - type: input
+    id: wcag-criterion
+    attributes:
+      label: Specific WCAG Success Criterion (if known)
+      description: e.g., 1.1.1 Non-text Content, 2.1.1 Keyboard, 3.2.2 On Input
+      placeholder: e.g., 2.4.3 Focus Order
+
+  - type: textarea
+    id: issue-description
+    attributes:
+      label: Issue Description
+      description: Describe the accessibility barrier you encountered
+      placeholder: |
+        Describe the problem:
+        - What happened?
+        - What should happen instead?
+        - How does this affect users with disabilities?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Provide detailed steps to reproduce this accessibility issue
+      placeholder: |
+        1. Using [screen reader/keyboard/assistive technology]...
+        2. Navigate to...
+        3. Try to...
+        4. Observe that...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: assistive-technology
+    attributes:
+      label: Assistive Technology Used
+      description: What assistive technology or method did you use to discover this issue?
+      options:
+        - Screen reader (NVDA)
+        - Screen reader (JAWS)
+        - Screen reader (VoiceOver)
+        - Screen reader (TalkBack)
+        - Screen reader (Other)
+        - Keyboard navigation only
+        - Voice control software
+        - Switch navigation
+        - High contrast mode
+        - Browser zoom (200%+)
+        - Magnification software
+        - Color blind simulation
+        - Manual testing/inspection
+        - Automated testing tool
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: at-version
+    attributes:
+      label: Assistive Technology Version
+      description: If using assistive technology, what version?
+      placeholder: e.g., NVDA 2023.3, JAWS 2024, VoiceOver macOS 14
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severely does this issue impact accessibility?
+      options:
+        - Critical - Completely blocks access to functionality
+        - High - Significantly impairs functionality or usability
+        - Medium - Creates barriers but workarounds exist
+        - Low - Minor accessibility improvement
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affected-feature
+    attributes:
+      label: Affected Feature/Area
+      description: Which part of LeedPDF is affected?
+      options:
+        - PDF upload/file selection
+        - Drawing tools (pencil, highlighter)
+        - Annotation tools (text, sticky notes)
+        - Shape tools
+        - Toolbar/menu navigation
+        - Keyboard shortcuts
+        - PDF navigation (pages, zoom)
+        - Search functionality
+        - Settings/preferences
+        - Mobile/touch interface
+        - Desktop app specific
+        - Entire application
+        - Other
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Accessible Behavior
+      description: What should happen for this to be accessible?
+      placeholder: |
+        The accessible experience should be:
+        - Screen readers should announce...
+        - Keyboard users should be able to...
+        - Focus should move to...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Where did you encounter this issue?
+      options:
+        - Web App (leed.my)
+        - Desktop App (Windows)
+        - Desktop App (macOS)
+        - Local Development
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser (if web app)
+      description: Which browser were you using?
+      options:
+        - Chrome
+        - Firefox
+        - Safari
+        - Edge
+        - Other
+        - Not applicable (desktop app)
+
+  - type: input
+    id: browser-version
+    attributes:
+      label: Browser/App Version
+      description: What version were you using?
+      placeholder: e.g., Chrome 118, Firefox 119, Desktop App 1.2.3
+
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating System
+      description: Which OS were you using?
+      placeholder: e.g., Windows 11, macOS 14, Ubuntu 22.04, iOS 17, Android 13
+
+  - type: textarea
+    id: user-impact
+    attributes:
+      label: User Impact
+      description: How does this issue affect users with disabilities?
+      placeholder: |
+        This issue affects users because:
+        - Users who rely on screen readers cannot...
+        - Keyboard-only users are unable to...
+        - Users with low vision experience...
+
+  - type: textarea
+    id: suggested-solution
+    attributes:
+      label: Suggested Solution
+      description: If you have ideas on how to fix this, please share them
+      placeholder: |
+        Potential solutions:
+        - Add ARIA label for...
+        - Ensure focus moves to...
+        - Provide keyboard shortcut for...
+        - Improve semantic structure by...
+
+  - type: textarea
+    id: testing-methods
+    attributes:
+      label: Testing Methods
+      description: How can this accessibility issue be tested?
+      placeholder: |
+        To test this issue:
+        - Use screen reader and...
+        - Navigate with Tab key and...
+        - Enable high contrast mode and...
+        - Use automated tool like axe-core...
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: |
+        Any other information that might help fix this accessibility issue
+        
+        Screenshots with focus indicators or video recordings can be very helpful.
+      placeholder: |
+        Additional information:
+        - Related accessibility issues
+        - Links to WCAG guidelines
+        - Examples from other accessible applications
+
+  - type: checkboxes
+    id: testing-offer
+    attributes:
+      label: Testing Assistance
+      description: Can you help test fixes for this accessibility issue?
+      options:
+        - label: I can test proposed fixes with my assistive technology
+        - label: I can help verify WCAG compliance
+        - label: I can provide additional testing scenarios
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our Code of Conduct
+      options:
+        - label: I have read and agree to follow the [Code of Conduct](https://github.com/rudi-q/leed_pdf_viewer/blob/main/CODE_OF_CONDUCT.md)
+          required: true
