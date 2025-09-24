@@ -29,6 +29,7 @@
 	import { getFormattedVersion } from '$lib/utils/version';
 	import { isValidLPDFFile, isValidMarkdownFile, isValidPDFFile } from '$lib/utils/pdfUtils';
 	import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
+	import { trackFullscreenToggle, trackPdfExport } from '$lib/utils/analytics';
 	import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 
 	let pdfViewer: PDFViewer;

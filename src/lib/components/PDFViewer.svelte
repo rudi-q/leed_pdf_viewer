@@ -21,6 +21,7 @@
 	import { PDFManager } from '../utils/pdfUtils';
 	import { DrawingEngine } from '../utils/drawingUtils';
 	import { toastStore } from '../stores/toastStore';
+	import { trackPdfUpload, trackPdfLoadTime, trackError, trackFirstAnnotation } from '../utils/analytics';
 	import TextOverlay from './TextOverlay.svelte';
 	import StickyNoteOverlay from './StickyNoteOverlay.svelte';
 	import StampOverlay from './StampOverlay.svelte';
@@ -193,7 +194,13 @@
     }
 
     const isUrl = typeof pdfFile === 'string';
+    const loadStartTime = performance.now();
     console.log('Loading PDF - isUrl:', isUrl, 'Value:', isUrl ? pdfFile : `${(pdfFile as File).name} (Size: ${(pdfFile as File).size})`);
+    
+    // Track PDF upload if it's a file
+    if (!isUrl && pdfFile instanceof File) {
+      trackPdfUpload(pdfFile, 'drag_drop'); // You can customize upload method based on how it was uploaded
+    }
     
     try {
       console.log('Setting loading state to true...');
@@ -296,12 +303,21 @@
       // Now render with the correct scale from the start
       await renderCurrentPage();
       
+      // Track PDF load performance
+      const loadTime = performance.now() - loadStartTime;
+      const fileSize = isUrl ? undefined : (pdfFile as File).size;
+      trackPdfLoadTime(loadTime, fileSize, isUrl ? 'url' : 'file_upload');
+      
       console.log('PDF render completed successfully');
     } catch (error) {
       console.error('Error loading PDF:', error);
       pdfState.update(state => ({ ...state, isLoading: false }));
       // Reset the tracking to allow retry
       lastLoadedFile = null;
+      
+      // Track the error
+      trackError(error as Error, 'pdf_loading');
+      
       toastStore.error('PDF Loading Failed', (error as Error).message);
     }
   }
@@ -546,6 +562,10 @@ function handlePointerUp(event: PointerEvent) {
           pageNumber: $pdfState.currentPage
           // No need for viewerScale anymore - all coords are at scale 1.0
         };
+        
+        // Track first annotation creation
+        trackFirstAnnotation($drawingState.tool);
+        
         addDrawingPath(drawingPath);
       }
     }

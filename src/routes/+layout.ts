@@ -3,6 +3,7 @@ import posthog from 'posthog-js';
 import { PUBLIC_POSTHOG_KEY } from '$env/static/public';
 import { isEUUser } from '$lib/utils/geoDetection';
 import { buildingTauri, enableAnalytics } from '$lib/utils/buildConstants';
+import { initializeAnalytics } from '$lib/utils/analytics';
 
 injectAnalytics({ mode: enableAnalytics ? 'production' : 'development' });
 export const prerender = true;
@@ -25,6 +26,9 @@ export const load = async () => {
 
 		window.__posthogInitialized = true;
 		console.log('PostHog initialized with EU-safe defaults');
+
+		// Initialize our analytics system
+		initializeAnalytics();
 
 		// Start geo detection in the background (non-blocking)
 		detectGeoAndUpdate();

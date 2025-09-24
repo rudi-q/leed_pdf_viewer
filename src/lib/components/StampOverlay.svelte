@@ -12,6 +12,7 @@
 		pdfState,
 		updateStampAnnotation
 	} from '../stores/drawingStore';
+	import { trackFirstAnnotation } from '../utils/analytics';
 
 	export let containerWidth: number = 0; // Base viewport width at scale 1.0
 	export let containerHeight: number = 0; // Base viewport height at scale 1.0
@@ -76,8 +77,12 @@
 			relativeSize: defaultSize / Math.min(containerWidth, containerHeight)
 		};
 
-		isCreatingStamp = true;
-		addStampAnnotation(newStamp);
+	isCreatingStamp = true;
+	
+	// Track first annotation creation
+	trackFirstAnnotation('stamp');
+	
+	addStampAnnotation(newStamp);
 		
 		// Reset creating state after a short delay
 		setTimeout(() => {
