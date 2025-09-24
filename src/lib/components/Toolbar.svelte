@@ -23,7 +23,7 @@
 	import { handleSearchLinkClick } from '../utils/navigationUtils';
 	import { goto } from '$app/navigation';
 	import StampPalette from './StampPalette.svelte';
-  import Tooltip from '$lib/components/TooltipSimple.svelte';
+  import Tooltip from '$lib/components/Tooltip.svelte';
 	// Feather Icons
 	import {
 		ArrowLeftRight,
@@ -218,7 +218,7 @@
         
         <!-- Desktop: Folder icon -->
         <div class="hidden lg:block">
-        <Tooltip content="Upload PDF (Ctrl+O)" allowHTML={false}>
+        <Tooltip content="Upload PDF (U)" allowHTML={false}>
             <button
               class="tool-button w-8 h-8 flex items-center justify-center"
               on:click={handleFileSelect}
@@ -231,7 +231,7 @@
 
         <!-- Desktop: Page Navigation -->
         <div class="hidden lg:flex items-center space-x-2">
-        <Tooltip content="Previous page (← or A)">
+        <Tooltip content="Previous page (←)">
             <button
               class="tool-button w-8 h-8 flex items-center justify-center"
               class:opacity-50={$pdfState.currentPage <= 1}
@@ -243,7 +243,7 @@
             </button>
           </Tooltip>
 
-        <Tooltip content="Next page (→ or D)">
+        <Tooltip content="Next page (→)">
             <button
               class="tool-button w-8 h-8 flex items-center justify-center"
               class:opacity-50={$pdfState.currentPage >= $pdfState.totalPages}
