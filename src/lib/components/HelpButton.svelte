@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
-	import Tooltip from './Tooltip.svelte';
+	import Tooltip from './TooltipSimple.svelte';
 
 	export let position: 'fixed' | 'absolute' | 'relative' | 'static' = 'static';
   export let positionClasses: string = '';
@@ -20,7 +20,7 @@
   $: allClasses = [baseClasses, positionClass, positionClasses, hiddenClasses, additionalClasses].filter(Boolean).join(' ');
 </script>
 
-<Tooltip content="Show keyboard shortcuts <span style='opacity: 0.8'>(? or F1)</span>" position="top">
+<Tooltip content="Show keyboard shortcuts (? or F1)" position="bottom">
   <button
     class={allClasses}
     on:click={handleClick}

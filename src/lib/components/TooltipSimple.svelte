@@ -1,25 +1,26 @@
 <script lang="ts">
   // Props
   export let content = '';
-  export let position: 'top' | 'bottom' = 'bottom';
+  export let position: 'top' | 'bottom' = 'top'; // 'top' means tooltip appears below the button
   export let delay = 500;
   export let disabled = false;
+  export let allowHTML = false; // Whether to allow HTML content (use with caution)
 
   // State
   let isVisible = false;
-  let showTimeout: number;
-  let hideTimeout: number;
+  let showTimeout: number | undefined;
+  let hideTimeout: number | undefined;
 
   function show() {
     if (disabled || !content.trim()) return;
-    clearTimeout(hideTimeout);
+    if (hideTimeout) clearTimeout(hideTimeout);
     showTimeout = window.setTimeout(() => {
       isVisible = true;
     }, delay);
   }
 
   function hide() {
-    clearTimeout(showTimeout);
+    if (showTimeout) clearTimeout(showTimeout);
     hideTimeout = window.setTimeout(() => {
       isVisible = false;
     }, 0);
@@ -36,16 +37,15 @@
   // Cleanup
   import { onDestroy } from 'svelte';
   onDestroy(() => {
-    clearTimeout(showTimeout);
-    clearTimeout(hideTimeout);
+    if (showTimeout) clearTimeout(showTimeout);
+    if (hideTimeout) clearTimeout(hideTimeout);
   });
 </script>
 
 <!-- Target wrapper -->
 <div 
   class="tooltip-container"
-  role="button"
-  tabindex="0"
+  role="presentation"
   on:mouseenter={handleMouseEnter}
   on:mouseleave={handleMouseLeave}
 >
@@ -54,7 +54,11 @@
   <!-- Tooltip -->
   {#if isVisible}
     <div class="tooltip" class:tooltip-top={position === 'top'}>
-      {@html content}
+      {#if allowHTML}
+        {@html content}
+      {:else}
+        {content}
+      {/if}
     </div>
   {/if}
 </div>

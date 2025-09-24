@@ -11,11 +11,12 @@
   export let offset = 8; // Distance from target element
   export let maxWidth = 250; // Maximum tooltip width in pixels
   export let className = ''; // Additional CSS classes
+  export let allowHTML = false; // Whether to allow HTML content (use with caution)
 
   // State
   let isVisible = false;
-  let showTimeout: number;
-  let hideTimeout: number;
+  let showTimeout: number | undefined;
+  let hideTimeout: number | undefined;
   let tooltipElement: HTMLDivElement;
   let targetElement: HTMLElement;
   let computedPosition = position;
@@ -37,13 +38,11 @@
   // Position calculation
   function calculatePosition() {
     if (!tooltipElement || !targetElement) {
-      console.log('Missing elements:', { tooltipElement, targetElement });
       return;
     }
 
     // Get target element position
     const targetRect = targetElement.getBoundingClientRect();
-    console.log('Target rect:', targetRect);
     
     let finalPosition = position === 'auto' ? 'bottom' : position;
     
@@ -84,7 +83,6 @@
     }
     
     const style = `top: ${top}px; left: ${left}px; transform: ${transform}; max-width: ${maxWidth}px; position: fixed; z-index: 9999;`;
-    console.log('Applying style:', style);
     
     tooltipStyle = style;
   }
@@ -92,7 +90,7 @@
   function show() {
     if (!shouldShow) return;
     
-    clearTimeout(hideTimeout);
+    if (hideTimeout) clearTimeout(hideTimeout);
     
     showTimeout = window.setTimeout(async () => {
       isVisible = true;
@@ -104,7 +102,7 @@
   }
 
   function hide() {
-    clearTimeout(showTimeout);
+    if (showTimeout) clearTimeout(showTimeout);
     
     hideTimeout = window.setTimeout(() => {
       isVisible = false;
@@ -151,8 +149,8 @@
 
   // Clean up timeouts and portal
   function cleanup() {
-    clearTimeout(showTimeout);
-    clearTimeout(hideTimeout);
+    if (showTimeout) clearTimeout(showTimeout);
+    if (hideTimeout) clearTimeout(hideTimeout);
     if (portalTarget && portalTarget.parentNode) {
       portalTarget.parentNode.removeChild(portalTarget);
     }
@@ -164,9 +162,8 @@
 
 <!-- Target element wrapper -->
 <span
-  class="tooltip-target inline-block"
-  role="button"
-  tabindex="0"
+  class="tooltip-target"
+  role="presentation"
   on:mouseenter={handleMouseEnter}
   on:mouseleave={handleMouseLeave}
   on:focus={handleFocus}
@@ -190,7 +187,7 @@
     aria-hidden="false"
   >
     <div class="tooltip-content">
-      {#if typeof content === 'string'}
+      {#if allowHTML && typeof content === 'string'}
         {@html content}
       {:else}
         {content}
@@ -204,7 +201,7 @@
 
 <style>
   .tooltip-target {
-    display: contents;
+    display: inline-block;
   }
 
   .tooltip-popup {

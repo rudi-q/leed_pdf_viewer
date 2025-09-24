@@ -204,7 +204,7 @@
       <!-- Left section: Logo, Folder, Page Navigation, Zoom Controls, Reset/Fit (Desktop) -->
       <div class="flex items-center space-x-2">
         <!-- Logo -->
-        <Tooltip content="Go to homepage" position="bottom">
+        <Tooltip content="Go to homepage">
           <button
             class="flex items-center hover:opacity-80 transition-opacity cursor-pointer w-11 h-11 lg:w-8 lg:h-8 justify-center"
             on:click={handleLogoClick}
@@ -218,7 +218,7 @@
         
         <!-- Desktop: Folder icon -->
         <div class="hidden lg:block">
-        <Tooltip content="Upload PDF (Ctrl+O)">
+        <Tooltip content="Upload PDF (Ctrl+O)" allowHTML={false}>
             <button
               class="tool-button w-8 h-8 flex items-center justify-center"
               on:click={handleFileSelect}
@@ -258,7 +258,7 @@
 
         <!-- Desktop: Zoom Controls -->
         <div class="hidden lg:flex items-center space-x-2">
-          <Tooltip content="Zoom out <span style='opacity: 0.8'>(Ctrl+-)</span>" position="bottom">
+          <Tooltip content="Zoom out (Ctrl+-)">
             <button
               class="tool-button w-8 h-8 flex items-center justify-center"
               on:click={onZoomOut}
@@ -268,7 +268,7 @@
             </button>
           </Tooltip>
 
-          <Tooltip content="Zoom in <span style='opacity: 0.8'>(Ctrl++)</span>" position="bottom">
+          <Tooltip content="Zoom in (Ctrl++)">
             <button
               class="tool-button w-8 h-8 flex items-center justify-center"
               on:click={onZoomIn}
@@ -281,7 +281,7 @@
 
         <!-- Desktop: Reset and Fit Controls -->
         <div class="hidden lg:flex items-center space-x-2">
-          <Tooltip content="Reset zoom to 120% <span style='opacity: 0.8'>(Ctrl+0)</span>" position="bottom">
+          <Tooltip content="Reset zoom to 120% (Ctrl+0)">
             <button
               class="tool-button w-8 h-8 flex items-center justify-center text-xs px-1"
               on:click={onResetZoom}
@@ -291,7 +291,7 @@
             </button>
           </Tooltip>
 
-          <Tooltip content="Fit to width <span style='opacity: 0.8'>(W)</span>" position="bottom">
+          <Tooltip content="Fit to width (W)">
             <button
               class="tool-button h-8 w-auto flex items-center justify-center text-xs px-2"
               on:click={onFitToWidth}
@@ -301,7 +301,7 @@
             </button>
           </Tooltip>
 
-          <Tooltip content="Fit to height <span style='opacity: 0.8'>(H)</span>" position="bottom">
+          <Tooltip content="Fit to height (H)">
             <button
               class="tool-button h-8 w-auto flex items-center justify-center text-xs px-2"
               on:click={onFitToHeight}
@@ -315,7 +315,7 @@
 
       <!-- Center section: Drawing tools (hidden on small screens) -->
       <div class="hidden lg:flex items-center space-x-2" class:opacity-50={viewOnlyMode}>
-        <Tooltip content={viewOnlyMode ? 'Drawing disabled in view-only mode' : 'Pencil <span style="opacity: 0.8">(1)</span>'} position="bottom">
+        <Tooltip content={viewOnlyMode ? 'Drawing disabled in view-only mode' : 'Pencil (1)'} allowHTML={false}>
           <button
             class="tool-button w-8 h-8 flex items-center justify-center"
             class:active={$drawingState.tool === 'pencil'}
@@ -327,7 +327,7 @@
           </button>
         </Tooltip>
 
-        <Tooltip content={viewOnlyMode ? 'Eraser disabled in view-only mode' : 'Eraser <span style="opacity: 0.8">(2)</span>'} position="bottom">
+        <Tooltip content={viewOnlyMode ? 'Eraser disabled in view-only mode' : 'Eraser (2)'} allowHTML={false}>
           <button
             class="tool-button w-8 h-8 flex items-center justify-center"
             class:active={$drawingState.tool === 'eraser'}
@@ -339,7 +339,7 @@
           </button>
         </Tooltip>
 
-        <Tooltip content={viewOnlyMode ? 'Text tool disabled in view-only mode' : 'Text <span style="opacity: 0.8">(3)</span>'} position="bottom">
+        <Tooltip content={viewOnlyMode ? 'Text tool disabled in view-only mode' : 'Text (3)'} allowHTML={false}>
           <button
             class="tool-button w-8 h-8 flex items-center justify-center"
             class:active={$drawingState.tool === 'text'}
@@ -351,7 +351,7 @@
           </button>
         </Tooltip>
 
-        <Tooltip content={viewOnlyMode ? 'Arrow tool disabled in view-only mode' : 'Arrow <span style="opacity: 0.8">(4)</span>'} position="bottom">
+        <Tooltip content={viewOnlyMode ? 'Arrow tool disabled in view-only mode' : 'Arrow (4)'} allowHTML={false}>
           <button
             class="tool-button w-8 h-8 flex items-center justify-center"
             class:active={$drawingState.tool === 'arrow'}
@@ -363,7 +363,7 @@
           </button>
         </Tooltip>
 
-        <Tooltip content={viewOnlyMode ? 'Highlighter disabled in view-only mode' : 'Highlighter <span style="opacity: 0.8">(5)</span>'} position="bottom">
+        <Tooltip content={viewOnlyMode ? 'Highlighter disabled in view-only mode' : 'Highlighter (5)'} allowHTML={false}>
           <button
             class="tool-button w-8 h-8 flex items-center justify-center"
             class:active={$drawingState.tool === 'highlight'}
@@ -375,7 +375,7 @@
           </button>
         </Tooltip>
 
-        <Tooltip content={viewOnlyMode ? 'Sticky note disabled in view-only mode' : 'Sticky Note <span style="opacity: 0.8">(6)</span>'} position="bottom">
+        <Tooltip content={viewOnlyMode ? 'Sticky note disabled in view-only mode' : 'Sticky Note (6)'} allowHTML={false}>
           <button
             class="tool-button w-8 h-8 flex items-center justify-center"
             class:active={$drawingState.tool === 'note'}
@@ -391,7 +391,7 @@
 
         <!-- Stamp tool with palette -->
         <div class="relative stamp-palette-container">
-          <Tooltip content={viewOnlyMode ? 'Stamps disabled in view-only mode' : 'Stamps/Stickers <span style="opacity: 0.8">(S)</span>'} position="bottom">
+          <Tooltip content={viewOnlyMode ? 'Stamps disabled in view-only mode' : 'Stamps/Stickers (S)'} allowHTML={false}>
             <button
               class="tool-button w-8 h-8 flex items-center justify-center"
               class:active={$drawingState.tool === 'stamp'}
@@ -417,7 +417,7 @@
         <div class="h-4 w-px bg-charcoal/20"></div>
 
         <!-- Page Thumbnails Toggle -->
-        <Tooltip content="Page Thumbnails <span style='opacity: 0.8'>(T)</span>" position="bottom">
+        <Tooltip content="Page Thumbnails (T)">
           <button
             class="tool-button w-8 h-8 flex items-center justify-center"
             class:active={showThumbnails}
@@ -432,7 +432,7 @@
 
         <!-- Color picker -->
         <div class="relative color-palette-container">
-          <Tooltip content="Drawing color" position="bottom">
+          <Tooltip content="Drawing color">
             <button
               class="tool-button w-11 h-11 lg:w-8 lg:h-8 p-1"
               on:click={() => showColorPalette = !showColorPalette}
@@ -479,7 +479,7 @@
 
         <!-- Line width picker -->
         <div class="relative line-width-container">
-          <Tooltip content="Brush size" position="bottom">
+          <Tooltip content="Brush size">
             <button
               class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
               on:click={() => showLineWidthPicker = !showLineWidthPicker}
@@ -525,7 +525,7 @@
         <!-- Eraser size picker -->
         {#if $drawingState.tool === 'eraser'}
           <div class="relative eraser-size-container">
-            <Tooltip content="Eraser size" position="bottom">
+            <Tooltip content="Eraser size">
               <button
                 class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
                 on:click={() => showEraserSizePicker = !showEraserSizePicker}
@@ -574,7 +574,7 @@
       <div class="flex items-center space-x-2">
         <!-- Undo, Redo, Search, Download - Always visible -->
         <div class="flex items-center space-x-2">
-          <Tooltip content={viewOnlyMode ? 'Undo disabled in view-only mode' : 'Undo <span style="opacity: 0.8">(Ctrl+Z)</span>'} position="bottom">
+          <Tooltip content={viewOnlyMode ? 'Undo disabled in view-only mode' : 'Undo (Ctrl+Z)'}>
             <button
               class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
               class:opacity-50={$undoStack.length === 0 || viewOnlyMode}
@@ -586,7 +586,7 @@
             </button>
           </Tooltip>
 
-          <Tooltip content={viewOnlyMode ? 'Redo disabled in view-only mode' : 'Redo <span style="opacity: 0.8">(Ctrl+Y)</span>'} position="bottom">
+          <Tooltip content={viewOnlyMode ? 'Redo disabled in view-only mode' : 'Redo (Ctrl+Y)'}>
             <button
               class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
               class:opacity-50={$redoStack.length === 0 || viewOnlyMode}
@@ -598,7 +598,7 @@
             </button>
           </Tooltip>
 
-          <Tooltip content="Search PDF documents" position="bottom">
+          <Tooltip content="Search PDF documents">
             <button
               class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center group"
               on:click={handleSearchLinkClick}
@@ -609,7 +609,7 @@
           </Tooltip>
 
           <!-- Delete changes (trash icon) -->
-          <Tooltip content={viewOnlyMode ? 'Clear disabled in view-only mode' : 'Delete all changes'} position="bottom">
+          <Tooltip content={viewOnlyMode ? 'Clear disabled in view-only mode' : 'Delete all changes'}>
             <button
               class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
               class:opacity-50={!$pdfState.document || viewOnlyMode}
@@ -623,7 +623,7 @@
 
           <!-- Share Button (if not in shared view) -->
           {#if onSharePDF && !isSharedView}
-            <Tooltip content="Share PDF with link" position="bottom">
+            <Tooltip content="Share PDF with link">
               <button
                 class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                 class:opacity-50={!$pdfState.document}
@@ -639,7 +639,7 @@
           <!-- Export Menu -->
           {#if allowDownloading}
             <div class="relative export-menu-container">
-              <Tooltip content="Export options" position="bottom">
+              <Tooltip content="Export options">
                 <button
                   class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-sage hover:bg-sage/10"
                   class:opacity-50={!$pdfState.document}
@@ -705,7 +705,7 @@
           </div>
 
           <!-- Light/Dark mode toggle -->
-          <Tooltip content="Toggle light/dark mode" position="bottom">
+          <Tooltip content="Toggle light/dark mode">
             <button
               class="tool-button w-8 h-8 flex items-center justify-center"
               on:click={toggleTheme}
@@ -731,7 +731,7 @@
           </div>
 
           <!-- Light/Dark mode toggle -->
-          <Tooltip content="Toggle light/dark mode" position="bottom">
+          <Tooltip content="Toggle light/dark mode">
             <button
               class="tool-button w-11 h-11 items-center justify-center"
               on:click={toggleTheme}
@@ -748,7 +748,7 @@
 
         <!-- More menu (3-dot icon) for mobile -->
         <div class="relative lg:hidden">
-          <Tooltip content="More options" position="bottom">
+          <Tooltip content="More options">
             <button
               class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
               on:click={() => showMoreMenu = !showMoreMenu}
