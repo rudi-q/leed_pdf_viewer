@@ -218,7 +218,7 @@
         
         <!-- Desktop: Folder icon -->
         <div class="hidden lg:block">
-        <Tooltip content="Upload PDF (U)" allowHTML={false}>
+        <Tooltip content="Upload PDF (U)">
             <button
               class="tool-button w-8 h-8 flex items-center justify-center"
               on:click={handleFileSelect}
@@ -315,7 +315,7 @@
 
       <!-- Center section: Drawing tools (hidden on small screens) -->
       <div class="hidden lg:flex items-center space-x-2" class:opacity-50={viewOnlyMode}>
-        <Tooltip content={viewOnlyMode ? 'Drawing disabled in view-only mode' : 'Pencil (1)'} allowHTML={false}>
+        <Tooltip content={viewOnlyMode ? 'Drawing disabled in view-only mode' : 'Pencil (1)'}>
           <button
             class="tool-button w-8 h-8 flex items-center justify-center"
             class:active={$drawingState.tool === 'pencil'}
@@ -327,7 +327,7 @@
           </button>
         </Tooltip>
 
-        <Tooltip content={viewOnlyMode ? 'Eraser disabled in view-only mode' : 'Eraser (2)'} allowHTML={false}>
+        <Tooltip content={viewOnlyMode ? 'Eraser disabled in view-only mode' : 'Eraser (2)'}>
           <button
             class="tool-button w-8 h-8 flex items-center justify-center"
             class:active={$drawingState.tool === 'eraser'}
@@ -339,7 +339,7 @@
           </button>
         </Tooltip>
 
-        <Tooltip content={viewOnlyMode ? 'Text tool disabled in view-only mode' : 'Text (3)'} allowHTML={false}>
+        <Tooltip content={viewOnlyMode ? 'Text tool disabled in view-only mode' : 'Text (3)'}>
           <button
             class="tool-button w-8 h-8 flex items-center justify-center"
             class:active={$drawingState.tool === 'text'}
@@ -351,7 +351,7 @@
           </button>
         </Tooltip>
 
-        <Tooltip content={viewOnlyMode ? 'Arrow tool disabled in view-only mode' : 'Arrow (4)'} allowHTML={false}>
+        <Tooltip content={viewOnlyMode ? 'Arrow tool disabled in view-only mode' : 'Arrow (4)'}>
           <button
             class="tool-button w-8 h-8 flex items-center justify-center"
             class:active={$drawingState.tool === 'arrow'}
@@ -363,7 +363,7 @@
           </button>
         </Tooltip>
 
-        <Tooltip content={viewOnlyMode ? 'Highlighter disabled in view-only mode' : 'Highlighter (5)'} allowHTML={false}>
+        <Tooltip content={viewOnlyMode ? 'Highlighter disabled in view-only mode' : 'Highlighter (5)'}>
           <button
             class="tool-button w-8 h-8 flex items-center justify-center"
             class:active={$drawingState.tool === 'highlight'}
@@ -375,7 +375,7 @@
           </button>
         </Tooltip>
 
-        <Tooltip content={viewOnlyMode ? 'Sticky note disabled in view-only mode' : 'Sticky Note (6)'} allowHTML={false}>
+        <Tooltip content={viewOnlyMode ? 'Sticky note disabled in view-only mode' : 'Sticky Note (6)'}>
           <button
             class="tool-button w-8 h-8 flex items-center justify-center"
             class:active={$drawingState.tool === 'note'}
@@ -391,7 +391,7 @@
 
         <!-- Stamp tool with palette -->
         <div class="relative stamp-palette-container">
-          <Tooltip content={viewOnlyMode ? 'Stamps disabled in view-only mode' : 'Stamps/Stickers (S)'} allowHTML={false}>
+          <Tooltip content={viewOnlyMode ? 'Stamps disabled in view-only mode' : 'Stamps/Stickers (S)'}>
             <button
               class="tool-button w-8 h-8 flex items-center justify-center"
               class:active={$drawingState.tool === 'stamp'}

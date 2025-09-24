@@ -4,7 +4,6 @@
   export let position: 'top' | 'bottom' = 'top'; // 'top' means tooltip appears below the button
   export let delay = 500;
   export let disabled = false;
-  export let allowHTML = false; // Whether to allow HTML content (use with caution)
 
   // State
   let isVisible = false;
@@ -84,11 +83,7 @@
   <!-- Tooltip -->
   {#if isVisible}
     <div bind:this={tooltipElement} class="tooltip" class:tooltip-top={position === 'top'}>
-      {#if allowHTML}
-        {@html content}
-      {:else}
-        {content}
-      {/if}
+      {content}
     </div>
   {/if}
 </div>
