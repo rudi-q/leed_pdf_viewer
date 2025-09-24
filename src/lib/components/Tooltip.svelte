@@ -104,9 +104,10 @@
     transform: translateX(-50%);
     margin-bottom: 8px;
     z-index: 9999;
-    background: rgba(37, 37, 37, 0.95);
-    color: rgba(255, 255, 255, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    /* Light mode: white tooltip with dark text */
+    background: rgba(255, 255, 255, 0.95);
+    color: rgba(37, 37, 37, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 8px;
     padding: 8px 12px;
     font-size: 13px;
@@ -115,7 +116,7 @@
     white-space: nowrap;
     pointer-events: none;
     user-select: none;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24), 0 2px 8px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.08);
     backdrop-filter: blur(12px);
     animation: tooltipFadeIn 0.15s ease-out forwards;
   }
@@ -165,9 +166,11 @@
     }
   }
 
-  /* Dark mode */
+  /* Dark mode: dark tooltip with light text */
   :global(.dark) .tooltip {
     background: rgba(17, 24, 39, 0.95);
-    border-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2);
   }
 </style>
