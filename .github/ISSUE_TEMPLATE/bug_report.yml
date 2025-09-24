@@ -1,0 +1,164 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior in LeedPDF
+title: "[Bug]: "
+labels: ["bug", "triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report! 🙏
+        
+        Before submitting, please:
+        - Search existing issues to see if this has been reported
+        - Try the latest version at [leed.my](https://leed.my)
+        - Check if this happens in different browsers
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of what the bug is
+      placeholder: Describe what went wrong...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      description: A clear description of what you expected to happen
+      placeholder: Describe what you expected...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Please provide detailed steps to reproduce this issue
+      placeholder: |
+        1. Go to...
+        2. Click on...
+        3. Upload PDF...
+        4. See error...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Where are you experiencing this issue?
+      options:
+        - Web App (leed.my)
+        - Desktop App (Windows)
+        - Desktop App (macOS)
+        - Local Development
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser (if using web app)
+      description: Which browser are you using?
+      options:
+        - Chrome
+        - Firefox
+        - Safari
+        - Edge
+        - Other (please specify in additional context)
+        - Not applicable (desktop app)
+    validations:
+      required: true
+
+  - type: input
+    id: browser-version
+    attributes:
+      label: Browser/App Version
+      description: What version of your browser or the desktop app are you using?
+      placeholder: e.g., Chrome 118, Firefox 119, Desktop App 1.2.3
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device Type
+      description: What type of device are you using?
+      options:
+        - Desktop/Laptop
+        - Tablet
+        - Mobile Phone
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating System
+      description: Which OS are you using?
+      placeholder: e.g., Windows 11, macOS 14, Ubuntu 22.04, iOS 17, Android 13
+
+  - type: dropdown
+    id: pdf-source
+    attributes:
+      label: PDF Source
+      description: How was the PDF loaded?
+      options:
+        - Local file upload
+        - URL/Link
+        - Drag and drop
+        - Search feature
+        - Other
+
+  - type: input
+    id: pdf-details
+    attributes:
+      label: PDF Details (if relevant)
+      description: File size, number of pages, any special characteristics
+      placeholder: e.g., 50 pages, 10MB, contains forms/interactive elements
+
+  - type: dropdown
+    id: annotation-type
+    attributes:
+      label: Annotation Type (if relevant)
+      description: What type of annotation were you trying to use?
+      options:
+        - Drawing/Pencil
+        - Highlighter
+        - Text annotation
+        - Sticky notes
+        - Shapes (rectangle, circle, etc.)
+        - Eraser
+        - Not relevant
+        - Other
+
+  - type: textarea
+    id: console-errors
+    attributes:
+      label: Console Errors
+      description: |
+        If you're comfortable with it, please check the browser console (F12) for any error messages.
+        Copy and paste any red error messages here.
+      placeholder: Paste console errors here (if any)...
+      render: text
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: |
+        Add any other context about the problem here. Screenshots are very helpful!
+        
+        You can drag and drop images directly into this text box.
+      placeholder: Any additional information, screenshots, or context...
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our Code of Conduct
+      options:
+        - label: I have read and agree to follow the [Code of Conduct](https://github.com/rudi-q/leed_pdf_viewer/blob/main/CODE_OF_CONDUCT.md)
+          required: true

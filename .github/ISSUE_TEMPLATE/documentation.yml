@@ -1,0 +1,158 @@
+name: 📖 Documentation Issue
+description: Report missing, incorrect, or unclear documentation
+title: "[Docs]: "
+labels: ["documentation"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve LeedPDF's documentation! 📚
+        
+        Good documentation helps everyone use and contribute to the project more effectively.
+
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Documentation Issue Type
+      description: What type of documentation issue is this?
+      options:
+        - Missing documentation
+        - Incorrect/outdated information
+        - Unclear or confusing content
+        - Broken links
+        - Typo or grammar error
+        - Missing examples or tutorials
+        - API/code documentation
+        - Translation issue
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: documentation-location
+    attributes:
+      label: Documentation Location
+      description: Where is this documentation located?
+      options:
+        - README.md
+        - CONTRIBUTING.md
+        - CODE_OF_CONDUCT.md
+        - SECURITY.md
+        - docs/ folder
+        - Code comments/inline documentation
+        - GitHub Wiki
+        - Issue/PR templates
+        - Website (leed.my)
+        - Other/Multiple locations
+    validations:
+      required: true
+
+  - type: input
+    id: file-path
+    attributes:
+      label: Specific File Path
+      description: If applicable, provide the specific file path or URL
+      placeholder: e.g., docs/RESPONSIVE_TOOLBAR.md, README.md line 150
+
+  - type: textarea
+    id: current-content
+    attributes:
+      label: Current Content (if applicable)
+      description: Copy and paste the current problematic content
+      placeholder: Paste the current text that needs to be fixed...
+      render: markdown
+
+  - type: textarea
+    id: issue-description
+    attributes:
+      label: Issue Description
+      description: Describe what's wrong or missing with the current documentation
+      placeholder: |
+        The current documentation is unclear because...
+        This section is missing information about...
+        The link is broken and leads to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-improvement
+    attributes:
+      label: Suggested Improvement
+      description: How would you improve or fix this documentation?
+      placeholder: |
+        I suggest adding...
+        This could be clarified by...
+        A better explanation would be...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: user-type
+    attributes:
+      label: User Perspective
+      description: From which user's perspective is this documentation issue?
+      options:
+        - New user trying to get started
+        - Developer wanting to contribute
+        - Advanced user looking for specific features
+        - Accessibility user needing guidance
+        - Mobile/touch user
+        - Desktop app user
+        - API/integration developer
+        - Other
+
+  - type: textarea
+    id: examples-references
+    attributes:
+      label: Examples or References
+      description: |
+        Provide examples of good documentation from other projects or specific content you'd like to see
+        
+        You can drag and drop images or screenshots if helpful.
+      placeholder: |
+        Good examples of this type of documentation:
+        - Project X does this well by...
+        - I'd like to see examples like...
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is fixing this documentation issue?
+      options:
+        - Low - Minor improvement
+        - Medium - Affects user experience
+        - High - Blocks understanding/adoption
+        - Critical - Incorrect information causing problems
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution-offer
+    attributes:
+      label: Contribution
+      description: Are you willing to help fix this documentation issue?
+      options:
+        - label: I'd be willing to submit a PR to fix this
+        - label: I can help review proposed changes
+        - label: I can help with additional examples/screenshots
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other relevant information about this documentation issue
+      placeholder: |
+        Related issues or PRs:
+        Impact on users:
+        Additional considerations:
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our Code of Conduct
+      options:
+        - label: I have read and agree to follow the [Code of Conduct](https://github.com/rudi-q/leed_pdf_viewer/blob/main/CODE_OF_CONDUCT.md)
+          required: true

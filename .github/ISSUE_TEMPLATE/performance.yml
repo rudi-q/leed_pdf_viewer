@@ -1,0 +1,271 @@
+name: ⚡ Performance Issue
+description: Report performance problems or slow behavior in LeedPDF
+title: "[Performance]: "
+labels: ["performance", "bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve LeedPDF's performance! ⚡
+        
+        Performance issues can significantly impact user experience. Your detailed report helps us identify and fix bottlenecks.
+        
+        **Before submitting:**
+        - Test with the latest version at [leed.my](https://leed.my)
+        - Try different browsers/devices if possible
+        - Close other applications that might affect performance
+
+  - type: dropdown
+    id: performance-type
+    attributes:
+      label: Performance Issue Type
+      description: What type of performance issue are you experiencing?
+      options:
+        - Slow PDF loading/rendering
+        - Laggy drawing/annotation
+        - Memory usage/leaks
+        - High CPU usage
+        - Slow page navigation
+        - Zoom performance issues
+        - Touch/stylus responsiveness
+        - File upload/processing slow
+        - Application startup slow
+        - UI freezing/unresponsive
+        - Battery drain (mobile)
+        - Network/download issues
+        - Other performance problem
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue-description
+    attributes:
+      label: Issue Description
+      description: Describe the performance problem you're experiencing
+      placeholder: |
+        Describe what's happening:
+        - What action triggers the performance issue?
+        - How long does it take vs. how long you'd expect?
+        - Does it get worse over time?
+        - Is it consistent or intermittent?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Provide detailed steps to reproduce this performance issue
+      placeholder: |
+        1. Open PDF with [size/characteristics]...
+        2. Perform action...
+        3. Notice slow/laggy behavior when...
+        4. Timing observed: X seconds (expected: Y seconds)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Performance Impact
+      description: How severely does this performance issue affect your use of LeedPDF?
+      options:
+        - Critical - Application is unusable
+        - High - Significantly impacts productivity
+        - Medium - Noticeable but workable
+        - Low - Minor annoyance
+    validations:
+      required: true
+
+  - type: input
+    id: timing-details
+    attributes:
+      label: Timing Details
+      description: If you can measure it, how long does the slow operation take?
+      placeholder: e.g., PDF loads in 15 seconds, drawing has 2-3 second delay, page navigation takes 5 seconds
+
+  - type: textarea
+    id: pdf-characteristics
+    attributes:
+      label: PDF Characteristics
+      description: Details about the PDF file(s) where you experience performance issues
+      placeholder: |
+        PDF details:
+        - File size: (e.g., 50MB)
+        - Number of pages: (e.g., 200 pages)
+        - Type: (text, images, forms, scanned, etc.)
+        - Resolution/DPI: (if known)
+        - Special features: (interactive elements, layers, etc.)
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Where are you experiencing this performance issue?
+      options:
+        - Web App (leed.my)
+        - Desktop App (Windows)
+        - Desktop App (macOS)
+        - Local Development
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser (if web app)
+      description: Which browser are you using?
+      options:
+        - Chrome
+        - Firefox
+        - Safari
+        - Edge
+        - Other
+        - Not applicable (desktop app)
+
+  - type: input
+    id: browser-version
+    attributes:
+      label: Browser/App Version
+      description: What version are you using?
+      placeholder: e.g., Chrome 118, Firefox 119, Desktop App 1.2.3
+
+  - type: dropdown
+    id: device-type
+    attributes:
+      label: Device Type
+      description: What type of device are you using?
+      options:
+        - High-end Desktop/Laptop
+        - Mid-range Desktop/Laptop
+        - Low-end/Older Desktop/Laptop
+        - High-end Tablet
+        - Mid-range Tablet
+        - Low-end Tablet
+        - High-end Mobile Phone
+        - Mid-range Mobile Phone
+        - Low-end Mobile Phone
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: device-specs
+    attributes:
+      label: Device Specifications
+      description: Provide details about your device hardware
+      placeholder: |
+        Hardware specs:
+        - CPU: (e.g., Intel i7, Apple M2, Snapdragon 8 Gen 2)
+        - RAM: (e.g., 16GB)
+        - Graphics: (e.g., integrated, dedicated GPU)
+        - Storage: (SSD/HDD)
+        - Screen resolution: (e.g., 1920x1080)
+
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating System
+      description: Which OS and version are you using?
+      placeholder: e.g., Windows 11, macOS 14, Ubuntu 22.04, iOS 17, Android 13
+
+  - type: dropdown
+    id: network-connection
+    attributes:
+      label: Network Connection
+      description: What type of internet connection are you using?
+      options:
+        - High-speed broadband (>100 Mbps)
+        - Standard broadband (10-100 Mbps)
+        - Slow broadband (<10 Mbps)
+        - Mobile data (4G/5G)
+        - Mobile data (3G)
+        - Offline/Local use
+        - Other/Unknown
+
+  - type: textarea
+    id: performance-tools
+    attributes:
+      label: Performance Measurements
+      description: |
+        If you used browser dev tools or other performance monitoring, please share the results
+        
+        You can drag and drop screenshots of performance profiles, network tabs, etc.
+      placeholder: |
+        Performance data (if available):
+        - Browser dev tools measurements
+        - Memory usage statistics
+        - CPU usage observations
+        - Network timing
+        - Console performance warnings
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Performance
+      description: What would you consider acceptable performance for this operation?
+      placeholder: |
+        Expected performance:
+        - PDF should load in under X seconds
+        - Drawing should be responsive with no delay
+        - Memory usage should stay under X MB
+        - Animation should be smooth at 60fps
+
+  - type: textarea
+    id: workarounds
+    attributes:
+      label: Workarounds Found
+      description: Have you found any ways to improve the performance?
+      placeholder: |
+        Things that help:
+        - Closing other browser tabs
+        - Using smaller PDF files
+        - Disabling certain features
+        - Using different browser/device
+
+  - type: textarea
+    id: comparison
+    attributes:
+      label: Performance Comparison
+      description: How does performance compare across different scenarios?
+      placeholder: |
+        Performance comparison:
+        - Different browsers: Chrome vs Firefox vs Safari
+        - Different file sizes: small vs large PDFs
+        - Different times: first load vs subsequent loads
+        - Different features: basic viewing vs annotations
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: |
+        Any other information that might help diagnose this performance issue
+        
+        Screenshots, recordings, or performance profiler outputs are very helpful!
+      placeholder: |
+        Additional information:
+        - Error messages in console
+        - Patterns you've noticed
+        - Related performance issues
+        - Impact on other applications
+
+  - type: checkboxes
+    id: testing-offer
+    attributes:
+      label: Testing Assistance
+      description: Can you help test performance improvements?
+      options:
+        - label: I can test performance fixes on my device
+        - label: I can provide additional performance measurements
+        - label: I can test with different PDF files
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our Code of Conduct
+      options:
+        - label: I have read and agree to follow the [Code of Conduct](https://github.com/rudi-q/leed_pdf_viewer/blob/main/CODE_OF_CONDUCT.md)
+          required: true

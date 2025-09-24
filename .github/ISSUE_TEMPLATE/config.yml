@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Ask a Question
+    url: https://github.com/rudi-q/leed_pdf_viewer/discussions/categories/q-a
+    about: Ask questions and get help from the community
+  - name: 💡 Feature Ideas & Discussion
+    url: https://github.com/rudi-q/leed_pdf_viewer/discussions/categories/ideas
+    about: Share and discuss new ideas for LeedPDF
+  - name: 💚 Share Your Feedback
+    url: https://github.com/rudi-q/leed_pdf_viewer/discussions/categories/wall-of-love
+    about: Tell us what you love about LeedPDF
+  - name: 🛡️ Security Issues
+    url: https://github.com/rudi-q/leed_pdf_viewer/security/advisories/new
+    about: Report security vulnerabilities privately

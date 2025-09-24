@@ -1,0 +1,184 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for LeedPDF
+title: "[Feature]: "
+labels: ["enhancement", "feature-request"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! 🚀
+        
+        Before submitting:
+        - Check if this feature already exists in the latest version
+        - Search existing issues and discussions to avoid duplicates
+        - Consider discussing your idea in [GitHub Discussions](https://github.com/rudi-q/leed_pdf_viewer/discussions/categories/ideas) first
+
+  - type: textarea
+    id: feature-description
+    attributes:
+      label: Feature Description
+      description: A clear and concise description of the feature you'd like to see
+      placeholder: Describe the feature you want...
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: Problem Statement
+      description: What problem would this feature solve? What's the current limitation?
+      placeholder: |
+        I'm always frustrated when...
+        Currently, there's no way to...
+        It would be helpful if...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe how you envision this feature working
+      placeholder: |
+        I think it would work like this...
+        The user could...
+        It should behave similar to...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: feature-category
+    attributes:
+      label: Feature Category
+      description: Which area of LeedPDF does this feature relate to?
+      options:
+        - PDF Rendering & Display
+        - Drawing & Annotation Tools
+        - User Interface & UX
+        - File Management & Import/Export
+        - Search & Discovery
+        - Performance & Optimization
+        - Accessibility
+        - Mobile/Touch Experience
+        - Desktop App Features
+        - Collaboration & Sharing
+        - Settings & Preferences
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority Level
+      description: How important is this feature to you?
+      options:
+        - Low - Nice to have
+        - Medium - Would improve my workflow
+        - High - Essential for my use case
+        - Critical - Blocking my adoption
+    validations:
+      required: true
+
+  - type: dropdown
+    id: user-type
+    attributes:
+      label: User Type
+      description: Which best describes your primary use case?
+      options:
+        - Student
+        - Professional/Business User
+        - Researcher/Academic
+        - Developer/Technical User
+        - Accessibility User
+        - Casual/Personal Use
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: Use Cases
+      description: Provide specific examples of how you (and others) would use this feature
+      placeholder: |
+        Example scenarios:
+        1. When reviewing documents for work...
+        2. While studying, I often need to...
+        3. For team collaboration...
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any alternative solutions or workarounds?
+      placeholder: |
+        I've tried...
+        Another approach could be...
+        Similar tools do this by...
+
+  - type: dropdown
+    id: implementation-difficulty
+    attributes:
+      label: Implementation Complexity (Your Guess)
+      description: How complex do you think this feature would be to implement?
+      options:
+        - Simple - Small UI change or setting
+        - Moderate - New tool or significant UI update
+        - Complex - Major functionality or architectural change
+        - Unknown - Not sure about technical complexity
+
+  - type: textarea
+    id: mockups-references
+    attributes:
+      label: Mockups, Screenshots, or References
+      description: |
+        Include any visual examples, mockups, or references to similar features in other tools
+        
+        You can drag and drop images directly into this text box.
+      placeholder: Attach mockups, screenshots, or describe visual references...
+
+  - type: checkboxes
+    id: platform-support
+    attributes:
+      label: Platform Support
+      description: Which platforms should this feature support?
+      options:
+        - label: Web App (all browsers)
+        - label: Desktop App (Windows)
+        - label: Desktop App (macOS)
+        - label: Mobile/Tablet browsers
+        - label: All platforms
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other information that might be helpful for implementing this feature
+      placeholder: |
+        Additional considerations:
+        - Integration with existing features
+        - Potential edge cases
+        - Performance implications
+        - Related features that might be needed
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Are you interested in contributing to this feature?
+      options:
+        - label: I'd be willing to help with design/mockups
+        - label: I'd be willing to help with implementation
+        - label: I'd be willing to help with testing
+        - label: I'd be willing to help with documentation
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our Code of Conduct
+      options:
+        - label: I have read and agree to follow the [Code of Conduct](https://github.com/rudi-q/leed_pdf_viewer/blob/main/CODE_OF_CONDUCT.md)
+          required: true
