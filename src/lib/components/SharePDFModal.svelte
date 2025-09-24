@@ -127,7 +127,7 @@ import { trackPdfShare } from '$lib/utils/analytics';
         };
         
         // Track successful PDF sharing
-        trackPdfShare('link', shareResult.shareUrl);
+        trackPdfShare('link');
         
         if (shareResult.shareUrl && shareResult.shareId) {
           dispatch('shared', { shareUrl: shareResult.shareUrl, shareId: shareResult.shareId });
@@ -162,7 +162,7 @@ import { trackPdfShare } from '$lib/utils/analytics';
     if (!shareResult?.shareUrl) return;
     
     // Track email sharing
-    trackPdfShare('email', shareResult.shareUrl);
+    trackPdfShare('email');
     
     const subject = encodeURIComponent(`Shared PDF: ${editableFileName}.lpdf`);
     const body = encodeURIComponent(`I've shared a PDF with you via LeedPDF:\n\n${shareResult.shareUrl}\n\nPowered by LeedPDF - https://leed.my`);
@@ -173,7 +173,7 @@ import { trackPdfShare } from '$lib/utils/analytics';
     if (!shareResult?.shareUrl) return;
     
     // Track WhatsApp sharing
-    trackPdfShare('whatsapp', shareResult.shareUrl);
+    trackPdfShare('whatsapp');
     
     const text = encodeURIComponent(`I'm sharing the ${editableFileName} doc with you so you can take a look.\n\nHere: ${shareResult.shareUrl}`);
     window.open(`https://wa.me/?text=${text}`, '_blank');
@@ -183,7 +183,7 @@ import { trackPdfShare } from '$lib/utils/analytics';
     if (!shareResult?.shareUrl) return;
     
     // Track Twitter sharing
-    trackPdfShare('twitter', shareResult.shareUrl);
+    trackPdfShare('twitter');
     
     const text = encodeURIComponent(`Check out this PDF: ${shareResult.shareUrl} #PDF #LeedPDF`);
     window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');

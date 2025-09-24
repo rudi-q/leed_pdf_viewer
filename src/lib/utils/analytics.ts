@@ -76,14 +76,21 @@ export const startSession = (): void => {
 		sessionStartTime = Date.now();
 		lastActivityTime = sessionStartTime;
 		
-		// Check if this is a returning user
-		const isReturningUser = localStorage.getItem('leedpdf_visited') === 'true';
-		
-		if (!isReturningUser) {
-			localStorage.setItem('leedpdf_visited', 'true');
-			trackEvent('first_visit');
-		} else {
-			trackEvent('return_user');
+		// Check if this is a returning user (with localStorage safety)
+		let isReturningUser = false;
+		try {
+			isReturningUser = localStorage.getItem('leedpdf_visited') === 'true';
+			
+			if (!isReturningUser) {
+				localStorage.setItem('leedpdf_visited', 'true');
+				trackEvent('first_visit');
+			} else {
+				trackEvent('return_user');
+			}
+		} catch (error) {
+			// localStorage unavailable (private mode, etc.) - treat as first visit
+			console.debug('Analytics: localStorage unavailable for visit tracking:', error);
+			trackEvent('first_visit', { note: 'localStorage_unavailable' });
 		}
 		
 		// Track session start
@@ -166,16 +173,33 @@ export const trackToolSelection = (toolName: string, previousTool?: string): voi
  * Track first annotation creation
  */
 export const trackFirstAnnotation = (annotationType: string): void => {
-	// Check if this is the first annotation ever created
-	const hasCreatedAnnotation = localStorage.getItem('leedpdf_first_annotation_created') === 'true';
-	
-	if (!hasCreatedAnnotation) {
-		localStorage.setItem('leedpdf_first_annotation_created', 'true');
+	try {
+		// Check if this is the first annotation ever created
+		const hasCreatedAnnotation = localStorage.getItem('leedpdf_first_annotation_created') === 'true';
 		
-		trackEvent('first_annotation_created', {
-			annotation_type: annotationType,
-			first_annotation_time: new Date().toISOString()
-		});
+		if (!hasCreatedAnnotation) {
+			localStorage.setItem('leedpdf_first_annotation_created', 'true');
+			
+			trackEvent('first_annotation_created', {
+				annotation_type: annotationType,
+				first_annotation_time: new Date().toISOString()
+			});
+		}
+	} catch (error) {
+		// localStorage can fail in Safari private mode, incognito, or when storage is full
+		// Silently handle the error to prevent app crashes
+		console.debug('Analytics: localStorage unavailable for first annotation tracking:', error);
+		
+		// Still try to track the event without localStorage state
+		try {
+			trackEvent('first_annotation_created', {
+				annotation_type: annotationType,
+				first_annotation_time: new Date().toISOString(),
+				note: 'localStorage_unavailable'
+			});
+		} catch (trackingError) {
+			console.debug('Analytics: Failed to track first annotation:', trackingError);
+		}
 	}
 };
 
@@ -194,10 +218,9 @@ export const trackPdfExport = (exportFormat: string, pageCount?: number, fileSiz
 /**
  * Track PDF sharing
  */
-export const trackPdfShare = (shareMethod: string, shareUrl?: string): void => {
+export const trackPdfShare = (shareMethod: string): void => {
 	trackEvent('pdf_shared', {
 		share_method: shareMethod,
-		has_url: !!shareUrl,
 		share_time: new Date().toISOString()
 	});
 };
