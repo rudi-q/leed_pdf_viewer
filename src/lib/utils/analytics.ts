@@ -11,6 +11,9 @@ interface EventProperties {
 let sessionStartTime: number | null = null;
 let lastActivityTime: number = Date.now();
 
+// In-memory deduplication flags
+let firstAnnotationTracked = false;
+
 /**
  * Safe wrapper for PostHog event capture
  * Ensures analytics never crash the application
@@ -171,32 +174,51 @@ export const trackToolSelection = (toolName: string, previousTool?: string): voi
 
 /**
  * Track first annotation creation
+ * Uses dual-layer deduplication: in-memory flag + localStorage persistence
+ * Prevents double-counting across multiple overlay components
  */
 export const trackFirstAnnotation = (annotationType: string): void => {
+	// In-memory guard - prevents multiple calls in same session (bulletproof)
+	if (firstAnnotationTracked) {
+		console.debug('Analytics: First annotation already tracked in this session');
+		return;
+	}
+	
 	try {
-		// Check if this is the first annotation ever created
+		// Check persistent storage to handle across page reloads
 		const hasCreatedAnnotation = localStorage.getItem('leedpdf_first_annotation_created') === 'true';
 		
 		if (!hasCreatedAnnotation) {
+			// Set both flags before tracking (prevent race conditions)
+			firstAnnotationTracked = true;
 			localStorage.setItem('leedpdf_first_annotation_created', 'true');
 			
 			trackEvent('first_annotation_created', {
 				annotation_type: annotationType,
 				first_annotation_time: new Date().toISOString()
 			});
+			
+			console.log(`Analytics: First annotation tracked (${annotationType})`);
+		} else {
+			// Already tracked in previous session, just set in-memory flag
+			firstAnnotationTracked = true;
+			console.debug('Analytics: First annotation already tracked in previous session');
 		}
 	} catch (error) {
-		// localStorage can fail in Safari private mode, incognito, or when storage is full
-		// Silently handle the error to prevent app crashes
+		// localStorage unavailable (private mode, etc.)
 		console.debug('Analytics: localStorage unavailable for first annotation tracking:', error);
 		
-		// Still try to track the event without localStorage state
+		// Set in-memory flag to prevent multiple fallback events in same session
+		firstAnnotationTracked = true;
+		
+		// Track as fallback (only once per session due to in-memory flag)
 		try {
 			trackEvent('first_annotation_created', {
 				annotation_type: annotationType,
 				first_annotation_time: new Date().toISOString(),
 				note: 'localStorage_unavailable'
 			});
+			console.log(`Analytics: First annotation tracked as fallback (${annotationType})`);
 		} catch (trackingError) {
 			console.debug('Analytics: Failed to track first annotation:', trackingError);
 		}
