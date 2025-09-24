@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import Tooltip from './Tooltip.svelte';
 
 	export let position: 'fixed' | 'absolute' | 'relative' | 'static' = 'absolute';
   export let positionClasses: string = 'top-16';
@@ -17,14 +18,15 @@
   $: allClasses = [baseClasses, positionClass, positionClasses, dynamicLeftClass, additionalClasses].filter(Boolean).join(' ');
 </script>
 
-<button
-  class={allClasses}
-  on:click={goHome}
-  title="Go back to home"
-  aria-label="Go back to home"
->
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z"/>
-  </svg>
-  <span>Home</span>
-</button>
+<Tooltip content="Go back to home" position="top">
+  <button
+    class={allClasses}
+    on:click={goHome}
+    aria-label="Go back to home"
+  >
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z"/>
+    </svg>
+    <span>Home</span>
+  </button>
+</Tooltip>
