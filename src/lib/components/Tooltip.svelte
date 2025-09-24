@@ -76,6 +76,8 @@
   role="presentation"
   on:mouseenter={handleMouseEnter}
   on:mouseleave={handleMouseLeave}
+  on:focusin={show}
+  on:focusout={hide}
 >
   <slot />
   
