@@ -2,13 +2,65 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
-/* Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* Self-hosted Fonts */
+/* dancing-script-600 - latin */
+@font-face {
+  font-display: swap;
+  font-family: 'Dancing Script';
+  font-style: normal;
+  font-weight: 600;
+  src: url('/fonts/dancing-script-v29-latin-600.woff2') format('woff2');
+}
+
+/* inter-300 - latin */
+@font-face {
+  font-display: swap;
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300;
+  src: url('/fonts/inter-v20-latin-300.woff2') format('woff2');
+}
+
+/* inter-regular - latin */
+@font-face {
+  font-display: swap;
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/fonts/inter-v20-latin-regular.woff2') format('woff2');
+}
+
+/* inter-500 - latin */
+@font-face {
+  font-display: swap;
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  src: url('/fonts/inter-v20-latin-500.woff2') format('woff2');
+}
+
+/* inter-600 - latin */
+@font-face {
+  font-display: swap;
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  src: url('/fonts/inter-v20-latin-600.woff2') format('woff2');
+}
+
+/* inter-700 - latin */
+@font-face {
+  font-display: swap;
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  src: url('/fonts/inter-v20-latin-700.woff2') format('woff2');
+}
 
 /* Custom Font for Text Tool */
 @font-face {
   font-family: 'ReenieBeanie';
-  src: url('/fonts/ReenieBeenie.woff2') format('woff2'),
+  src: url('/fonts/ReenieBeanie.woff2') format('woff2'),
        url('/fonts/ReenieBeanie.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
