@@ -9,6 +9,7 @@
 		pdfState,
 		updateArrowAnnotation
 	} from '$lib/stores/drawingStore';
+	import { trackFirstAnnotation } from '$lib/utils/analytics';
 	import ArrowAnnotationComponent from './ArrowAnnotation.svelte';
 
 	export let containerWidth: number = 0; // Base viewport width at scale 1.0
@@ -69,6 +70,9 @@
 			strokeWidth: $drawingState.lineWidth || 3,
 			arrowHead: true
 		};
+
+		// Track first annotation creation
+		trackFirstAnnotation('arrow');
 
 		addArrowAnnotation(newArrow);
 	};

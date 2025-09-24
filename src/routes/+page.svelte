@@ -32,6 +32,7 @@
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
 	import { createBlankPDF, isValidLPDFFile, isValidMarkdownFile, isValidPDFFile } from '$lib/utils/pdfUtils';
 	import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
+	import { trackFullscreenToggle, trackPdfExport } from '$lib/utils/analytics';
 
 	let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
@@ -711,6 +712,9 @@
     if (document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen();
       isFullscreen = true;
+      
+      // Track fullscreen toggle
+      trackFullscreenToggle(true, 'keyboard_shortcut');
     }
   }
 
@@ -718,6 +722,9 @@
     if (document.fullscreenElement && document.exitFullscreen) {
       document.exitFullscreen();
       isFullscreen = false;
+      
+      // Track fullscreen toggle
+      trackFullscreenToggle(false, 'keyboard_shortcut');
     }
   }
 
@@ -775,6 +782,9 @@
       const success = await PDFExporter.exportFile(annotatedPdfBytes, filename, 'application/pdf');
       if (success) {
         console.log('PDF exported successfully:', filename);
+        
+        // Track successful PDF export
+        trackPdfExport('pdf', $pdfState.totalPages, annotatedPdfBytes.length);
       } else {
         console.log('Export was cancelled by user');
       }
@@ -812,6 +822,9 @@
       const success = await exportCurrentPDFAsLPDF(pdfBytes, `${originalName}.pdf`);
       if (success) {
         console.log('🎉 LPDF exported successfully');
+        
+        // Track successful LPDF export
+        trackPdfExport('lpdf', $pdfState.totalPages);
       } else {
         console.log('📄 LPDF export was cancelled by user');
       }
@@ -878,6 +891,9 @@
       const success = await exportCurrentPDFAsDocx(annotatedPdfBytes, `${originalName}.pdf`);
       if (success) {
         console.log('🎉 DOCX exported successfully with annotations');
+        
+        // Track successful DOCX export
+        trackPdfExport('docx', $pdfState.totalPages, annotatedPdfBytes.length);
       } else {
         console.log('📄 DOCX export was cancelled by user');
       }

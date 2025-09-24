@@ -10,6 +10,7 @@
 		pdfState,
 		updateStickyNoteAnnotation
 	} from '$lib/stores/drawingStore';
+	import { trackFirstAnnotation } from '$lib/utils/analytics';
 
 	export let containerWidth: number = 0; // Actual displayed canvas width
 	export let containerHeight: number = 0; // Actual displayed canvas height
@@ -74,8 +75,12 @@
 		relativeHeight: defaultHeight / baseContainerHeight,
 	};
 
-		isCreatingNote = true;
-		addStickyNoteAnnotation(newNote);
+	isCreatingNote = true;
+	
+	// Track first annotation creation
+	trackFirstAnnotation('note');
+	
+	addStickyNoteAnnotation(newNote);
 		
 		// Reset creating state after a short delay
 		setTimeout(() => {

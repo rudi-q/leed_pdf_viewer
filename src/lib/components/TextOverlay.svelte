@@ -9,6 +9,7 @@
 		type TextAnnotation,
 		updateTextAnnotation
 	} from '../stores/drawingStore';
+	import { trackFirstAnnotation } from '../utils/analytics';
 
 	export let canvasWidth: number = 0; // Actual displayed canvas width
   export let canvasHeight: number = 0; // Actual displayed canvas height
@@ -65,6 +66,9 @@
       relativeY
     };
 
+    // Track first annotation creation
+    trackFirstAnnotation('text');
+    
     addTextAnnotation(newAnnotation);
     startEditing(newAnnotation);
   }

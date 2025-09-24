@@ -21,6 +21,7 @@
 	} from '../stores/drawingStore';
 	import { isDarkMode, toggleTheme } from '../stores/themeStore';
 	import { handleSearchLinkClick } from '../utils/navigationUtils';
+	import { trackToolSelection } from '../utils/analytics';
 	import { goto } from '$app/navigation';
 	import StampPalette from './StampPalette.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
@@ -100,7 +101,11 @@
   let showRightFade = true;
 
   function handleToolChange(tool: DrawingTool) {
+    const previousTool = $drawingState.tool;
     setTool(tool);
+    
+    // Track tool selection
+    trackToolSelection(tool, previousTool);
   }
 
   function handleColorChange(color: string) {

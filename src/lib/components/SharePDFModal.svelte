@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
-	import { PDFSharingService, type SharePDFOptions } from '$lib/services/pdfSharingService';
-	import { toastStore } from '$lib/stores/toastStore';
+import { createEventDispatcher } from 'svelte';
+import { PDFSharingService, type SharePDFOptions } from '$lib/services/pdfSharingService';
+import { toastStore } from '$lib/stores/toastStore';
+import { trackPdfShare } from '$lib/utils/analytics';
 	import { Check, Copy, FileText, Mail, MessageCircle, PartyPopper, Twitter } from 'lucide-svelte';
 	import Toggle from './Toggle.svelte';
 
@@ -124,6 +125,10 @@
           shareUrl: result.shareUrl,
           shareId: result.shareId
         };
+        
+        // Track successful PDF sharing
+        trackPdfShare('link');
+        
         if (shareResult.shareUrl && shareResult.shareId) {
           dispatch('shared', { shareUrl: shareResult.shareUrl, shareId: shareResult.shareId });
         }
@@ -156,6 +161,9 @@
   function shareViaEmail() {
     if (!shareResult?.shareUrl) return;
     
+    // Track email sharing
+    trackPdfShare('email');
+    
     const subject = encodeURIComponent(`Shared PDF: ${editableFileName}.lpdf`);
     const body = encodeURIComponent(`I've shared a PDF with you via LeedPDF:\n\n${shareResult.shareUrl}\n\nPowered by LeedPDF - https://leed.my`);
     window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
@@ -164,12 +172,18 @@
   function shareViaWhatsApp() {
     if (!shareResult?.shareUrl) return;
     
+    // Track WhatsApp sharing
+    trackPdfShare('whatsapp');
+    
     const text = encodeURIComponent(`I'm sharing the ${editableFileName} doc with you so you can take a look.\n\nHere: ${shareResult.shareUrl}`);
     window.open(`https://wa.me/?text=${text}`, '_blank');
   }
   
   function shareViaTwitter() {
     if (!shareResult?.shareUrl) return;
+    
+    // Track Twitter sharing
+    trackPdfShare('twitter');
     
     const text = encodeURIComponent(`Check out this PDF: ${shareResult.shareUrl} #PDF #LeedPDF`);
     window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
+	import { trackFeatureHelp } from '../utils/analytics';
 
 	export let position: 'fixed' | 'absolute' | 'relative' | 'static' = 'static';
   export let positionClasses: string = '';
@@ -9,6 +10,9 @@
   const dispatch = createEventDispatcher();
   
   function handleClick() {
+    // Track help button usage
+    trackFeatureHelp('keyboard_shortcuts', 'help_button');
+    
     dispatch('click');
   }
   

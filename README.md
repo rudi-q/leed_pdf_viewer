@@ -273,7 +273,6 @@ Required for:
 
 Available options:
 - **Individual License** - Solo developers and small companies
-- **Team License** - Growing teams and agencies (up to 10 developers)
 - **Enterprise License** - Large organizations with custom terms
 
 *For Enterprise licensing and custom requirements, contact [reach@rudi.engineer](mailto:reach@rudi.engineer)*
@@ -289,9 +288,8 @@ Available options:
 
 ### ❓ **Need Help Choosing?**
 - **Personal project for web?** → Use AGPL-3.0 (free)
-- **Building a commercial product?** → Individual License ($99)
-- **Team of developers?** → Team License ($399)
-- **Large company/custom terms?** → Enterprise License ($1,299+)
+- **Building a commercial product?** → [Individual License](https://buy.polar.sh/polar_cl_tPmQ3d72uYwrYvzzIUM4R7cku7hg2kmEQqruI1its5c)
+- **Large company/custom terms?** → [Enterprise License](https://buy.polar.sh/polar_cl_tPmQ3d72uYwrYvzzIUM4R7cku7hg2kmEQqruI1its5c)
 
 **Questions about licensing?** Contact us: [reach@rudi.engineer](mailto:reach@rudi.engineer)
 
