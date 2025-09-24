@@ -24,6 +24,7 @@
 	import { trackToolSelection } from '../utils/analytics';
 	import { goto } from '$app/navigation';
 	import StampPalette from './StampPalette.svelte';
+  import Tooltip from '$lib/components/Tooltip.svelte';
 	// Feather Icons
 	import {
 		ArrowLeftRight,
@@ -208,178 +209,209 @@
       <!-- Left section: Logo, Folder, Page Navigation, Zoom Controls, Reset/Fit (Desktop) -->
       <div class="flex items-center space-x-2">
         <!-- Logo -->
-        <button
-          class="flex items-center hover:opacity-80 transition-opacity cursor-pointer w-11 h-11 lg:w-8 lg:h-8 justify-center"
-          on:click={handleLogoClick}
-          title="Go to homepage"
-          aria-label="Go to homepage"
-        >
-          <enhanced:img src="/static/./favicon.png" alt="LeedPDF" class="w-5 h-5 lg:w-4 lg:h-4" />
-        </button>
+        <Tooltip content="Go to homepage">
+          <button
+            class="flex items-center hover:opacity-80 transition-opacity cursor-pointer w-11 h-11 lg:w-8 lg:h-8 justify-center"
+            on:click={handleLogoClick}
+            aria-label="Go to homepage"
+          >
+            <enhanced:img src="/static/./favicon.png" alt="LeedPDF" class="w-5 h-5 lg:w-4 lg:h-4" />
+          </button>
+        </Tooltip>
         
         <div class="h-4 w-px bg-charcoal/20"></div>
         
         <!-- Desktop: Folder icon -->
         <div class="hidden lg:block">
-          <button
-            class="tool-button w-8 h-8 flex items-center justify-center"
-            on:click={handleFileSelect}
-            title="Upload PDF"
-          >
-            <Folder size={14} />
-          </button>
+        <Tooltip content="Upload PDF (U)">
+            <button
+              class="tool-button w-8 h-8 flex items-center justify-center"
+              on:click={handleFileSelect}
+              aria-label="Upload PDF"
+            >
+              <Folder size={14} />
+            </button>
+          </Tooltip>
         </div>
 
         <!-- Desktop: Page Navigation -->
         <div class="hidden lg:flex items-center space-x-2">
-          <button
-            class="tool-button w-8 h-8 flex items-center justify-center"
-            class:opacity-50={$pdfState.currentPage <= 1}
-            disabled={$pdfState.currentPage <= 1}
-            on:click={onPreviousPage}
-            title="Previous page"
-          >
-            <ChevronLeft size={14} />
-          </button>
+        <Tooltip content="Previous page (←)">
+            <button
+              class="tool-button w-8 h-8 flex items-center justify-center"
+              class:opacity-50={$pdfState.currentPage <= 1}
+              disabled={$pdfState.currentPage <= 1}
+              on:click={onPreviousPage}
+              aria-label="Previous page"
+            >
+              <ChevronLeft size={14} />
+            </button>
+          </Tooltip>
 
-          <button
-            class="tool-button w-8 h-8 flex items-center justify-center"
-            class:opacity-50={$pdfState.currentPage >= $pdfState.totalPages}
-            disabled={$pdfState.currentPage >= $pdfState.totalPages}
-            on:click={onNextPage}
-            title="Next page"
-          >
-            <ChevronRight size={14} />
-          </button>
+        <Tooltip content="Next page (→)">
+            <button
+              class="tool-button w-8 h-8 flex items-center justify-center"
+              class:opacity-50={$pdfState.currentPage >= $pdfState.totalPages}
+              disabled={$pdfState.currentPage >= $pdfState.totalPages}
+              on:click={onNextPage}
+              aria-label="Next page"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </Tooltip>
         </div>
 
         <!-- Desktop: Zoom Controls -->
         <div class="hidden lg:flex items-center space-x-2">
-          <button
-            class="tool-button w-8 h-8 flex items-center justify-center"
-            on:click={onZoomOut}
-            title="Zoom out"
-          >
-            <ZoomOut size={14} />
-          </button>
+          <Tooltip content="Zoom out (Ctrl+-)">
+            <button
+              class="tool-button w-8 h-8 flex items-center justify-center"
+              on:click={onZoomOut}
+              aria-label="Zoom out"
+            >
+              <ZoomOut size={14} />
+            </button>
+          </Tooltip>
 
-          <button
-            class="tool-button w-8 h-8 flex items-center justify-center"
-            on:click={onZoomIn}
-            title="Zoom in"
-          >
-            <ZoomIn size={14} />
-          </button>
+          <Tooltip content="Zoom in (Ctrl++)">
+            <button
+              class="tool-button w-8 h-8 flex items-center justify-center"
+              on:click={onZoomIn}
+              aria-label="Zoom in"
+            >
+              <ZoomIn size={14} />
+            </button>
+          </Tooltip>
         </div>
 
         <!-- Desktop: Reset and Fit Controls -->
         <div class="hidden lg:flex items-center space-x-2">
-          <button
-            class="tool-button w-8 h-8 flex items-center justify-center text-xs px-1"
-            on:click={onResetZoom}
-            title="Reset zoom to 120%"
-          >
-            <span class="font-medium text-xs">Reset</span>
-          </button>
+          <Tooltip content="Reset zoom to 120% (Ctrl+0)">
+            <button
+              class="tool-button w-8 h-8 flex items-center justify-center text-xs px-1"
+              on:click={onResetZoom}
+              aria-label="Reset zoom to 120%"
+            >
+              <span class="font-medium text-xs">Reset</span>
+            </button>
+          </Tooltip>
 
-          <button
-            class="tool-button h-8 w-auto flex items-center justify-center text-xs px-2"
-            on:click={onFitToWidth}
-            title="Fit to width"
-          >
-            <span class="font-medium text-xs">Fit W</span>
-          </button>
+          <Tooltip content="Fit to width (W)">
+            <button
+              class="tool-button h-8 w-auto flex items-center justify-center text-xs px-2"
+              on:click={onFitToWidth}
+              aria-label="Fit to width"
+            >
+              <span class="font-medium text-xs">Fit W</span>
+            </button>
+          </Tooltip>
 
-          <button
-            class="tool-button h-8 w-auto flex items-center justify-center text-xs px-2"
-            on:click={onFitToHeight}
-            title="Fit to height"
-          >
-            <span class="font-medium text-xs">Fit H</span>
-          </button>
+          <Tooltip content="Fit to height (H)">
+            <button
+              class="tool-button h-8 w-auto flex items-center justify-center text-xs px-2"
+              on:click={onFitToHeight}
+              aria-label="Fit to height"
+            >
+              <span class="font-medium text-xs">Fit H</span>
+            </button>
+          </Tooltip>
         </div>
       </div>
 
       <!-- Center section: Drawing tools (hidden on small screens) -->
       <div class="hidden lg:flex items-center space-x-2" class:opacity-50={viewOnlyMode}>
-        <button
-          class="tool-button w-8 h-8 flex items-center justify-center"
-          class:active={$drawingState.tool === 'pencil'}
-          disabled={viewOnlyMode}
-          on:click={() => !viewOnlyMode && handleToolChange('pencil')}
-          title={viewOnlyMode ? 'Drawing disabled in view-only mode' : 'Pencil (1)'}
-        >
-          <Edit3 size={14} />
-        </button>
+        <Tooltip content={viewOnlyMode ? 'Drawing disabled in view-only mode' : 'Pencil (1)'}>
+          <button
+            class="tool-button w-8 h-8 flex items-center justify-center"
+            class:active={$drawingState.tool === 'pencil'}
+            disabled={viewOnlyMode}
+            on:click={() => !viewOnlyMode && handleToolChange('pencil')}
+            aria-label={viewOnlyMode ? 'Drawing disabled in view-only mode' : 'Pencil tool'}
+          >
+            <Edit3 size={14} />
+          </button>
+        </Tooltip>
 
-        <button
-          class="tool-button w-8 h-8 flex items-center justify-center"
-          class:active={$drawingState.tool === 'eraser'}
-          disabled={viewOnlyMode}
-          on:click={() => !viewOnlyMode && handleToolChange('eraser')}
-          title={viewOnlyMode ? 'Eraser disabled in view-only mode' : 'Eraser (2)'}
-        >
-          <Square size={14} />
-        </button>
+        <Tooltip content={viewOnlyMode ? 'Eraser disabled in view-only mode' : 'Eraser (2)'}>
+          <button
+            class="tool-button w-8 h-8 flex items-center justify-center"
+            class:active={$drawingState.tool === 'eraser'}
+            disabled={viewOnlyMode}
+            on:click={() => !viewOnlyMode && handleToolChange('eraser')}
+            aria-label={viewOnlyMode ? 'Eraser disabled in view-only mode' : 'Eraser tool'}
+          >
+            <Square size={14} />
+          </button>
+        </Tooltip>
 
-        <button
-          class="tool-button w-8 h-8 flex items-center justify-center"
-          class:active={$drawingState.tool === 'text'}
-          disabled={viewOnlyMode}
-          on:click={() => !viewOnlyMode && handleToolChange('text')}
-          title={viewOnlyMode ? 'Text tool disabled in view-only mode' : 'Text (3)'}
-        >
-          <Type size={14} />
-        </button>
+        <Tooltip content={viewOnlyMode ? 'Text tool disabled in view-only mode' : 'Text (3)'}>
+          <button
+            class="tool-button w-8 h-8 flex items-center justify-center"
+            class:active={$drawingState.tool === 'text'}
+            disabled={viewOnlyMode}
+            on:click={() => !viewOnlyMode && handleToolChange('text')}
+            aria-label={viewOnlyMode ? 'Text tool disabled in view-only mode' : 'Text tool'}
+          >
+            <Type size={14} />
+          </button>
+        </Tooltip>
 
-        <button
-          class="tool-button w-8 h-8 flex items-center justify-center"
-          class:active={$drawingState.tool === 'arrow'}
-          disabled={viewOnlyMode}
-          on:click={() => !viewOnlyMode && handleToolChange('arrow')}
-          title={viewOnlyMode ? 'Arrow tool disabled in view-only mode' : 'Arrow (4)'}
-        >
-          <ArrowRight size={14} />
-        </button>
+        <Tooltip content={viewOnlyMode ? 'Arrow tool disabled in view-only mode' : 'Arrow (4)'}>
+          <button
+            class="tool-button w-8 h-8 flex items-center justify-center"
+            class:active={$drawingState.tool === 'arrow'}
+            disabled={viewOnlyMode}
+            on:click={() => !viewOnlyMode && handleToolChange('arrow')}
+            aria-label={viewOnlyMode ? 'Arrow tool disabled in view-only mode' : 'Arrow tool'}
+          >
+            <ArrowRight size={14} />
+          </button>
+        </Tooltip>
 
-        <button
-          class="tool-button w-8 h-8 flex items-center justify-center"
-          class:active={$drawingState.tool === 'highlight'}
-          disabled={viewOnlyMode}
-          on:click={() => !viewOnlyMode && handleToolChange('highlight')}
-          title={viewOnlyMode ? 'Highlighter disabled in view-only mode' : 'Highlighter (8)'}
-        >
-          <Highlighter size={14} />
-        </button>
+        <Tooltip content={viewOnlyMode ? 'Highlighter disabled in view-only mode' : 'Highlighter (5)'}>
+          <button
+            class="tool-button w-8 h-8 flex items-center justify-center"
+            class:active={$drawingState.tool === 'highlight'}
+            disabled={viewOnlyMode}
+            on:click={() => !viewOnlyMode && handleToolChange('highlight')}
+            aria-label={viewOnlyMode ? 'Highlighter disabled in view-only mode' : 'Highlighter tool'}
+          >
+            <Highlighter size={14} />
+          </button>
+        </Tooltip>
 
-        <button
-          class="tool-button w-8 h-8 flex items-center justify-center"
-          class:active={$drawingState.tool === 'note'}
-          disabled={viewOnlyMode}
-          on:click={() => !viewOnlyMode && handleToolChange('note')}
-          title={viewOnlyMode ? 'Sticky note disabled in view-only mode' : 'Sticky Note (9)'}
-        >
-          <StickyNote size={14} />
-        </button>
+        <Tooltip content={viewOnlyMode ? 'Sticky note disabled in view-only mode' : 'Sticky Note (6)'}>
+          <button
+            class="tool-button w-8 h-8 flex items-center justify-center"
+            class:active={$drawingState.tool === 'note'}
+            disabled={viewOnlyMode}
+            on:click={() => !viewOnlyMode && handleToolChange('note')}
+            aria-label={viewOnlyMode ? 'Sticky note disabled in view-only mode' : 'Sticky note tool'}
+          >
+            <StickyNote size={14} />
+          </button>
+        </Tooltip>
 
         <div class="h-4 w-px bg-charcoal/20"></div>
 
         <!-- Stamp tool with palette -->
         <div class="relative stamp-palette-container">
-          <button
-            class="tool-button w-8 h-8 flex items-center justify-center"
-            class:active={$drawingState.tool === 'stamp'}
-            disabled={viewOnlyMode}
-            on:click={() => {
-              if (!viewOnlyMode) {
-                handleToolChange('stamp');
-                showStampPalette = !showStampPalette;
-              }
-            }}
-            title={viewOnlyMode ? 'Stamps disabled in view-only mode' : 'Stamps/Stickers'}
-          >
-            <Sticker size={14} />
-          </button>
+          <Tooltip content={viewOnlyMode ? 'Stamps disabled in view-only mode' : 'Stamps/Stickers (S)'}>
+            <button
+              class="tool-button w-8 h-8 flex items-center justify-center"
+              class:active={$drawingState.tool === 'stamp'}
+              disabled={viewOnlyMode}
+              on:click={() => {
+                if (!viewOnlyMode) {
+                  handleToolChange('stamp');
+                  showStampPalette = !showStampPalette;
+                }
+              }}
+              aria-label={viewOnlyMode ? 'Stamps disabled in view-only mode' : 'Stamps and stickers'}
+            >
+              <Sticker size={14} />
+            </button>
+          </Tooltip>
 
           <StampPalette 
             isOpen={showStampPalette} 
@@ -390,30 +422,33 @@
         <div class="h-4 w-px bg-charcoal/20"></div>
 
         <!-- Page Thumbnails Toggle -->
-        <button
-          class="tool-button w-8 h-8 flex items-center justify-center"
-          class:active={showThumbnails}
-          on:click={() => onToggleThumbnails(!showThumbnails)}
-          title="Page Thumbnails (T)"
-        >
-          <Layout size={14} />
-        </button>
+        <Tooltip content="Page Thumbnails (T)">
+          <button
+            class="tool-button w-8 h-8 flex items-center justify-center"
+            class:active={showThumbnails}
+            on:click={() => onToggleThumbnails(!showThumbnails)}
+            aria-label="Toggle page thumbnails"
+          >
+            <Layout size={14} />
+          </button>
+        </Tooltip>
 
         <div class="h-4 w-px bg-charcoal/20"></div>
 
         <!-- Color picker -->
         <div class="relative color-palette-container">
-          <button
-            class="tool-button w-11 h-11 lg:w-8 lg:h-8 p-1"
-            on:click={() => showColorPalette = !showColorPalette}
-            title="Drawing color"
-            aria-label="Choose drawing color"
-          >
-            <div 
-              class="w-full h-full rounded-md border border-white shadow-inner"
-              style="background-color: {$drawingState.color}"
-            ></div>
-          </button>
+          <Tooltip content="Drawing color">
+            <button
+              class="tool-button w-11 h-11 lg:w-8 lg:h-8 p-1"
+              on:click={() => showColorPalette = !showColorPalette}
+              aria-label="Choose drawing color"
+            >
+              <div 
+                class="w-full h-full rounded-md border border-white shadow-inner"
+                style="background-color: {$drawingState.color}"
+              ></div>
+            </button>
+          </Tooltip>
 
           {#if showColorPalette}
             <div class="absolute top-full mt-2 left-0 z-50">
@@ -428,7 +463,6 @@
                       class:shadow-lg={color === $drawingState.color}
                       style="background-color: {color}"
                       on:click={() => handleColorChange(color)}
-                      title="Select {color}"
                       aria-label="Select color {color}"
                     >
                       {#if color === $drawingState.color}
@@ -450,21 +484,22 @@
 
         <!-- Line width picker -->
         <div class="relative line-width-container">
-          <button
-            class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
-            on:click={() => showLineWidthPicker = !showLineWidthPicker}
-            title="Brush size"
-            aria-label="Choose line thickness"
-          >
+          <Tooltip content="Brush size">
+            <button
+              class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
+              on:click={() => showLineWidthPicker = !showLineWidthPicker}
+              aria-label="Choose line thickness"
+            >
             <div 
               class="rounded-full bg-white dark:bg-white p-0.5 border border-gray-200 dark:border-white/30"
               style="width: {Math.max($drawingState.lineWidth * 2 + 4, 8)}px; height: {Math.max($drawingState.lineWidth * 2 + 4, 8)}px;"
             >
-              <div 
-                class="rounded-full bg-charcoal w-full h-full"
-              ></div>
-            </div>
-          </button>
+                <div 
+                  class="rounded-full bg-charcoal w-full h-full"
+                ></div>
+              </div>
+            </button>
+          </Tooltip>
 
           {#if showLineWidthPicker}
             <div class="absolute top-full mt-2 left-0 floating-panel animate-slide-up">
@@ -474,7 +509,7 @@
                     class="flex items-center justify-center p-2 rounded-lg hover:bg-sage/10 transition-colors"
                     class:bg-sage={width === $drawingState.lineWidth}
                     on:click={() => handleLineWidthChange(width)}
-                    title="Line width {width}px"
+                    aria-label="Line width {width} pixels"
                   >
                     <div 
                       class="rounded-full bg-white dark:bg-white p-0.5 border border-gray-200 dark:border-white/30"
@@ -495,21 +530,22 @@
         <!-- Eraser size picker -->
         {#if $drawingState.tool === 'eraser'}
           <div class="relative eraser-size-container">
-            <button
-              class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
-              on:click={() => showEraserSizePicker = !showEraserSizePicker}
-              title="Eraser size"
-              aria-label="Choose eraser size"
-            >
+            <Tooltip content="Eraser size">
+              <button
+                class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
+                on:click={() => showEraserSizePicker = !showEraserSizePicker}
+                aria-label="Choose eraser size"
+              >
               <div 
                 class="rounded-full bg-white dark:bg-white p-0.5 border border-gray-200 dark:border-white/30"
                 style="width: {Math.max($drawingState.eraserSize / 2 + 4, 10)}px; height: {Math.max($drawingState.eraserSize / 2 + 4, 10)}px;"
               >
-                <div 
-                  class="rounded-full bg-charcoal opacity-50 w-full h-full"
-                ></div>
-              </div>
-            </button>
+                  <div 
+                    class="rounded-full bg-charcoal opacity-50 w-full h-full"
+                  ></div>
+                </div>
+              </button>
+            </Tooltip>
 
             {#if showEraserSizePicker}
               <div class="absolute top-full mt-2 left-0 floating-panel animate-slide-up">
@@ -519,7 +555,7 @@
                       class="flex items-center justify-center p-2 rounded-lg hover:bg-sage/10 transition-colors"
                       class:bg-sage={size === $drawingState.eraserSize}
                       on:click={() => handleEraserSizeChange(size)}
-                      title="Eraser size {size}px"
+                      aria-label="Eraser size {size} pixels"
                     >
                       <div 
                         class="rounded-full bg-white dark:bg-white p-0.5 border border-gray-200 dark:border-white/30"
@@ -543,70 +579,82 @@
       <div class="flex items-center space-x-2">
         <!-- Undo, Redo, Search, Download - Always visible -->
         <div class="flex items-center space-x-2">
-          <button
-            class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
-            class:opacity-50={$undoStack.length === 0 || viewOnlyMode}
-            disabled={$undoStack.length === 0 || viewOnlyMode}
-            on:click={handleUndo}
-            title={viewOnlyMode ? 'Undo disabled in view-only mode' : 'Undo (Ctrl+Z)'}
-          >
-            <Undo2 size={16} class="lg:w-3.5 lg:h-3.5" />
-          </button>
+          <Tooltip content={viewOnlyMode ? 'Undo disabled in view-only mode' : 'Undo (Ctrl+Z)'}>
+            <button
+              class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
+              class:opacity-50={$undoStack.length === 0 || viewOnlyMode}
+              disabled={$undoStack.length === 0 || viewOnlyMode}
+              on:click={handleUndo}
+              aria-label={viewOnlyMode ? 'Undo disabled in view-only mode' : 'Undo last action'}
+            >
+              <Undo2 size={16} class="lg:w-3.5 lg:h-3.5" />
+            </button>
+          </Tooltip>
 
-          <button
-            class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
-            class:opacity-50={$redoStack.length === 0 || viewOnlyMode}
-            disabled={$redoStack.length === 0 || viewOnlyMode}
-            on:click={handleRedo}
-            title={viewOnlyMode ? 'Redo disabled in view-only mode' : 'Redo (Ctrl+Y)'}
-          >
-            <Redo2 size={16} class="lg:w-3.5 lg:h-3.5" />
-          </button>
+          <Tooltip content={viewOnlyMode ? 'Redo disabled in view-only mode' : 'Redo (Ctrl+Y)'}>
+            <button
+              class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
+              class:opacity-50={$redoStack.length === 0 || viewOnlyMode}
+              disabled={$redoStack.length === 0 || viewOnlyMode}
+              on:click={handleRedo}
+              aria-label={viewOnlyMode ? 'Redo disabled in view-only mode' : 'Redo last action'}
+            >
+              <Redo2 size={16} class="lg:w-3.5 lg:h-3.5" />
+            </button>
+          </Tooltip>
 
-          <button
-            class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center group"
-            title="Search PDF documents"
-            on:click={handleSearchLinkClick}
-          >
-            <Search size={18} class="group-hover:text-blue-600 lg:w-4 lg:h-4" />
-          </button>
+          <Tooltip content="Search PDF documents">
+            <button
+              class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center group"
+              on:click={handleSearchLinkClick}
+              aria-label="Search PDF documents"
+            >
+              <Search size={18} class="group-hover:text-blue-600 lg:w-4 lg:h-4" />
+            </button>
+          </Tooltip>
 
           <!-- Delete changes (trash icon) -->
-          <button
-            class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-            class:opacity-50={!$pdfState.document || viewOnlyMode}
-            disabled={!$pdfState.document || viewOnlyMode}
-            on:click={handleClear}
-            title={viewOnlyMode ? 'Clear disabled in view-only mode' : 'Delete all changes'}
-          >
-            <Trash2 size={16} class="lg:w-3.5 lg:h-3.5" />
-          </button>
+          <Tooltip content={viewOnlyMode ? 'Clear disabled in view-only mode' : 'Delete all changes'}>
+            <button
+              class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+              class:opacity-50={!$pdfState.document || viewOnlyMode}
+              disabled={!$pdfState.document || viewOnlyMode}
+              on:click={handleClear}
+              aria-label={viewOnlyMode ? 'Clear disabled in view-only mode' : 'Delete all changes on this page'}
+            >
+              <Trash2 size={16} class="lg:w-3.5 lg:h-3.5" />
+            </button>
+          </Tooltip>
 
           <!-- Share Button (if not in shared view) -->
           {#if onSharePDF && !isSharedView}
-            <button
-              class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-              class:opacity-50={!$pdfState.document}
-              disabled={!$pdfState.document}
-              on:click={onSharePDF}
-              title="Share PDF with link"
-            >
-              <Share size={16} class="lg:w-3.5 lg:h-3.5" />
-            </button>
+            <Tooltip content="Share PDF with link">
+              <button
+                class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                class:opacity-50={!$pdfState.document}
+                disabled={!$pdfState.document}
+                on:click={onSharePDF}
+                aria-label="Share PDF with link"
+              >
+                <Share size={16} class="lg:w-3.5 lg:h-3.5" />
+              </button>
+            </Tooltip>
           {/if}
 
           <!-- Export Menu -->
           {#if allowDownloading}
             <div class="relative export-menu-container">
-              <button
-                class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-sage hover:bg-sage/10"
-                class:opacity-50={!$pdfState.document}
-                disabled={!$pdfState.document}
-                on:click={() => showExportMenu = !showExportMenu}
-                title="Export options"
-              >
-                <Download size={16} class="lg:w-3.5 lg:h-3.5" />
-              </button>
+              <Tooltip content="Export options">
+                <button
+                  class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-sage hover:bg-sage/10"
+                  class:opacity-50={!$pdfState.document}
+                  disabled={!$pdfState.document}
+                  on:click={() => showExportMenu = !showExportMenu}
+                  aria-label="Export options"
+                >
+                  <Download size={16} class="lg:w-3.5 lg:h-3.5" />
+                </button>
+              </Tooltip>
 
             {#if showExportMenu}
               <div class="absolute top-full mt-2 right-0 z-50 min-w-[180px]">
@@ -662,17 +710,19 @@
           </div>
 
           <!-- Light/Dark mode toggle -->
-          <button
-            class="tool-button w-8 h-8 flex items-center justify-center"
-            on:click={toggleTheme}
-            title="Toggle light/dark mode"
-          >
-            {#if $isDarkMode}
-              <Sun size={16} />
-            {:else}
-              <Moon size={16} />
-            {/if}
-          </button>
+          <Tooltip content="Toggle light/dark mode">
+            <button
+              class="tool-button w-8 h-8 flex items-center justify-center"
+              on:click={toggleTheme}
+              aria-label="Toggle light/dark mode"
+            >
+              {#if $isDarkMode}
+                <Sun size={16} />
+              {:else}
+                <Moon size={16} />
+              {/if}
+            </button>
+          </Tooltip>
         </div>
 
         <!-- Mobile: Current tool indicator, Light/Dark mode (Hidden) -->
@@ -686,29 +736,32 @@
           </div>
 
           <!-- Light/Dark mode toggle -->
-          <button
-            class="tool-button w-11 h-11 items-center justify-center"
-            on:click={toggleTheme}
-            title="Toggle light/dark mode"
-          >
-            {#if $isDarkMode}
-              <Sun size={16} />
-            {:else}
-              <Moon size={16} />
-            {/if}
-          </button>
+          <Tooltip content="Toggle light/dark mode">
+            <button
+              class="tool-button w-11 h-11 items-center justify-center"
+              on:click={toggleTheme}
+              aria-label="Toggle light/dark mode"
+            >
+              {#if $isDarkMode}
+                <Sun size={16} />
+              {:else}
+                <Moon size={16} />
+              {/if}
+            </button>
+          </Tooltip>
         </div>
 
         <!-- More menu (3-dot icon) for mobile -->
         <div class="relative lg:hidden">
-          <button
-            class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
-            on:click={() => showMoreMenu = !showMoreMenu}
-            title="More options"
-            aria-label="More options"
-          >
-            <MoreHorizontal size={18} class="lg:w-4 lg:h-4" />
-          </button>
+          <Tooltip content="More options">
+            <button
+              class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center"
+              on:click={() => showMoreMenu = !showMoreMenu}
+              aria-label="More options"
+            >
+              <MoreHorizontal size={18} class="lg:w-4 lg:h-4" />
+            </button>
+          </Tooltip>
 
           {#if showMoreMenu}
             <div class="absolute top-full mt-2 right-0 z-50 min-w-[200px]">
@@ -862,7 +915,6 @@
                       target="_blank" 
                       rel="noopener"
                       class="text-charcoal/60 dark:text-gray-400 hover:text-sage dark:hover:text-sage transition-colors"
-                      title="View on GitHub"
                       aria-label="View on GitHub"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -899,7 +951,7 @@
         class="tool-button flex items-center justify-center"
         class:active={$drawingState.tool === 'pencil'}
         on:click={() => handleToolChange('pencil')}
-        title="Pencil (1)"
+        aria-label="Pencil tool"
       >
         <Edit3 size={16} />
       </button>
@@ -908,7 +960,7 @@
         class="tool-button flex items-center justify-center"
         class:active={$drawingState.tool === 'eraser'}
         on:click={() => handleToolChange('eraser')}
-        title="Eraser (2)"
+        aria-label="Eraser tool"
       >
         <Square size={16} />
       </button>
@@ -917,7 +969,7 @@
         class="tool-button flex items-center justify-center"
         class:active={$drawingState.tool === 'text'}
         on:click={() => handleToolChange('text')}
-        title="Text (3)"
+        aria-label="Text tool"
       >
         <Type size={16} />
       </button>
@@ -926,7 +978,7 @@
         class="tool-button flex items-center justify-center"
         class:active={$drawingState.tool === 'arrow'}
         on:click={() => handleToolChange('arrow')}
-        title="Arrow (4)"
+        aria-label="Arrow tool"
       >
         <ArrowRight size={16} />
       </button>
@@ -935,7 +987,7 @@
         class="tool-button flex items-center justify-center"
         class:active={$drawingState.tool === 'highlight'}
         on:click={() => handleToolChange('highlight')}
-        title="Highlighter (8)"
+        aria-label="Highlighter tool"
       >
         <Highlighter size={16} />
       </button>
@@ -944,7 +996,7 @@
         class="tool-button flex items-center justify-center"
         class:active={$drawingState.tool === 'note'}
         on:click={() => handleToolChange('note')}
-        title="Sticky Note (9)"
+        aria-label="Sticky note tool"
       >
         <StickyNote size={16} />
       </button>
@@ -960,7 +1012,7 @@
             handleToolChange('stamp');
             showStampPalette = !showStampPalette;
           }}
-          title="Stamps/Stickers"
+          aria-label="Stamps and stickers"
         >
           <Sticker size={16} />
         </button>
@@ -978,7 +1030,7 @@
         class="tool-button flex items-center justify-center"
         class:active={showThumbnails}
         on:click={() => onToggleThumbnails(!showThumbnails)}
-        title="Page Thumbnails (T)"
+        aria-label="Toggle page thumbnails"
       >
         <Layout size={16} />
       </button>
@@ -990,7 +1042,6 @@
         <button
           class="tool-button w-8 h-8 p-1 flex items-center justify-center"
           on:click={() => showColorPalette = !showColorPalette}
-          title="Drawing color"
           aria-label="Choose drawing color"
         >
           <div 
@@ -1005,7 +1056,6 @@
         <button
           class="tool-button flex items-center justify-center"
           on:click={() => showLineWidthPicker = !showLineWidthPicker}
-          title="Brush size"
           aria-label="Choose line thickness"
         >
           <div 
@@ -1025,7 +1075,6 @@
           <button
             class="tool-button flex items-center justify-center"
             on:click={() => showEraserSizePicker = !showEraserSizePicker}
-            title="Eraser size"
             aria-label="Choose eraser size"
           >
             <div 
@@ -1055,7 +1104,7 @@
             <button
               class="sticker-preview group relative transition-all duration-300 hover:scale-110 hover:rotate-2 focus:outline-none focus:ring-2 focus:ring-sage/50 focus:ring-offset-2 {stamp.id === $drawingState.stampId ? 'scale-110' : ''}"
               on:click={() => handleStampSelect(stamp)}
-              title={stamp.name}
+              aria-label={stamp.name}
             >
               <!-- SVG sticker with built-in realistic border -->
               <div class="w-12 h-12 transition-transform duration-300 group-hover:scale-110">
@@ -1095,7 +1144,6 @@
             class:shadow-lg={color === $drawingState.color}
             style="background-color: {color}"
             on:click={() => handleColorChange(color)}
-            title="Select {color}"
             aria-label="Select color {color}"
           >
             {#if color === $drawingState.color}
@@ -1121,7 +1169,7 @@
             class="flex items-center justify-center p-2 rounded-lg hover:bg-sage/10 transition-colors"
             class:bg-sage={width === $drawingState.lineWidth}
             on:click={() => handleLineWidthChange(width)}
-            title="Line width {width}px"
+            aria-label="Line width {width} pixels"
           >
             <div 
               class="rounded-full bg-white dark:bg-white p-0.5 border border-gray-200 dark:border-white/30"
@@ -1148,7 +1196,7 @@
             class="flex items-center justify-center p-2 rounded-lg hover:bg-sage/10 transition-colors"
             class:bg-sage={size === $drawingState.eraserSize}
             on:click={() => handleEraserSizeChange(size)}
-            title="Eraser size {size}px"
+            aria-label="Eraser size {size} pixels"
           >
             <div 
               class="rounded-full bg-white dark:bg-white p-0.5 border border-gray-200 dark:border-white/30"

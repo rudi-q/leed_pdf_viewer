@@ -26,7 +26,6 @@
 <button
   class={allClasses}
   on:click={handleClick}
-  title="Show keyboard shortcuts (? or F1)"
   aria-label="Show keyboard shortcuts"
 >
   <span>?</span>
