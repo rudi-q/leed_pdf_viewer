@@ -1,0 +1,2 @@
+pdf2docx==0.5.8
+appwrite==4.0.0
