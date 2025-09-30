@@ -65,9 +65,9 @@ test.describe('Toolbar Responsive Behavior', () => {
 		await expect(drawingToolsInTop).toBeHidden();
 
 		// Check that specific drawing tools are not visible in top toolbar
-		await expect(page.locator('.toolbar-top button[title="Pencil (1)"]')).not.toBeVisible();
-		await expect(page.locator('.toolbar-top button[title="Eraser (2)"]')).not.toBeVisible();
-		await expect(page.locator('.toolbar-top button[title="Text (3)"]')).not.toBeVisible();
+		await expect(page.locator('.toolbar-top button[aria-label="Pencil tool"]')).not.toBeVisible();
+		await expect(page.locator('.toolbar-top button[aria-label="Eraser tool"]')).not.toBeVisible();
+		await expect(page.locator('.toolbar-top button[aria-label="Text tool"]')).not.toBeVisible();
 	});
 
 	test('should show bottom toolbar with drawing tools on small screens', async ({ page }) => {
@@ -85,12 +85,12 @@ test.describe('Toolbar Responsive Behavior', () => {
 		await expect(bottomToolbar).toBeVisible();
 
 		// Check for drawing tools in bottom toolbar
-		await expect(page.locator('.toolbar-bottom button[title="Pencil (1)"]')).toBeVisible();
-		await expect(page.locator('.toolbar-bottom button[title="Eraser (2)"]')).toBeVisible();
-		await expect(page.locator('.toolbar-bottom button[title="Text (3)"]')).toBeVisible();
-		await expect(page.locator('.toolbar-bottom button[title="Arrow (4)"]')).toBeVisible();
-		await expect(page.locator('.toolbar-bottom button[title="Highlighter (8)"]')).toBeVisible();
-		await expect(page.locator('.toolbar-bottom button[title="Sticky Note (9)"]')).toBeVisible();
+		await expect(page.locator('.toolbar-bottom button[aria-label="Pencil tool"]')).toBeVisible();
+		await expect(page.locator('.toolbar-bottom button[aria-label="Eraser tool"]')).toBeVisible();
+		await expect(page.locator('.toolbar-bottom button[aria-label="Text tool"]')).toBeVisible();
+		await expect(page.locator('.toolbar-bottom button[aria-label="Arrow tool"]')).toBeVisible();
+		await expect(page.locator('.toolbar-bottom button[aria-label="Highlighter tool"]')).toBeVisible();
+		await expect(page.locator('.toolbar-bottom button[aria-label="Sticky note tool"]')).toBeVisible();
 	});
 
 	test('should hide bottom toolbar on large screens', async ({ page }) => {
@@ -119,12 +119,12 @@ test.describe('Toolbar Responsive Behavior', () => {
 		await page.waitForTimeout(100);
 
 		// Drawing tools should be visible in top toolbar on large screens
-		await expect(page.locator('.toolbar-top button[title="Pencil (1)"]')).toBeVisible();
-		await expect(page.locator('.toolbar-top button[title="Eraser (2)"]')).toBeVisible();
-		await expect(page.locator('.toolbar-top button[title="Text (3)"]')).toBeVisible();
-		await expect(page.locator('.toolbar-top button[title="Arrow (4)"]')).toBeVisible();
-		await expect(page.locator('.toolbar-top button[title="Highlighter (8)"]')).toBeVisible();
-		await expect(page.locator('.toolbar-top button[title="Sticky Note (9)"]')).toBeVisible();
+		await expect(page.locator('.toolbar-top button[aria-label="Pencil tool"]')).toBeVisible();
+		await expect(page.locator('.toolbar-top button[aria-label="Eraser tool"]')).toBeVisible();
+		await expect(page.locator('.toolbar-top button[aria-label="Text tool"]')).toBeVisible();
+		await expect(page.locator('.toolbar-top button[aria-label="Arrow tool"]')).toBeVisible();
+		await expect(page.locator('.toolbar-top button[aria-label="Highlighter tool"]')).toBeVisible();
+		await expect(page.locator('.toolbar-top button[aria-label="Sticky note tool"]')).toBeVisible();
 	});
 
 	test('should handle responsive breakpoints correctly', async ({ page }) => {
@@ -136,7 +136,7 @@ test.describe('Toolbar Responsive Behavior', () => {
 		await page.waitForTimeout(100);
 
 		// At lg breakpoint, drawing tools should be in top toolbar
-		await expect(page.locator('.toolbar-top button[title="Pencil (1)"]')).toBeVisible();
+		await expect(page.locator('.toolbar-top button[aria-label="Pencil tool"]')).toBeVisible();
 		await expect(page.locator('.toolbar-bottom')).not.toBeVisible();
 
 		// Test mobile viewport (below lg breakpoint)
@@ -144,8 +144,8 @@ test.describe('Toolbar Responsive Behavior', () => {
 		await page.waitForTimeout(100);
 
 		// Below lg breakpoint, drawing tools should be in bottom toolbar
-		await expect(page.locator('.toolbar-top button[title="Pencil (1)"]')).not.toBeVisible();
-		await expect(page.locator('.toolbar-bottom button[title="Pencil (1)"]')).toBeVisible();
+		await expect(page.locator('.toolbar-top button[aria-label="Pencil tool"]')).not.toBeVisible();
+		await expect(page.locator('.toolbar-bottom button[aria-label="Pencil tool"]')).toBeVisible();
 	});
 
 	test('should maintain functionality when switching between toolbar layouts', async ({ page }) => {
@@ -157,21 +157,21 @@ test.describe('Toolbar Responsive Behavior', () => {
 		await page.waitForTimeout(100);
 
 		// Select pencil tool from top toolbar
-		await page.locator('.toolbar-top button[title="Pencil (1)"]').click();
-		await expect(page.locator('.toolbar-top button[title="Pencil (1)"]')).toHaveClass(/active/);
+		await page.locator('.toolbar-top button[aria-label="Pencil tool"]').click();
+		await expect(page.locator('.toolbar-top button[aria-label="Pencil tool"]')).toHaveClass(/active/);
 
 		// Switch to mobile view
 		await page.setViewportSize({ width: 375, height: 667 });
 		await page.waitForTimeout(100);
 
 		// Pencil tool should still be active in bottom toolbar
-		await expect(page.locator('.toolbar-bottom button[title="Pencil (1)"]')).toHaveClass(/active/);
+		await expect(page.locator('.toolbar-bottom button[aria-label="Pencil tool"]')).toHaveClass(/active/);
 
 		// Switch back to desktop view
 		await page.setViewportSize({ width: 1920, height: 1080 });
 		await page.waitForTimeout(100);
 
 		// Pencil tool should still be active in top toolbar
-		await expect(page.locator('.toolbar-top button[title="Pencil (1)"]')).toHaveClass(/active/);
+		await expect(page.locator('.toolbar-top button[aria-label="Pencil tool"]')).toHaveClass(/active/);
 	});
 });
