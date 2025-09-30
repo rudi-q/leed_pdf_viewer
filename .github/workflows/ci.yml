@@ -11,9 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PUBLIC_POSTHOG_KEY: ${{ vars.PUBLIC_POSTHOG_KEY }}
-    strategy:
-      matrix:
-        node-version: [20, 22]
 
     steps:
       - name: Checkout code
@@ -24,10 +21,10 @@ jobs:
         with:
           version: 10.17.1
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 22
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -46,7 +43,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: test-results-${{ matrix.node-version }}
+          name: test-results
           path: |
             coverage/
             test-results/
@@ -68,7 +65,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -101,7 +98,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -133,7 +130,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: 'pnpm'
 
       - name: Setup Rust
@@ -248,7 +245,7 @@ jobs:
             
             | Check | Status | Description |
             |-------|--------|-----------|
-            | ${getStatusEmoji(testJob)} **Tests & Type Check** | ${getStatusText(testJob)} | TypeScript validation, unit tests, and builds on Node 20 & 22 |
+            | ${getStatusEmoji(testJob)} **Tests & Type Check** | ${getStatusText(testJob)} | TypeScript validation, unit tests, and builds on Node 22 |
             | ${getStatusEmoji(coverageJob)} **Test Coverage** | ${getStatusText(coverageJob)} | Code coverage analysis and reporting |
             | ${getStatusEmoji(securityJob)} **Security Audit** | ${getStatusText(securityJob)} | Dependency vulnerability scanning |
             | ${getStatusEmoji(tauriJob)} **Tauri Build** | ${getStatusText(tauriJob)} | Cross-platform Rust/Tauri compilation (Windows, macOS) |
