@@ -31,7 +31,10 @@
   let resizeStartY = 0;
   let resizeStartWidth = 0;
   let resizeStartHeight = 0;
+  let resizeStartPosX = 0;
+  let resizeStartPosY = 0;
   let resizingAnnotation: TextAnnotation | null = null;
+  let resizeDirection: 'se' | 'e' | 's' | 'w' | 'n' | null = null; // southeast, east, south, west, north
   
   // Default dimensions for new text annotations
   const DEFAULT_WIDTH = 200;
@@ -234,7 +237,7 @@
       const newY = Math.max(0, Math.min(canvasHeight - 20, annotationStart.y + deltaY));
       
       updatePosition(draggedAnnotation, newX, newY);
-    } else if (isResizing && resizingAnnotation) {
+    } else if (isResizing && resizingAnnotation && resizeDirection) {
       const deltaX = event.clientX - resizeStartX;
       const deltaY = event.clientY - resizeStartY;
       
@@ -245,27 +248,68 @@
       const baseDeltaX = deltaX / safeScale;
       const baseDeltaY = deltaY / safeScale;
       
+      let newWidth = baseStartWidth;
+      let newHeight = baseStartHeight;
+      let newX = resizeStartPosX;
+      let newY = resizeStartPosY;
+      
+      // Apply resize based on direction
+      if (resizeDirection === 'se') {
+        // Southeast corner: grow right and down
+        newWidth = baseStartWidth + baseDeltaX;
+        newHeight = baseStartHeight + baseDeltaY;
+      } else if (resizeDirection === 'e') {
+        // East edge: grow right only
+        newWidth = baseStartWidth + baseDeltaX;
+      } else if (resizeDirection === 's') {
+        // South edge: grow down only
+        newHeight = baseStartHeight + baseDeltaY;
+      } else if (resizeDirection === 'w') {
+        // West edge: grow left
+        newWidth = baseStartWidth - baseDeltaX;
+        newX = resizeStartPosX + baseDeltaX;
+      } else if (resizeDirection === 'n') {
+        // North edge: grow up
+        newHeight = baseStartHeight - baseDeltaY;
+        newY = resizeStartPosY + baseDeltaY;
+      }
+      
       // Ensure minimum and maximum size at base scale
-      const newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, baseStartWidth + baseDeltaX));
-      const newHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, baseStartHeight + baseDeltaY));
+      newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, newWidth));
+      newHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, newHeight));
+      
+      // Adjust position if width/height hit limits when resizing left/up
+      if (resizeDirection === 'w' && newWidth === MIN_WIDTH) {
+        newX = resizeStartPosX + baseStartWidth - MIN_WIDTH;
+      } else if (resizeDirection === 'w' && newWidth === MAX_WIDTH) {
+        newX = resizeStartPosX + baseStartWidth - MAX_WIDTH;
+      }
+      if (resizeDirection === 'n' && newHeight === MIN_HEIGHT) {
+        newY = resizeStartPosY + baseStartHeight - MIN_HEIGHT;
+      } else if (resizeDirection === 'n' && newHeight === MAX_HEIGHT) {
+        newY = resizeStartPosY + baseStartHeight - MAX_HEIGHT;
+      }
       
       const baseWidth = canvasWidth / safeScale;
       const baseHeight = canvasHeight / safeScale;
       
-      // Calculate new font size with intelligent constraints (similar to sticky notes)
-      // Use width-based scaling but cap it to ensure it fits within height
-      const widthBasedSize = newWidth * 0.12; // 12% of width
-      const heightConstraint = newHeight * 0.4; // Max 40% of height
-      const maxFontSize = 48; // Absolute maximum font size
-      const minFontSize = 12; // Absolute minimum font size
+      // Calculate new font size with intelligent constraints
+      const widthBasedSize = newWidth * 0.12;
+      const heightConstraint = newHeight * 0.4;
+      const maxFontSize = 48;
+      const minFontSize = 12;
       const newFontSize = Math.max(minFontSize, Math.min(widthBasedSize, heightConstraint, maxFontSize));
       
-      // Update the annotation with new dimensions
+      // Update the annotation with new dimensions and position
       updateTextAnnotation({
         ...resizingAnnotation,
+        x: newX,
+        y: newY,
         width: newWidth,
         height: newHeight,
         fontSize: newFontSize,
+        relativeX: baseWidth > 0 ? newX / baseWidth : resizingAnnotation.relativeX,
+        relativeY: baseHeight > 0 ? newY / baseHeight : resizingAnnotation.relativeY,
         relativeWidth: baseWidth > 0 ? newWidth / baseWidth : (resizingAnnotation.relativeWidth ?? 0),
         relativeHeight: baseHeight > 0 ? newHeight / baseHeight : (resizingAnnotation.relativeHeight ?? 0)
       });
@@ -276,10 +320,11 @@
     draggedAnnotation = null;
     isResizing = false;
     resizingAnnotation = null;
+    resizeDirection = null;
   }
   
   // Handle resize handle mouse down
-  function handleResizeMouseDown(event: MouseEvent, annotation: TextAnnotation) {
+  function handleResizeMouseDown(event: MouseEvent, annotation: TextAnnotation, direction: 'se' | 'e' | 's' | 'w' | 'n') {
     if (viewOnlyMode || editingAnnotation) return;
     
     event.preventDefault();
@@ -287,15 +332,18 @@
     
     isResizing = true;
     resizingAnnotation = annotation;
+    resizeDirection = direction;
     resizeStartX = event.clientX;
     resizeStartY = event.clientY;
     
-    // Get current display dimensions
+    // Get current display dimensions and position
     const safeScale = getSafeScale();
     const width = annotation.width ?? DEFAULT_WIDTH;
     const height = annotation.height ?? DEFAULT_HEIGHT;
     resizeStartWidth = width * safeScale;
     resizeStartHeight = height * safeScale;
+    resizeStartPosX = annotation.x;
+    resizeStartPosY = annotation.y;
   }
 
   onMount(() => {
@@ -385,16 +433,43 @@
           {annotation.text || 'Click to edit...'}
         </div>
         
-        <!-- Resize handle -->
+        <!-- Resize handles -->
         {#if !viewOnlyMode}
+          <!-- Corner handle (southeast) -->
           <!-- svelte-ignore a11y-no-static-element-interactions -->
           <div
-            class="text-box-resize-handle"
-            on:mousedown|stopPropagation={(e) => handleResizeMouseDown(e, annotation)}
+            class="text-box-resize-handle resize-se"
+            on:mousedown|stopPropagation={(e) => handleResizeMouseDown(e, annotation, 'se')}
             title="Drag to resize"
             role="button"
             tabindex="0"
             aria-label="Resize text annotation"
+          ></div>
+          
+          <!-- Edge handles -->
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div
+            class="text-box-resize-handle resize-e"
+            on:mousedown|stopPropagation={(e) => handleResizeMouseDown(e, annotation, 'e')}
+            title="Drag to resize width"
+          ></div>
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div
+            class="text-box-resize-handle resize-s"
+            on:mousedown|stopPropagation={(e) => handleResizeMouseDown(e, annotation, 's')}
+            title="Drag to resize height"
+          ></div>
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div
+            class="text-box-resize-handle resize-w"
+            on:mousedown|stopPropagation={(e) => handleResizeMouseDown(e, annotation, 'w')}
+            title="Drag to resize width"
+          ></div>
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div
+            class="text-box-resize-handle resize-n"
+            on:mousedown|stopPropagation={(e) => handleResizeMouseDown(e, annotation, 'n')}
+            title="Drag to resize height"
           ></div>
         {/if}
       </div>
@@ -505,18 +580,81 @@
   /* Resize handle styling */
   .text-box-resize-handle {
     position: absolute;
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+    pointer-events: auto;
+  }
+  
+  .text-box-container:hover .text-box-resize-handle {
+    opacity: 1;
+  }
+  
+  /* Corner handle (southeast) */
+  .resize-se {
     bottom: 0;
     right: 0;
     width: 16px;
     height: 16px;
     cursor: nw-resize;
     background: linear-gradient(-45deg, transparent 0%, transparent 40%, #9CA3AF 40%, #9CA3AF 60%, transparent 60%);
-    opacity: 0.5;
-    transition: opacity 0.2s ease;
+    z-index: 3;
   }
   
-  .text-box-container:hover .text-box-resize-handle {
-    opacity: 1;
+  /* Edge handles */
+  .resize-e {
+    top: 0;
+    right: -4px;
+    width: 8px;
+    height: 100%;
+    cursor: ew-resize;
+    background: rgba(59, 130, 246, 0.1);
+    z-index: 2;
+  }
+  
+  .resize-e:hover {
+    background: rgba(59, 130, 246, 0.3);
+  }
+  
+  .resize-s {
+    bottom: -4px;
+    left: 0;
+    width: 100%;
+    height: 8px;
+    cursor: ns-resize;
+    background: rgba(59, 130, 246, 0.1);
+    z-index: 2;
+  }
+  
+  .resize-s:hover {
+    background: rgba(59, 130, 246, 0.3);
+  }
+  
+  .resize-w {
+    top: 0;
+    left: -4px;
+    width: 8px;
+    height: 100%;
+    cursor: ew-resize;
+    background: rgba(59, 130, 246, 0.1);
+    z-index: 2;
+  }
+  
+  .resize-w:hover {
+    background: rgba(59, 130, 246, 0.3);
+  }
+  
+  .resize-n {
+    top: -4px;
+    left: 0;
+    width: 100%;
+    height: 8px;
+    cursor: ns-resize;
+    background: rgba(59, 130, 246, 0.1);
+    z-index: 2;
+  }
+  
+  .resize-n:hover {
+    background: rgba(59, 130, 246, 0.3);
   }
   
   /* Scrollbar styling for webkit browsers */
