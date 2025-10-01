@@ -21,6 +21,11 @@
     return currentScale > 0 ? currentScale : 1;
   }
 
+  // Clamp utility to enforce min/max bounds
+  function clamp(value: number, min: number, max: number): number {
+    return Math.min(Math.max(value, min), max);
+  }
+
   let editingAnnotation: TextAnnotation | null = null;
   let editInput: HTMLTextAreaElement;
   let overlayContainer: HTMLDivElement;
@@ -72,6 +77,10 @@
     const relativeX = baseWidth > 0 ? baseX / baseWidth : 0;
     const relativeY = baseHeight > 0 ? baseY / baseHeight : 0;
 
+    // Initialize default dimensions honoring declared MIN/DEFAULT constants
+    const initialWidth = Math.max(DEFAULT_WIDTH, MIN_WIDTH);
+    const initialHeight = Math.max(DEFAULT_HEIGHT, MIN_HEIGHT);
+
     const newAnnotation: TextAnnotation = {
       id: generateId(),
       pageNumber: $pdfState.currentPage,
@@ -81,12 +90,12 @@
       fontSize: 24,
       color: $drawingState.color,
       fontFamily: 'ReenieBeanie, cursive',
-      width: 150, // Smaller default width at base scale
-      height: 40, // Smaller default height at base scale
+      width: initialWidth,
+      height: initialHeight,
       relativeX,
       relativeY,
-      relativeWidth: baseWidth > 0 ? 150 / baseWidth : 0,
-      relativeHeight: baseHeight > 0 ? 40 / baseHeight : 0
+      relativeWidth: baseWidth > 0 ? initialWidth / baseWidth : 0,
+      relativeHeight: baseHeight > 0 ? initialHeight / baseHeight : 0
     };
 
     // Track first annotation creation
@@ -122,19 +131,25 @@
       const textareaWidth = editInput.scrollWidth;
       
       const baseHeight = textareaHeight / safeScale;
-      const baseWidth = Math.min(textareaWidth / safeScale, 600); // Cap max width
+      const baseWidth = textareaWidth / safeScale;
       
       const canvasBaseHeight = canvasHeight / safeScale;
       const canvasBaseWidth = canvasWidth / safeScale;
       
-      // Update annotation with new text and fitted dimensions (tight fit)
+      // Apply minimal padding then clamp to declared bounds
+      const paddedBaseWidth = baseWidth + 12;
+      const paddedBaseHeight = baseHeight + 8;
+      const clampedWidth = clamp(paddedBaseWidth, MIN_WIDTH, MAX_WIDTH);
+      const clampedHeight = clamp(paddedBaseHeight, MIN_HEIGHT, MAX_HEIGHT);
+      
+      // Update annotation with new text and fitted, clamped dimensions
       updateTextAnnotation({
         ...editingAnnotation,
         text: newText,
-        width: Math.max(80, baseWidth + 12), // Minimal padding
-        height: Math.max(35, baseHeight + 8), // Minimal padding
-        relativeWidth: canvasBaseWidth > 0 ? (baseWidth + 12) / canvasBaseWidth : editingAnnotation.relativeWidth,
-        relativeHeight: canvasBaseHeight > 0 ? (baseHeight + 8) / canvasBaseHeight : editingAnnotation.relativeHeight
+        width: clampedWidth,
+        height: clampedHeight,
+        relativeWidth: canvasBaseWidth > 0 ? clampedWidth / canvasBaseWidth : editingAnnotation.relativeWidth,
+        relativeHeight: canvasBaseHeight > 0 ? clampedHeight / canvasBaseHeight : editingAnnotation.relativeHeight
       });
     }
     
