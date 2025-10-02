@@ -66,7 +66,8 @@ fn check_file_associations(app_handle: tauri::AppHandle) -> Vec<String> {
         
         // Only sanitize file paths, not deep links
         let clean_arg = sanitize_path(arg);
-        if clean_arg.to_lowercase().ends_with(".pdf") || clean_arg.to_lowercase().ends_with(".lpdf") {
+        let lower = clean_arg.to_lowercase();
+        if lower.ends_with(".pdf") || lower.ends_with(".lpdf") || lower.ends_with(".md") {
             pdf_files.push(clean_arg);
         }
     }
@@ -510,9 +511,10 @@ pub fn run() {
                         let clean_arg = sanitize_path(arg);
                         debug_msg.push_str(&format!("Sanitized to: {}\n", clean_arg));
 
-                        if clean_arg.to_lowercase().ends_with(".pdf") || clean_arg.to_lowercase().ends_with(".lpdf") {
+                        let lower = clean_arg.to_lowercase();
+                        if lower.ends_with(".pdf") || lower.ends_with(".lpdf") || lower.ends_with(".md") {
                             pdf_files.push(clean_arg.clone());
-                            debug_msg.push_str(&format!("Found PDF/LPDF file: {}\n", clean_arg));
+                            debug_msg.push_str(&format!("Found PDF/LPDF/MD file: {}\n", clean_arg));
                         }
                     }
 
@@ -546,7 +548,8 @@ pub fn run() {
                         
                         // Only sanitize file paths, not deep links
                         let clean_arg = sanitize_path(arg);
-                        if clean_arg.to_lowercase().ends_with(".pdf") || clean_arg.to_lowercase().ends_with(".lpdf") {
+                        let lower = clean_arg.to_lowercase();
+                        if lower.ends_with(".pdf") || lower.ends_with(".lpdf") || lower.ends_with(".md") {
                             pdf_files.push(clean_arg.clone());
                         }
                     }
@@ -585,11 +588,12 @@ pub fn run() {
                             
                             println!("Decoded path: {}", decoded_path);
                             
-                            if decoded_path.to_lowercase().ends_with(".pdf") || decoded_path.to_lowercase().ends_with(".lpdf") {
+                            let lower = decoded_path.to_lowercase();
+                            if lower.ends_with(".pdf") || lower.ends_with(".lpdf") || lower.ends_with(".md") {
                                 pdf_files.push(decoded_path.to_string());
-                                println!("Found PDF/LPDF file from opened event: {}", decoded_path);
+                                println!("Found PDF/LPDF/MD file from opened event: {}", decoded_path);
                             } else {
-                                println!("Not a PDF file: {}", decoded_path);
+                                println!("Not a supported file: {}", decoded_path);
                             }
                         } else {
                             println!("Not a file:// URL: {}", url_str);

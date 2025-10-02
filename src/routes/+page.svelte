@@ -220,8 +220,14 @@
       // Step 3: Extract filename
       const fileName = cleanPath.split(/[\\/]/).pop() || 'document.pdf';
 
-      // Step 4: Check if it's a PDF
-      if (!fileName.toLowerCase().endsWith('.pdf')) {
+      // Step 4: Check if it's a supported file type
+      const lowerFileName = fileName.toLowerCase();
+      const isPDF = lowerFileName.endsWith('.pdf');
+      const isMarkdown = lowerFileName.endsWith('.md');
+      const isLPDF = lowerFileName.endsWith('.lpdf');
+      
+      if (!isPDF && !isMarkdown && !isLPDF) {
+        console.log('Unsupported file type:', fileName);
         return false;
       }
 
@@ -266,16 +272,19 @@
         }
       }
 
-      // Step 6: Validate PDF header
-      const pdfHeader = new Uint8Array(fileData!.slice(0, 4));
-      const pdfSignature = String.fromCharCode(...pdfHeader);
-      if (pdfSignature !== '%PDF') {
-        console.error('Invalid PDF signature:', pdfSignature);
-        return false;
+      // Step 6: Validate file content (skip validation for markdown, handle in frontend)
+      if (isPDF || isLPDF) {
+        const pdfHeader = new Uint8Array(fileData!.slice(0, 4));
+        const pdfSignature = String.fromCharCode(...pdfHeader);
+        if (pdfSignature !== '%PDF') {
+          console.error('Invalid PDF signature:', pdfSignature);
+          return false;
+        }
       }
 
-      // Step 7: Create File object
-      const file = new File([new Uint8Array(fileData!)], fileName, { type: 'application/pdf' });
+      // Step 7: Create File object with appropriate MIME type
+      const mimeType = isMarkdown ? 'text/markdown' : 'application/pdf';
+      const file = new File([new Uint8Array(fileData!)], fileName, { type: mimeType });
 
       // Step 8: Size check
       if (file.size > MAX_FILE_SIZE) {
@@ -283,22 +292,46 @@
         return false;
       }
 
-      // Step 9: Set state
-      currentFile = file;
-      showWelcome = false;
+      // Step 9: Handle based on file type
+      if (isMarkdown || isLPDF) {
+        // For markdown and LPDF, navigate to upload route (same as drag-drop)
+        console.log('Storing file and navigating to pdf-upload route');
+        const result = await storeUploadedFile(file);
+        
+        if (result.success && result.id) {
+          goto(`/pdf-upload?fileId=${result.id}`);
+          
+          // Mark as processed
+          try {
+            await invoke('mark_file_processed');
+          } catch (e) {
+            console.warn('Could not mark as processed (not critical)');
+          }
+          
+          console.log('File loaded successfully from command line');
+          return true;
+        } else {
+          console.error('Failed to store file:', result.error);
+          return false;
+        }
+      } else {
+        // For PDF, load directly in current view
+        currentFile = file;
+        showWelcome = false;
 
-      // Step 10: Set PDF for auto-save
-      setCurrentPDF(file.name, file.size);
+        // Set PDF for auto-save
+        setCurrentPDF(file.name, file.size);
 
-      // Step 11: Mark as processed
-      try {
-        await invoke('mark_file_processed');
-      } catch (e) {
-        console.warn('Could not mark as processed (not critical)');
+        // Mark as processed
+        try {
+          await invoke('mark_file_processed');
+        } catch (e) {
+          console.warn('Could not mark as processed (not critical)');
+        }
+
+        console.log('PDF loaded successfully from command line');
+        return true;
       }
-
-      console.log('PDF loaded successfully from command line');
-      return true;
 
     } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : String(error);
