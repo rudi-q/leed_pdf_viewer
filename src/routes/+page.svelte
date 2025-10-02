@@ -272,8 +272,9 @@
         }
       }
 
-      // Step 6: Validate file content (skip validation for markdown, handle in frontend)
-      if (isPDF || isLPDF) {
+      // Step 6: Validate file content (only for actual PDFs, skip for markdown and LPDF)
+      if (isPDF) {
+        // Only validate PDF header for actual PDF files, not LPDF packages
         const pdfHeader = new Uint8Array(fileData!.slice(0, 4));
         const pdfSignature = String.fromCharCode(...pdfHeader);
         if (pdfSignature !== '%PDF') {
@@ -281,6 +282,8 @@
           return false;
         }
       }
+      // LPDF files are ZIP packages, they'll be imported/extracted in the upload route
+      // Markdown files are plain text, they'll be converted in the upload route
 
       // Step 7: Create File object with appropriate MIME type
       const mimeType = isMarkdown ? 'text/markdown' : 'application/pdf';
