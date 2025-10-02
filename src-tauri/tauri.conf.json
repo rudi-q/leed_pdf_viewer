@@ -18,7 +18,8 @@
         "resizable": true,
         "center": true,
         "focus": true,
-        "dragDropEnabled": false
+        "dragDropEnabled": false,
+        "devtools": true
       }
     ],
     "security": {

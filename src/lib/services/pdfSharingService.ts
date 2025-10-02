@@ -323,7 +323,7 @@ export class PDFSharingService {
 			);
 
 			// Generate share URL
-			const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://leed.my';
+			const baseUrl = 'https://leed.my';
 			const shareUrl = `${baseUrl}/shared/${shareId}`;
 
 			toastStore.success('PDF Shared', 'Your PDF has been shared successfully!');
