@@ -136,17 +136,22 @@
 		}
 	}
 	
-	// Register deep link handler - handles leedpdf:// URLs
+	// Register deep link handler - handles leedpdf:// URLs (plugin-based, may not work on all platforms)
 	async function registerDeepLinkHandler() {
-		console.log('🔗 [Deep Link] Starting registration...');
+		console.log('🔗 [Deep Link] Starting plugin registration...');
 		try {
 			console.log('🔗 [Deep Link] Getting current instance...');
 			const current = await getCurrent();
 			console.log('🔗 [Deep Link] Got current:', current);
 			
+			if (!current || typeof current !== 'object' || !('onOpenUrl' in current)) {
+				console.log('⚠️ [Deep Link] Plugin API not available, relying on custom event handler');
+				return;
+			}
+			
 			console.log('🔗 [Deep Link] Calling onOpenUrl...');
-			const unlisten = await current.onOpenUrl((urls) => {
-				console.log('🔗🔗🔗 [Deep Link] CALLBACK TRIGGERED! Received:', urls);
+			const unlisten = await (current as any).onOpenUrl((urls: string[]) => {
+				console.log('🔗🔗🔗 [Deep Link] PLUGIN CALLBACK TRIGGERED! Received:', urls);
 				console.log('🔗 [Deep Link] Type:', typeof urls, 'IsArray:', Array.isArray(urls));
 				
 				// Process each URL
@@ -154,12 +159,17 @@
 					console.log('🔗 [Deep Link] Processing URL:', url);
 					if (url.startsWith('leedpdf://')) {
 						// Extract the content after leedpdf://
-						const content = url.replace('leedpdf://', '');
+						let content = url.replace('leedpdf://', '');
 						console.log('🔗 [Deep Link] Extracted content:', content);
+						
+						// Fix Windows colon stripping
+						if (content.startsWith('https//') || content.startsWith('http//')) {
+							content = content.replace('https//', 'https://').replace('http//', 'http://');
+							console.log('🔗 [Deep Link] Fixed URL:', content);
+						}
 						
 						if (content) {
 							// Navigate to /pdf/[url] route - same as web app!
-							// This handles both HTTP(S) URLs and local file paths
 							const encodedContent = encodeURIComponent(content);
 							console.log('🔗 [Deep Link] Navigating to /pdf/' + encodedContent);
 							goto(`/pdf/${encodedContent}`);
@@ -169,14 +179,16 @@
 					}
 				}
 			});
-			console.log('✅ [Deep Link] Handler registered successfully! Unlisten function:', typeof unlisten);
-		} catch (error) {
-			console.error('❌ [Deep Link] Failed to register handler:', error);
-			console.error('❌ [Deep Link] Error details:', {
-				name: error?.name,
-				message: error?.message,
-				stack: error?.stack
-			});
+			console.log('✅ [Deep Link] Plugin handler registered successfully! Unlisten function:', typeof unlisten);
+		} catch (error: unknown) {
+			console.error('❌ [Deep Link] Failed to register plugin handler:', error);
+			if (error instanceof Error) {
+				console.error('❌ [Deep Link] Error details:', {
+					name: error.name,
+					message: error.message,
+					stack: error.stack
+				});
+			}
 		}
 	}
 </script>
