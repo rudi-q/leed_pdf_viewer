@@ -1,7 +1,7 @@
 [package]
 name = "leed-pdf"
-version = "2.8.0"
-description = "A Lightweight, Opensource and Free PDF Viewer"
+version = "2.12.3"
+description = "A Lightweight, Opensource and Private PDF Viewer & Annotation Tool"
 authors = ["Rudi K <reach@rudi.engineer>"]
 license = "AGPL"
 repository = "https://github.com/rudi-q/leed_pdf_viewer"
