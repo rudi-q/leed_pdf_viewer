@@ -3,9 +3,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
 	import { listen } from '@tauri-apps/api/event';
-	import { message } from '@tauri-apps/plugin-dialog';
 	import { readFile as readFilePlugin } from '@tauri-apps/plugin-fs';
 	import { invoke } from '@tauri-apps/api/core';
 	import PDFViewer from '$lib/components/PDFViewer.svelte';
@@ -196,45 +194,6 @@
     }
   }
 
-  async function registerDeepLinkHandler() {
-    try {
-      await onOpenUrl((urls) => {
-        console.log('Deep link received:', urls);
-
-        // Handle the deep link URLs
-        for (const url of urls) {
-          console.log('Processing deep link URL:', url);
-
-          if (url.startsWith('leedpdf://')) {
-            const filePath = url.replace('leedpdf://', '');
-            console.log('Extracted file path:', filePath);
-
-            // If it's a local file path, try to handle it
-            if (filePath) {
-              handleDeepLinkFile(filePath);
-            }
-          }
-        }
-      });
-    } catch (error) {
-      console.error('Failed to register deep link handler:', error);
-    }
-  }
-
-  async function handleDeepLinkFile(filePath: string) {
-    console.log('Handling deep link file:', filePath);
-
-    // For now, we'll just show an alert with the file path
-    // In a real implementation, you might want to:
-    // 1. Check if the file exists
-    // 2. Validate it's a PDF
-    // 3. Load it into your PDF viewer
-
-    await message(`Deep link received for file: ${filePath}`, 'LeedPDF - Deep Link');
-
-    // You could potentially navigate to a URL with the file path
-    // or implement file reading logic here
-  }
 
   // Replace your handleFileFromCommandLine function with this enhanced debug version
 
@@ -1062,8 +1021,6 @@
         console.log('TAURI DEBUG:', event.payload);
       }
     });
-
-    registerDeepLinkHandler();
 
     // Signal that frontend is ready to receive events
     if (isTauri) {

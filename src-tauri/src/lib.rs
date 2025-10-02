@@ -44,11 +44,27 @@ fn get_pending_file() -> Option<String> {
 }
 
 #[tauri::command]
-fn check_file_associations() -> Vec<String> {
+fn check_file_associations(app_handle: tauri::AppHandle) -> Vec<String> {
     let args: Vec<String> = std::env::args().collect();
     let mut pdf_files: Vec<String> = Vec::new();
 
     for arg in &args[1..] {
+        // Check for deep links BEFORE sanitizing (they're not file paths!)
+        if arg.starts_with("leedpdf://") {
+            println!("[check_file_associations] Found deep link: {}", arg);
+            // Extract content after leedpdf://
+            let content = arg.replace("leedpdf://", "");
+            println!("[check_file_associations] Deep link content: {}", content);
+            
+            // Emit deep-link event to frontend
+            match app_handle.emit("deep-link", &content) {
+                Ok(_) => println!("[check_file_associations] Successfully emitted deep-link event"),
+                Err(e) => println!("[check_file_associations] Failed to emit deep-link event: {:?}", e),
+            }
+            continue;
+        }
+        
+        // Only sanitize file paths, not deep links
         let clean_arg = sanitize_path(arg);
         if clean_arg.to_lowercase().ends_with(".pdf") || clean_arg.to_lowercase().ends_with(".lpdf") {
             pdf_files.push(clean_arg);
@@ -393,6 +409,7 @@ fn process_pdf_files(app_handle: &tauri::AppHandle, pdf_files: Vec<String>) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
@@ -472,8 +489,26 @@ pub fn run() {
                     let mut pdf_files: Vec<String> = Vec::new();
 
                     for arg in &args[1..] {
+                        debug_msg.push_str(&format!("Processing argument: {}\n", arg));
+                        
+                        // Handle deep links directly BEFORE sanitizing (they're not file paths!)
+                        if arg.starts_with("leedpdf://") {
+                            debug_msg.push_str(&format!("Found deep link: {}\n", arg));
+                            // Extract content after leedpdf://
+                            let content = arg.replace("leedpdf://", "");
+                            debug_msg.push_str(&format!("Deep link content: {}\n", content));
+                            
+                            // Emit deep-link event to frontend
+                            match app.emit("deep-link", content) {
+                                Ok(_) => debug_msg.push_str("Successfully emitted deep-link event\n"),
+                                Err(e) => debug_msg.push_str(&format!("Failed to emit deep-link event: {:?}\n", e)),
+                            }
+                            continue;
+                        }
+                        
+                        // Only sanitize file paths, not deep links
                         let clean_arg = sanitize_path(arg);
-                        debug_msg.push_str(&format!("Processing argument: {} -> {}\n", arg, clean_arg));
+                        debug_msg.push_str(&format!("Sanitized to: {}\n", clean_arg));
 
                         if clean_arg.to_lowercase().ends_with(".pdf") || clean_arg.to_lowercase().ends_with(".lpdf") {
                             pdf_files.push(clean_arg.clone());
@@ -500,6 +535,16 @@ pub fn run() {
                 if args.len() > 1 {
                     let mut pdf_files: Vec<String> = Vec::new();
                     for arg in &args[1..] {
+                        // Handle deep links directly BEFORE sanitizing (they're not file paths!)
+                        if arg.starts_with("leedpdf://") {
+                            // Extract content after leedpdf://
+                            let content = arg.replace("leedpdf://", "");
+                            // Emit deep-link event to frontend
+                            let _ = app.emit("deep-link", content);
+                            continue;
+                        }
+                        
+                        // Only sanitize file paths, not deep links
                         let clean_arg = sanitize_path(arg);
                         if clean_arg.to_lowercase().ends_with(".pdf") || clean_arg.to_lowercase().ends_with(".lpdf") {
                             pdf_files.push(clean_arg.clone());

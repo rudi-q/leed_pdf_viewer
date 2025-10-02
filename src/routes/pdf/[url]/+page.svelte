@@ -3,9 +3,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
 	import { listen } from '@tauri-apps/api/event';
-	import { message } from '@tauri-apps/plugin-dialog';
 	import { readFile as readFilePlugin } from '@tauri-apps/plugin-fs';
 	import { invoke } from '@tauri-apps/api/core';
 	import PDFViewer from '$lib/components/PDFViewer.svelte';
@@ -102,8 +100,6 @@
       const unlistenDebug = listen('debug-info', (event) => {
         console.log('TAURI DEBUG:', event.payload);
       });
-
-      registerDeepLinkHandler();
 
       // Store cleanup functions for later
       window.__pdfRouteCleanup = {
@@ -215,35 +211,6 @@
     }
   }
 
-  async function registerDeepLinkHandler() {
-    try {
-      await onOpenUrl((urls) => {
-        console.log('Deep link received:', urls);
-
-        // Handle the deep link URLs
-        for (const url of urls) {
-          console.log('Processing deep link URL:', url);
-
-          if (url.startsWith('leedpdf://')) {
-            const filePath = url.replace('leedpdf://', '');
-            console.log('Extracted file path:', filePath);
-
-            // If it's a local file path, try to handle it
-            if (filePath) {
-              handleDeepLinkFile(filePath);
-            }
-          }
-        }
-      });
-    } catch (error) {
-      console.error('Failed to register deep link handler:', error);
-    }
-  }
-
-  async function handleDeepLinkFile(filePath: string) {
-    console.log('Handling deep link file:', filePath);
-    await message(`Deep link received for file: ${filePath}`, 'LeedPDF - Deep Link');
-  }
 
   async function handleFileFromCommandLine(filePath: string): Promise<boolean> {
     console.log('*** HANDLING FILE FROM COMMAND LINE ***');
