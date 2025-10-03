@@ -11,6 +11,9 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { isTauri } from '$lib/utils/tauriUtils';
+	import { goto } from '$app/navigation';
+	import { getCurrent } from '@tauri-apps/plugin-deep-link';
+	import { listen } from '@tauri-apps/api/event';
 
 	// License validation state
 	let showLicenseModal = false;
@@ -31,6 +34,12 @@
 			if (isTauri) {
 				// Check license immediately after app loads (removed delay)
 				performLicenseCheck();
+				
+				// Listen for deep-link events from Rust
+				listenForDeepLinks();
+				
+				// Also register the plugin handler (might work for some cases)
+				registerDeepLinkHandler();
 			} else {
 				// Web version doesn't need license validation
 				licenseCheckCompleted = true;
@@ -91,6 +100,96 @@
 		// but they may not be able to use certain features
 		licenseCheckCompleted = true;
 		// hasValidLicense remains false, so no update check will be triggered
+	}
+	
+	// Listen for deep-link events emitted from Rust backend
+	async function listenForDeepLinks() {
+		console.log('🔗 [Deep Link] Setting up event listener for deep-link events...');
+		try {
+			const unlisten = await listen('deep-link', (event) => {
+				console.log('🔗🔗🔗 [Deep Link] EVENT RECEIVED!', event);
+				let content = event.payload as string;
+				console.log('🔗 [Deep Link] Raw content:', content);
+				
+				// Windows strips the colon after https, fix it
+				if (content.startsWith('https//') || content.startsWith('http//')) {
+					content = content.replace('https//', 'https://').replace('http//', 'http://');
+					console.log('🔗 [Deep Link] Fixed URL:', content);
+				}
+				
+				if (content) {
+					// Navigate to /pdf/[url] route - DRY!
+					const encodedContent = encodeURIComponent(content);
+					console.log('🔗 [Deep Link] Navigating to /pdf/' + encodedContent);
+					goto(`/pdf/${encodedContent}`);
+				}
+			});
+			console.log('✅ [Deep Link] Event listener registered successfully!');
+			
+			// Tell Rust backend we're ready to receive deep link events
+			// This will trigger a re-check of command line args
+			const { invoke } = await import('@tauri-apps/api/core');
+			await invoke('check_file_associations');
+			console.log('✅ [Deep Link] Triggered re-check of command line args');
+		} catch (error) {
+			console.error('❌ [Deep Link] Failed to register event listener:', error);
+		}
+	}
+	
+	// Register deep link handler - handles leedpdf:// URLs (plugin-based, may not work on all platforms)
+	async function registerDeepLinkHandler() {
+		console.log('🔗 [Deep Link] Starting plugin registration...');
+		try {
+			console.log('🔗 [Deep Link] Getting current instance...');
+			const current = await getCurrent();
+			console.log('🔗 [Deep Link] Got current:', current);
+			
+			if (!current || typeof current !== 'object' || !('onOpenUrl' in current)) {
+				console.log('⚠️ [Deep Link] Plugin API not available, relying on custom event handler');
+				return;
+			}
+			
+			console.log('🔗 [Deep Link] Calling onOpenUrl...');
+			const unlisten = await (current as any).onOpenUrl((urls: string[]) => {
+				console.log('🔗🔗🔗 [Deep Link] PLUGIN CALLBACK TRIGGERED! Received:', urls);
+				console.log('🔗 [Deep Link] Type:', typeof urls, 'IsArray:', Array.isArray(urls));
+				
+				// Process each URL
+				for (const url of urls) {
+					console.log('🔗 [Deep Link] Processing URL:', url);
+					if (url.startsWith('leedpdf://')) {
+						// Extract the content after leedpdf://
+						let content = url.replace('leedpdf://', '');
+						console.log('🔗 [Deep Link] Extracted content:', content);
+						
+						// Fix Windows colon stripping
+						if (content.startsWith('https//') || content.startsWith('http//')) {
+							content = content.replace('https//', 'https://').replace('http//', 'http://');
+							console.log('🔗 [Deep Link] Fixed URL:', content);
+						}
+						
+						if (content) {
+							// Navigate to /pdf/[url] route - same as web app!
+							const encodedContent = encodeURIComponent(content);
+							console.log('🔗 [Deep Link] Navigating to /pdf/' + encodedContent);
+							goto(`/pdf/${encodedContent}`);
+						}
+					} else {
+						console.log('🔗 [Deep Link] URL does not start with leedpdf://', url);
+					}
+				}
+			});
+			console.log('✅ [Deep Link] Plugin handler registered successfully! Unlisten function:', typeof unlisten);
+		} catch (error: unknown) {
+			console.error('❌ [Deep Link] Failed to register plugin handler:', error);
+			if (error instanceof Error) {
+				console.error('❌ [Deep Link] Error details:', {
+					name: error.name,
+					message: error.message,
+					stack: error.stack
+				});
+			}
+		}
 	}
 </script>
 

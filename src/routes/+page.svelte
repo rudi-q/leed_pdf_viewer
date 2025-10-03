@@ -3,9 +3,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
 	import { listen } from '@tauri-apps/api/event';
-	import { message } from '@tauri-apps/plugin-dialog';
 	import { readFile as readFilePlugin } from '@tauri-apps/plugin-fs';
 	import { invoke } from '@tauri-apps/api/core';
 	import PDFViewer from '$lib/components/PDFViewer.svelte';
@@ -196,45 +194,6 @@
     }
   }
 
-  async function registerDeepLinkHandler() {
-    try {
-      await onOpenUrl((urls) => {
-        console.log('Deep link received:', urls);
-
-        // Handle the deep link URLs
-        for (const url of urls) {
-          console.log('Processing deep link URL:', url);
-
-          if (url.startsWith('leedpdf://')) {
-            const filePath = url.replace('leedpdf://', '');
-            console.log('Extracted file path:', filePath);
-
-            // If it's a local file path, try to handle it
-            if (filePath) {
-              handleDeepLinkFile(filePath);
-            }
-          }
-        }
-      });
-    } catch (error) {
-      console.error('Failed to register deep link handler:', error);
-    }
-  }
-
-  async function handleDeepLinkFile(filePath: string) {
-    console.log('Handling deep link file:', filePath);
-
-    // For now, we'll just show an alert with the file path
-    // In a real implementation, you might want to:
-    // 1. Check if the file exists
-    // 2. Validate it's a PDF
-    // 3. Load it into your PDF viewer
-
-    await message(`Deep link received for file: ${filePath}`, 'LeedPDF - Deep Link');
-
-    // You could potentially navigate to a URL with the file path
-    // or implement file reading logic here
-  }
 
   // Replace your handleFileFromCommandLine function with this enhanced debug version
 
@@ -261,8 +220,14 @@
       // Step 3: Extract filename
       const fileName = cleanPath.split(/[\\/]/).pop() || 'document.pdf';
 
-      // Step 4: Check if it's a PDF
-      if (!fileName.toLowerCase().endsWith('.pdf')) {
+      // Step 4: Check if it's a supported file type
+      const lowerFileName = fileName.toLowerCase();
+      const isPDF = lowerFileName.endsWith('.pdf');
+      const isMarkdown = lowerFileName.endsWith('.md');
+      const isLPDF = lowerFileName.endsWith('.lpdf');
+      
+      if (!isPDF && !isMarkdown && !isLPDF) {
+        console.log('Unsupported file type:', fileName);
         return false;
       }
 
@@ -307,16 +272,22 @@
         }
       }
 
-      // Step 6: Validate PDF header
-      const pdfHeader = new Uint8Array(fileData!.slice(0, 4));
-      const pdfSignature = String.fromCharCode(...pdfHeader);
-      if (pdfSignature !== '%PDF') {
-        console.error('Invalid PDF signature:', pdfSignature);
-        return false;
+      // Step 6: Validate file content (only for actual PDFs, skip for markdown and LPDF)
+      if (isPDF) {
+        // Only validate PDF header for actual PDF files, not LPDF packages
+        const pdfHeader = new Uint8Array(fileData!.slice(0, 4));
+        const pdfSignature = String.fromCharCode(...pdfHeader);
+        if (pdfSignature !== '%PDF') {
+          console.error('Invalid PDF signature:', pdfSignature);
+          return false;
+        }
       }
+      // LPDF files are ZIP packages, they'll be imported/extracted in the upload route
+      // Markdown files are plain text, they'll be converted in the upload route
 
-      // Step 7: Create File object
-      const file = new File([new Uint8Array(fileData!)], fileName, { type: 'application/pdf' });
+      // Step 7: Create File object with appropriate MIME type
+      const mimeType = isMarkdown ? 'text/markdown' : 'application/pdf';
+      const file = new File([new Uint8Array(fileData!)], fileName, { type: mimeType });
 
       // Step 8: Size check
       if (file.size > MAX_FILE_SIZE) {
@@ -324,22 +295,46 @@
         return false;
       }
 
-      // Step 9: Set state
-      currentFile = file;
-      showWelcome = false;
+      // Step 9: Handle based on file type
+      if (isMarkdown || isLPDF) {
+        // For markdown and LPDF, navigate to upload route (same as drag-drop)
+        console.log('Storing file and navigating to pdf-upload route');
+        const result = await storeUploadedFile(file);
+        
+        if (result.success && result.id) {
+          goto(`/pdf-upload?fileId=${result.id}`);
+          
+          // Mark as processed
+          try {
+            await invoke('mark_file_processed');
+          } catch (e) {
+            console.warn('Could not mark as processed (not critical)');
+          }
+          
+          console.log('File loaded successfully from command line');
+          return true;
+        } else {
+          console.error('Failed to store file:', result.error);
+          return false;
+        }
+      } else {
+        // For PDF, load directly in current view
+        currentFile = file;
+        showWelcome = false;
 
-      // Step 10: Set PDF for auto-save
-      setCurrentPDF(file.name, file.size);
+        // Set PDF for auto-save
+        setCurrentPDF(file.name, file.size);
 
-      // Step 11: Mark as processed
-      try {
-        await invoke('mark_file_processed');
-      } catch (e) {
-        console.warn('Could not mark as processed (not critical)');
+        // Mark as processed
+        try {
+          await invoke('mark_file_processed');
+        } catch (e) {
+          console.warn('Could not mark as processed (not critical)');
+        }
+
+        console.log('PDF loaded successfully from command line');
+        return true;
       }
-
-      console.log('PDF loaded successfully from command line');
-      return true;
 
     } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -1063,8 +1058,6 @@
       }
     });
 
-    registerDeepLinkHandler();
-
     // Signal that frontend is ready to receive events
     if (isTauri) {
       if (import.meta.env.DEV) {
@@ -1135,10 +1128,12 @@
             <enhanced:img src="/static/./logo-dark.png" alt="LeedPDF" class="w-24 h-24 mx-auto hidden dark:block object-contain" />
           </div>
 
-          <h1 class="text-xl sm:text-2xl md:text-3xl lg:text-4xl text-charcoal dark:text-gray-100 mb-4 text-center leading-tight px-2" style="font-family: 'Dancing Script', cursive; font-weight: 600;">LeedPDF - Free PDF Annotation Tool</h1>
+          <h1 class="text-xl sm:text-2xl md:text-3xl lg:text-4xl text-charcoal dark:text-gray-100 mb-4 text-center leading-tight px-2" style="font-family: 'Dancing Script', cursive; font-weight: 600;">
+            LeedPDF - {#if isTauri}Professional{:else}Free{/if} PDF Annotation Tool
+          </h1>
           <h2 class="text-lg text-slate dark:text-gray-300 mb-6 font-normal hidden md:block">
-            Add drawings and notes to any PDF. <br />
-            <i>Works with mouse, touch, or stylus - completely free and private.</i>
+            Draw, Highlight and add Notes to PDFs.<br/>
+            <i>Works with mouse, touch, or stylus</i>
           </h2>
 
           <BrowserExtensionPromotion {focusMode} />
@@ -1159,7 +1154,7 @@
                 Open from URL
               </button>
             </div>
-
+          {#if !isTauri}
             <div class="flex justify-center">
               <button
                 class="secondary-button text-base sm:text-lg px-4 sm:px-6 py-3 sm:py-4 w-48 sm:w-56 h-14 sm:h-16 flex items-center justify-center"
@@ -1184,6 +1179,7 @@
                 {/if}
               </button>
             </div>
+          {/if}
 
             <div class="text-sm text-slate">
               <span>or</span>
@@ -1278,6 +1274,7 @@
 
   <Footer
     {focusMode}
+    showGithubLink={true}
     getFormattedVersion={getFormattedVersion}
     on:helpClick={() => showShortcuts = true}
   />
