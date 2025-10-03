@@ -1,62 +1,63 @@
 <script lang="ts">
-	import {
-		availableColors,
-		availableEraserSizes,
-		availableLineWidths,
-		availableStamps,
-		clearCurrentPageDrawings,
-		drawingPaths,
-		drawingState,
-		type DrawingTool,
-		pdfState,
-		redo,
-		redoStack,
-		setColor,
-		setEraserSize,
-		setLineWidth,
-		setStampId,
-		setTool,
-		undo,
-		undoStack
-	} from '../stores/drawingStore';
-	import { isDarkMode, toggleTheme } from '../stores/themeStore';
-	import { handleSearchLinkClick } from '../utils/navigationUtils';
-	import { trackToolSelection } from '../utils/analytics';
-	import { goto } from '$app/navigation';
-	import StampPalette from './StampPalette.svelte';
+  import {
+    availableColors,
+    availableEraserSizes,
+    availableLineWidths,
+    availableStamps,
+    clearCurrentPageDrawings,
+    drawingPaths,
+    drawingState,
+    type DrawingTool,
+    pdfState,
+    redo,
+    redoStack,
+    setColor,
+    setEraserSize,
+    setLineWidth,
+    setStampId,
+    setTool,
+    undo,
+    undoStack
+  } from '../stores/drawingStore';
+  import { isDarkMode, toggleTheme } from '../stores/themeStore';
+  import { handleSearchLinkClick } from '../utils/navigationUtils';
+  import { trackToolSelection } from '../utils/analytics';
+  import { goto } from '$app/navigation';
+  import StampPalette from './StampPalette.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
-	// Feather Icons
-	import {
-		ArrowLeftRight,
-		ArrowRight,
-		ArrowUpDown,
-		ChevronLeft,
-		ChevronRight,
-		Download,
-		Edit3,
-		FileText,
-		Folder,
-		Highlighter,
-		Layout,
-		Moon,
-		MoreHorizontal,
-		Package,
-		Redo2,
-		RotateCcw,
-		Search,
-		Share,
-		Square,
-		Sticker,
-		StickyNote,
-		Sun,
-		Trash2,
-		Type,
-		Undo2,
-		ZoomIn,
-		ZoomOut
-	} from 'lucide-svelte';
+  import {
+    ArrowLeftRight,
+    ArrowRight,
+    ArrowUpDown,
+    ChevronLeft,
+    ChevronRight,
+    Download,
+    Edit3,
+    Eraser,
+    FileText,
+    Folder,
+    Highlighter,
+    Layout,
+    Moon,
+    MoreHorizontal,
+    Package,
+    Redo2,
+    RotateCcw,
+    Search,
+    Share,
+    Square,
+    Stamp,
+    Sticker,
+    StickyNote,
+    Sun,
+    Trash2,
+    Type,
+    Undo2,
+    ZoomIn,
+    ZoomOut
+  } from 'lucide-svelte';
 
-	// Auto-save indicator
+  // Auto-save indicator
   let showAutoSaveIndicator = false;
   let autoSaveTimeout: number;
   
@@ -340,7 +341,7 @@
             on:click={() => !viewOnlyMode && handleToolChange('eraser')}
             aria-label={viewOnlyMode ? 'Eraser disabled in view-only mode' : 'Eraser tool'}
           >
-            <Square size={14} />
+            <Eraser size={14} />
           </button>
         </Tooltip>
 
@@ -409,7 +410,7 @@
               }}
               aria-label={viewOnlyMode ? 'Stamps disabled in view-only mode' : 'Stamps and stickers'}
             >
-              <Sticker size={14} />
+              <Stamp size={14} />
             </button>
           </Tooltip>
 
