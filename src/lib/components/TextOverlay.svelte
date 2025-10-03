@@ -401,7 +401,7 @@
     <!-- Edit mode -->
     {#if editingAnnotation && editingAnnotation.id === annotation.id}
       <div
-        class="text-box-container"
+        class="text-box-container text-box-edit"
         style="left: {pos.x}px; top: {pos.y}px; width: {displayWidth}px; height: {displayHeight}px;"
       >
         <textarea
@@ -500,10 +500,10 @@
   /* Text box container styling */
   .text-box-container {
     position: absolute;
-    background: white;
-    border: 2px solid #3B82F6;
+    background: transparent;
+    border: none;
     border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: none;
     padding: 4px 6px;
     box-sizing: border-box;
     overflow: hidden;
@@ -511,15 +511,29 @@
     z-index: 10;
   }
   
+  /* Edit mode - show white background and sage green border */
+  .text-box-edit {
+    background: white;
+    border: 2px solid #87A96B;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+  
   .text-box-display {
-    border: 1px solid rgba(0, 0, 0, 0.2);
+    border: none;
+    background: transparent;
     cursor: move;
     transition: all 0.15s ease;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
   }
   
   .text-box-display:hover {
+    background: white;
+    border: 1px solid #87A96B;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    border-color: #3B82F6;
+    border-radius: 4px;
+    padding: 4px 6px;
   }
   
   .text-box-active {
@@ -622,12 +636,12 @@
     width: 8px;
     height: 100%;
     cursor: ew-resize;
-    background: rgba(59, 130, 246, 0.1);
+    background: rgba(135, 169, 107, 0.1);
     z-index: 2;
   }
   
   .resize-e:hover {
-    background: rgba(59, 130, 246, 0.3);
+    background: rgba(135, 169, 107, 0.3);
   }
   
   .resize-s {
@@ -636,12 +650,12 @@
     width: 100%;
     height: 8px;
     cursor: ns-resize;
-    background: rgba(59, 130, 246, 0.1);
+    background: rgba(135, 169, 107, 0.1);
     z-index: 2;
   }
   
   .resize-s:hover {
-    background: rgba(59, 130, 246, 0.3);
+    background: rgba(135, 169, 107, 0.3);
   }
   
   .resize-w {
@@ -650,12 +664,12 @@
     width: 8px;
     height: 100%;
     cursor: ew-resize;
-    background: rgba(59, 130, 246, 0.1);
+    background: rgba(135, 169, 107, 0.1);
     z-index: 2;
   }
   
   .resize-w:hover {
-    background: rgba(59, 130, 246, 0.3);
+    background: rgba(135, 169, 107, 0.3);
   }
   
   .resize-n {
@@ -664,12 +678,12 @@
     width: 100%;
     height: 8px;
     cursor: ns-resize;
-    background: rgba(59, 130, 246, 0.1);
+    background: rgba(135, 169, 107, 0.1);
     z-index: 2;
   }
   
   .resize-n:hover {
-    background: rgba(59, 130, 246, 0.3);
+    background: rgba(135, 169, 107, 0.3);
   }
   
   /* Scrollbar styling for webkit browsers */
