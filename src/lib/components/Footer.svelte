@@ -10,6 +10,29 @@
   }>();
 
   let showSocialOverlay = false;
+  let overlayElement: HTMLDivElement;
+
+  function toggleOverlay() {
+    showSocialOverlay = !showSocialOverlay;
+  }
+
+  function openOverlay() {
+    showSocialOverlay = true;
+  }
+
+  function closeOverlay() {
+    showSocialOverlay = false;
+  }
+
+  function handleKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggleOverlay();
+    } else if (event.key === 'Escape' && showSocialOverlay) {
+      event.preventDefault();
+      closeOverlay();
+    }
+  }
 
   function handleHelpClick() {
     dispatch('helpClick');
@@ -21,19 +44,25 @@
     <div 
       class="relative hover-trigger"
       role="group"
-      on:mouseenter={() => showSocialOverlay = true}
-      on:mouseleave={() => showSocialOverlay = false}
+      on:mouseenter={openOverlay}
+      on:mouseleave={closeOverlay}
     >
-      <span 
-        class="text-charcoal/60 dark:text-gray-300 cursor-pointer hover:text-sage dark:hover:text-sage transition-colors"
-        role="button"
-        tabindex="0"
+      <button
+        type="button"
+        class="text-charcoal/60 dark:text-gray-300 cursor-pointer hover:text-sage dark:hover:text-sage transition-colors bg-transparent border-none p-0 font-inherit text-xs"
+        aria-expanded={showSocialOverlay}
+        aria-label="Show social media links"
+        on:click={toggleOverlay}
+        on:keydown={handleKeyDown}
+        on:focus={openOverlay}
+        on:blur={closeOverlay}
       >
         Made by Rudi K
-      </span>
+      </button>
       
       {#if showSocialOverlay}
         <div 
+          bind:this={overlayElement}
           class="social-overlay"
           role="tooltip"
         >
@@ -59,7 +88,7 @@
               
               <!-- X (Twitter) Icon -->
               <a 
-                href="https://x.com/lofifounder"
+                href="https://x.com/rudiq" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 aria-label="Visit X (Twitter) profile"
