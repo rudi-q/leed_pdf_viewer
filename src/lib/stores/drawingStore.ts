@@ -52,8 +52,12 @@ export interface TextAnnotation {
 	fontSize: number;
 	color: string;
 	fontFamily: string;
+	width?: number; // Optional width for resizable text boxes
+	height?: number; // Optional height for resizable text boxes
 	relativeX: number; // 0-1 range for scaling
 	relativeY: number; // 0-1 range for scaling
+	relativeWidth?: number; // 0-1 range for scaling
+	relativeHeight?: number; // 0-1 range for scaling
 }
 
 // Sticky Note annotation interface (custom solution)
