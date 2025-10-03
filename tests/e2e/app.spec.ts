@@ -20,7 +20,7 @@ test.describe('LeedPDF Application', () => {
 		
 		// The subtitle is also hidden on mobile (md:block class)
 		if (!isMobile) {
-			await expect(page.getByText(/Add drawings and notes to any PDF/i)).toBeVisible();
+			await expect(page.getByText(/Draw, Highlight and add Notes to PDFs./i)).toBeVisible();
 		}
 	});
 

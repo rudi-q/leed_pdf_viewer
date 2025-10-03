@@ -1274,6 +1274,7 @@
 
   <Footer
     {focusMode}
+    showGithubLink={true}
     getFormattedVersion={getFormattedVersion}
     on:helpClick={() => showShortcuts = true}
   />
