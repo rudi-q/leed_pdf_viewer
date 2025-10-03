@@ -1128,10 +1128,12 @@
             <enhanced:img src="/static/./logo-dark.png" alt="LeedPDF" class="w-24 h-24 mx-auto hidden dark:block object-contain" />
           </div>
 
-          <h1 class="text-xl sm:text-2xl md:text-3xl lg:text-4xl text-charcoal dark:text-gray-100 mb-4 text-center leading-tight px-2" style="font-family: 'Dancing Script', cursive; font-weight: 600;">LeedPDF - Free PDF Annotation Tool</h1>
+          <h1 class="text-xl sm:text-2xl md:text-3xl lg:text-4xl text-charcoal dark:text-gray-100 mb-4 text-center leading-tight px-2" style="font-family: 'Dancing Script', cursive; font-weight: 600;">
+            LeedPDF - {#if isTauri}Professional{:else}Free{/if} PDF Annotation Tool
+          </h1>
           <h2 class="text-lg text-slate dark:text-gray-300 mb-6 font-normal hidden md:block">
-            Add drawings and notes to any PDF. <br />
-            <i>Works with mouse, touch, or stylus - completely free and private.</i>
+            Draw, Highlight and add Notes to PDFs.<br/>
+            <i>Works with mouse, touch, or stylus</i>
           </h2>
 
           <BrowserExtensionPromotion {focusMode} />
@@ -1152,7 +1154,7 @@
                 Open from URL
               </button>
             </div>
-
+          {#if !isTauri}
             <div class="flex justify-center">
               <button
                 class="secondary-button text-base sm:text-lg px-4 sm:px-6 py-3 sm:py-4 w-48 sm:w-56 h-14 sm:h-16 flex items-center justify-center"
@@ -1177,6 +1179,7 @@
                 {/if}
               </button>
             </div>
+          {/if}
 
             <div class="text-sm text-slate">
               <span>or</span>
