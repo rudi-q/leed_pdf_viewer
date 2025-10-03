@@ -11,7 +11,6 @@
   }>();
 
   let showSocialOverlay = false;
-  let overlayElement: HTMLDivElement;
 
   function toggleOverlay() {
     showSocialOverlay = !showSocialOverlay;
@@ -35,6 +34,16 @@
     }
   }
 
+  function handleFocusOut(event: FocusEvent) {
+    const target = event.relatedTarget as Node | null;
+    const currentTarget = event.currentTarget as HTMLElement;
+    
+    // Only close if focus is moving outside the container
+    if (!target || !currentTarget.contains(target)) {
+      closeOverlay();
+    }
+  }
+
   function handleHelpClick() {
     dispatch('helpClick');
   }
@@ -47,6 +56,8 @@
       role="group"
       on:mouseenter={openOverlay}
       on:mouseleave={closeOverlay}
+      on:focusin={openOverlay}
+      on:focusout={handleFocusOut}
     >
       <button
         type="button"
@@ -55,15 +66,12 @@
         aria-label="Show social media links"
         on:click={toggleOverlay}
         on:keydown={handleKeyDown}
-        on:focus={openOverlay}
-        on:blur={closeOverlay}
       >
         Made by Rudi K
       </button>
       
       {#if showSocialOverlay}
         <div 
-          bind:this={overlayElement}
           class="social-overlay"
           role="tooltip"
         >
