@@ -73,7 +73,6 @@
       {#if showSocialOverlay}
         <div 
           class="social-overlay"
-          role="tooltip"
         >
           <div class="flex flex-col gap-3">
             <div class="text-xs font-semibold text-charcoal/80 dark:text-gray-300 text-center tracking-wide">
