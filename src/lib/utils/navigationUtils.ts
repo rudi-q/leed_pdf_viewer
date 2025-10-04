@@ -58,23 +58,32 @@ export async function openSearchPage(): Promise<void> {
 export async function openExternalUrl(url: string): Promise<void> {
 	if (!browser) return;
 
+	console.log('[openExternalUrl] Opening URL:', url, 'isTauri:', isTauri);
+
 	if (isTauri) {
 		try {
+			console.log('[openExternalUrl] Attempting to use Tauri command...');
 			// Use our custom Tauri command to open in external browser
 			await invokeCommand('open_external_url', { url });
+			console.log('[openExternalUrl] Successfully opened via Tauri command');
 		} catch (error) {
+			console.error('[openExternalUrl] Tauri command failed:', error);
 			// Try fallback with shell plugin
 			try {
+				console.log('[openExternalUrl] Trying shell plugin fallback...');
 				const { open } = await import('@tauri-apps/plugin-shell');
 				await open(url);
+				console.log('[openExternalUrl] Successfully opened via shell plugin');
 			} catch (shellError) {
-				console.error('Failed to open external URL in Tauri:', shellError);
+				console.error('[openExternalUrl] Shell plugin fallback failed:', shellError);
 				// Final fallback to window.open (may not work in Tauri but worth trying)
+				console.log('[openExternalUrl] Trying window.open as last resort...');
 				window.open(url, '_blank');
 			}
 		}
 	} else {
 		// In web environment, open in new tab
+		console.log('[openExternalUrl] Opening in web environment...');
 		window.open(url, '_blank', 'noopener,noreferrer');
 	}
 }

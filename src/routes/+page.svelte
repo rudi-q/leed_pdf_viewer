@@ -1199,7 +1199,7 @@
                 class="secondary-button text-sm sm:text-lg px-3 sm:px-6 py-2 sm:py-4 w-28 sm:w-52 h-10 sm:h-16 flex items-center justify-center text-center flex-shrink-0 transform-gpu"
                 on:click={() => showTemplatePicker = true}
               >
-                Browse Templates
+                Use Templates
               </button>
 
               <button
