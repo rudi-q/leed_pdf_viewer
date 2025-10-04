@@ -23,6 +23,7 @@
   import { handleSearchLinkClick } from '../utils/navigationUtils';
   import { trackToolSelection } from '../utils/analytics';
   import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
   import StampPalette from './StampPalette.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
   import {
@@ -100,6 +101,26 @@
   let toolbarScrollContainer: HTMLDivElement;
   let showLeftFade = false;
   let showRightFade = true;
+  let hasParityBanner = false;
+
+  // Check for parity banner on mount and setup observer
+  onMount(() => {
+    const checkParityBanner = () => {
+      hasParityBanner = document.body.classList.contains('pd-has-parity-banner');
+    };
+
+    // Initial check
+    checkParityBanner();
+
+    // Watch for class changes on body
+    const observer = new MutationObserver(checkParityBanner);
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+
+    return () => observer.disconnect();
+  });
 
   function handleToolChange(tool: DrawingTool) {
     const previousTool = $drawingState.tool;
@@ -202,7 +223,7 @@
 
 
 <!-- Top Toolbar - Always visible -->
-<div class="toolbar-top fixed top-2 left-4 right-4 z-50">
+<div class="toolbar-top fixed left-4 right-4 z-50" class:top-2={!hasParityBanner} class:fixed={!hasParityBanner} style={hasParityBanner ? 'top: calc(var(--pd-banner-height, 0px) + 0.5rem);' : ''}>
   <div class="floating-panel !py-1 !px-3">
 
     

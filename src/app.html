@@ -86,7 +86,17 @@
 		
 		%sveltekit.head%
 	</head>
-	<body class="overflow-hidden">
+	<body>
 		<div style="display: contents">%sveltekit.body%</div>
+		<script type="text/javascript" async defer>
+			function resolvePdSDKFunction(e,...t){return new Promise((n,i)=>{!function r(){window.PDPromotionUISDK&&"function"==typeof window.PDPromotionUISDK[e]?window.PDPromotionUISDK[e](...t).then(n).catch(i):setTimeout(r,100)}()})}!function(e,t,n,i,r,a,c){e[i]=e[i]||function(){(e[i].q=e[i].q||[]).push(Array.prototype.slice.call(arguments))},a=t.createElement(n),c=t.getElementsByTagName(n)[0],a.id="parity-deals-sdk",a.async=1,a.src=r,c.parentNode.insertBefore(a,c)}(window,document,"script","PDPromotionUISDK","https://cdn.paritydeals.com/js-promotions-ui/1.0.0/js-promotions-ui.umd.js"),window.PDPromotionUI={init:function(e){return resolvePdSDKFunction("init",e)},getUpdatedPrice:function(e,t){return resolvePdSDKFunction("getUpdatedPrice",e,t)},updatePriceElement:function(e,t){return resolvePdSDKFunction("updatePriceElement",e,t)},updatePrice:function(e){return resolvePdSDKFunction("updatePrice",e)}};
+			PDPromotionUI.init({
+				productId: 'promo_b741065231924afbb58578edb55cc43a',
+				banner: {
+					showCloseButton: true,
+				},
+				showBanner: true
+			});
+		</script>
 	</body>
 </html>
