@@ -23,13 +23,21 @@
       script.defer = true;
       script.innerHTML = `
         function resolvePdSDKFunction(e,...t){return new Promise((n,i)=>{!function r(){window.PDPromotionUISDK&&"function"==typeof window.PDPromotionUISDK[e]?window.PDPromotionUISDK[e](...t).then(n).catch(i):setTimeout(r,100)}()})}!function(e,t,n,i,r,a,c){e[i]=e[i]||function(){(e[i].q=e[i].q||[]).push(Array.prototype.slice.call(arguments))},a=t.createElement(n),c=t.getElementsByTagName(n)[0],a.id="parity-deals-sdk",a.async=1,a.src=r,c.parentNode.insertBefore(a,c)}(window,document,"script","PDPromotionUISDK","https://cdn.paritydeals.com/js-promotions-ui/1.0.0/js-promotions-ui.umd.js"),window.PDPromotionUI={init:function(e){return resolvePdSDKFunction("init",e)},getUpdatedPrice:function(e,t){return resolvePdSDKFunction("getUpdatedPrice",e,t)},updatePriceElement:function(e,t){return resolvePdSDKFunction("updatePriceElement",e,t)},updatePrice:function(e){return resolvePdSDKFunction("updatePrice",e)}};
-        PDPromotionUI.init({
-          productId: 'promo_b741065231924afbb58578edb55cc43a',
-          banner: {
-            showCloseButton: true,
-          },
-          showBanner: true
-        });
+        
+        // Wrap initialization in try-catch for error handling
+        try {
+          PDPromotionUI.init({
+            productId: 'promo_b741065231924afbb58578edb55cc43a',
+            banner: {
+              showCloseButton: true,
+            },
+            showBanner: true
+          }).catch(function(error) {
+            console.error('[ParityDeals] Initialization failed:', error);
+          });
+        } catch (error) {
+          console.error('[ParityDeals] Failed to initialize SDK:', error);
+        }
       `;
       
       document.body.appendChild(script);
@@ -37,20 +45,33 @@
 
     // Wait for window load event, then add additional delay
     // This ensures all main content is loaded and LCP is recorded
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    
     if (document.readyState === 'complete') {
-      // Page already loaded, delay by 2 seconds
-      const timeoutId = setTimeout(loadParityDeals, 2000);
-      return () => clearTimeout(timeoutId);
+      // Page already loaded, delay by 3 seconds
+      timeoutId = setTimeout(loadParityDeals, 3000);
     } else {
       // Wait for page load, then delay an additional 2 seconds
       const handleLoad = () => {
-        setTimeout(loadParityDeals, 2000);
+        timeoutId = setTimeout(loadParityDeals, 2000);
       };
       window.addEventListener('load', handleLoad, { once: true });
+      
+      // Cleanup: remove listener AND clear timeout if component unmounts
       return () => {
         window.removeEventListener('load', handleLoad);
+        if (timeoutId !== undefined) {
+          clearTimeout(timeoutId);
+        }
       };
     }
+    
+    // Cleanup for the 'complete' branch
+    return () => {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    };
   });
 </script>
 

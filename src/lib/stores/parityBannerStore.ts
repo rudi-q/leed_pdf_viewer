@@ -9,8 +9,17 @@ function createParityBannerStore() {
   const { subscribe, set } = writable(false);
 
   if (browser) {
+    // Defensive check: ensure document.body exists before proceeding
+    if (!document.body) {
+      console.warn('[ParityBanner] document.body not available yet');
+      return { subscribe };
+    }
+
     // Function to check if banner class is present
     const checkParityBanner = () => {
+      // Guard against body becoming unavailable (edge case)
+      if (!document.body) return;
+      
       const hasBanner = document.body.classList.contains('pd-has-parity-banner');
       set(hasBanner);
     };
