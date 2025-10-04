@@ -2,7 +2,7 @@ import { writable } from 'svelte/store';
 
 export interface ToastAction {
 	label: string;
-	onClick: () => void;
+	onClick: () => void | Promise<void>;
 }
 
 export interface Toast {
