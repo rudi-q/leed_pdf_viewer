@@ -53,6 +53,33 @@ export async function openSearchPage(): Promise<void> {
 }
 
 /**
+ * Opens a URL in the external browser (Tauri) or new tab (web)
+ */
+export async function openExternalUrl(url: string): Promise<void> {
+	if (!browser) return;
+
+	if (isTauri) {
+		try {
+			// Use our custom Tauri command to open in external browser
+			await invokeCommand('open_external_url', { url });
+		} catch (error) {
+			// Try fallback with shell plugin
+			try {
+				const { open } = await import('@tauri-apps/plugin-shell');
+				await open(url);
+			} catch (shellError) {
+				console.error('Failed to open external URL in Tauri:', shellError);
+				// Final fallback to window.open (may not work in Tauri but worth trying)
+				window.open(url, '_blank');
+			}
+		}
+	} else {
+		// In web environment, open in new tab
+		window.open(url, '_blank', 'noopener,noreferrer');
+	}
+}
+
+/**
  * Navigates to the home page with proper handling for different environments
  */
 export async function navigateToHome(): Promise<void> {

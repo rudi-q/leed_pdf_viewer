@@ -1,5 +1,10 @@
 import { writable } from 'svelte/store';
 
+export interface ToastAction {
+	label: string;
+	onClick: () => void;
+}
+
 export interface Toast {
 	id: string;
 	type: 'success' | 'error' | 'warning' | 'info';
@@ -7,6 +12,7 @@ export interface Toast {
 	message: string;
 	duration?: number; // in milliseconds
 	dismissible?: boolean;
+	actions?: ToastAction[]; // Optional action buttons
 }
 
 const createToastStore = () => {

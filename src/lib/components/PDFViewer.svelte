@@ -18,9 +18,10 @@
 		stickyNoteAnnotations,
 		textAnnotations
 	} from '../stores/drawingStore';
-	import { PDFManager } from '../utils/pdfUtils';
+	import { PDFManager, PDFLoadError } from '../utils/pdfUtils';
 	import { DrawingEngine } from '../utils/drawingUtils';
 	import { toastStore } from '../stores/toastStore';
+	import { openExternalUrl } from '../utils/navigationUtils';
 	import { trackPdfUpload, trackPdfLoadTime, trackError, trackFirstAnnotation } from '../utils/analytics';
 	import TextOverlay from './TextOverlay.svelte';
 	import StickyNoteOverlay from './StickyNoteOverlay.svelte';
@@ -77,6 +78,7 @@
   let isRendering = false;
   let isCtrlPressed = false;
   let cursorOverCanvas = false;
+  let isLoadingPdf = false; // Guard to prevent multiple simultaneous loads
   
   // Canvas dimensions for overlays - will be updated manually
   let canvasDisplayWidth = 0;
@@ -193,6 +195,13 @@
       return;
     }
 
+    // Prevent multiple simultaneous loads
+    if (isLoadingPdf) {
+      console.log('Already loading a PDF, skipping...');
+      return;
+    }
+    isLoadingPdf = true;
+
     const isUrl = typeof pdfFile === 'string';
     const loadStartTime = performance.now();
     console.log('Loading PDF - isUrl:', isUrl, 'Value:', isUrl ? pdfFile : `${(pdfFile as File).name} (Size: ${(pdfFile as File).size})`);
@@ -210,9 +219,30 @@
       if (isUrl) {
         console.log('Calling pdfManager.loadFromUrl with:', pdfFile);
         try {
-          document = await pdfManager.loadFromUrl(pdfFile as string);
+          // Pass retry callback to show toast notifications
+          document = await pdfManager.loadFromUrl(
+            pdfFile as string,
+            (attempt: number, total: number) => {
+              toastStore.info(
+                'Retrying PDF Load',
+                `Attempting to load PDF (${attempt}/${total})...`,
+                { duration: 3000 }
+              );
+            }
+          );
         } catch (urlError) {
           console.error('Error loading from URL:', urlError);
+          console.log('Error type check:', urlError instanceof PDFLoadError, urlError);
+          
+          // Check if it's our custom PDFLoadError with retry information
+          if (urlError instanceof PDFLoadError) {
+            // Re-throw with updated message but preserve the PDFLoadError type
+            throw new PDFLoadError(
+              `Unable to load this PDF due to restrictions from the host website. The server doesn't allow loading PDFs through external tools like LeedPDF.`,
+              urlError.attempts,
+              urlError.originalUrl
+            );
+          }
           
           // Check if it might be a CORS issue
           const error = urlError as Error;
@@ -220,7 +250,8 @@
             throw new Error(`Failed to load PDF from URL: This might be a CORS issue. The PDF server doesn't allow cross-origin requests. Try using a PDF with CORS enabled or a direct download link.`);
           }
           
-          throw new Error(`Failed to load PDF from URL: ${(urlError as Error).message}`);
+          // Re-throw as-is to avoid wrapping
+          throw urlError;
         }
       } else {
         console.log('Calling pdfManager.loadFromFile...');
@@ -309,16 +340,57 @@
       trackPdfLoadTime(loadTime, fileSize, isUrl ? 'url' : 'file_upload');
       
       console.log('PDF render completed successfully');
+      isLoadingPdf = false;
     } catch (error) {
       console.error('Error loading PDF:', error);
+      console.log('Error is PDFLoadError?', error instanceof PDFLoadError);
+      console.log('Error has originalUrl?', (error as any).originalUrl);
+      console.log('Error details:', { 
+        name: (error as any).name, 
+        message: (error as any).message,
+        originalUrl: (error as any).originalUrl,
+        attempts: (error as any).attempts
+      });
+      
       pdfState.update(state => ({ ...state, isLoading: false }));
-      // Reset the tracking to allow retry
-      lastLoadedFile = null;
+      isLoadingPdf = false;
+      
+      // Don't reset lastLoadedFile to prevent retrigger
+      // lastLoadedFile = null;
       
       // Track the error
       trackError(error as Error, 'pdf_loading');
       
-      toastStore.error('PDF Loading Failed', (error as Error).message);
+      // Clear any existing toasts first to avoid duplicates
+      toastStore.clearAll();
+      
+      // Check if it's a PDFLoadError with retry information and original URL
+      if (error instanceof PDFLoadError && error.originalUrl) {
+        console.log('✅ Showing fallback button for PDFLoadError');
+        toastStore.error(
+          'PDF Loading Failed',
+          (error as Error).message,
+          {
+            duration: 0, // Don't auto-dismiss
+            actions: [
+              {
+                label: 'Launch Without LeedPDF',
+                onClick: async () => {
+                  // Add query parameter to prevent browser extension from redirecting back to Leed
+                  const url = new URL(error.originalUrl);
+                  url.searchParams.set('ignore-leedpdf-redirect', 'true');
+                  const finalUrl = url.toString();
+                  console.log('Opening original URL with ignore parameter:', finalUrl);
+                  await openExternalUrl(finalUrl);
+                }
+              }
+            ]
+          }
+        );
+      } else {
+        console.log('❌ Not showing fallback button - not a PDFLoadError or no originalUrl');
+        toastStore.error('PDF Loading Failed', (error as Error).message);
+      }
     }
   }
 
