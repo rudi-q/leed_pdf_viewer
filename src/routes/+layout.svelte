@@ -6,6 +6,7 @@
 	import UpdateNotification from '$lib/components/UpdateNotification.svelte';
 	import LicenseModal from '$lib/components/LicenseModal.svelte';
 	import CookieConsentBanner from '$lib/components/CookieConsentBanner.svelte';
+	import ParityDeals from '$lib/components/ParityDeals.svelte';
 	import { fileStorage } from '$lib/utils/fileStorageUtils';
 	import { licenseManager } from '$lib/utils/licenseManager';
 	import { browser } from '$app/environment';
@@ -195,6 +196,7 @@
 
 <SEOHead />
 <UpdateManager bind:this={updateManager} disableAutoCheck={true} />
+<ParityDeals />
 <slot />
 <ToastContainer />
 <UpdateNotification />

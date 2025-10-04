@@ -46,7 +46,7 @@
 
 {#if !focusMode && browser && !isTauri}
 <!-- Browser Extension Promotion -->
-<div class="mb-6 max-w-sm mx-auto">
+<div class="mb-6 max-w-sm mx-auto" style="margin-top: -8px">
   <a 
     href="/download-browser-extension"
     target="_blank" 
