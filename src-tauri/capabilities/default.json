@@ -7,7 +7,6 @@
   ],
   "permissions": [
     "core:default",
-    "updater:default",
 
     "fs:allow-read-file",
     "fs:allow-localdata-read-recursive",

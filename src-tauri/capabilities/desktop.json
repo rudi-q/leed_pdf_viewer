@@ -9,6 +9,10 @@
     "main"
   ],
   "permissions": [
-    "updater:default"
+    "core:default",
+    "fs:default",
+    "dialog:default",
+    "shell:default",
+    "deep-link:default"
   ]
 }
