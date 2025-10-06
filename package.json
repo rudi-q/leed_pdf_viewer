@@ -1,7 +1,7 @@
 {
 	"name": "leedpdf",
 	"private": true,
-	"version": "2.14.1",
+	"version": "2.14.6",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
