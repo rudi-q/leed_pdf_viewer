@@ -1,14 +1,20 @@
 import { invoke } from '@tauri-apps/api/core';
-import { isTauri } from './tauriUtils';
+import { isTauri, detectOS } from './tauriUtils';
 
 export interface LicenseValidationResult {
 	valid: boolean;
 	error?: string;
 }
 
+// Detect if license functionality is required
+const isMacOS = detectOS() === 'macOS';
+const requiresLicense = isTauri && !isMacOS;
+
 export class LicenseManager {
 	private static instance: LicenseManager;
 	private validationPromise: Promise<LicenseValidationResult> | null = null;
+
+	private constructor() {}
 
 	static getInstance(): LicenseManager {
 		if (!LicenseManager.instance) {
@@ -17,64 +23,51 @@ export class LicenseManager {
 		return LicenseManager.instance;
 	}
 
-	/**
-	 * Get stored license key from the backend
-	 */
-	async getStoredLicenseKey(): Promise<string | null> {
-		if (!isTauri) {
-			return null;
-		}
+	async activateLicense(licenseKey: string): Promise<LicenseValidationResult> {
+		// macOS App Store or web - no license required
+		if (!requiresLicense) return { valid: true };
 
 		try {
-			const licenseKey = await invoke<string | null>('get_stored_license_key');
-			return licenseKey;
+			const isValid = await invoke<boolean>('activate_license', { licensekey: licenseKey });
+			return { valid: isValid };
+		} catch (error) {
+			return {
+				valid: false,
+				error: typeof error === 'string' ? error : 'Failed to activate license key'
+			};
+		}
+	}
+
+	async validateLicense(licenseKey: string): Promise<LicenseValidationResult> {
+		// macOS App Store or web - no license required
+		if (!requiresLicense) return { valid: true };
+
+		try {
+			const isValid = await invoke<boolean>('validate_license', { licensekey: licenseKey });
+			return { valid: isValid };
+		} catch (error) {
+			return {
+				valid: false,
+				error: typeof error === 'string' ? error : 'Failed to validate license key'
+			};
+		}
+	}
+
+	async getStoredLicenseKey(): Promise<string | null> {
+		// macOS App Store or web - no license storage
+		if (!requiresLicense) return null;
+
+		try {
+			return await invoke<string | null>('get_stored_license_key');
 		} catch (error) {
 			console.error('Failed to get stored license key:', error);
 			return null;
 		}
 	}
 
-	/**
-	 * Activate a license key for this device (first time setup)
-	 */
-	async activateLicense(licenseKey: string): Promise<LicenseValidationResult> {
-		if (!isTauri) {
-			return { valid: true }; // Web version doesn't need license activation
-		}
-
-		try {
-			const isValid = await invoke<boolean>('activate_license', { licensekey: licenseKey });
-			return { valid: isValid };
-		} catch (error) {
-			const errorMessage = typeof error === 'string' ? error : 'Failed to activate license key';
-			return { valid: false, error: errorMessage };
-		}
-	}
-
-	/**
-	 * Validate an already-activated license key with the Polar API
-	 */
-	async validateLicense(licenseKey: string): Promise<LicenseValidationResult> {
-		if (!isTauri) {
-			return { valid: true }; // Web version doesn't need license validation
-		}
-
-		try {
-			const isValid = await invoke<boolean>('validate_license', { licensekey: licenseKey });
-			return { valid: isValid };
-		} catch (error) {
-			const errorMessage = typeof error === 'string' ? error : 'Failed to validate license key';
-			return { valid: false, error: errorMessage };
-		}
-	}
-
-	/**
-	 * Clear stored license key
-	 */
 	async clearLicense(): Promise<void> {
-		if (!isTauri) {
-			return;
-		}
+		// macOS App Store or web - no license to clear
+		if (!requiresLicense) return;
 
 		try {
 			await invoke('clear_license');
@@ -83,19 +76,14 @@ export class LicenseManager {
 		}
 	}
 
-	/**
-	 * Check if license needs activation (no license file) or validation (existing license)
-	 */
 	async checkLicenseStatus(): Promise<LicenseValidationResult & { needsActivation?: boolean }> {
-		if (!isTauri) {
-			return { valid: true }; // Web version doesn't need license validation
-		}
+		// macOS App Store or web - no license required
+		if (!requiresLicense) return { valid: true };
 
-		// Check if there's an existing license file
+		// Platform requires license - check if we have one stored
 		const storedLicenseKey = await this.getStoredLicenseKey();
 
 		if (!storedLicenseKey) {
-			// No stored license - needs activation
 			return {
 				valid: false,
 				needsActivation: true,
@@ -103,8 +91,6 @@ export class LicenseManager {
 			};
 		}
 
-		// Has stored license - perform smart validation
-		// Avoid multiple simultaneous validations
 		if (this.validationPromise) {
 			const result = await this.validationPromise;
 			return { ...result, needsActivation: false };
@@ -119,14 +105,50 @@ export class LicenseManager {
 
 	private async performLicenseCheck(): Promise<LicenseValidationResult> {
 		try {
-			// Use smart license checking that works offline
 			const isValid = await invoke<boolean>('check_license_smart_command');
 			return { valid: isValid };
 		} catch (error) {
-			const errorMessage = typeof error === 'string' ? error : 'Failed to check license status';
-			return { valid: false, error: errorMessage };
+			return {
+				valid: false,
+				error: typeof error === 'string' ? error : 'License validation failed'
+			};
+		}
+	}
+
+	// Debug: Get license requirement info for current platform
+	async getLicenseInfo(): Promise<{ requires_license: boolean; platform: string; reason: string }> {
+		const platform = detectOS();
+		
+		if (!isTauri) {
+			return {
+				requires_license: false,
+				platform: 'web',
+				reason: 'Running in web browser - no license required'
+			};
+		}
+
+		if (isMacOS) {
+			return {
+				requires_license: false,
+				platform: 'macos',
+				reason: 'macOS App Store build - no license required (paid via App Store)'
+			};
+		}
+
+		// For Windows/Linux, query the backend
+		try {
+			return await invoke('get_license_info');
+		} catch (error) {
+			// Fallback if command doesn't exist
+			return {
+				requires_license: true,
+				platform: platform.toLowerCase(),
+				reason: 'License key required for this platform'
+			};
 		}
 	}
 }
 
 export const licenseManager = LicenseManager.getInstance();
+
+
