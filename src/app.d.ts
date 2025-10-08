@@ -22,6 +22,8 @@ declare global {
 			unlistenStartupReady: Promise<() => void>;
 			unlistenDebug: Promise<() => void>;
 		};
+		__posthogInitialized?: boolean;
+		__isEUUser?: boolean;
 	}
 }
 

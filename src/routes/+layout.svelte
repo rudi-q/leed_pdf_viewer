@@ -9,7 +9,7 @@
 	import ParityDeals from '$lib/components/ParityDeals.svelte';
 	import { fileStorage } from '$lib/utils/fileStorageUtils';
 	import { licenseManager } from '$lib/utils/licenseManager';
-	import { browser } from '$app/environment';
+	import { browser, dev } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { isTauri, detectOS } from '$lib/utils/tauriUtils';
 	import { goto } from '$app/navigation';
@@ -32,9 +32,10 @@
 	// Initialize file storage auto-cleanup when app loads
 	if (browser) {
 		onMount(() => {
-			// Make licenseManager available in console for debugging
-			// @ts-ignore
-			window.licenseManager = licenseManager;
+			// Make licenseManager available in console for debugging (dev only)
+			if (dev) {
+				(window as any).licenseManager = licenseManager;
+			}
 			
 			// Start auto-cleanup of old files every AUTO_CLEANUP_INTERVAL milliseconds
 			const stopCleanup = fileStorage.startAutoCleanup();

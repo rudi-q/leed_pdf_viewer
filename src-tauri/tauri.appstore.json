@@ -1,0 +1,12 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "identifier": "my.leed.pdf",
+  "bundle": {
+    "createUpdaterArtifacts": false
+  },
+  "plugins": {
+    "updater": {
+      "active": false
+    }
+  }
+}

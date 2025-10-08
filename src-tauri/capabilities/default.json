@@ -9,7 +9,6 @@
     "core:default",
     "updater:default",
     "deep-link:default",
-    "deep-link:allow-get-current",
     "fs:allow-read-file",
     "fs:allow-localdata-read-recursive",
     "fs:allow-home-read-recursive",

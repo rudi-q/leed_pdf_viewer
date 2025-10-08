@@ -65,15 +65,9 @@ mod license_impl {
         if license_key.starts_with("LEEDUMMY") {
             return true;
         }
-        
-        #[cfg(target_os = "windows")]
-        {
-            license_key.starts_with("LEEDWIN")
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            license_key.starts_with("LEEDWIN") || license_key.starts_with("LEEDMAC")
-        }
+
+        // Since macOS is already excluded at module level, only check for Windows prefix
+        license_key.starts_with("LEEDWIN")
     }
 }
 
@@ -332,7 +326,9 @@ pub async fn check_license_smart(app_handle: &AppHandle) -> Result<bool, String>
             remove_stored_license(app_handle)?;
             Err("License key is no longer valid".to_string())
         },
-        Err(_network_error) => {
+        Err(network_error) => {
+            // Extended allowance during transient network outages: double the offline grace period
+            eprintln!("License validation network error: {}", network_error);
             if time_since_validation < (OFFLINE_GRACE_PERIOD * 2) {
                 Ok(true)
             } else {

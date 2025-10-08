@@ -72,6 +72,38 @@ import { getFormattedVersion } from '$lib/utils/version';
     return cleanup;
   });
 
+  // Helper: determine when the PDF viewer is actually ready
+  function isPdfReady(): boolean {
+    try {
+      return !!pdfViewer && !!$pdfState.document && $pdfState.totalPages > 0 && !$pdfState.isLoading;
+    } catch {
+      return false;
+    }
+  }
+
+  // Fallback: bounded polling for readiness when no component event exists
+  function waitForPdfReady(maxWaitMs: number = 10000, intervalMs: number = 50): Promise<boolean> {
+    if (isPdfReady()) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const start = performance.now();
+      const intervalId = setInterval(() => {
+        if (isPdfReady()) {
+          clearInterval(intervalId);
+          clearTimeout(timeoutId);
+          resolve(true);
+        } else if (performance.now() - start >= maxWaitMs) {
+          clearInterval(intervalId);
+          clearTimeout(timeoutId);
+          resolve(false);
+        }
+      }, intervalMs);
+      const timeoutId = setTimeout(() => {
+        clearInterval(intervalId);
+        resolve(false);
+      }, maxWaitMs + 10);
+    });
+  }
+
   function setupEventListeners() {
     console.log('[PDF Route] Setting up event listeners');
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -104,13 +136,16 @@ import { getFormattedVersion } from '$lib/utils/version';
       console.log('Event payload:', event.payload);
       const { pdf_path, page } = event.payload;
       
-      handleFileFromCommandLine(pdf_path).then(success => {
+      handleFileFromCommandLine(pdf_path).then(async (success) => {
         if (success && page > 1) {
-          // Wait a bit for PDF to load, then jump to page
-          setTimeout(() => {
+          // Wait until the PDF is actually ready, then jump to the requested page
+          const ready = await waitForPdfReady(10000);
+          if (ready) {
             console.log(`Jumping to page ${page} from deep link`);
             pdfViewer?.goToPage(page);
-          }, 1000);
+          } else {
+            console.warn('Timed out waiting for PDF to become ready before jumping to deep-linked page');
+          }
         }
       });
     });

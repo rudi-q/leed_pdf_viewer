@@ -42,45 +42,275 @@ fn sanitize_path(path: &str) -> String {
 // NEW: Process deep link URLs (leedpdf://...)
 fn process_deep_link(app_handle: &tauri::AppHandle, url: &str) {
     println!("[DEEP_LINK] Processing: {}", url);
-    
-    // Parse the URL - format: leedpdf://open?file=/path/to/doc.pdf&page=5
-    if let Ok(parsed) = url::Url::parse(url) {
-        let mut pdf_path = None;
-        let mut page = 1;
-        
-        // Extract query parameters
-        for (key, value) in parsed.query_pairs() {
-            match key.as_ref() {
-                "file" => pdf_path = Some(value.to_string()),
-                "page" => page = value.parse().unwrap_or(1),
-                _ => {}
+
+    match parse_and_validate_deep_link(url) {
+        Ok(parsed) => {
+            let page = parsed.page.unwrap_or(1);
+
+            if let Some(path) = parsed.file {
+                // Canonicalize to resolve symlinks and normalize
+                let path_obj = std::path::Path::new(&path);
+                let canonical_path = match std::fs::canonicalize(path_obj) {
+                    Ok(canonical) => canonical,
+                    Err(e) => {
+                        println!("[DEEP_LINK] Failed to canonicalize path {}: {}", path, e);
+                        return;
+                    }
+                };
+
+                // Check against allowed base directories
+                let allowed_bases = [
+                    std::env::var("HOME").unwrap_or_default(),
+                    std::env::var("USERPROFILE").unwrap_or_default(),
+                    std::env::var("APPDATA").unwrap_or_default(),
+                    std::env::var("LOCALAPPDATA").unwrap_or_default(),
+                    #[cfg(target_os = "windows")]
+                    "C:\\Users".to_string(),
+                    #[cfg(target_os = "linux")]
+                    "/home".to_string(),
+                    #[cfg(target_os = "macos")]
+                    "/Users".to_string(),
+                ];
+
+                let mut is_allowed = false;
+                for base in &allowed_bases {
+                    if !base.is_empty() {
+                        let base_path = std::path::Path::new(base);
+                        if canonical_path.starts_with(base_path) {
+                            is_allowed = true;
+                            break;
+                        }
+                    }
+                }
+
+                if !is_allowed {
+                    println!(
+                        "[DEEP_LINK] Rejected path outside allowed directories: {}",
+                        canonical_path.display()
+                    );
+                    println!("[DEEP_LINK] Allowed bases were: {:?}", allowed_bases);
+                    if allowed_bases.iter().all(|s| s.is_empty()) {
+                        println!("[DEEP_LINK] WARNING: All environment variables are empty, blocking all files");
+                    }
+                    return;
+                }
+
+                // Verify it's a regular file
+                let metadata = match std::fs::metadata(&canonical_path) {
+                    Ok(meta) => meta,
+                    Err(e) => {
+                        println!(
+                            "[DEEP_LINK] Failed to read file metadata for {}: {}",
+                            canonical_path.display(),
+                            e
+                        );
+                        return;
+                    }
+                };
+
+                if !metadata.is_file() {
+                    println!("[DEEP_LINK] Rejected non-file path: {}", canonical_path.display());
+                    return;
+                }
+
+                // Explicit user confirmation before opening the file
+                let confirm = rfd::MessageDialog::new()
+                    .set_title("Open file from link?")
+                    .set_description(format!(
+                        "A link is requesting to open this file:\n{}\nPage: {}",
+                        canonical_path.display(),
+                        page
+                    ))
+                    .set_level(rfd::MessageLevel::Info)
+                    .set_buttons(rfd::MessageButtons::OkCancel)
+                    .show();
+
+                if !confirm {
+                    println!("[DEEP_LINK] User declined opening deep-linked file: {}", canonical_path.display());
+                    return;
+                }
+
+                println!(
+                    "[DEEP_LINK] Approved PDF path: {}, page: {}",
+                    canonical_path.display(),
+                    page
+                );
+
+                let payload = serde_json::json!({
+                    "pdf_path": canonical_path.to_string_lossy().to_string(),
+                    "page": page
+                });
+                if let Err(e) = app_handle.emit("load-pdf-from-deep-link", payload) {
+                    println!("[DEEP_LINK] Failed to emit event: {:?}", e);
+                }
+            } else {
+                // No file parameter, emit the action for informational handlers only
+                let content = url.replace("leedpdf://", "").replace("?", "");
+                println!("[DEEP_LINK] No file param, emitting raw content: {}", content);
+                if let Err(e) = app_handle.emit("deep-link", &content) {
+                    println!("[DEEP_LINK] Failed to emit deep-link event: {:?}", e);
+                }
             }
         }
-        
-        if let Some(path) = pdf_path {
-            println!("[DEEP_LINK] Extracted PDF path: {}, page: {}", path, page);
-            
-            let payload = serde_json::json!({
-                "pdf_path": path,
-                "page": page
-            });
-            
-            // Emit to frontend
-            match app_handle.emit("load-pdf-from-deep-link", payload) {
-                Ok(_) => println!("[DEEP_LINK] Successfully emitted load-pdf-from-deep-link event"),
-                Err(e) => println!("[DEEP_LINK] Failed to emit event: {:?}", e),
+        Err(err) => {
+            println!("[DEEP_LINK] Rejected deep link: {} => {}", url, err);
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedDeepLink {
+    action: String,
+    file: Option<String>,
+    page: Option<i32>,
+}
+
+// Parse and strictly validate the deep link without touching the filesystem.
+// This function enforces:
+// - scheme is exactly "leedpdf"
+// - host/action is whitelisted (currently: "open")
+// - only "file" and "page" params are accepted
+// - value lengths are bounded and types/ranges validated
+// - file param must be an absolute local path with an allowed extension
+fn parse_and_validate_deep_link(url: &str) -> Result<ParsedDeepLink, String> {
+    let parsed = url::Url::parse(url).map_err(|e| format!("invalid URL: {}", e))?;
+
+    if parsed.scheme() != "leedpdf" {
+        return Err("unsupported scheme".to_string());
+    }
+
+    let action = parsed
+        .host_str()
+        .map(|s| s.to_string())
+        .unwrap_or_default();
+
+    let allowed_actions = ["open"]; // whitelist of actions we support
+    if !allowed_actions.contains(&action.as_str()) {
+        return Err(format!("unsupported action: {}", action));
+    }
+
+    // Collect params, enforce whitelist and bounds
+    let mut file: Option<String> = None;
+    let mut page: Option<i32> = None;
+
+    for (key, value) in parsed.query_pairs() {
+        let v = value.to_string();
+        // Truncate overly long values early
+        if v.len() > 4096 {
+            return Err(format!("parameter '{}' too long", key));
+        }
+
+        match key.as_ref() {
+            "file" => {
+                // Reject obvious non-file origins
+                let lower = v.to_lowercase();
+                if lower.starts_with("http://")
+                    || lower.starts_with("https://")
+                    || lower.starts_with("file://")
+                {
+                    return Err("file param must be a local absolute path".to_string());
+                }
+
+                // Basic absolute path checks without fs access
+                let is_abs_unix = v.starts_with('/') || v.starts_with("~/");
+                let is_abs_win = v.len() > 2
+                    && v.as_bytes()[1] == b':'
+                    && (v.as_bytes()[2] == b'\\' || v.as_bytes()[2] == b'/');
+                let is_unc = v.starts_with("\\\\");
+                if !(is_abs_unix || is_abs_win || is_unc) {
+                    return Err("file path must be absolute".to_string());
+                }
+
+                // Disallow traversal fragments
+                if v.contains("/../") || v.contains("\\..\\") || v.starts_with("../") {
+                    return Err("path traversal not allowed".to_string());
+                }
+
+                // Extension allowlist
+                if let Some(ext) = std::path::Path::new(&v).extension() {
+                    let ext = ext.to_string_lossy().to_lowercase();
+                    if !["pdf", "lpdf", "md"].contains(&ext.as_str()) {
+                        return Err("unsupported file extension".to_string());
+                    }
+                } else {
+                    return Err("file path must include an extension".to_string());
+                }
+
+                file = Some(v);
             }
-        } else {
-            // No file parameter, just emit the raw deep link content
-            let content = url.replace("leedpdf://", "");
-            println!("[DEEP_LINK] No file param, emitting raw content: {}", content);
-            match app_handle.emit("deep-link", &content) {
-                Ok(_) => println!("[DEEP_LINK] Successfully emitted deep-link event"),
-                Err(e) => println!("[DEEP_LINK] Failed to emit deep-link event: {:?}", e),
+            "page" => {
+                let p: i32 = v
+                    .parse()
+                    .map_err(|_| "page must be a valid integer".to_string())?;
+                if p < 1 || p > 100000 {
+                    return Err("page out of allowed range".to_string());
+                }
+                page = Some(p);
+            }
+            other => {
+                return Err(format!("unexpected parameter: {}", other));
             }
         }
-    } else {
-        println!("[DEEP_LINK] Failed to parse URL: {}", url);
+    }
+
+    Ok(ParsedDeepLink { action, file, page })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_and_validate_deep_link;
+
+    #[test]
+    fn rejects_wrong_scheme() {
+        assert!(parse_and_validate_deep_link("https://example.com").is_err());
+    }
+
+    #[test]
+    fn rejects_unsupported_action() {
+        assert!(parse_and_validate_deep_link("leedpdf://delete?file=/tmp/a.pdf").is_err());
+    }
+
+    #[test]
+    fn rejects_unknown_param() {
+        assert!(parse_and_validate_deep_link("leedpdf://open?foo=bar").is_err());
+    }
+
+    #[test]
+    fn rejects_relative_path() {
+        assert!(parse_and_validate_deep_link("leedpdf://open?file=docs/a.pdf").is_err());
+    }
+
+    #[test]
+    fn rejects_http_origin_in_file() {
+        assert!(parse_and_validate_deep_link("leedpdf://open?file=http://evil/a.pdf").is_err());
+    }
+
+    #[test]
+    fn rejects_traversal() {
+        assert!(parse_and_validate_deep_link("leedpdf://open?file=/tmp/../secret.pdf").is_err());
+    }
+
+    #[test]
+    fn rejects_bad_extension() {
+        assert!(parse_and_validate_deep_link("leedpdf://open?file=/tmp/a.exe").is_err());
+    }
+
+    #[test]
+    fn rejects_page_out_of_range() {
+        assert!(parse_and_validate_deep_link("leedpdf://open?file=/tmp/a.pdf&page=0").is_err());
+        assert!(parse_and_validate_deep_link("leedpdf://open?file=/tmp/a.pdf&page=100001").is_err());
+    }
+
+    #[test]
+    fn accepts_minimal_valid_unix() {
+        #[cfg(unix)]
+        assert!(parse_and_validate_deep_link("leedpdf://open?file=/tmp/a.pdf&page=2").is_ok());
+    }
+
+    #[test]
+    fn accepts_minimal_valid_windows() {
+        #[cfg(windows)]
+        assert!(parse_and_validate_deep_link("leedpdf://open?file=C:/Users/test/a.pdf&page=2").is_ok());
     }
 }
 
@@ -484,15 +714,14 @@ pub fn run() {
                     for arg in &argv {
                         if arg.starts_with("leedpdf://") {
                             println!("[SINGLE_INSTANCE] Found deep link: {}", arg);
-                            process_deep_link(app, arg);
+                            process_deep_link(&app, arg);
                         }
                     }
                 })
             );
         }
     }
-
-    builder
+	let builder_result = builder
         .plugin(tauri_plugin_deep_link::init())
         // .plugin(tauri_plugin_updater::Builder::new().build()) // Disabled for App Store
         .plugin(tauri_plugin_fs::init())
@@ -696,11 +925,13 @@ pub fn run() {
                 }
             }
 
-            Ok(())
-        })
-        .build(tauri::generate_context!())
-        .expect("error while running tauri application")
-        .run(|app_handle, event| {
+		Ok(())
+	})
+		.build(tauri::generate_context!());
+
+	match builder_result {
+		Ok(app) => {
+			app.run(|app_handle, event| {
             // Log all events for debugging (debug builds only)
             if cfg!(debug_assertions) {
                 println!("Received event: {:?}", event);
@@ -758,5 +989,11 @@ pub fn run() {
                     println!("Other event: {:?}", event);
                 }
             }
-        });
+			});
+		}
+		Err(e) => {
+			eprintln!("Failed to build Tauri application: {e}");
+			std::process::exit(1);
+		}
+	}
 }

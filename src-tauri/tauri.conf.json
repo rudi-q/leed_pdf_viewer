@@ -29,7 +29,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "createUpdaterArtifacts": false,
+    "createUpdaterArtifacts": true,
     "category": "Utility",
     "icon": [
       "icons/32x32.png",
@@ -65,7 +65,7 @@
       "entitlements": "entitlements.plist",
       "exceptionDomain": "localhost",
       "hardenedRuntime": true,
-      "signingIdentity": "3rd Party Mac Developer Application: DoublOne Studios Limited (85PR7THRT2)"
+      "signingIdentity": null
     }
   },
   "plugins": {
@@ -78,7 +78,14 @@
       }
     },
     "updater": {
-      "active": false
+      "active": true,
+      "pubkey": "${TAURI_SIGNING_PUBLIC_KEY}",
+      "endpoints": [
+        "https://github.com/rudi-q/leed_pdf_viewer/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

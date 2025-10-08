@@ -2,7 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- App Store Sandbox -->
+    <!-- Developer ID Entitlements (Non-App Store Distribution) -->
+    
+    <!-- App Sandbox (optional for Developer ID, enables additional security) -->
     <key>com.apple.security.app-sandbox</key>
     <true/>
     
@@ -14,8 +16,14 @@
     <key>com.apple.security.files.user-selected.read-write</key>
     <true/>
     
+    <!-- Access to Downloads folder (common PDF location) -->
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+    
     <!-- Allow JIT compilation for better Tauri performance -->
     <key>com.apple.security.cs.allow-jit</key>
     <true/>
+
 </dict>
 </plist>
+

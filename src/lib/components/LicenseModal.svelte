@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { licenseManager } from '$lib/utils/licenseManager';
+  import type { LicenseErrorCode } from '$lib/utils/licenseManager';
   
   export let isOpen = false;
   export let needsActivation = true;
@@ -13,20 +14,22 @@
   let licenseKey = '';
   let isProcessing = false;
   let validationError = '';
+  let lastErrorCode: LicenseErrorCode | undefined = undefined;
   
   function close() {
-    isOpen = false;
     dispatch('close');
   }
   
   function closeModalOnSuccess() {
-    isOpen = false;
+    dispatch('validated', { licenseKey: licenseKey.trim(), wasActivation: needsActivation });
     licenseKey = '';
     validationError = '';
+    lastErrorCode = undefined;
   }
   
-  function getErrorMessageWithLinks(baseError: string): string {
-    return `${baseError}. Need help? Visit <a href="https://polar.sh/leedpdf" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">polar.sh/leedpdf</a> or contact us at <a href="mailto:support@leed.my" class="text-primary hover:underline">support@leed.my</a>`;
+  function shouldShowHelpLinks(errorCode?: LicenseErrorCode): boolean {
+    if (!errorCode) return true;
+    return errorCode !== 'PLATFORM_MISMATCH';
   }
   
   async function processLicense() {
@@ -48,23 +51,16 @@
       }
       
       if (result.valid) {
-        dispatch('validated', { licenseKey: licenseKey.trim(), wasActivation: needsActivation });
         closeModalOnSuccess();
       } else {
+        lastErrorCode = result.errorCode;
         validationError = result.error || (needsActivation ? 'License activation failed' : 'Invalid license key');
-        const isPlatformSpecificError = validationError.includes('not valid for Windows') || 
-                                       validationError.includes('not valid for macOS') ||
-                                       validationError.includes('starts with \'LEEDWIN\'') ||
-                                       validationError.includes('starts with \'LEEDMAC\'');
-        
-        if (!isPlatformSpecificError && !validationError.includes('polar.sh') && !validationError.includes('leed.my')) {
-          validationError = getErrorMessageWithLinks(validationError);
-        }
       }
     } catch (error) {
       console.error('License processing error:', error);
       const baseError = typeof error === 'string' ? error : (needsActivation ? 'Failed to activate license key' : 'Failed to validate license key');
-      validationError = getErrorMessageWithLinks(baseError);
+      validationError = baseError;
+      lastErrorCode = undefined;
     } finally {
       isProcessing = false;
     }
@@ -147,7 +143,13 @@
           
           {#if validationError}
             <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-              {@html validationError}
+              <p>{validationError}</p>
+              {#if shouldShowHelpLinks(lastErrorCode)}
+                <p class="mt-2">
+                  Need help? Visit <a href="https://polar.sh/leedpdf" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">polar.sh/leedpdf</a> 
+                  or contact us at <a href="mailto:support@leed.my" class="text-primary hover:underline">support@leed.my</a>
+                </p>
+              {/if}
             </div>
           {/if}
           

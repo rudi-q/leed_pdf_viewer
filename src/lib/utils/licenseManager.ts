@@ -1,9 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
 import { isTauri, detectOS } from './tauriUtils';
 
+export type LicenseErrorCode = 'PLATFORM_MISMATCH' | 'INVALID_KEY' | 'NETWORK_ERROR' | 'UNKNOWN';
+
 export interface LicenseValidationResult {
-	valid: boolean;
-	error?: string;
+    valid: boolean;
+    error?: string; // Human-readable message for UI fallback
+    errorCode?: LicenseErrorCode; // Structured code for UI logic
 }
 
 // Detect if license functionality is required
@@ -23,18 +26,25 @@ export class LicenseManager {
 		return LicenseManager.instance;
 	}
 
-	async activateLicense(licenseKey: string): Promise<LicenseValidationResult> {
+    async activateLicense(licenseKey: string): Promise<LicenseValidationResult> {
 		// macOS App Store or web - no license required
 		if (!requiresLicense) return { valid: true };
 
 		try {
-			const isValid = await invoke<boolean>('activate_license', { licensekey: licenseKey });
-			return { valid: isValid };
+            const isValid = await invoke<boolean>('activate_license', { licensekey: licenseKey });
+            if (isValid) return { valid: true };
+            return {
+                valid: false,
+                errorCode: 'INVALID_KEY',
+                error: 'Invalid license key'
+            };
 		} catch (error) {
-			return {
-				valid: false,
-				error: typeof error === 'string' ? error : 'Failed to activate license key'
-			};
+            const mapped = this.mapErrorToCode(error);
+            return {
+                valid: false,
+                errorCode: mapped.code,
+                error: mapped.message ?? 'Failed to activate license key'
+            };
 		}
 	}
 
@@ -43,13 +53,20 @@ export class LicenseManager {
 		if (!requiresLicense) return { valid: true };
 
 		try {
-			const isValid = await invoke<boolean>('validate_license', { licensekey: licenseKey });
-			return { valid: isValid };
+            const isValid = await invoke<boolean>('validate_license', { licensekey: licenseKey });
+            if (isValid) return { valid: true };
+            return {
+                valid: false,
+                errorCode: 'INVALID_KEY',
+                error: 'Invalid license key'
+            };
 		} catch (error) {
-			return {
-				valid: false,
-				error: typeof error === 'string' ? error : 'Failed to validate license key'
-			};
+            const mapped = this.mapErrorToCode(error);
+            return {
+                valid: false,
+                errorCode: mapped.code,
+                error: mapped.message ?? 'Failed to validate license key'
+            };
 		}
 	}
 
@@ -76,18 +93,18 @@ export class LicenseManager {
 		}
 	}
 
-	async checkLicenseStatus(): Promise<LicenseValidationResult & { needsActivation?: boolean }> {
+    async checkLicenseStatus(): Promise<LicenseValidationResult & { needsActivation?: boolean }> {
 		// macOS App Store or web - no license required
 		if (!requiresLicense) return { valid: true };
 
 		// Platform requires license - check if we have one stored
 		const storedLicenseKey = await this.getStoredLicenseKey();
 
-		if (!storedLicenseKey) {
+        if (!storedLicenseKey) {
 			return {
 				valid: false,
 				needsActivation: true,
-				error: 'No license key found - activation required'
+                error: 'No license key found - activation required'
 			};
 		}
 
@@ -103,17 +120,54 @@ export class LicenseManager {
 		return { ...result, needsActivation: false };
 	}
 
-	private async performLicenseCheck(): Promise<LicenseValidationResult> {
-		try {
-			const isValid = await invoke<boolean>('check_license_smart_command');
-			return { valid: isValid };
-		} catch (error) {
-			return {
-				valid: false,
-				error: typeof error === 'string' ? error : 'License validation failed'
-			};
-		}
-	}
+    private async performLicenseCheck(): Promise<LicenseValidationResult> {
+        try {
+            const isValid = await invoke<boolean>('check_license_smart_command');
+            if (isValid) return { valid: true };
+            return {
+                valid: false,
+                errorCode: 'INVALID_KEY',
+                error: 'Stored license is invalid'
+            };
+        } catch (error) {
+            const mapped = this.mapErrorToCode(error);
+            return {
+                valid: false,
+                errorCode: mapped.code,
+                error: mapped.message ?? 'License validation failed'
+            };
+        }
+    }
+
+    private mapErrorToCode(error: unknown): { code: LicenseErrorCode; message?: string } {
+        const message = typeof error === 'string'
+            ? error
+            : (error && typeof (error as any).message === 'string')
+                ? (error as any).message as string
+                : undefined;
+
+        const msg = (message ?? '').toLowerCase();
+
+        // Platform mismatch indicators (keys tied to specific OS)
+        if (msg.includes('not valid for windows')
+            || msg.includes('not valid for macos')
+            || msg.includes("starts with 'leedwin'")
+            || msg.includes("starts with 'leedmac'")) {
+            return { code: 'PLATFORM_MISMATCH', message };
+        }
+
+        // Network related indicators
+        if (msg.includes('network') || msg.includes('timeout') || msg.includes('econn') || msg.includes('fetch failed')) {
+            return { code: 'NETWORK_ERROR', message };
+        }
+
+        // Generic invalid key indicators
+        if (msg.includes('invalid') || msg.includes('not valid') || msg.includes('bad license')) {
+            return { code: 'INVALID_KEY', message };
+        }
+
+        return { code: 'UNKNOWN', message };
+    }
 
 	// Debug: Get license requirement info for current platform
 	async getLicenseInfo(): Promise<{ requires_license: boolean; platform: string; reason: string }> {

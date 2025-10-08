@@ -14,27 +14,16 @@ src-tauri/target/
 src-tauri/gen/
 LeedPDF.pkg
 
-# Apple Developer Certificates and Keys
+# Apple Development & macOS
 *.p12
 *.p8
+AuthKey_*.p8
 *.cer
 *.mobileprovision
 *.provisionprofile
-AuthKey_*.p8
-*.key
-*.cert
-
-# App Store Connect API Keys
-*.p8
-AuthKey_*.p8
-
-# Signing identities and certificates
-*.p12
-*.cer
-*.mobileprovision
-*.provisionprofile
-
-# macOS specific
+# Apple signing keys and certificates
+*.p12.key
+*.certSigningRequest
 .DS_Store
 .AppleDouble
 .LSOverride
@@ -60,7 +49,6 @@ src-tauri/myapp.key.pub
 *.ps1
 
 # OS
-.DS_Store
 Thumbs.db
 
 # IDE
