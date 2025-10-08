@@ -1181,7 +1181,7 @@
             </div>
           {/if}
 
-            <div class="text-sm text-slate">
+            <div class="text-sm text-slate" style="margin-top: 8px; margin-bottom: -8px;">
               <span>or</span>
             </div>
 

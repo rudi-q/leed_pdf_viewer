@@ -20,6 +20,7 @@
     undoStack
   } from '../stores/drawingStore';
   import { isDarkMode, toggleTheme } from '../stores/themeStore';
+  import { hasParityBanner } from '../stores/parityBannerStore';
   import { handleSearchLinkClick } from '../utils/navigationUtils';
   import { trackToolSelection } from '../utils/analytics';
   import { goto } from '$app/navigation';
@@ -202,7 +203,7 @@
 
 
 <!-- Top Toolbar - Always visible -->
-<div class="toolbar-top fixed top-2 left-4 right-4 z-50">
+<div class="toolbar-top left-4 right-4 z-50" class:fixed={!$hasParityBanner} class:absolute={$hasParityBanner} class:top-2={!$hasParityBanner}>
   <div class="floating-panel !py-1 !px-3">
 
     
