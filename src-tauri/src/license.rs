@@ -1,80 +1,87 @@
+// ========== LICENSE MODULE ==========
+// All license functionality is excluded from macOS builds for App Store compliance.
+// On macOS, users pay via the App Store and get immediate full access.
+// On Windows/Linux, license keys are required via Polar.sh
+
+// Imports only needed for Windows/Linux builds
+#[cfg(not(target_os = "macos"))]
 use serde::{Deserialize, Serialize};
+#[cfg(not(target_os = "macos"))]
 use std::path::PathBuf;
+#[cfg(not(target_os = "macos"))]
 use tauri::{AppHandle, Manager};
 
-#[derive(Debug, Serialize, Deserialize)]
-struct LicenseValidationRequest {
-    key: String,
-    organization_id: String,
-}
+// These types, constants, and functions only exist in Windows/Linux builds
+#[cfg(not(target_os = "macos"))]
+mod license_impl {
+    use super::*;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct LicenseActivationRequest {
-    key: String,
-    organization_id: String,
-    label: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct LicenseValidationResponse {
-    status: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct LicenseKeyNested {
-    status: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct LicenseActivationResponse {
-    license_key: LicenseKeyNested,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct StoredLicense {
-    pub key: String,
-    pub validated_at: u64,
-    pub activated_at: u64,
-    pub device_id: String,
-}
-
-const POLAR_VALIDATION_URL: &str = "https://api.polar.sh/v1/customer-portal/license-keys/validate";
-const POLAR_ACTIVATION_URL: &str = "https://api.polar.sh/v1/customer-portal/license-keys/activate";
-const ORGANIZATION_ID: &str = "2ec4183f-eaad-4089-b9dc-9008f3748460";
-
-// Offline grace period: 7 days (in seconds)
-const OFFLINE_GRACE_PERIOD: u64 = 7 * 24 * 60 * 60;
-
-/// Get unique device ID for license activation
-pub fn get_device_id() -> Result<String, String> {
-    machine_uid::get().map_err(|e| format!("Failed to get device ID: {}", e))
-}
-
-/// Validate license key prefix for current platform
-fn is_valid_license_key_prefix(license_key: &str) -> bool {
-    // TODO: Remove LEEDUMMY support after merging to main - this is for testing only
-    if license_key.starts_with("LEEDUMMY") {
-        return true; // LEEDUMMY works on all platforms for testing
+    #[derive(Debug, Serialize, Deserialize)]
+    pub(super) struct LicenseValidationRequest {
+        pub key: String,
+        pub organization_id: String,
     }
-    
-    #[cfg(target_os = "windows")]
-    {
-        license_key.starts_with("LEEDWIN")
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub(super) struct LicenseActivationRequest {
+        pub key: String,
+        pub organization_id: String,
+        pub label: String,
     }
-    #[cfg(target_os = "macos")]
-    {
-        license_key.starts_with("LEEDMAC")
+
+    #[derive(Debug, Deserialize)]
+    pub(super) struct LicenseValidationResponse {
+        pub status: String,
     }
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    {
-        // For other platforms, accept both prefixes or add specific logic
-        license_key.starts_with("LEEDWIN") || license_key.starts_with("LEEDMAC")
+
+    #[derive(Debug, Deserialize)]
+    pub(super) struct LicenseKeyNested {
+        pub status: String,
+    }
+
+    #[derive(Debug, Deserialize)]
+    pub(super) struct LicenseActivationResponse {
+        pub license_key: LicenseKeyNested,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct StoredLicense {
+        pub key: String,
+        pub validated_at: u64,
+        pub activated_at: u64,
+        pub device_id: String,
+    }
+
+    pub(super) const POLAR_VALIDATION_URL: &str = "https://api.polar.sh/v1/customer-portal/license-keys/validate";
+    pub(super) const POLAR_ACTIVATION_URL: &str = "https://api.polar.sh/v1/customer-portal/license-keys/activate";
+    pub(super) const ORGANIZATION_ID: &str = "2ec4183f-eaad-4089-b9dc-9008f3748460";
+    pub(super) const OFFLINE_GRACE_PERIOD: u64 = 7 * 24 * 60 * 60;
+
+    pub(super) fn get_device_id() -> Result<String, String> {
+        machine_uid::get().map_err(|e| format!("Failed to get device ID: {}", e))
+    }
+
+    pub(super) fn is_valid_license_key_prefix(license_key: &str) -> bool {
+        if license_key.starts_with("LEEDUMMY") {
+            return true;
+        }
+        
+        #[cfg(target_os = "windows")]
+        {
+            license_key.starts_with("LEEDWIN")
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            license_key.starts_with("LEEDWIN") || license_key.starts_with("LEEDMAC")
+        }
     }
 }
 
-/// Activate a license key for this device (first time setup)
+// Public functions - only compiled for Windows/Linux
+#[cfg(not(target_os = "macos"))]
 pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
-    // Validate license key pattern based on platform
+    use license_impl::*;
+    
     if !is_valid_license_key_prefix(license_key) {
         #[cfg(target_os = "windows")]
         {
@@ -106,9 +113,7 @@ pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
         .await
         .map_err(|e| format!("Network error: {}", e))?;
 
-    // Handle HTTP status codes properly
     if response.status().is_client_error() {
-        // 4xx errors indicate client issues (invalid license, already activated, etc.)
         let status_code = response.status().as_u16();
         return match status_code {
             400 => Err("Invalid license key format or request. Please check your license key.".to_string()),
@@ -121,7 +126,6 @@ pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
     }
     
     if !response.status().is_success() {
-        // 5xx or other unexpected status codes are server/network errors
         return Err("License server is temporarily unavailable. Please try again later.".to_string());
     }
 
@@ -130,28 +134,23 @@ pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
         .await
         .map_err(|e| format!("Failed to parse server response: {}", e))?;
 
-    // Check if status is "granted" for successful activation
     if activation_response.license_key.status == "granted" {
         Ok(true)
     } else {
-        // Non-"granted" status means invalid license, not a network error
         Err(format!("License activation was rejected. Status: {}. Please verify your license key is valid and not expired.", activation_response.license_key.status))
     }
 }
 
-/// Validate an already-activated license key
+#[cfg(not(target_os = "macos"))]
 pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
-    // Validate license key pattern based on platform
+    use license_impl::*;
+    
     if !is_valid_license_key_prefix(license_key) {
         #[cfg(target_os = "windows")]
         {
             return Err("This license key is not valid for Windows. Please ensure you have a Windows license key that starts with 'LEEDWIN'.".to_string());
         }
-        #[cfg(target_os = "macos")]
-        {
-            return Err("This license key is not valid for macOS. Please ensure you have a Mac license key that starts with 'LEEDMAC'.".to_string());
-        }
-        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        #[cfg(not(target_os = "windows"))]
         {
             return Err("Invalid license key format. Please ensure your license key starts with 'LEEDWIN' or 'LEEDMAC'.".to_string());
         }
@@ -171,9 +170,7 @@ pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
         .await
         .map_err(|e| format!("Network error: {}", e))?;
 
-    // Handle HTTP status codes properly
     if response.status().is_client_error() {
-        // 4xx errors indicate client issues (invalid license, expired, etc.)
         let status_code = response.status().as_u16();
         return match status_code {
             400 => Err("Invalid license key format. Please check your license key.".to_string()),
@@ -185,9 +182,7 @@ pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
     }
     
     if !response.status().is_success() {
-        // 5xx or other unexpected status codes are server/network errors
         return Err("License server is temporarily unavailable. Please try again later.".to_string());
-
     }
 
     let validation_response: LicenseValidationResponse = response
@@ -195,16 +190,14 @@ pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
         .await
         .map_err(|e| format!("Failed to parse server response: {}", e))?;
 
-    // Check if status is "granted" for valid license
     if validation_response.status == "granted" {
         Ok(true)
     } else {
-        // Non-"granted" status means invalid license, not a network error
         Err(format!("License validation was rejected. Status: {}. Your license may be expired or invalid.", validation_response.status))
-
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 fn get_license_file_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
     let app_data_dir = app_handle
         .path()
@@ -217,7 +210,10 @@ fn get_license_file_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
     Ok(app_data_dir.join("license.json"))
 }
 
-pub fn get_stored_license(app_handle: &AppHandle) -> Result<Option<StoredLicense>, String> {
+#[cfg(not(target_os = "macos"))]
+pub fn get_stored_license(app_handle: &AppHandle) -> Result<Option<license_impl::StoredLicense>, String> {
+    use license_impl::*;
+    
     let license_file = get_license_file_path(app_handle)?;
     
     if !license_file.exists() {
@@ -233,8 +229,10 @@ pub fn get_stored_license(app_handle: &AppHandle) -> Result<Option<StoredLicense
     Ok(Some(stored_license))
 }
 
-/// Store an activated license (first time setup)
+#[cfg(not(target_os = "macos"))]
 pub fn store_activated_license(app_handle: &AppHandle, license_key: &str) -> Result<(), String> {
+    use license_impl::*;
+    
     let license_file = get_license_file_path(app_handle)?;
     let device_id = get_device_id()?;
     let current_time = std::time::SystemTime::now()
@@ -258,14 +256,14 @@ pub fn store_activated_license(app_handle: &AppHandle, license_key: &str) -> Res
     Ok(())
 }
 
-/// Update validation timestamp for existing activated license
+#[cfg(not(target_os = "macos"))]
 pub fn store_license(app_handle: &AppHandle, license_key: &str) -> Result<(), String> {
-    // Get existing license to preserve activation data
+    use license_impl::*;
+    
     let existing_license = get_stored_license(app_handle)?;
     
     match existing_license {
         Some(license) => {
-            // Update existing license with new validation timestamp
             let license_file = get_license_file_path(app_handle)?;
             
             let updated_license = StoredLicense {
@@ -287,14 +285,14 @@ pub fn store_license(app_handle: &AppHandle, license_key: &str) -> Result<(), St
             Ok(())
         },
         None => {
-            // No existing license - this shouldn't happen for validation updates
-            // but we'll create a new one anyway
             store_activated_license(app_handle, license_key)
         }
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 pub fn remove_stored_license(app_handle: &AppHandle) -> Result<(), String> {
+    
     let license_file = get_license_file_path(app_handle)?;
     
     if license_file.exists() {
@@ -305,9 +303,10 @@ pub fn remove_stored_license(app_handle: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Smart license validation that works offline within grace period
+#[cfg(not(target_os = "macos"))]
 pub async fn check_license_smart(app_handle: &AppHandle) -> Result<bool, String> {
-    // Try to get stored license first
+    use license_impl::*;
+    
     let stored_license = match get_stored_license(app_handle)? {
         Some(license) => license,
         None => return Err("No license key found".to_string()),
@@ -320,31 +319,34 @@ pub async fn check_license_smart(app_handle: &AppHandle) -> Result<bool, String>
     
     let time_since_validation = current_time - stored_license.validated_at;
     
-    // If within offline grace period, accept the stored license
     if time_since_validation < OFFLINE_GRACE_PERIOD {
         return Ok(true);
     }
     
-    // Try online validation (might fail due to no internet)
     match validate_license_key(&stored_license.key).await {
         Ok(true) => {
-            // Update validation timestamp on successful online check
             store_license(app_handle, &stored_license.key)?;
             Ok(true)
         },
         Ok(false) => {
-            // License is invalid online - remove it
             remove_stored_license(app_handle)?;
             Err("License key is no longer valid".to_string())
         },
         Err(_network_error) => {
-            // Network error - check if we're still within extended offline grace period
-            // Give extra time (14 days total) for network issues
             if time_since_validation < (OFFLINE_GRACE_PERIOD * 2) {
-                Ok(true) // Allow continued offline usage
+                Ok(true)
             } else {
                 Err("License validation required - please connect to internet".to_string())
             }
         }
     }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn get_license_requirement_info() -> serde_json::Value {
+    serde_json::json!({
+        "requires_license": true,
+        "platform": std::env::consts::OS,
+        "reason": "License key validation required for this platform"
+    })
 }

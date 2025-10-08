@@ -10,12 +10,16 @@
 	import { licenseManager } from '$lib/utils/licenseManager';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
-	import { isTauri } from '$lib/utils/tauriUtils';
+	import { isTauri, detectOS } from '$lib/utils/tauriUtils';
 	import { goto } from '$app/navigation';
 	import { getCurrent } from '@tauri-apps/plugin-deep-link';
 	import { listen } from '@tauri-apps/api/event';
 
-	// License validation state
+	// Detect if we're on macOS (App Store build - no license required)
+	const isMacOS = detectOS() === 'macOS';
+	const requiresLicense = isTauri && !isMacOS; // Only Windows/Linux need license
+
+	// License validation state (only used on Windows/Linux)
 	let showLicenseModal = false;
 	let licenseCheckCompleted = false;
 	let hasValidLicense = false;
@@ -27,22 +31,30 @@
 	// Initialize file storage auto-cleanup when app loads
 	if (browser) {
 		onMount(() => {
+			// Make licenseManager available in console for debugging
+			// @ts-ignore
+			window.licenseManager = licenseManager;
+			
 			// Start auto-cleanup of old files every AUTO_CLEANUP_INTERVAL milliseconds
 			const stopCleanup = fileStorage.startAutoCleanup();
 			
-			// License validation for Tauri desktop app only
-			if (isTauri) {
+			// License validation for Tauri desktop app only (Windows/Linux only)
+			if (requiresLicense) {
 				// Check license immediately after app loads (removed delay)
 				performLicenseCheck();
-				
+			} else {
+				// macOS App Store or web version doesn't need license validation
+				licenseCheckCompleted = true;
+				hasValidLicense = true;
+			}
+			
+			// Deep link handling for all Tauri platforms
+			if (isTauri) {
 				// Listen for deep-link events from Rust
 				listenForDeepLinks();
 				
 				// Also register the plugin handler (might work for some cases)
 				registerDeepLinkHandler();
-			} else {
-				// Web version doesn't need license validation
-				licenseCheckCompleted = true;
 			}
 			
 			// Cleanup on page unload
@@ -200,10 +212,12 @@
 <UpdateNotification />
 <CookieConsentBanner />
 
-<!-- License Modal for Tauri Desktop App -->
-<LicenseModal 
-	bind:isOpen={showLicenseModal}
-	bind:needsActivation={needsActivation}
-	on:validated={handleLicenseValidated}
-	on:close={handleLicenseModalClose}
-/>
+<!-- License Modal for Windows/Linux only (excluded from macOS for App Store compliance) -->
+{#if requiresLicense}
+	<LicenseModal 
+		bind:isOpen={showLicenseModal}
+		bind:needsActivation={needsActivation}
+		on:validated={handleLicenseValidated}
+		on:close={handleLicenseModalClose}
+	/>
+{/if}

@@ -99,6 +99,22 @@ import { getFormattedVersion } from '$lib/utils/version';
         handleFileFromCommandLine(event.payload as string);
       });
 
+      const unlistenDeepLink = listen<{pdf_path: string; page: number}>('load-pdf-from-deep-link', (event) => {
+      console.log('*** DEEP LINK EVENT RECEIVED ***');
+      console.log('Event payload:', event.payload);
+      const { pdf_path, page } = event.payload;
+      
+      handleFileFromCommandLine(pdf_path).then(success => {
+        if (success && page > 1) {
+          // Wait a bit for PDF to load, then jump to page
+          setTimeout(() => {
+            console.log(`Jumping to page ${page} from deep link`);
+            pdfViewer?.goToPage(page);
+          }, 1000);
+        }
+      });
+    });
+
       const unlistenDebug = listen('debug-info', (event) => {
         console.log('TAURI DEBUG:', event.payload);
       });
@@ -107,6 +123,7 @@ import { getFormattedVersion } from '$lib/utils/version';
       window.__pdfRouteCleanup = {
         unlistenFileOpened,
         unlistenStartupReady,
+        unlistenDeepLink,
         unlistenDebug
       };
     }
@@ -120,9 +137,10 @@ import { getFormattedVersion } from '$lib/utils/version';
 
     // Clean up Tauri event listeners
     if (window.__pdfRouteCleanup) {
-      const { unlistenFileOpened, unlistenStartupReady, unlistenDebug } = window.__pdfRouteCleanup;
+      const { unlistenFileOpened, unlistenStartupReady, unlistenDeepLink, unlistenDebug } = window.__pdfRouteCleanup;
       unlistenFileOpened.then((fn: () => void) => fn()).catch(console.error);
       unlistenStartupReady.then((fn: () => void) => fn()).catch(console.error);
+      unlistenDeepLink.then((fn: () => void) => fn()).catch(console.error);
       unlistenDebug.then((fn: () => void) => fn()).catch(console.error);
       delete window.__pdfRouteCleanup;
     }

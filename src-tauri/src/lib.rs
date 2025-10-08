@@ -2,10 +2,12 @@ use std::collections::VecDeque;
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
-use tauri::{Emitter, RunEvent};
+use tauri::{Emitter, Manager, RunEvent};
 
 mod license;
-use license::{activate_license_key, validate_license_key, get_stored_license, store_license, store_activated_license, remove_stored_license, check_license_smart};
+// License imports only needed for Windows/Linux builds (excluded from macOS for App Store compliance)
+#[cfg(not(target_os = "macos"))]
+use license::{activate_license_key, validate_license_key, get_stored_license, store_license, store_activated_license, remove_stored_license, check_license_smart, get_license_requirement_info};
 
 // Global state to store pending file paths
 static PENDING_FILES: Mutex<VecDeque<String>> = Mutex::new(VecDeque::new());
@@ -37,6 +39,51 @@ fn sanitize_path(path: &str) -> String {
     clean_path
 }
 
+// NEW: Process deep link URLs (leedpdf://...)
+fn process_deep_link(app_handle: &tauri::AppHandle, url: &str) {
+    println!("[DEEP_LINK] Processing: {}", url);
+    
+    // Parse the URL - format: leedpdf://open?file=/path/to/doc.pdf&page=5
+    if let Ok(parsed) = url::Url::parse(url) {
+        let mut pdf_path = None;
+        let mut page = 1;
+        
+        // Extract query parameters
+        for (key, value) in parsed.query_pairs() {
+            match key.as_ref() {
+                "file" => pdf_path = Some(value.to_string()),
+                "page" => page = value.parse().unwrap_or(1),
+                _ => {}
+            }
+        }
+        
+        if let Some(path) = pdf_path {
+            println!("[DEEP_LINK] Extracted PDF path: {}, page: {}", path, page);
+            
+            let payload = serde_json::json!({
+                "pdf_path": path,
+                "page": page
+            });
+            
+            // Emit to frontend
+            match app_handle.emit("load-pdf-from-deep-link", payload) {
+                Ok(_) => println!("[DEEP_LINK] Successfully emitted load-pdf-from-deep-link event"),
+                Err(e) => println!("[DEEP_LINK] Failed to emit event: {:?}", e),
+            }
+        } else {
+            // No file parameter, just emit the raw deep link content
+            let content = url.replace("leedpdf://", "");
+            println!("[DEEP_LINK] No file param, emitting raw content: {}", content);
+            match app_handle.emit("deep-link", &content) {
+                Ok(_) => println!("[DEEP_LINK] Successfully emitted deep-link event"),
+                Err(e) => println!("[DEEP_LINK] Failed to emit deep-link event: {:?}", e),
+            }
+        }
+    } else {
+        println!("[DEEP_LINK] Failed to parse URL: {}", url);
+    }
+}
+
 #[tauri::command]
 fn get_pending_file() -> Option<String> {
     let mut pending = PENDING_FILES.lock().unwrap();
@@ -52,15 +99,7 @@ fn check_file_associations(app_handle: tauri::AppHandle) -> Vec<String> {
         // Check for deep links BEFORE sanitizing (they're not file paths!)
         if arg.starts_with("leedpdf://") {
             println!("[check_file_associations] Found deep link: {}", arg);
-            // Extract content after leedpdf://
-            let content = arg.replace("leedpdf://", "");
-            println!("[check_file_associations] Deep link content: {}", content);
-            
-            // Emit deep-link event to frontend
-            match app_handle.emit("deep-link", &content) {
-                Ok(_) => println!("[check_file_associations] Successfully emitted deep-link event"),
-                Err(e) => println!("[check_file_associations] Failed to emit deep-link event: {:?}", e),
-            }
+            process_deep_link(&app_handle, arg);
             continue;
         }
         
@@ -107,6 +146,8 @@ fn open_external_url(url: String) -> Result<(), String> {
     Ok(())
 }
 
+// License commands - excluded from macOS builds for App Store compliance
+#[cfg(not(target_os = "macos"))]
 #[tauri::command]
 async fn activate_license(app_handle: tauri::AppHandle, licensekey: String) -> Result<bool, String> {
     let is_valid = activate_license_key(&licensekey).await?;
@@ -119,6 +160,7 @@ async fn activate_license(app_handle: tauri::AppHandle, licensekey: String) -> R
     Ok(is_valid)
 }
 
+#[cfg(not(target_os = "macos"))]
 #[tauri::command]
 async fn validate_license(app_handle: tauri::AppHandle, licensekey: String) -> Result<bool, String> {
     let is_valid = validate_license_key(&licensekey).await?;
@@ -131,6 +173,7 @@ async fn validate_license(app_handle: tauri::AppHandle, licensekey: String) -> R
     Ok(is_valid)
 }
 
+#[cfg(not(target_os = "macos"))]
 #[tauri::command]
 fn get_stored_license_key(app_handle: tauri::AppHandle) -> Result<Option<String>, String> {
     match get_stored_license(&app_handle)? {
@@ -139,14 +182,22 @@ fn get_stored_license_key(app_handle: tauri::AppHandle) -> Result<Option<String>
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 #[tauri::command]
 fn clear_license(app_handle: tauri::AppHandle) -> Result<(), String> {
     remove_stored_license(&app_handle)
 }
 
+#[cfg(not(target_os = "macos"))]
 #[tauri::command]
 async fn check_license_smart_command(app_handle: tauri::AppHandle) -> Result<bool, String> {
     check_license_smart(&app_handle).await
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+fn get_license_info() -> serde_json::Value {
+    get_license_requirement_info()
 }
 
 #[tauri::command]
@@ -409,7 +460,39 @@ fn process_pdf_files(app_handle: &tauri::AppHandle, pdf_files: Vec<String>) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    // NEW: Single-instance plugin for Windows/Linux (macOS is single-instance by default)
+    #[cfg(desktop)]
+    {
+        #[cfg(not(target_os = "macos"))]
+        {
+            use tauri_plugin_deep_link::DeepLinkExt;
+            
+            builder = builder.plugin(
+                tauri_plugin_single_instance::init(|app, argv, _cwd| {
+                    println!("[SINGLE_INSTANCE] New instance attempted with args: {:?}", argv);
+                    
+                    // Bring window to front
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.set_focus();
+                        let _ = window.show();
+                        let _ = window.unminimize();
+                    }
+                    
+                    // Process any deep links in the arguments
+                    for arg in &argv {
+                        if arg.starts_with("leedpdf://") {
+                            println!("[SINGLE_INSTANCE] Found deep link: {}", arg);
+                            process_deep_link(app, arg);
+                        }
+                    }
+                })
+            );
+        }
+    }
+
+    builder
         .plugin(tauri_plugin_deep_link::init())
         // .plugin(tauri_plugin_updater::Builder::new().build()) // Disabled for App Store
         .plugin(tauri_plugin_fs::init())
@@ -420,11 +503,19 @@ pub fn run() {
             check_file_associations,
             mark_file_processed,
             open_external_url,
+            // License commands excluded from macOS builds for App Store compliance
+            #[cfg(not(target_os = "macos"))]
             activate_license,
+            #[cfg(not(target_os = "macos"))]
             validate_license,
+            #[cfg(not(target_os = "macos"))]
             get_stored_license_key,
+            #[cfg(not(target_os = "macos"))]
             clear_license,
+            #[cfg(not(target_os = "macos"))]
             check_license_smart_command,
+            #[cfg(not(target_os = "macos"))]
+            get_license_info,
             exit_app,
             test_tauri_detection,
             frontend_ready,
@@ -438,6 +529,9 @@ pub fn run() {
             get_default_test_path
         ])
         .setup(|app| {
+            // NEW: Add import at the top of setup
+            use tauri_plugin_deep_link::DeepLinkExt;
+            
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -445,6 +539,60 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            // ============ NEW: DEEP LINK HANDLING (macOS) ============
+            let app_handle = app.handle().clone();
+            
+            // CRITICAL: Check for launch URLs immediately (fixes first-attempt issue)
+            println!("=== CHECKING FOR LAUNCH DEEP LINKS ===");
+            match app.deep_link().get_current() {
+                Ok(Some(urls)) => {
+                    println!("[DEEP_LINK] App launched via deep link: {:?}", urls);
+                    for url in &urls {
+                        let url_str = url.as_str();
+                        if !url_str.is_empty() {
+                            process_deep_link(&app_handle, url_str);
+                        }
+                    }
+                }
+                Ok(None) => {
+                    println!("[DEEP_LINK] No launch URLs found");
+                }
+                Err(e) => {
+                    println!("[DEEP_LINK] Error getting launch URLs: {:?}", e);
+                }
+            }
+
+            // Set up listener for when app is already running (fixes subsequent-attempt issue)
+            let handle = app_handle.clone();
+            app.deep_link().on_open_url(move |event| {
+                let urls = event.urls();  // Call once and store
+                println!("[DEEP_LINK] Deep link while running: {:?}", urls);
+                
+                // CRITICAL: Bring window to front (fixes "nothing happens" issue)
+                if let Some(window) = handle.get_webview_window("main") {
+                    let _ = window.set_focus();
+                    let _ = window.show();
+                    let _ = window.unminimize();
+                    println!("[DEEP_LINK] Brought window to front");
+                }
+                
+                // Process URLs (convert Url to &str)
+                for url in &urls {  // Iterate over reference
+                    let url_str = url.as_str();
+                    if !url_str.is_empty() {
+                        process_deep_link(&handle, url_str);
+                    }
+                }
+            });
+
+            // Don't use register_all() on macOS - it's not supported
+            #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
+            {
+                println!("[DEEP_LINK] Registering URL scheme at runtime");
+                app.deep_link().register_all()?;
+            }
+            // ============ END DEEP LINK HANDLING ============
 
             // Handle command line arguments for file associations
             let args: Vec<String> = std::env::args().collect();
@@ -494,16 +642,8 @@ pub fn run() {
                         
                         // Handle deep links directly BEFORE sanitizing (they're not file paths!)
                         if arg.starts_with("leedpdf://") {
-                            debug_msg.push_str(&format!("Found deep link: {}\n", arg));
-                            // Extract content after leedpdf://
-                            let content = arg.replace("leedpdf://", "");
-                            debug_msg.push_str(&format!("Deep link content: {}\n", content));
-                            
-                            // Emit deep-link event to frontend
-                            match app.emit("deep-link", content) {
-                                Ok(_) => debug_msg.push_str("Successfully emitted deep-link event\n"),
-                                Err(e) => debug_msg.push_str(&format!("Failed to emit deep-link event: {:?}\n", e)),
-                            }
+                            debug_msg.push_str(&format!("Found deep link in args: {}\n", arg));
+                            process_deep_link(&app.handle(), arg);
                             continue;
                         }
                         
@@ -539,10 +679,7 @@ pub fn run() {
                     for arg in &args[1..] {
                         // Handle deep links directly BEFORE sanitizing (they're not file paths!)
                         if arg.starts_with("leedpdf://") {
-                            // Extract content after leedpdf://
-                            let content = arg.replace("leedpdf://", "");
-                            // Emit deep-link event to frontend
-                            let _ = app.emit("deep-link", content);
+                            process_deep_link(&app.handle(), arg);
                             continue;
                         }
                         
@@ -562,7 +699,7 @@ pub fn run() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("error while building tauri application")
+        .expect("error while running tauri application")
         .run(|app_handle, event| {
             // Log all events for debugging (debug builds only)
             if cfg!(debug_assertions) {
