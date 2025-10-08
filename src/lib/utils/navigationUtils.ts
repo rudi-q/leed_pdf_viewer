@@ -53,6 +53,57 @@ export async function openSearchPage(): Promise<void> {
 }
 
 /**
+ * Opens a URL in the external browser (Tauri) or new tab (web)
+ * Only allows http: and https: protocols for security
+ */
+export async function openExternalUrl(url: string): Promise<void> {
+	if (!browser) return;
+
+	// Security: Validate URL and only allow http/https protocols
+	const trimmedUrl = url.trim();
+	if (!trimmedUrl) {
+		console.error('[openExternalUrl] Empty URL provided');
+		return;
+	}
+
+	try {
+		const urlObj = new URL(trimmedUrl);
+		
+		// Only allow http and https protocols to prevent XSS and other attacks
+		if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+			console.error(
+				`[openExternalUrl] Blocked unsafe URL scheme: ${urlObj.protocol}. Only http: and https: are allowed.`
+			);
+			return;
+		}
+	} catch (error) {
+		console.error('[openExternalUrl] Invalid URL provided:', trimmedUrl, error);
+		return;
+	}
+
+	if (isTauri) {
+		try {
+			// Use our custom Tauri command to open in external browser
+			await invokeCommand('open_external_url', { url: trimmedUrl });
+		} catch (error) {
+			console.error('[openExternalUrl] Tauri command failed:', error);
+			// Try fallback with shell plugin
+			try {
+				const { open } = await import('@tauri-apps/plugin-shell');
+				await open(trimmedUrl);
+			} catch (shellError) {
+				console.error('[openExternalUrl] Shell plugin fallback failed:', shellError);
+				// Final fallback to window.open with security attributes
+				window.open(trimmedUrl, '_blank', 'noopener,noreferrer');
+			}
+		}
+	} else {
+		// In web environment, open in new tab
+		window.open(trimmedUrl, '_blank', 'noopener,noreferrer');
+	}
+}
+
+/**
  * Navigates to the home page with proper handling for different environments
  */
 export async function navigateToHome(): Promise<void> {

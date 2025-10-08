@@ -145,7 +145,7 @@ describe('PDFUtils', () => {
 				globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
 				await expect(pdfManager.loadFromUrl(testUrl)).rejects.toThrow(
-					'Failed to load PDF from URL'
+					'Failed to load PDF after 3 attempts: Network error'
 				);
 			});
 		});
