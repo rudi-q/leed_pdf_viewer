@@ -9,6 +9,7 @@
   ],
   "permissions": [
     "core:default",
+    "core:window:allow-create",
     "fs:allow-read-file",
     "fs:allow-write-file",
     {

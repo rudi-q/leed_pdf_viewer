@@ -2,7 +2,11 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "identifier": "my.leed.pdf",
   "bundle": {
-    "createUpdaterArtifacts": false
+    "createUpdaterArtifacts": false,
+    "macOS": {
+      "entitlements": "entitlements.plist",
+      "signingIdentity": "3rd Party Mac Developer Application: DoublOne Studios Limited (85PR7THRT2)"
+    }
   },
   "plugins": {
     "updater": {

@@ -10,6 +10,7 @@
   ],
   "permissions": [
     "core:default",
+    "core:window:allow-create",
     "fs:default",
     "dialog:default",
     "shell:default",
