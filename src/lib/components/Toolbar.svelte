@@ -2,6 +2,7 @@
   import {
     availableColors,
     availableEraserSizes,
+    availableHighlightColors,
     availableLineWidths,
     availableStamps,
     clearCurrentPageDrawings,
@@ -13,6 +14,7 @@
     redoStack,
     setColor,
     setEraserSize,
+    setHighlightColor,
     setLineWidth,
     setStampId,
     setTool,
@@ -93,6 +95,7 @@
 
   let fileInput: HTMLInputElement;
   let showColorPalette = false;
+  let showHighlightColorPicker = false;
   let showLineWidthPicker = false;
   let showEraserSizePicker = false;
   let showStampPalette = false;
@@ -113,6 +116,11 @@
   function handleColorChange(color: string) {
     setColor(color);
     showColorPalette = false;
+  }
+
+  function handleHighlightColorChange(color: string) {
+    setHighlightColor(color);
+    showHighlightColorPicker = false;
   }
 
   function handleLineWidthChange(width: number) {
@@ -173,6 +181,9 @@
     const target = event.target as HTMLElement;
     if (!target.closest('.color-palette-container')) {
       showColorPalette = false;
+    }
+    if (!target.closest('.highlight-color-container')) {
+      showHighlightColorPicker = false;
     }
     if (!target.closest('.line-width-container')) {
       showLineWidthPicker = false;
@@ -481,6 +492,55 @@
             </div>
           {/if}
         </div>
+
+        <!-- Highlight color picker (only visible when highlight tool is active) -->
+        {#if $drawingState.tool === 'highlight'}
+          <div class="relative highlight-color-container">
+            <Tooltip content="Highlight color">
+              <button
+                class="tool-button w-11 h-11 lg:w-8 lg:h-8 p-1"
+                on:click={() => showHighlightColorPicker = !showHighlightColorPicker}
+                aria-label="Choose highlight color"
+              >
+                <div 
+                  class="w-full h-full rounded-md border border-white shadow-inner opacity-60"
+                  style="background-color: {$drawingState.highlightColor}"
+                ></div>
+              </button>
+            </Tooltip>
+
+            {#if showHighlightColorPicker}
+              <div class="absolute top-full mt-2 left-0 z-50">
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-4 min-w-[200px]">
+                  <h3 class="text-xs font-medium text-charcoal/80 dark:text-gray-300 mb-3 text-center">Highlight Color</h3>
+                  <div class="grid grid-cols-4 gap-3">
+                    {#each availableHighlightColors as color}
+                      <button
+                        class="w-8 h-8 rounded-full border-2 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-sage focus:ring-offset-2 opacity-60 hover:opacity-80"
+                        class:border-sage={color === $drawingState.highlightColor}
+                        class:border-gray-300={color !== $drawingState.highlightColor}
+                        class:scale-110={color === $drawingState.highlightColor}
+                        class:shadow-lg={color === $drawingState.highlightColor}
+                        class:opacity-80={color === $drawingState.highlightColor}
+                        style="background-color: {color}"
+                        on:click={() => handleHighlightColorChange(color)}
+                        aria-label="Select highlight color {color}"
+                      >
+                        {#if color === $drawingState.highlightColor}
+                          <div class="w-full h-full rounded-full flex items-center justify-center">
+                            <svg class="w-3 h-3 text-white drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20">
+                              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                          </div>
+                        {/if}
+                      </button>
+                    {/each}
+                  </div>
+                </div>
+              </div>
+            {/if}
+          </div>
+        {/if}
 
         <div class="h-4 w-px bg-charcoal/20"></div>
 
@@ -1053,6 +1113,22 @@
         </button>
       </div>
 
+      <!-- Highlight color picker (only visible when highlight tool is active) -->
+      {#if $drawingState.tool === 'highlight'}
+        <div class="relative highlight-color-container">
+          <button
+            class="tool-button w-8 h-8 p-1 flex items-center justify-center"
+            on:click={() => showHighlightColorPicker = !showHighlightColorPicker}
+            aria-label="Choose highlight color"
+          >
+            <div 
+              class="w-full h-full rounded-md border border-white shadow-inner opacity-60"
+              style="background-color: {$drawingState.highlightColor}"
+            ></div>
+          </button>
+        </div>
+      {/if}
+
       <!-- Line width picker -->
       <div class="relative line-width-container">
         <button
@@ -1149,6 +1225,37 @@
             aria-label="Select color {color}"
           >
             {#if color === $drawingState.color}
+              <div class="w-full h-full rounded-full flex items-center justify-center">
+                <svg class="w-3 h-3 text-white drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+              </div>
+            {/if}
+          </button>
+        {/each}
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if showHighlightColorPicker}
+  <div class="fixed bottom-20 left-4 z-[70] lg:hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-4 min-w-[200px]">
+      <h3 class="text-xs font-medium text-charcoal/80 dark:text-gray-300 mb-3 text-center">Highlight Color</h3>
+      <div class="grid grid-cols-4 gap-3">
+        {#each availableHighlightColors as color}
+          <button
+            class="w-8 h-8 rounded-full border-2 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-sage focus:ring-offset-2 opacity-60 hover:opacity-80"
+            class:border-sage={color === $drawingState.highlightColor}
+            class:border-gray-300={color !== $drawingState.highlightColor}
+            class:scale-110={color === $drawingState.highlightColor}
+            class:shadow-lg={color === $drawingState.highlightColor}
+            class:opacity-80={color === $drawingState.highlightColor}
+            style="background-color: {color}"
+            on:click={() => handleHighlightColorChange(color)}
+            aria-label="Select highlight color {color}"
+          >
+            {#if color === $drawingState.highlightColor}
               <div class="w-full h-full rounded-full flex items-center justify-center">
                 <svg class="w-3 h-3 text-white drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
