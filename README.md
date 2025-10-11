@@ -60,9 +60,11 @@ Transform any PDF into an interactive canvas. Draw, annotate, and collaborate wi
 
 ### 📱 **Universal Access**
 - Works on **any device** - desktop, tablet, or phone
+- **Native iOS app** available for iPhone and iPad
+- **Native macOS app** available on the Mac App Store
 - **Touch-optimized** with Apple Pencil support
 - **Mobile-friendly** interface that works seamlessly on smartphones and tablets
-- **No installation required** - runs in your browser
+- **Web app** - no installation required, runs in your browser
 - **Fast loading** with optimized caching
 
 ### ♿ **Accessibility First**
@@ -165,7 +167,9 @@ pnpm preview
 pnpm prev
 ```
 
-### Building the Tauri Desktop App
+### Building Native Apps
+
+#### Desktop Apps (macOS, Windows, Linux)
 ```bash
 # 1. Install dependencies
 pnpm install
@@ -176,6 +180,28 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 # 3. Build your native app
 pnpm tauri build
 ```
+
+#### iOS App
+```bash
+# 1. Install dependencies
+pnpm install
+
+# 2. Build iOS app
+./build_ios.sh
+
+# Or manually:
+pnpm tauri ios build --config src-tauri/tauri.ios.json
+```
+
+See [IOS_APP_STORE_SUBMISSION.md](IOS_APP_STORE_SUBMISSION.md) for detailed iOS build instructions.
+
+#### macOS App Store
+```bash
+# Build for Mac App Store
+./build_appstore.sh
+```
+
+See [MAC_APP_STORE_SUBMISSION.md](MAC_APP_STORE_SUBMISSION.md) for detailed macOS build instructions.
 
 ### Project Structure
 ```

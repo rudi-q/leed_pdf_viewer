@@ -1,0 +1,17 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "identifier": "my.leed.pdf",
+  "bundle": {
+    "createUpdaterArtifacts": false,
+    "iOS": {
+      "developmentTeam": "85PR7THRT2",
+      "minimumSystemVersion": "13.0"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": false
+    }
+  }
+}
+

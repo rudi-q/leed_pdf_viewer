@@ -1,18 +1,18 @@
 // ========== LICENSE MODULE ==========
-// All license functionality is excluded from macOS builds for App Store compliance.
-// On macOS, users pay via the App Store and get immediate full access.
+// All license functionality is excluded from macOS and iOS builds for App Store compliance.
+// On macOS and iOS, users pay via the App Store and get immediate full access.
 // On Windows/Linux, license keys are required via Polar.sh
 
 // Imports only needed for Windows/Linux builds
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 use serde::{Deserialize, Serialize};
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 use std::path::PathBuf;
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 use tauri::{AppHandle, Manager};
 
 // These types, constants, and functions only exist in Windows/Linux builds
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 mod license_impl {
     use super::*;
 
@@ -72,7 +72,7 @@ mod license_impl {
 }
 
 // Public functions - only compiled for Windows/Linux
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
     use license_impl::*;
     
@@ -135,7 +135,7 @@ pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
     use license_impl::*;
     
@@ -191,7 +191,7 @@ pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 fn get_license_file_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
     let app_data_dir = app_handle
         .path()
@@ -204,7 +204,7 @@ fn get_license_file_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
     Ok(app_data_dir.join("license.json"))
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub fn get_stored_license(app_handle: &AppHandle) -> Result<Option<license_impl::StoredLicense>, String> {
     use license_impl::*;
     
@@ -223,7 +223,7 @@ pub fn get_stored_license(app_handle: &AppHandle) -> Result<Option<license_impl:
     Ok(Some(stored_license))
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub fn store_activated_license(app_handle: &AppHandle, license_key: &str) -> Result<(), String> {
     use license_impl::*;
     
@@ -250,7 +250,7 @@ pub fn store_activated_license(app_handle: &AppHandle, license_key: &str) -> Res
     Ok(())
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub fn store_license(app_handle: &AppHandle, license_key: &str) -> Result<(), String> {
     use license_impl::*;
     
@@ -284,7 +284,7 @@ pub fn store_license(app_handle: &AppHandle, license_key: &str) -> Result<(), St
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub fn remove_stored_license(app_handle: &AppHandle) -> Result<(), String> {
     
     let license_file = get_license_file_path(app_handle)?;
@@ -297,7 +297,7 @@ pub fn remove_stored_license(app_handle: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub async fn check_license_smart(app_handle: &AppHandle) -> Result<bool, String> {
     use license_impl::*;
     
@@ -338,7 +338,7 @@ pub async fn check_license_smart(app_handle: &AppHandle) -> Result<bool, String>
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub fn get_license_requirement_info() -> serde_json::Value {
     serde_json::json!({
         "requires_license": true,

@@ -12,35 +12,14 @@ node_modules
 # Tauri build artifacts
 src-tauri/target/
 src-tauri/gen/
-LeedPDF.pkg
-
-# Apple Development & macOS
-*.p12
-*.p8
-AuthKey_*.p8
-*.cer
-*.mobileprovision
-*.provisionprofile
-# Apple signing keys and certificates
-*.p12.key
-*.certSigningRequest
-.DS_Store
-.AppleDouble
-.LSOverride
-Icon
-._*
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
 
 # Tauri updater files
 src-tauri/latest.json
 src-tauri/myapp.key
 src-tauri/myapp.key.pub
+
+# Provisioning profiles
+src-tauri/*.provisionprofile
 
 # Shell scripts in root
 /*.sh
@@ -49,6 +28,7 @@ src-tauri/myapp.key.pub
 *.ps1
 
 # OS
+.DS_Store
 Thumbs.db
 
 # IDE
@@ -84,5 +64,11 @@ test-results/
 !CODE_OF_CONDUCT.md
 !CONTRIBUTING.md
 !URL_LOADING_FEATURE.md
+!IOS_APP_STORE_SUBMISSION.md
+!IOS_BUILD_QUICK_START.md
+!IOS_BUILD_COMPLETE.md
+!IOS_IMPLEMENTATION_SUMMARY.md
+!MAC_APP_STORE_SUBMISSION.md
+!APPSTORE_SETUP_GUIDE.md
 !docs/SEARCH_FEATURE.md
 !todo.md

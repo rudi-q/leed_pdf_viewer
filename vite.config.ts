@@ -17,6 +17,8 @@ export default defineConfig({
 		format: 'es'
 	},
 	server: {
+		// Allow network access for iOS/mobile development
+		host: process.env.TAURI_DEV_HOST || 'localhost',
 		fs: {
 			allow: ['..', 'node_modules/pdfjs-dist']
 		},
@@ -25,7 +27,7 @@ export default defineConfig({
 		},
 		hmr: {
 			port: 5173,
-			host: 'localhost'
+			host: process.env.TAURI_DEV_HOST || 'localhost'
 		}
 	},
 	build: {

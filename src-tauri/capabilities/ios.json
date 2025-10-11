@@ -1,0 +1,23 @@
+{
+  "identifier": "ios-capability",
+  "description": "Capability for iOS platform",
+  "platforms": ["iOS"],
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-create",
+    "fs:default",
+    "dialog:default",
+    "shell:default",
+    "deep-link:default",
+    "fs:allow-read-file",
+    "fs:allow-document-read-recursive",
+    "fs:allow-download-read-recursive",
+    "fs:allow-write-file",
+    "fs:allow-document-write-recursive",
+    "fs:allow-download-write-recursive",
+    "dialog:allow-save",
+    "shell:allow-open"
+  ]
+}
+

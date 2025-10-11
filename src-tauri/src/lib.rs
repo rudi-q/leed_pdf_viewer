@@ -8,8 +8,8 @@ use tauri::{Emitter, Manager, RunEvent};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, AboutMetadata};
 
 mod license;
-// License imports only needed for Windows/Linux builds (excluded from macOS for App Store compliance)
-#[cfg(not(target_os = "macos"))]
+// License imports only needed for Windows/Linux builds (excluded from macOS and iOS for App Store compliance)
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 use license::{activate_license_key, validate_license_key, get_stored_license, store_license, store_activated_license, remove_stored_license, check_license_smart, get_license_requirement_info};
 
 // Global state to store pending file paths
@@ -116,21 +116,24 @@ fn process_deep_link(app_handle: &tauri::AppHandle, url: &str) {
                     return;
                 }
 
-                // Explicit user confirmation before opening the file
-                let confirm = rfd::MessageDialog::new()
-                    .set_title("Open file from link?")
-                    .set_description(format!(
-                        "A link is requesting to open this file:\n{}\nPage: {}",
-                        canonical_path.display(),
-                        page
-                    ))
-                    .set_level(rfd::MessageLevel::Info)
-                    .set_buttons(rfd::MessageButtons::OkCancel)
-                    .show();
+                // Explicit user confirmation before opening the file (desktop only)
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                {
+                    let confirm = rfd::MessageDialog::new()
+                        .set_title("Open file from link?")
+                        .set_description(format!(
+                            "A link is requesting to open this file:\n{}\nPage: {}",
+                            canonical_path.display(),
+                            page
+                        ))
+                        .set_level(rfd::MessageLevel::Info)
+                        .set_buttons(rfd::MessageButtons::OkCancel)
+                        .show();
 
-                if confirm != rfd::MessageDialogResult::Ok {
-                    println!("[DEEP_LINK] User declined opening deep-linked file: {}", canonical_path.display());
-                    return;
+                    if confirm != rfd::MessageDialogResult::Ok {
+                        println!("[DEEP_LINK] User declined opening deep-linked file: {}", canonical_path.display());
+                        return;
+                    }
                 }
 
                 println!(
@@ -379,8 +382,8 @@ fn open_external_url(url: String) -> Result<(), String> {
     Ok(())
 }
 
-// License commands - excluded from macOS builds for App Store compliance
-#[cfg(not(target_os = "macos"))]
+// License commands - excluded from macOS and iOS builds for App Store compliance
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 #[tauri::command]
 async fn activate_license(app_handle: tauri::AppHandle, licensekey: String) -> Result<bool, String> {
     let is_valid = activate_license_key(&licensekey).await?;
@@ -393,7 +396,7 @@ async fn activate_license(app_handle: tauri::AppHandle, licensekey: String) -> R
     Ok(is_valid)
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 #[tauri::command]
 async fn validate_license(app_handle: tauri::AppHandle, licensekey: String) -> Result<bool, String> {
     let is_valid = validate_license_key(&licensekey).await?;
@@ -406,7 +409,7 @@ async fn validate_license(app_handle: tauri::AppHandle, licensekey: String) -> R
     Ok(is_valid)
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 #[tauri::command]
 fn get_stored_license_key(app_handle: tauri::AppHandle) -> Result<Option<String>, String> {
     match get_stored_license(&app_handle)? {
@@ -415,19 +418,19 @@ fn get_stored_license_key(app_handle: tauri::AppHandle) -> Result<Option<String>
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 #[tauri::command]
 fn clear_license(app_handle: tauri::AppHandle) -> Result<(), String> {
     remove_stored_license(&app_handle)
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 #[tauri::command]
 async fn check_license_smart_command(app_handle: tauri::AppHandle) -> Result<bool, String> {
     check_license_smart(&app_handle).await
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 #[tauri::command]
 fn get_license_info() -> serde_json::Value {
     get_license_requirement_info()
@@ -574,18 +577,29 @@ fn read_file_content(file_path: String) -> Result<Vec<u8>, String> {
 
 #[tauri::command]
 fn export_file(_app_handle: tauri::AppHandle, content: Vec<u8>, default_filename: String, filter_name: String, extension: String) -> Result<Option<String>, String> {
-    use rfd::FileDialog;
+    // On mobile, use the dialog plugin instead of rfd
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        // For mobile, we'll need to use the Tauri dialog plugin or save to a specific directory
+        // For now, return an error indicating this needs to be handled differently
+        return Err("Export functionality on mobile requires using the Tauri dialog plugin from the frontend".to_string());
+    }
     
-    let path = FileDialog::new()
-        .add_filter(&filter_name, &[&extension])
-        .set_file_name(&default_filename)
-        .save_file();
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        use rfd::FileDialog;
         
-    if let Some(p) = path {
-        std::fs::write(&p, content).map_err(|e| e.to_string())?;
-        Ok(Some(p.to_string_lossy().to_string()))
-    } else {
-        Ok(None) // User cancelled
+        let path = FileDialog::new()
+            .add_filter(&filter_name, &[&extension])
+            .set_file_name(&default_filename)
+            .save_file();
+            
+        if let Some(p) = path {
+            std::fs::write(&p, content).map_err(|e| e.to_string())?;
+            Ok(Some(p.to_string_lossy().to_string()))
+        } else {
+            Ok(None) // User cancelled
+        }
     }
 }
 
@@ -926,7 +940,8 @@ pub fn run() {
                 tauri_plugin_single_instance::init(|app, argv, _cwd| {
                     println!("[SINGLE_INSTANCE] New instance attempted with args: {:?}", argv);
                     
-                    // Bring window to front
+                    // Bring window to front (desktop only - these methods don't exist on mobile)
+                    #[cfg(not(any(target_os = "android", target_os = "ios")))]
                     if let Some(window) = app.get_webview_window("main") {
                         let _ = window.set_focus();
                         let _ = window.show();
@@ -955,18 +970,18 @@ pub fn run() {
             check_file_associations,
             mark_file_processed,
             open_external_url,
-            // License commands excluded from macOS builds for App Store compliance
-            #[cfg(not(target_os = "macos"))]
+            // License commands excluded from macOS and iOS builds for App Store compliance
+            #[cfg(not(any(target_os = "macos", target_os = "ios")))]
             activate_license,
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(any(target_os = "macos", target_os = "ios")))]
             validate_license,
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(any(target_os = "macos", target_os = "ios")))]
             get_stored_license_key,
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(any(target_os = "macos", target_os = "ios")))]
             clear_license,
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(any(target_os = "macos", target_os = "ios")))]
             check_license_smart_command,
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(any(target_os = "macos", target_os = "ios")))]
             get_license_info,
             exit_app,
             test_tauri_detection,
@@ -1177,7 +1192,8 @@ pub fn run() {
                 let urls = event.urls();  // Call once and store
                 println!("[DEEP_LINK] Deep link while running: {:?}", urls);
                 
-                // CRITICAL: Bring window to front (fixes "nothing happens" issue)
+                // CRITICAL: Bring window to front (desktop only - these methods don't exist on mobile)
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 if let Some(window) = handle.get_webview_window("main") {
                     let _ = window.set_focus();
                     let _ = window.show();
