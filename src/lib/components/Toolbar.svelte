@@ -73,6 +73,11 @@
     }, 2000); // Hide after 2 seconds
   }
 
+  // Close highlight color picker when tool changes away from 'highlight'
+  $: if ($drawingState.tool !== 'highlight' && showHighlightColorPicker) {
+    showHighlightColorPicker = false;
+  }
+
 	export let onFileUpload: (files: FileList) => void;
   export let onPreviousPage: () => void;
   export let onNextPage: () => void;
