@@ -88,6 +88,12 @@
   // Text extraction state
   let extractedPageText = '';
   let isExtractingText = false;
+  let overlayHeight = 0;
+  
+  // Calculate overlay height to match container height minus toolbar
+  $: if (containerDiv) {
+    overlayHeight = containerDiv.clientHeight - TOOLBAR_HEIGHT;
+  }
   
   // Debug canvas dimensions
   $: if (canvasDisplayWidth > 0 && canvasDisplayHeight > 0) {
@@ -1949,6 +1955,7 @@ function handlePointerUp(event: PointerEvent) {
       extractedText={extractedPageText}
       currentPage={$pdfState.currentPage}
       isLoading={isExtractingText}
+      containerHeight={overlayHeight}
     />
   {/if}
 
