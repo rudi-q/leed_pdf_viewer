@@ -9,6 +9,8 @@ if (typeof window !== 'undefined') {
 	} catch (e) {
 		pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.mjs';
 	}
+	// Disable eval for security
+	pdfjsLib.GlobalWorkerOptions.isEvalSupported = false;
 }
 
 export interface PDFPageInfo {
@@ -48,7 +50,10 @@ export async function generateThumbnail(
 	width: number = 150
 ): Promise<string> {
 	const arrayBuffer = await file.arrayBuffer();
-	const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+	const loadingTask = pdfjsLib.getDocument({ 
+		data: arrayBuffer,
+		isEvalSupported: false 
+	});
 	const pdf = await loadingTask.promise;
 	const page = await pdf.getPage(pageNumber);
 	
@@ -105,32 +110,15 @@ export async function extractPages(
 
 /**
  * Merge multiple PDFs into a single PDF based on page order
+ * @param pages - Array of PDF page information
+ * @param filesMap - Map of file IDs to File objects
  */
-export async function mergePDFs(pages: PDFPageInfo[]): Promise<Uint8Array> {
-	const mergedPdf = await PDFDocument.create();
-	
-	// Group pages by source file for efficient loading
-	const fileGroups = new Map<string, PDFPageInfo[]>();
-	for (const page of pages) {
-		if (!fileGroups.has(page.sourceFileId)) {
-			fileGroups.set(page.sourceFileId, []);
-		}
-		fileGroups.get(page.sourceFileId)!.push(page);
-	}
-	
-	// Load each source file once and copy its pages
-	const loadedPdfs = new Map<string, PDFDocument>();
-	
-	for (const page of pages) {
-		// Load source PDF if not already loaded
-		if (!loadedPdfs.has(page.sourceFileId)) {
-			// Find the file info from the page (we'll need to pass files separately)
-			// For now, we'll handle this in the calling code
-			throw new Error('File loading needs to be handled by caller');
-		}
-	}
-	
-	return mergedPdf.save();
+export async function mergePDFs(
+	pages: PDFPageInfo[],
+	filesMap: Map<string, File>
+): Promise<Uint8Array> {
+	// Delegate to the existing mergePDFsWithFiles function
+	return await mergePDFsWithFiles(pages, filesMap);
 }
 
 /**
@@ -253,8 +241,11 @@ export function formatFileSize(bytes: number): string {
 	if (bytes === 0) return '0 Bytes';
 	
 	const k = 1024;
-	const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
+	const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
+	let i = Math.floor(Math.log(bytes) / Math.log(k));
+	
+	// Clamp index to prevent array bounds error
+	i = Math.max(0, Math.min(i, sizes.length - 1));
 	
 	return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }

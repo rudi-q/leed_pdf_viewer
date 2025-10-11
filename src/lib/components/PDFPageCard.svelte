@@ -11,15 +11,20 @@
 	export let isDragging = false;
 	export let isOver = false;
 
+	// Local drag state for accessibility
+	let localIsDragging = false;
+
 	function handleDragStart(e: DragEvent) {
 		if (e.dataTransfer) {
 			e.dataTransfer.effectAllowed = 'move';
 			e.dataTransfer.setData('text/plain', index.toString());
 		}
+		localIsDragging = true;
 		onDragStart(index);
 	}
 
 	function handleDragEnd() {
+		localIsDragging = false;
 		onDragEnd();
 	}
 
@@ -44,6 +49,8 @@
 	role="button"
 	tabindex="0"
 	draggable="true"
+	aria-grabbed={localIsDragging}
+	aria-label="PDF Page {page.pageNumber} from {page.sourceFileName}. Draggable."
 	on:dragstart={handleDragStart}
 	on:dragend={handleDragEnd}
 	on:dragover={handleDragOver}

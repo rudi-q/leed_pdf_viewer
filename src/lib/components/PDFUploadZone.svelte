@@ -8,20 +8,34 @@
 	export let onRemoveFile: (fileId: string) => void;
 
 	let isDragging = false;
+	let dragDepth = 0;
 	let fileInput: HTMLInputElement;
+
+	function handleDragEnter(e: DragEvent) {
+		e.preventDefault();
+		dragDepth++;
+		if (dragDepth > 0) {
+			isDragging = true;
+		}
+	}
 
 	function handleDragOver(e: DragEvent) {
 		e.preventDefault();
-		isDragging = true;
+		// Don't need to set isDragging here, handleDragEnter handles it
 	}
 
 	function handleDragLeave(e: DragEvent) {
 		e.preventDefault();
-		isDragging = false;
+		dragDepth--;
+		if (dragDepth <= 0) {
+			dragDepth = 0;
+			isDragging = false;
+		}
 	}
 
 	function handleDrop(e: DragEvent) {
 		e.preventDefault();
+		dragDepth = 0;
 		isDragging = false;
 
 		const files = Array.from(e.dataTransfer?.files || []).filter(
@@ -35,7 +49,9 @@
 
 	function handleFileInput(e: Event) {
 		const input = e.target as HTMLInputElement;
-		const files = Array.from(input.files || []);
+		const files = Array.from(input.files || []).filter(
+			(file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+		);
 
 		if (files.length > 0) {
 			onFilesSelected(files);
@@ -43,6 +59,12 @@
 
 		// Reset input so same file can be selected again
 		input.value = '';
+	}
+
+	function handleDragEnd(e: DragEvent) {
+		e.preventDefault();
+		dragDepth = 0;
+		isDragging = false;
 	}
 
 	function handleClick() {
@@ -57,8 +79,10 @@
 		tabindex="0"
 		on:click={handleClick}
 		on:keydown={(e) => e.key === 'Enter' && handleClick()}
+		on:dragenter={handleDragEnter}
 		on:dragover={handleDragOver}
 		on:dragleave={handleDragLeave}
+		on:dragend={handleDragEnd}
 		on:drop={handleDrop}
 		class="upload-zone relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200 {isDragging ? 'border-sage shadow-lg upload-zone-dragging' : 'border-slate hover:border-lavender bg-cream dark:bg-gray-800'}"
 	>

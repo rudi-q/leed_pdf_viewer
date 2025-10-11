@@ -47,37 +47,54 @@
 				return;
 			}
 
-			// Load PDF info for each file
-			for (const file of validFiles) {
-				try {
-					const pdfInfo = await loadPDFInfo(file);
-					uploadedFiles = [...uploadedFiles, pdfInfo];
-
-					// Generate pages for this PDF
-					const newPages: PDFPageInfo[] = [];
-					for (let i = 1; i <= pdfInfo.pageCount; i++) {
-						newPages.push({
-							id: `${pdfInfo.id}-page-${i}`,
-							sourceFileId: pdfInfo.id,
-							sourceFileName: file.name,
-							pageNumber: i
-						});
-					}
-
-					pages = [...pages, ...newPages];
-
-					// Generate thumbnails in background
-					generateThumbnailsForPages(newPages, file);
-				} catch (error) {
-					console.error('Error loading PDF:', error);
-					toastStore.error('Load Error', `Failed to load ${file.name}`);
+		// Load PDF info for each file concurrently
+		const loadPromises = validFiles.map(async (file) => {
+			try {
+				const pdfInfo = await loadPDFInfo(file);
+				
+				// Generate pages for this PDF
+				const newPages: PDFPageInfo[] = [];
+				for (let i = 1; i <= pdfInfo.pageCount; i++) {
+					newPages.push({
+						id: `${pdfInfo.id}-page-${i}`,
+						sourceFileId: pdfInfo.id,
+						sourceFileName: file.name,
+						pageNumber: i
+					});
 				}
+				
+				return { pdfInfo, newPages, file };
+			} catch (error) {
+				console.error('Error loading PDF:', error);
+				toastStore.error('Load Error', `Failed to load ${file.name}`);
+				return null;
 			}
+		});
+		
+		// Process results as they complete
+		const results = await Promise.allSettled(loadPromises);
+		
+		let successfulLoads = 0;
+		for (const result of results) {
+			if (result.status === 'fulfilled' && result.value) {
+				const { pdfInfo, newPages, file } = result.value;
+				uploadedFiles = [...uploadedFiles, pdfInfo];
+				pages = [...pages, ...newPages];
+				
+				// Generate thumbnails in background
+				generateThumbnailsForPages(newPages, file);
+				successfulLoads++;
+			} else if (result.status === 'rejected') {
+				console.error('Promise rejected:', result.reason);
+			}
+		}
 
+		if (successfulLoads > 0) {
 			toastStore.success(
 				'PDFs Loaded',
-				`Successfully loaded ${validFiles.length} PDF${validFiles.length > 1 ? 's' : ''}`
+				`Successfully loaded ${successfulLoads} PDF${successfulLoads > 1 ? 's' : ''}`
 			);
+		}
 		} catch (error) {
 			console.error('Error processing files:', error);
 			toastStore.error('Processing Error', 'Failed to process PDF files');
@@ -119,14 +136,17 @@
 		toastStore.info('Page Deleted', 'Page removed successfully');
 	}
 
-	function handleReorder(fromIndex: number, toIndex: number) {
-		const newPages = [...pages];
-		const [movedPage] = newPages.splice(fromIndex, 1);
-		newPages.splice(toIndex, 0, movedPage);
-		pages = newPages;
+function handleReorder(fromIndex: number, toIndex: number) {
+	const newPages = [...pages];
+	const [movedPage] = newPages.splice(fromIndex, 1);
+	
+	// Adjust insertion index for higher indices due to removal
+	const insertIndex = toIndex > fromIndex ? toIndex - 1 : toIndex;
+	newPages.splice(insertIndex, 0, movedPage);
+	pages = newPages;
 
-		console.log(`Reordered: page ${fromIndex + 1} → ${toIndex + 1}`);
-	}
+	console.log(`Reordered: page ${fromIndex + 1} → ${insertIndex + 1} (target was ${toIndex + 1})`);
+}
 
 	async function handleMergeAndDownload() {
 		if (pages.length === 0) {
@@ -196,13 +216,13 @@
 				<div class="flex items-center gap-4">
 					<!-- Logo -->
 					<button on:click={handleGoHome} class="flex-shrink-0" title="Go to LeedPDF home">
-						<enhanced:img 
-							src="/static/./logo.png" 
+						<img 
+							src="/logo.png" 
 							alt="LeedPDF" 
 							class="w-10 h-10 dark:hidden object-contain hover:scale-110 transition-transform" 
 						/>
-						<enhanced:img 
-							src="/static/./logo-dark.png" 
+						<img 
+							src="/logo-dark.png" 
 							alt="LeedPDF" 
 							class="w-10 h-10 hidden dark:block object-contain hover:scale-110 transition-transform" 
 						/>

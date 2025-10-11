@@ -77,7 +77,7 @@
 	}
 
 	.pages-grid-wrapper {
-		overflow-x: scroll; /* Always show horizontal scrollbar */
+		overflow-x: auto; /* Auto horizontal scrollbar */
 		overflow-y: visible;
 		padding: 1rem 1rem 2rem 1rem; /* Extra bottom padding for scrollbar */
 		background-color: rgba(253, 246, 227, 0.2);
@@ -86,6 +86,7 @@
 		/* Force scrollbar to always be visible */
 		scrollbar-width: auto; /* Firefox */
 		scrollbar-color: #87A96B #f1f5f9; /* sage thumb, light track */
+		-webkit-overflow-scrolling: touch; /* Smooth touch scrolling on iOS */
 	}
 
 	:global(.dark) .pages-grid-wrapper {
@@ -135,14 +136,9 @@
 		background: #5a6e44; /* even darker sage when clicking */
 	}
 
-	:global(.dark) .pages-grid-wrapper {
-		background-color: rgba(17, 24, 39, 0.2);
-		border-color: rgba(55, 65, 81, 1);
-	}
-
 	.pages-grid {
 		display: flex;
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
 		gap: 1.5rem;
 		min-width: fit-content;
 	}
