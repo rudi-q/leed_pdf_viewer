@@ -140,8 +140,9 @@ function handleReorder(fromIndex: number, toIndex: number) {
 	const newPages = [...pages];
 	const [movedPage] = newPages.splice(fromIndex, 1);
 	
-	// Adjust insertion index for higher indices due to removal
-	const insertIndex = toIndex > fromIndex ? toIndex - 1 : toIndex;
+	// Insert at toIndex in the post-removal array
+	// Allow inserting at newPages.length to move to the end
+	const insertIndex = Math.min(toIndex, newPages.length);
 	newPages.splice(insertIndex, 0, movedPage);
 	pages = newPages;
 
