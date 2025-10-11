@@ -156,15 +156,45 @@
       const page = await $pdfState.document.getPage($pdfState.currentPage);
       const textContent = await page.getTextContent();
       
-      // Combine all text items with spaces
-      const text = textContent.items
-        .map((item: any) => item.str)
-        .join(' ')
-        .replace(/\s+/g, ' ') // Normalize whitespace
+      // Use PDF.js positioning data to preserve layout
+      let lastY = -1;
+      let text = '';
+      const lineHeight = 12; // Threshold for detecting new lines
+      
+      textContent.items.forEach((item: any, index: number) => {
+        // Skip TextMarkedContent items (they don't have str property)
+        if (!('str' in item)) return;
+        
+        const currentY = item.transform[5]; // Y position
+        
+        // Detect new line if Y position changes significantly
+        if (lastY !== -1 && Math.abs(currentY - lastY) > lineHeight) {
+          // Check if it's a large gap (paragraph break)
+          if (Math.abs(currentY - lastY) > lineHeight * 2) {
+            text += '\n\n'; // Paragraph break
+          } else {
+            text += '\n'; // Line break
+          }
+        } else if (index > 0 && item.str.trim() !== '') {
+          // Add space between words on the same line
+          const prevItem = textContent.items[index - 1];
+          if ('str' in prevItem && prevItem.str.trim() !== '' && !prevItem.str.endsWith(' ')) {
+            text += ' ';
+          }
+        }
+        
+        text += item.str;
+        lastY = currentY;
+      });
+      
+      // Clean up excessive whitespace while preserving intentional breaks
+      text = text
+        .replace(/[ \t]+/g, ' ') // Normalize spaces and tabs
+        .replace(/\n{3,}/g, '\n\n') // Max 2 consecutive line breaks
         .trim();
       
       extractedPageText = text || 'No text found on this page';
-      console.log('Extracted text length:', text.length);
+      console.log('Extracted text with formatting, length:', text.length);
     } catch (error) {
       console.error('Error extracting text:', error);
       extractedPageText = 'Error extracting text from this page';

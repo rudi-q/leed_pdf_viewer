@@ -89,7 +89,7 @@
     border-radius: 4px;
   }
 
-  .dark .overflow-y-auto::-webkit-scrollbar-thumb {
+  :global(.dark) .overflow-y-auto::-webkit-scrollbar-thumb {
     background: #4b5563;
   }
 
@@ -97,7 +97,7 @@
     background: #9ca3af;
   }
 
-  .dark .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  :global(.dark) .overflow-y-auto::-webkit-scrollbar-thumb:hover {
     background: #6b7280;
   }
 </style>
