@@ -43,6 +43,7 @@
     Layout,
     Moon,
     MoreHorizontal,
+    MousePointerClick,
     Package,
     Redo2,
     RotateCcw,
@@ -421,6 +422,17 @@
             aria-label={viewOnlyMode ? 'Sticky note disabled in view-only mode' : 'Sticky note tool'}
           >
             <StickyNote size={14} />
+          </button>
+        </Tooltip>
+
+        <Tooltip content="Select Text (7)">
+          <button
+            class="tool-button w-8 h-8 flex items-center justify-center"
+            class:active={$drawingState.tool === 'select'}
+            on:click={() => handleToolChange('select')}
+            aria-label="Select text tool"
+          >
+            <MousePointerClick size={14} />
           </button>
         </Tooltip>
 
@@ -1070,6 +1082,15 @@
         aria-label="Sticky note tool"
       >
         <StickyNote size={16} />
+      </button>
+
+      <button
+        class="tool-button flex items-center justify-center"
+        class:active={$drawingState.tool === 'select'}
+        on:click={() => handleToolChange('select')}
+        aria-label="Select text tool"
+      >
+        <MousePointerClick size={16} />
       </button>
 
       <div class="h-6 w-px bg-charcoal/20"></div>
