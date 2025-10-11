@@ -12,9 +12,21 @@
     }
     showDownloadCard = false;
   }
+
+  // Get current OS
+  $: currentOS = detectOS();
+  
+  // Get OS-specific title and URL
+  $: downloadTitle = currentOS === 'Windows' ? 'Get LeedPDF for Windows' : 
+                    currentOS === 'macOS' ? 'Download LeedPDF on the Mac store' : 
+                    'Download LeedPDF Desktop';
+  
+  $: downloadUrl = currentOS === 'Windows' ? '/download-for-windows' :
+                   currentOS === 'macOS' ? '/download-for-mac' :
+                   '/download';
 </script>
 
-{#if !focusMode && browser && !isTauri && showDownloadCard && detectOS() === 'Windows'}
+{#if !focusMode && browser && !isTauri && showDownloadCard && (currentOS === 'Windows' || currentOS === 'macOS')}
 <!-- Optimized Desktop App Download Card -->
 <div class="absolute bottom-16 right-4 w-72 animate-fade-in download-card">
   <div class="floating-panel p-4 group hover:scale-[1.01] transition-all duration-300 hover:shadow-xl">
@@ -28,13 +40,13 @@
       </div>
       <div class="flex-1 min-w-0 pr-2">
         <h3 class="font-semibold text-charcoal dark:text-gray-100 text-sm mb-1.5 group-hover:text-sage transition-colors leading-tight">
-          Download LeedPDF Desktop
+          {downloadTitle}
         </h3>
         <p class="text-xs text-slate dark:text-gray-400 mb-3 leading-relaxed">
           Better performance and offline access
         </p>
         <a 
-          href="/download-for-windows"
+          href="{downloadUrl}"
           target="_blank" 
           rel="noopener noreferrer"
           class="inline-flex items-center gap-1.5 text-xs font-medium text-sage hover:text-sage/80 transition-colors group/link"
