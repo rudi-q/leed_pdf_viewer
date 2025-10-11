@@ -208,7 +208,7 @@ function handleReorder(fromIndex: number, toIndex: number) {
 	/>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-cream via-sage/10 to-cream dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+<div class="h-screen overflow-y-auto bg-gradient-to-br from-cream via-sage/10 to-cream dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
 	<!-- Header -->
 	<header class="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-b border-slate/20 dark:border-gray-700 sticky top-0 z-10 shadow-sm">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
