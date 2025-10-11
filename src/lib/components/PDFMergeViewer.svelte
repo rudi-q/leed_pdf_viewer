@@ -40,8 +40,8 @@
 		</div>
 	</div>
 {:else}
-	<div>
-		<div class="mb-4 flex items-center justify-between">
+	<div class="pages-viewer-container">
+		<div class="mb-4 flex items-center justify-between flex-wrap gap-2">
 			<h3 class="text-lg font-semibold text-charcoal dark:text-gray-200">
 				Pages ({pages.length})
 			</h3>
@@ -50,21 +50,65 @@
 			</p>
 		</div>
 
-		<div
-			class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4 p-4 bg-cream/20 dark:bg-gray-900/20 rounded-lg border border-slate/20 dark:border-gray-700"
-		>
-			{#each pages as page, index (page.id)}
-				<PDFPageCard
-					{page}
-					{index}
-					onDelete={onDeletePage}
-					onDragStart={handleDragStart}
-					onDragEnd={handleDragEnd}
-					onDragOver={handleDragOver}
-					isDragging={draggedIndex === index}
-					isOver={dragOverIndex === index}
-				/>
-			{/each}
+		<div class="pages-grid-wrapper">
+			<div class="pages-grid">
+				{#each pages as page, index (page.id)}
+					<div class="page-card-wrapper">
+						<PDFPageCard
+							{page}
+							{index}
+							onDelete={onDeletePage}
+							onDragStart={handleDragStart}
+							onDragEnd={handleDragEnd}
+							onDragOver={handleDragOver}
+							isDragging={draggedIndex === index}
+							isOver={dragOverIndex === index}
+						/>
+					</div>
+				{/each}
+			</div>
 		</div>
 	</div>
 {/if}
+
+<style>
+	.pages-viewer-container {
+		width: 100%;
+	}
+
+	.pages-grid-wrapper {
+		overflow-x: auto;
+		overflow-y: visible;
+		padding: 1rem;
+		background-color: rgba(253, 246, 227, 0.2);
+		border-radius: 0.5rem;
+		border: 1px solid rgba(100, 116, 139, 0.2);
+	}
+
+	:global(.dark) .pages-grid-wrapper {
+		background-color: rgba(17, 24, 39, 0.2);
+		border-color: rgba(55, 65, 81, 1);
+	}
+
+	.pages-grid {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1.5rem;
+		min-width: fit-content;
+	}
+
+	.page-card-wrapper {
+		flex-shrink: 0;
+		width: 180px;
+	}
+
+	/* Ensure cards don't overlap */
+	.page-card-wrapper :global(.pdf-page-card) {
+		position: relative;
+		z-index: 1;
+	}
+
+	.page-card-wrapper :global(.pdf-page-card:hover) {
+		z-index: 10;
+	}
+</style>
