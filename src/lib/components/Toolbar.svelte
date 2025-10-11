@@ -448,20 +448,21 @@
 
         <div class="h-4 w-px bg-charcoal/20"></div>
 
-        <!-- Color picker -->
-        <div class="relative color-palette-container">
-          <Tooltip content="Drawing color">
-            <button
-              class="tool-button w-11 h-11 lg:w-8 lg:h-8 p-1"
-              on:click={() => showColorPalette = !showColorPalette}
-              aria-label="Choose drawing color"
-            >
-              <div 
-                class="w-full h-full rounded-md border border-white shadow-inner"
-                style="background-color: {$drawingState.color}"
-              ></div>
-            </button>
-          </Tooltip>
+        <!-- Color picker (hidden when highlighter tool is active) -->
+        {#if $drawingState.tool !== 'highlight'}
+          <div class="relative color-palette-container">
+            <Tooltip content="Drawing color">
+              <button
+                class="tool-button w-11 h-11 lg:w-8 lg:h-8 p-1"
+                on:click={() => showColorPalette = !showColorPalette}
+                aria-label="Choose drawing color"
+              >
+                <div 
+                  class="w-full h-full rounded-md border border-white shadow-inner"
+                  style="background-color: {$drawingState.color}"
+                ></div>
+              </button>
+            </Tooltip>
 
           {#if showColorPalette}
             <div class="absolute top-full mt-2 left-0 z-50">
@@ -492,6 +493,7 @@
             </div>
           {/if}
         </div>
+        {/if}
 
         <!-- Highlight color picker (only visible when highlight tool is active) -->
         {#if $drawingState.tool === 'highlight'}
@@ -1099,19 +1101,21 @@
 
       <div class="h-6 w-px bg-charcoal/20"></div>
 
-      <!-- Color picker -->
-      <div class="relative color-palette-container">
-        <button
-          class="tool-button w-8 h-8 p-1 flex items-center justify-center"
-          on:click={() => showColorPalette = !showColorPalette}
-          aria-label="Choose drawing color"
-        >
-          <div 
-            class="w-full h-full rounded-md border border-white shadow-inner"
-            style="background-color: {$drawingState.color}"
-          ></div>
-        </button>
-      </div>
+      <!-- Color picker (hidden when highlighter tool is active) -->
+      {#if $drawingState.tool !== 'highlight'}
+        <div class="relative color-palette-container">
+          <button
+            class="tool-button w-8 h-8 p-1 flex items-center justify-center"
+            on:click={() => showColorPalette = !showColorPalette}
+            aria-label="Choose drawing color"
+          >
+            <div 
+              class="w-full h-full rounded-md border border-white shadow-inner"
+              style="background-color: {$drawingState.color}"
+            ></div>
+          </button>
+        </div>
+      {/if}
 
       <!-- Highlight color picker (only visible when highlight tool is active) -->
       {#if $drawingState.tool === 'highlight'}
