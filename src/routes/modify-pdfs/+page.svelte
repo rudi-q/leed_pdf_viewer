@@ -5,6 +5,7 @@
 	import PDFUploadZone from '$lib/components/PDFUploadZone.svelte';
 	import PDFMergeViewer from '$lib/components/PDFMergeViewer.svelte';
 	import { toastStore } from '$lib/stores/toastStore';
+	import { isDarkMode } from '$lib/stores/themeStore';
 	import {
 		loadPDFInfo,
 		generateThumbnail,
@@ -187,21 +188,37 @@
 	/>
 </svelte:head>
 
-<div class="min-h-screen bg-cream dark:bg-gray-900">
+<div class="min-h-screen bg-gradient-to-br from-cream via-sage/10 to-cream dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
 	<!-- Header -->
-	<header class="bg-white dark:bg-gray-800 border-b border-slate/20 dark:border-gray-700 sticky top-0 z-10 shadow-sm">
+	<header class="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-b border-slate/20 dark:border-gray-700 sticky top-0 z-10 shadow-sm">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
 			<div class="flex items-center justify-between">
-				<div>
-					<h1 class="text-2xl font-bold text-charcoal dark:text-gray-100">Modify PDFs</h1>
-					<p class="text-sm text-slate dark:text-gray-400 mt-1">
-						Merge multiple PDFs and reorder pages
-					</p>
+				<div class="flex items-center gap-4">
+					<!-- Logo -->
+					<button on:click={handleGoHome} class="flex-shrink-0" title="Go to LeedPDF home">
+						<enhanced:img 
+							src="/static/./logo.png" 
+							alt="LeedPDF" 
+							class="w-10 h-10 dark:hidden object-contain hover:scale-110 transition-transform" 
+						/>
+						<enhanced:img 
+							src="/static/./logo-dark.png" 
+							alt="LeedPDF" 
+							class="w-10 h-10 hidden dark:block object-contain hover:scale-110 transition-transform" 
+						/>
+					</button>
+					
+					<div>
+						<h1 class="text-xl sm:text-2xl font-bold text-charcoal dark:text-gray-100">Modify PDFs</h1>
+						<p class="text-xs sm:text-sm text-slate dark:text-gray-400 mt-0.5">
+							Merge & reorder pages
+						</p>
+					</div>
 				</div>
 
 				<button
 					on:click={handleGoHome}
-					class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate dark:text-gray-300 hover:text-sage dark:hover:text-sage transition-colors"
+					class="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium text-slate dark:text-gray-300 hover:text-sage dark:hover:text-sage hover:bg-sage/10 dark:hover:bg-sage/20 rounded-lg transition-all"
 					title="Go to home"
 				>
 					<Home size={20} />
