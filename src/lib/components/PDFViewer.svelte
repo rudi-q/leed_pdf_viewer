@@ -27,6 +27,7 @@
 	import StickyNoteOverlay from './StickyNoteOverlay.svelte';
 	import StampOverlay from './StampOverlay.svelte';
 	import ArrowOverlay from './ArrowOverlay.svelte';
+	import TextSelectionOverlay from './TextSelectionOverlay.svelte';
 	import { TOOLBAR_HEIGHT } from '$lib/constants';
 
 	// Helper function to convert SVG string to image
@@ -84,6 +85,10 @@
   let canvasDisplayWidth = 0;
   let canvasDisplayHeight = 0;
   
+  // Text extraction state
+  let extractedPageText = '';
+  let isExtractingText = false;
+  
   // Debug canvas dimensions
   $: if (canvasDisplayWidth > 0 && canvasDisplayHeight > 0) {
     console.log('Canvas display dimensions updated:', {
@@ -130,7 +135,42 @@
 		console.log(`${$drawingState.tool} tool selected - handled by overlay component`);
 	} else if (['pencil', 'eraser', 'highlight'].includes($drawingState.tool)) {
 		console.log(`${$drawingState.tool} tool selected - handled by drawing canvas`);
+	} else if ($drawingState.tool === 'select') {
+		console.log('select tool selected - extracting text');
+		extractTextFromCurrentPage();
 	}
+  }
+  
+  // Extract text when page changes if select tool is active
+  $: if ($pdfState.currentPage && $drawingState.tool === 'select' && $pdfState.document) {
+    extractTextFromCurrentPage();
+  }
+
+  async function extractTextFromCurrentPage() {
+    if (!$pdfState.document || isExtractingText) return;
+    
+    isExtractingText = true;
+    extractedPageText = '';
+    
+    try {
+      const page = await $pdfState.document.getPage($pdfState.currentPage);
+      const textContent = await page.getTextContent();
+      
+      // Combine all text items with spaces
+      const text = textContent.items
+        .map((item: any) => item.str)
+        .join(' ')
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .trim();
+      
+      extractedPageText = text || 'No text found on this page';
+      console.log('Extracted text length:', text.length);
+    } catch (error) {
+      console.error('Error extracting text:', error);
+      extractedPageText = 'Error extracting text from this page';
+    } finally {
+      isExtractingText = false;
+    }
   }
 
   onMount(async () => {
@@ -513,6 +553,12 @@ function handlePointerDown(event: PointerEvent) {
       // Stamp tool is handled by overlay
       if (['stamp'].includes($drawingState.tool)) {
         console.log(`${$drawingState.tool} tool click ignored - handled by stamp overlay`);
+        return;
+      }
+      
+      // Select tool is handled by TextSelectionOverlay
+      if (['select'].includes($drawingState.tool)) {
+        console.log(`${$drawingState.tool} tool click ignored - text selection mode`);
         return;
       }
       
@@ -1866,6 +1912,15 @@ function handlePointerUp(event: PointerEvent) {
       
     </div>
   </div>
+  
+  <!-- Text Selection Overlay - Shows when select tool is active -->
+  {#if $drawingState.tool === 'select' && $pdfState.document}
+    <TextSelectionOverlay
+      extractedText={extractedPageText}
+      currentPage={$pdfState.currentPage}
+      isLoading={isExtractingText}
+    />
+  {/if}
 
   {#if $pdfState.isLoading}
     <div class="absolute inset-0 flex items-center justify-center">
