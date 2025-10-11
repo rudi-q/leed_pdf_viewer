@@ -1097,22 +1097,23 @@ function handlePointerUp(event: PointerEvent) {
       // Use the same scaling as other annotations (output scale only)
       ctx.scale(outputScale, outputScale);
       
-      // Render each drawing path directly onto the export canvas
-      pageDrawingPaths.forEach(path => {
-        if (path.points && path.points.length > 1) {
-          ctx.strokeStyle = path.color || '#000000';
-          ctx.lineWidth = path.lineWidth || 2;
-          ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-          
-          // Set blend mode for highlight tool
-          if (path.tool === 'highlight') {
-            ctx.globalCompositeOperation = 'multiply';
-            ctx.globalAlpha = 0.3;
-          } else {
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.globalAlpha = 1.0;
-          }
+        // Render each drawing path directly onto the export canvas
+        pageDrawingPaths.forEach(path => {
+          if (path.points && path.points.length > 1) {
+            ctx.strokeStyle = path.color || '#000000';
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            // Set blend mode and line width for highlight tool
+            if (path.tool === 'highlight') {
+              ctx.globalCompositeOperation = 'multiply';
+              ctx.lineWidth = (path.lineWidth || 2) * 3; // Highlighter is wider
+              ctx.globalAlpha = 0.3;
+            } else {
+              ctx.globalCompositeOperation = 'source-over';
+              ctx.lineWidth = path.lineWidth || 2;
+              ctx.globalAlpha = 1.0;
+            }
           
           // SIMPLIFIED: Drawing paths are now stored at base viewport coordinates (scale 1.0)
           // No transformation needed - just draw at the stored coordinates
@@ -1496,16 +1497,17 @@ function handlePointerUp(event: PointerEvent) {
         currentPageDrawingPaths.forEach(path => {
           if (path.points && path.points.length > 1) {
             ctx.strokeStyle = path.color || '#000000';
-            ctx.lineWidth = path.lineWidth || 2;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             
-            // Set blend mode for highlight tool
+            // Set blend mode and line width for highlight tool
             if (path.tool === 'highlight') {
               ctx.globalCompositeOperation = 'multiply';
+              ctx.lineWidth = (path.lineWidth || 2) * 3; // Highlighter is wider
               ctx.globalAlpha = 0.3;
             } else {
               ctx.globalCompositeOperation = 'source-over';
+              ctx.lineWidth = path.lineWidth || 2;
               ctx.globalAlpha = 1.0;
             }
             
