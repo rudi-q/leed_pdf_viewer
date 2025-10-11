@@ -272,6 +272,19 @@
               <ChevronRight size={14} />
             </button>
           </Tooltip>
+
+          <!-- Page Thumbnails Toggle -->
+          <Tooltip content="Page Thumbnails (T)">
+            <button
+              class="tool-button w-8 h-8 flex items-center justify-center"
+              class:active={showThumbnails}
+              on:click={() => onToggleThumbnails(!showThumbnails)}
+              aria-label="Toggle page thumbnails"
+            >
+              <Layout size={14} />
+            </button>
+          </Tooltip>
+
         </div>
 
         <!-- Desktop: Zoom Controls -->
@@ -299,6 +312,7 @@
 
         <!-- Desktop: Reset and Fit Controls -->
         <div class="hidden lg:flex items-center space-x-2">
+
           <Tooltip content="Reset zoom to 120% (Ctrl+0)">
             <button
               class="tool-button w-8 h-8 flex items-center justify-center text-xs px-1"
@@ -433,18 +447,6 @@
         </div>
 
         <div class="h-4 w-px bg-charcoal/20"></div>
-
-        <!-- Page Thumbnails Toggle -->
-        <Tooltip content="Page Thumbnails (T)">
-          <button
-            class="tool-button w-8 h-8 flex items-center justify-center"
-            class:active={showThumbnails}
-            on:click={() => onToggleThumbnails(!showThumbnails)}
-            aria-label="Toggle page thumbnails"
-          >
-            <Layout size={14} />
-          </button>
-        </Tooltip>
 
         <div class="h-4 w-px bg-charcoal/20"></div>
 
@@ -1088,16 +1090,6 @@
       </div>
 
       <div class="h-6 w-px bg-charcoal/20"></div>
-
-      <!-- Page Thumbnails Toggle -->
-      <button
-        class="tool-button flex items-center justify-center"
-        class:active={showThumbnails}
-        on:click={() => onToggleThumbnails(!showThumbnails)}
-        aria-label="Toggle page thumbnails"
-      >
-        <Layout size={16} />
-      </button>
 
       <div class="h-6 w-px bg-charcoal/20"></div>
 
