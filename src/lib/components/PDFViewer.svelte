@@ -20,7 +20,7 @@
 		updatePagePathsWithUndo
 	} from '../stores/drawingStore';
 	import { PDFManager, PDFLoadError } from '../utils/pdfUtils';
-	import { DrawingEngine } from '../utils/drawingUtils';
+import { DrawingEngine, splitPathByEraser } from '../utils/drawingUtils';
 	import { toastStore } from '../stores/toastStore';
 	import { openExternalUrl } from '../utils/navigationUtils';
 	import { trackPdfUpload, trackPdfLoadTime, trackError, trackFirstAnnotation } from '../utils/analytics';
@@ -81,6 +81,9 @@
   let isCtrlPressed = false;
   let cursorOverCanvas = false;
   let isLoadingPdf = false; // Guard to prevent multiple simultaneous loads
+  
+  // Eraser gesture modifier: Alt for partial erase
+  let isAltEraseMode = false;
   
   // Canvas dimensions for overlays - will be updated manually
   let canvasDisplayWidth = 0;
@@ -609,6 +612,9 @@ function handlePointerDown(event: PointerEvent) {
     drawingCanvas.setPointerCapture(event.pointerId);
 
     isDrawing = true;
+    // Capture Alt state at gesture start when using eraser
+    isAltEraseMode = ($drawingState.tool === 'eraser') ? !!event.altKey : false;
+
     // Get point and convert to base viewport coordinates (scale 1.0)
     const canvasPoint = drawingEngine.getPointFromEvent(event);
     const basePoint = {
@@ -679,20 +685,37 @@ function handlePointerUp(event: PointerEvent) {
         // Convert eraser size to base-viewport tolerance (divide by current scale)
         const tolerance = $drawingState.eraserSize / $pdfState.scale;
 
-        // Update paths with undo support
-        updatePagePathsWithUndo($pdfState.currentPage, (pagePaths) => {
-          console.log('Checking eraser intersections with', pagePaths.length, 'paths');
-          const remainingPaths = pagePaths.filter((path, index) => {
-            const intersects = drawingEngine.pathsIntersect(path, eraserBasePath, tolerance);
-            if (intersects) {
-              console.log(`Path ${index} intersects with eraser - removing`);
-            }
-            return !intersects;
+        if (isAltEraseMode) {
+          // Partial erase: split intersecting strokes into subpaths
+          updatePagePathsWithUndo($pdfState.currentPage, (pagePaths) => {
+            console.log('Partial erase (Alt) on', pagePaths.length, 'paths');
+            const updated = pagePaths.flatMap((path, index) => {
+              // Only split freehand strokes
+              if (path.tool !== 'pencil' && path.tool !== 'highlight') return [path];
+              if (!drawingEngine.pathsIntersect(path, eraserBasePath, tolerance)) return [path];
+              const parts = splitPathByEraser(path, eraserBasePath, tolerance);
+              if (parts.length === 0) {
+                console.log(`Path ${index} fully erased by partial eraser`);
+              } else {
+                console.log(`Path ${index} split into`, parts.length, 'subpaths');
+              }
+              return parts;
+            });
+            return updated;
           });
-
-          // Return new array; reactive block will handle re-render
-          return remainingPaths;
-        });
+        } else {
+          // Default: erase whole intersecting strokes
+          updatePagePathsWithUndo($pdfState.currentPage, (pagePaths) => {
+            console.log('Checking eraser intersections with', pagePaths.length, 'paths');
+            return pagePaths.filter((path, index) => {
+              const intersects = drawingEngine.pathsIntersect(path, eraserBasePath, tolerance);
+              if (intersects) {
+                console.log(`Path ${index} intersects with eraser - removing`);
+              }
+              return !intersects;
+            });
+          });
+        }
       } else {
         // Add drawing path (pencil or highlight)
         const color = $drawingState.tool === 'highlight' ? $drawingState.highlightColor : $drawingState.color;
@@ -718,6 +741,7 @@ function handlePointerUp(event: PointerEvent) {
       }
     }
     currentDrawingPath = [];
+    isAltEraseMode = false; // reset gesture modifier
   }
 
   // Canvas hover handlers for cursor tracking

@@ -462,3 +462,104 @@ export function getPathBounds(points: Point[]): {
 		height: maxY - minY
 	};
 }
+
+// Split a stroke path into subpaths by eraser path within tolerance (all in the same coordinate space)
+export function splitPathByEraser(
+	stroke: DrawingPath,
+	eraser: DrawingPath,
+	tolerance: number
+): DrawingPath[] {
+	if (!stroke.points || stroke.points.length < 2 || !eraser.points || eraser.points.length < 2) {
+		return [stroke];
+	}
+
+	// Quick reject via expanded bounds overlap
+	const sb = getPathBounds(stroke.points);
+	const eb = getPathBounds(eraser.points);
+	const expanded = (b: { x: number; y: number; width: number; height: number }, pad: number) => ({
+		x: b.x - pad,
+		y: b.y - pad,
+		width: b.width + 2 * pad,
+		height: b.height + 2 * pad
+	});
+	const sbe = expanded(sb, tolerance);
+	const ebe = expanded(eb, tolerance);
+	const overlap = !(
+		sbe.x + sbe.width < ebe.x ||
+		ebe.x + ebe.width < sbe.x ||
+		sbe.y + sbe.height < ebe.y ||
+		ebe.y + ebe.height < sbe.y
+	);
+	if (!overlap) return [stroke];
+
+	// Build eraser segments once
+	const eraserSegs = [] as { start: { x: number; y: number }; end: { x: number; y: number } }[];
+	for (let j = 0; j < eraser.points.length - 1; j++) {
+		eraserSegs.push({ start: eraser.points[j], end: eraser.points[j + 1] });
+	}
+
+	// Helper: min distance between two segments
+	const minDistBetweenSegments = (
+		l1: { start: { x: number; y: number }; end: { x: number; y: number } },
+		l2: { start: { x: number; y: number }; end: { x: number; y: number } }
+	): number => {
+		const pointToLineSegmentDistance = (
+			p: { x: number; y: number },
+			l: { start: { x: number; y: number }; end: { x: number; y: number } }
+		): number => {
+			const dx = l.end.x - l.start.x;
+			const dy = l.end.y - l.start.y;
+			const length = Math.sqrt(dx * dx + dy * dy);
+			if (length === 0) return Math.hypot(p.x - l.start.x, p.y - l.start.y);
+			const t = Math.max(
+				0,
+				Math.min(1, ((p.x - l.start.x) * dx + (p.y - l.start.y) * dy) / (length * length))
+			);
+			const projX = l.start.x + t * dx;
+			const projY = l.start.y + t * dy;
+			return Math.hypot(p.x - projX, p.y - projY);
+		};
+		return Math.min(
+			pointToLineSegmentDistance(l1.start, l2),
+			pointToLineSegmentDistance(l1.end, l2),
+			pointToLineSegmentDistance(l2.start, l1),
+			pointToLineSegmentDistance(l2.end, l1)
+		);
+	};
+
+	// Label each stroke segment as kept (true) or erased (false)
+	const keptMask: boolean[] = [];
+	for (let i = 0; i < stroke.points.length - 1; i++) {
+		const seg = { start: stroke.points[i], end: stroke.points[i + 1] };
+		let minDist = Infinity;
+		for (const e of eraserSegs) {
+			const d = minDistBetweenSegments(seg, e);
+			if (d < minDist) minDist = d;
+			if (minDist <= tolerance) break;
+		}
+		keptMask[i] = minDist > tolerance;
+	}
+
+	// Build subpaths from contiguous kept segments
+	const subpaths: DrawingPath[] = [];
+	let current: Point[] | null = null;
+	for (let i = 0; i < keptMask.length; i++) {
+		const keep = keptMask[i];
+		const a = stroke.points[i];
+		const b = stroke.points[i + 1];
+		if (keep) {
+			if (!current) current = [a];
+			current.push(b);
+		} else if (current) {
+			if (current.length >= 2) {
+				subpaths.push({ ...stroke, points: current });
+			}
+			current = null;
+		}
+	}
+	if (current && current.length >= 2) {
+		subpaths.push({ ...stroke, points: current });
+	}
+
+	return subpaths;
+}
