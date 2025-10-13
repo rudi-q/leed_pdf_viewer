@@ -142,10 +142,11 @@ export class DrawingEngine {
 					pressure: point.pressure
 				};
 			} else if (point.relativeX !== undefined && point.relativeY !== undefined) {
-				// Legacy: Use relative coordinates and scale to current canvas size
+				// Legacy: Use relative coordinates and scale to current canvas CSS size
+				const rect = this.canvas.getBoundingClientRect();
 				return {
-					x: point.relativeX * this.canvas.width,
-					y: point.relativeY * this.canvas.height,
+					x: point.relativeX * rect.width,
+					y: point.relativeY * rect.height,
 					pressure: point.pressure
 				};
 			} else {
@@ -199,24 +200,24 @@ export class DrawingEngine {
 	getPointFromEvent(event: PointerEvent, pdfScale = 1): Point {
 		const rect = this.canvas.getBoundingClientRect();
 
-		// Get raw canvas coordinates
+		// Get raw canvas coordinates in CSS pixels
 		const canvasX = event.clientX - rect.left;
 		const canvasY = event.clientY - rect.top;
 
 		// Convert to PDF-relative coordinates (0-1 range)
 		// This makes drawings scale-independent
-		const relativeX = canvasX / rect.width;
-		const relativeY = canvasY / rect.height;
+		const relativeX = rect.width > 0 ? canvasX / rect.width : 0;
+		const relativeY = rect.height > 0 ? canvasY / rect.height : 0;
 
-		// Convert to actual canvas coordinates at current scale
-		const actualX = relativeX * this.canvas.width;
-		const actualY = relativeY * this.canvas.height;
+		// Use CSS pixel coordinates directly; the context is already scaled for DPR
+		const actualX = canvasX;
+		const actualY = canvasY;
 
 		return {
 			x: actualX,
 			y: actualY,
 			pressure: event.pressure || 1.0,
-			// Store relative coordinates for scaling
+			// Store relative coordinates for scaling/legacy support
 			relativeX,
 			relativeY
 		};
@@ -228,15 +229,16 @@ export class DrawingEngine {
 			return false;
 		}
 
-		// Normalize points to use canvas coordinates for comparison
+		// Normalize points to use consistent CSS pixel coordinates for comparison
 		const normalizePoint = (point: Point) => {
 			if (point.relativeX !== undefined && point.relativeY !== undefined) {
+				const rect = this.canvas.getBoundingClientRect();
 				return {
-					x: point.relativeX * this.canvas.width,
-					y: point.relativeY * this.canvas.height
+					x: point.relativeX * rect.width,
+					y: point.relativeY * rect.height
 				};
 			}
-			// Use absolute coordinates directly
+			// Use absolute coordinates directly (assumed CSS px)
 			return { x: point.x, y: point.y };
 		};
 

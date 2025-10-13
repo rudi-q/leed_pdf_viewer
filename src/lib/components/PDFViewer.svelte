@@ -16,7 +16,8 @@
 		type Point,
 		stampAnnotations,
 		stickyNoteAnnotations,
-		textAnnotations
+		textAnnotations,
+		updatePagePathsWithUndo
 	} from '../stores/drawingStore';
 	import { PDFManager, PDFLoadError } from '../utils/pdfUtils';
 	import { DrawingEngine } from '../utils/drawingUtils';
@@ -666,30 +667,29 @@ function handlePointerUp(event: PointerEvent) {
     if (finalPath.length > 1) {
       // Check tool type
       if ($drawingState.tool === 'eraser') {
-        // Remove intersecting pencil paths and ensure auto-save
-        drawingPaths.update(paths => {
-          const pagePaths = paths.get($pdfState.currentPage) || [];
-          const eraserPath = {
-            tool: 'eraser' as const,
-            color: '#000000',
-            lineWidth: $drawingState.eraserSize,
-            points: finalPath,
-            pageNumber: $pdfState.currentPage
-          };
-          
+        // Use base-viewport coordinates for eraser path (consistent with stored paths)
+        const eraserBasePath = {
+          tool: 'eraser' as const,
+          color: '#000000',
+          lineWidth: $drawingState.eraserSize,
+          points: currentDrawingPath, // already in base viewport coords (CSS px at scale 1)
+          pageNumber: $pdfState.currentPage
+        };
+
+        // Convert eraser size to base-viewport tolerance (divide by current scale)
+        const tolerance = $drawingState.eraserSize / $pdfState.scale;
+
+        // Update paths with undo support
+        updatePagePathsWithUndo($pdfState.currentPage, (pagePaths) => {
           console.log('Checking eraser intersections with', pagePaths.length, 'paths');
           const remainingPaths = pagePaths.filter((path, index) => {
-            const intersects = drawingEngine.pathsIntersect(path, eraserPath);
+            const intersects = drawingEngine.pathsIntersect(path, eraserBasePath, tolerance);
             if (intersects) {
               console.log(`Path ${index} intersects with eraser - removing`);
             }
             return !intersects;
           });
 
-          // Always update to ensure auto-save triggers
-          paths.set($pdfState.currentPage, [...remainingPaths]);
-          console.log(`Eraser processed: ${pagePaths.length} -> ${remainingPaths.length} paths remaining`);
-          
           // Force immediate re-render
           setTimeout(() => {
             if (drawingEngine) {
@@ -697,7 +697,7 @@ function handlePointerUp(event: PointerEvent) {
             }
           }, 0);
 
-          return new Map(paths);
+          return remainingPaths;
         });
       } else {
         // Add drawing path (pencil or highlight)
