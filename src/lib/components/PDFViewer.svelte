@@ -690,13 +690,7 @@ function handlePointerUp(event: PointerEvent) {
             return !intersects;
           });
 
-          // Force immediate re-render
-          setTimeout(() => {
-            if (drawingEngine) {
-              drawingEngine.renderPaths(remainingPaths, $pdfState.scale);
-            }
-          }, 0);
-
+          // Return new array; reactive block will handle re-render
           return remainingPaths;
         });
       } else {
