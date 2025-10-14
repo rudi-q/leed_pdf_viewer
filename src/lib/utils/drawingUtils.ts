@@ -142,10 +142,11 @@ export class DrawingEngine {
 					pressure: point.pressure
 				};
 			} else if (point.relativeX !== undefined && point.relativeY !== undefined) {
-				// Legacy: Use relative coordinates and scale to current canvas size
+				// Legacy: Use relative coordinates and scale to current canvas CSS size
+				const rect = this.canvas.getBoundingClientRect();
 				return {
-					x: point.relativeX * this.canvas.width,
-					y: point.relativeY * this.canvas.height,
+					x: point.relativeX * rect.width,
+					y: point.relativeY * rect.height,
 					pressure: point.pressure
 				};
 			} else {
@@ -199,24 +200,24 @@ export class DrawingEngine {
 	getPointFromEvent(event: PointerEvent, pdfScale = 1): Point {
 		const rect = this.canvas.getBoundingClientRect();
 
-		// Get raw canvas coordinates
+		// Get raw canvas coordinates in CSS pixels
 		const canvasX = event.clientX - rect.left;
 		const canvasY = event.clientY - rect.top;
 
 		// Convert to PDF-relative coordinates (0-1 range)
 		// This makes drawings scale-independent
-		const relativeX = canvasX / rect.width;
-		const relativeY = canvasY / rect.height;
+		const relativeX = rect.width > 0 ? canvasX / rect.width : 0;
+		const relativeY = rect.height > 0 ? canvasY / rect.height : 0;
 
-		// Convert to actual canvas coordinates at current scale
-		const actualX = relativeX * this.canvas.width;
-		const actualY = relativeY * this.canvas.height;
+		// Use CSS pixel coordinates directly; the context is already scaled for DPR
+		const actualX = canvasX;
+		const actualY = canvasY;
 
 		return {
 			x: actualX,
 			y: actualY,
 			pressure: event.pressure || 1.0,
-			// Store relative coordinates for scaling
+			// Store relative coordinates for scaling/legacy support
 			relativeX,
 			relativeY
 		};
@@ -228,15 +229,16 @@ export class DrawingEngine {
 			return false;
 		}
 
-		// Normalize points to use canvas coordinates for comparison
+		// Normalize points to use consistent CSS pixel coordinates for comparison
 		const normalizePoint = (point: Point) => {
 			if (point.relativeX !== undefined && point.relativeY !== undefined) {
+				const rect = this.canvas.getBoundingClientRect();
 				return {
-					x: point.relativeX * this.canvas.width,
-					y: point.relativeY * this.canvas.height
+					x: point.relativeX * rect.width,
+					y: point.relativeY * rect.height
 				};
 			}
-			// Use absolute coordinates directly
+			// Use absolute coordinates directly (assumed CSS px)
 			return { x: point.x, y: point.y };
 		};
 
@@ -459,4 +461,105 @@ export function getPathBounds(points: Point[]): {
 		width: maxX - minX,
 		height: maxY - minY
 	};
+}
+
+// Split a stroke path into subpaths by eraser path within tolerance (all in the same coordinate space)
+export function splitPathByEraser(
+	stroke: DrawingPath,
+	eraser: DrawingPath,
+	tolerance: number
+): DrawingPath[] {
+	if (!stroke.points || stroke.points.length < 2 || !eraser.points || eraser.points.length < 2) {
+		return [stroke];
+	}
+
+	// Quick reject via expanded bounds overlap
+	const sb = getPathBounds(stroke.points);
+	const eb = getPathBounds(eraser.points);
+	const expanded = (b: { x: number; y: number; width: number; height: number }, pad: number) => ({
+		x: b.x - pad,
+		y: b.y - pad,
+		width: b.width + 2 * pad,
+		height: b.height + 2 * pad
+	});
+	const sbe = expanded(sb, tolerance);
+	const ebe = expanded(eb, tolerance);
+	const overlap = !(
+		sbe.x + sbe.width < ebe.x ||
+		ebe.x + ebe.width < sbe.x ||
+		sbe.y + sbe.height < ebe.y ||
+		ebe.y + ebe.height < sbe.y
+	);
+	if (!overlap) return [stroke];
+
+	// Build eraser segments once
+	const eraserSegs = [] as { start: { x: number; y: number }; end: { x: number; y: number } }[];
+	for (let j = 0; j < eraser.points.length - 1; j++) {
+		eraserSegs.push({ start: eraser.points[j], end: eraser.points[j + 1] });
+	}
+
+	// Helper: min distance between two segments
+	const minDistBetweenSegments = (
+		l1: { start: { x: number; y: number }; end: { x: number; y: number } },
+		l2: { start: { x: number; y: number }; end: { x: number; y: number } }
+	): number => {
+		const pointToLineSegmentDistance = (
+			p: { x: number; y: number },
+			l: { start: { x: number; y: number }; end: { x: number; y: number } }
+		): number => {
+			const dx = l.end.x - l.start.x;
+			const dy = l.end.y - l.start.y;
+			const length = Math.sqrt(dx * dx + dy * dy);
+			if (length === 0) return Math.hypot(p.x - l.start.x, p.y - l.start.y);
+			const t = Math.max(
+				0,
+				Math.min(1, ((p.x - l.start.x) * dx + (p.y - l.start.y) * dy) / (length * length))
+			);
+			const projX = l.start.x + t * dx;
+			const projY = l.start.y + t * dy;
+			return Math.hypot(p.x - projX, p.y - projY);
+		};
+		return Math.min(
+			pointToLineSegmentDistance(l1.start, l2),
+			pointToLineSegmentDistance(l1.end, l2),
+			pointToLineSegmentDistance(l2.start, l1),
+			pointToLineSegmentDistance(l2.end, l1)
+		);
+	};
+
+	// Label each stroke segment as kept (true) or erased (false)
+	const keptMask: boolean[] = [];
+	for (let i = 0; i < stroke.points.length - 1; i++) {
+		const seg = { start: stroke.points[i], end: stroke.points[i + 1] };
+		let minDist = Infinity;
+		for (const e of eraserSegs) {
+			const d = minDistBetweenSegments(seg, e);
+			if (d < minDist) minDist = d;
+			if (minDist <= tolerance) break;
+		}
+		keptMask[i] = minDist > tolerance;
+	}
+
+	// Build subpaths from contiguous kept segments
+	const subpaths: DrawingPath[] = [];
+	let current: Point[] | null = null;
+	for (let i = 0; i < keptMask.length; i++) {
+		const keep = keptMask[i];
+		const a = stroke.points[i];
+		const b = stroke.points[i + 1];
+		if (keep) {
+			if (!current) current = [a];
+			current.push(b);
+		} else if (current) {
+			if (current.length >= 2) {
+				subpaths.push({ ...stroke, points: current });
+			}
+			current = null;
+		}
+	}
+	if (current && current.length >= 2) {
+		subpaths.push({ ...stroke, points: current });
+	}
+
+	return subpaths;
 }

@@ -717,6 +717,22 @@ export const addDrawingPath = (path: DrawingPath) => {
 	});
 };
 
+// Generic helper to update a page's paths with undo/redo tracking
+export const updatePagePathsWithUndo = (
+	pageNumber: number,
+	updater: (paths: DrawingPath[]) => DrawingPath[]
+) => {
+	drawingPaths.update((paths) => {
+		const currentPaths = paths.get(pageNumber) || [];
+		// Save current state for undo
+		saveUndoState(pageNumber, currentPaths);
+
+		const newPaths = updater(currentPaths);
+		paths.set(pageNumber, newPaths);
+		return new Map(paths);
+	});
+};
+
 export const clearCurrentPageDrawings = () => {
 	pdfState.subscribe((state) => {
 		if (state.currentPage > 0) {
