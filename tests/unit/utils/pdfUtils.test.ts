@@ -28,12 +28,13 @@ describe('PDFUtils', () => {
 
 				const result = await pdfManager.loadFromFile(mockFile);
 
-				expect(result).toBe(mockPDF);
-				expect(pdfjsLib.getDocument).toHaveBeenCalledWith({
-					data: expect.any(Uint8Array),
-					cMapUrl: '/pdfjs/cmaps/',
-					cMapPacked: true
-				});
+			expect(result).toBe(mockPDF);
+			expect(pdfjsLib.getDocument).toHaveBeenCalledWith({
+				data: expect.any(Uint8Array),
+				cMapUrl: '/pdfjs/cmaps/',
+				cMapPacked: true,
+				isEvalSupported: false
+			});
 			});
 
 			it('should handle PDF loading errors', async () => {

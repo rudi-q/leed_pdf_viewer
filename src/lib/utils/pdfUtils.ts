@@ -20,6 +20,8 @@ if (typeof window !== 'undefined' && !import.meta.env?.TEST) {
 					// Fallback for environments where URL construction fails
 					pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.mjs';
 				}
+				// Disable eval for security
+				pdfjsLib.GlobalWorkerOptions.isEvalSupported = false;
 			}
 			isInitialized = true;
 			console.log('PDF.js loaded successfully');
@@ -185,7 +187,8 @@ export class PDFManager {
 			this.document = await pdfjsLib.getDocument({
 				data: uint8Array,
 				cMapUrl: '/pdfjs/cmaps/',
-				cMapPacked: true
+				cMapPacked: true,
+				isEvalSupported: false
 			}).promise;
 
 			return this.document!;
@@ -215,7 +218,8 @@ export class PDFManager {
 			this.document = await pdfjsLib.getDocument({
 				data: uint8Array,
 				cMapUrl: '/pdfjs/cmaps/',
-				cMapPacked: true
+				cMapPacked: true,
+				isEvalSupported: false
 			}).promise;
 
 			console.log('PDF loaded successfully from URL');
