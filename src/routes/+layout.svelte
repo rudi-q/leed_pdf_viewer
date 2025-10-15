@@ -50,14 +50,17 @@
 				hasValidLicense = true;
 			}
 			
-			// Deep link handling for all Tauri platforms
-			if (isTauri) {
-				// Listen for deep-link events from Rust
-				listenForDeepLinks();
-				
-				// Also register the plugin handler (might work for some cases)
-				registerDeepLinkHandler();
-			}
+		// Deep link handling for all Tauri platforms
+		if (isTauri) {
+			// Listen for deep-link events from Rust
+			listenForDeepLinks();
+			
+			// Also register the plugin handler (might work for some cases)
+			registerDeepLinkHandler();
+			
+			// Listen for load-pdf-from-deep-link events (for URLs with file parameters)
+			listenForLoadPdfFromDeepLink();
+		}
 			
 			// Cleanup on page unload
 			return stopCleanup;
@@ -150,6 +153,32 @@
 		}
 	}
 	
+	// Listen for load-pdf-from-deep-link events (for URLs with file parameters)
+	async function listenForLoadPdfFromDeepLink() {
+		console.log('🔗 [Load PDF Deep Link] Setting up event listener...');
+		try {
+			const unlisten = await listen<{pdf_path?: string; pdf_url?: string; page: number}>('load-pdf-from-deep-link', (event) => {
+				console.log('🔗🔗🔗 [Load PDF Deep Link] EVENT RECEIVED!', event);
+				const { pdf_path, pdf_url, page } = event.payload;
+				
+				if (pdf_url) {
+					// Handle URL - navigate to the PDF route
+					console.log('🔗 [Load PDF Deep Link] Loading PDF from URL:', pdf_url);
+					const encodedUrl = encodeURIComponent(pdf_url);
+					goto(`/pdf/${encodedUrl}`);
+				} else if (pdf_path) {
+					// Handle local file path - navigate to the PDF route
+					console.log('🔗 [Load PDF Deep Link] Loading PDF from path:', pdf_path);
+					const encodedPath = encodeURIComponent(pdf_path);
+					goto(`/pdf/${encodedPath}`);
+				}
+			});
+			console.log('✅ [Load PDF Deep Link] Event listener registered successfully!');
+		} catch (error) {
+			console.error('❌ [Load PDF Deep Link] Failed to register event listener:', error);
+		}
+	}
+
 	// Register deep link handler - handles leedpdf:// URLs (plugin-based, may not work on all platforms)
 	async function registerDeepLinkHandler() {
 		console.log('🔗 [Deep Link] Starting plugin registration...');
