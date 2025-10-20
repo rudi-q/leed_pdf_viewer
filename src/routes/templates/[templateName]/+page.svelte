@@ -61,6 +61,11 @@ import GlobalStyles from '$lib/components/GlobalStyles.svelte';
   function setupEventListeners() {
     console.log('[Template Route] Setting up event listeners');
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    
+    // Listen for menu shortcuts event from Tauri
+    window.addEventListener('show-shortcuts', () => {
+      showShortcuts = true;
+    });
 
     // Strategy 1: Immediate checks for Tauri file associations
     if (isTauri) {

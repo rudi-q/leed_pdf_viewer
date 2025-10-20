@@ -72,9 +72,153 @@ import { getFormattedVersion } from '$lib/utils/version';
     return cleanup;
   });
 
+  // Helper: determine when the PDF viewer is actually ready
+  function isPdfReady(): boolean {
+    try {
+      return !!pdfViewer && !!$pdfState.document && $pdfState.totalPages > 0 && !$pdfState.isLoading;
+    } catch {
+      return false;
+    }
+  }
+
+  // Fallback: bounded polling for readiness when no component event exists
+  function waitForPdfReady(maxWaitMs: number = 10000, intervalMs: number = 50): Promise<boolean> {
+    if (isPdfReady()) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const start = performance.now();
+      const intervalId = setInterval(() => {
+        if (isPdfReady()) {
+          clearInterval(intervalId);
+          clearTimeout(timeoutId);
+          resolve(true);
+        } else if (performance.now() - start >= maxWaitMs) {
+          clearInterval(intervalId);
+          clearTimeout(timeoutId);
+          resolve(false);
+        }
+      }, intervalMs);
+      const timeoutId = setTimeout(() => {
+        clearInterval(intervalId);
+        resolve(false);
+      }, maxWaitMs + 10);
+    });
+  }
+
+  // Listen for menu events from Tauri
+  const handleMenuEvent = (event: Event) => {
+    const customEvent = event as CustomEvent;
+    console.log('[MENU] Received menu event:', event.type, customEvent.detail);
+      
+      switch(event.type) {
+        case 'show-shortcuts':
+          showShortcuts = true;
+          break;
+        case 'menu-undo':
+          undo();
+          break;
+        case 'menu-redo':
+          redo();
+          break;
+        case 'menu-previous-page':
+          pdfViewer?.previousPage();
+          break;
+        case 'menu-next-page':
+          pdfViewer?.nextPage();
+          break;
+        case 'menu-zoom-in':
+          pdfViewer?.zoomIn();
+          break;
+        case 'menu-zoom-out':
+          pdfViewer?.zoomOut();
+          break;
+        case 'menu-reset-zoom':
+          pdfViewer?.resetZoom();
+          break;
+        case 'menu-fit-width':
+          pdfViewer?.fitToWidth();
+          break;
+        case 'menu-fit-height':
+          pdfViewer?.fitToHeight();
+          break;
+        case 'menu-focus-mode':
+          focusMode = !focusMode;
+          break;
+        case 'menu-open-file':
+          // Trigger file upload
+          document.getElementById('file-input')?.click();
+          break;
+        case 'menu-browse-templates':
+          goto('/');
+          break;
+        case 'menu-start-fresh':
+          // Navigate to home with blank PDF creation trigger
+          goto('/?create-blank=true');
+          break;
+        case 'menu-search-pdf':
+          goto('/search');
+          break;
+        case 'menu-export-as-pdf':
+          if (currentFile) {
+            handleExportPDF();
+          }
+          break;
+        case 'menu-export-as-lpdf':
+          if (currentFile) {
+            handleExportLPDF();
+          }
+          break;
+        case 'menu-export-as-docx':
+          if (currentFile) {
+            handleExportDOCX();
+          }
+          break;
+        case 'menu-share-pdf':
+          if (currentFile) {
+            console.log('Share PDF requested');
+            showShareModal = true;
+          }
+          break;
+        case 'menu-select-tool':
+          const toolName = customEvent.detail;
+          switch(toolName) {
+            case 'pencil': setTool('pencil'); break;
+            case 'eraser': setTool('eraser'); break;
+            case 'text': setTool('text'); break;
+            case 'arrow': setTool('arrow'); break;
+                  case 'highlighter': setTool('highlight'); break;
+                  case 'sticky': setTool('note'); break;
+            case 'stamps': setTool('stamp'); break;
+          }
+          break;
+      }
+  };
+
   function setupEventListeners() {
     console.log('[PDF Route] Setting up event listeners');
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    
+    window.addEventListener('show-shortcuts', () => {
+      showShortcuts = true;
+    });
+    window.addEventListener('menu-undo', handleMenuEvent);
+    window.addEventListener('menu-redo', handleMenuEvent);
+    window.addEventListener('menu-previous-page', handleMenuEvent);
+    window.addEventListener('menu-next-page', handleMenuEvent);
+    window.addEventListener('menu-zoom-in', handleMenuEvent);
+    window.addEventListener('menu-zoom-out', handleMenuEvent);
+    window.addEventListener('menu-reset-zoom', handleMenuEvent);
+    window.addEventListener('menu-fit-width', handleMenuEvent);
+    window.addEventListener('menu-fit-height', handleMenuEvent);
+    window.addEventListener('menu-focus-mode', handleMenuEvent);
+    window.addEventListener('menu-open-file', handleMenuEvent);
+    window.addEventListener('menu-browse-templates', handleMenuEvent);
+    window.addEventListener('menu-start-fresh', handleMenuEvent);
+    window.addEventListener('menu-search-pdf', handleMenuEvent);
+    window.addEventListener('menu-export-as-pdf', handleMenuEvent);
+    window.addEventListener('menu-export-as-lpdf', handleMenuEvent);
+    window.addEventListener('menu-export-as-docx', handleMenuEvent);
+    window.addEventListener('menu-share-pdf', handleMenuEvent);
+    window.addEventListener('menu-select-tool', handleMenuEvent);
 
     // Strategy 1: Immediate checks for Tauri file associations
     if (isTauri) {
@@ -99,6 +243,33 @@ import { getFormattedVersion } from '$lib/utils/version';
         handleFileFromCommandLine(event.payload as string);
       });
 
+      const unlistenDeepLink = listen<{pdf_path?: string; pdf_url?: string; page: number}>('load-pdf-from-deep-link', (event) => {
+      console.log('*** DEEP LINK EVENT RECEIVED ***');
+      console.log('Event payload:', event.payload);
+      const { pdf_path, pdf_url, page } = event.payload;
+      
+      if (pdf_url) {
+        // Handle URL - navigate to the PDF route
+        console.log('Loading PDF from URL:', pdf_url);
+        const encodedUrl = encodeURIComponent(pdf_url);
+        goto(`/pdf/${encodedUrl}`);
+      } else if (pdf_path) {
+        // Handle local file path
+        handleFileFromCommandLine(pdf_path).then(async (success) => {
+          if (success && page > 1) {
+            // Wait until the PDF is actually ready, then jump to the requested page
+            const ready = await waitForPdfReady(10000);
+            if (ready) {
+              console.log(`Jumping to page ${page} from deep link`);
+              pdfViewer?.goToPage(page);
+            } else {
+              console.warn('Timed out waiting for PDF to become ready before jumping to deep-linked page');
+            }
+          }
+        });
+      }
+    });
+
       const unlistenDebug = listen('debug-info', (event) => {
         console.log('TAURI DEBUG:', event.payload);
       });
@@ -107,6 +278,7 @@ import { getFormattedVersion } from '$lib/utils/version';
       window.__pdfRouteCleanup = {
         unlistenFileOpened,
         unlistenStartupReady,
+        unlistenDeepLink,
         unlistenDebug
       };
     }
@@ -117,12 +289,35 @@ import { getFormattedVersion } from '$lib/utils/version';
   function cleanup() {
     console.log('[PDF Route] Cleaning up');
     document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    
+    // Clean up menu event listeners
+    window.removeEventListener('show-shortcuts', () => {});
+    window.removeEventListener('menu-undo', handleMenuEvent);
+    window.removeEventListener('menu-redo', handleMenuEvent);
+    window.removeEventListener('menu-previous-page', handleMenuEvent);
+    window.removeEventListener('menu-next-page', handleMenuEvent);
+    window.removeEventListener('menu-zoom-in', handleMenuEvent);
+    window.removeEventListener('menu-zoom-out', handleMenuEvent);
+    window.removeEventListener('menu-reset-zoom', handleMenuEvent);
+    window.removeEventListener('menu-fit-width', handleMenuEvent);
+    window.removeEventListener('menu-fit-height', handleMenuEvent);
+    window.removeEventListener('menu-focus-mode', handleMenuEvent);
+    window.removeEventListener('menu-open-file', handleMenuEvent);
+    window.removeEventListener('menu-browse-templates', handleMenuEvent);
+    window.removeEventListener('menu-start-fresh', handleMenuEvent);
+    window.removeEventListener('menu-search-pdf', handleMenuEvent);
+    window.removeEventListener('menu-export-as-pdf', handleMenuEvent);
+    window.removeEventListener('menu-export-as-lpdf', handleMenuEvent);
+    window.removeEventListener('menu-export-as-docx', handleMenuEvent);
+    window.removeEventListener('menu-share-pdf', handleMenuEvent);
+    window.removeEventListener('menu-select-tool', handleMenuEvent);
 
     // Clean up Tauri event listeners
     if (window.__pdfRouteCleanup) {
-      const { unlistenFileOpened, unlistenStartupReady, unlistenDebug } = window.__pdfRouteCleanup;
+      const { unlistenFileOpened, unlistenStartupReady, unlistenDeepLink, unlistenDebug } = window.__pdfRouteCleanup;
       unlistenFileOpened.then((fn: () => void) => fn()).catch(console.error);
       unlistenStartupReady.then((fn: () => void) => fn()).catch(console.error);
+      unlistenDeepLink.then((fn: () => void) => fn()).catch(console.error);
       unlistenDebug.then((fn: () => void) => fn()).catch(console.error);
       delete window.__pdfRouteCleanup;
     }
@@ -972,6 +1167,7 @@ import { getFormattedVersion } from '$lib/utils/version';
 
 <!-- Hidden file input -->
 <input
+  id="file-input"
   type="file"
   accept=".pdf,.lpdf,.md,.markdown"
   multiple={false}
