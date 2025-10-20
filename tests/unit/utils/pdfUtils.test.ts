@@ -28,12 +28,13 @@ describe('PDFUtils', () => {
 
 				const result = await pdfManager.loadFromFile(mockFile);
 
-				expect(result).toBe(mockPDF);
-				expect(pdfjsLib.getDocument).toHaveBeenCalledWith({
-					data: expect.any(Uint8Array),
-					cMapUrl: '/pdfjs/cmaps/',
-					cMapPacked: true
-				});
+			expect(result).toBe(mockPDF);
+			expect(pdfjsLib.getDocument).toHaveBeenCalledWith({
+				data: expect.any(Uint8Array),
+				cMapUrl: '/pdfjs/cmaps/',
+				cMapPacked: true,
+				isEvalSupported: false
+			});
 			});
 
 			it('should handle PDF loading errors', async () => {
@@ -145,7 +146,7 @@ describe('PDFUtils', () => {
 				globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
 				await expect(pdfManager.loadFromUrl(testUrl)).rejects.toThrow(
-					'Failed to load PDF from URL'
+					'Failed to load PDF after 3 attempts: Network error'
 				);
 			});
 		});

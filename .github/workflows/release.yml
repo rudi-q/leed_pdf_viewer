@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  # Automatic trigger: Push a tag like v2.5.0
+  push:
+    tags:
+      - 'v*'
+  
+  # Manual trigger: Use "Run workflow" button in GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v2.5.0)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: windows-latest
+    
+    permissions:
+      contents: write  # Required to create releases
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install pnpm dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and Release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          PUBLIC_POSTHOG_KEY: ${{ vars.PUBLIC_POSTHOG_KEY }}
+          PUBLIC_APPWRITE_ENDPOINT: ${{ vars.PUBLIC_APPWRITE_ENDPOINT }}
+          PUBLIC_APPWRITE_PROJECT_ID: ${{ vars.PUBLIC_APPWRITE_PROJECT_ID }}
+          PUBLIC_APPWRITE_DATABASE_ID: ${{ vars.PUBLIC_APPWRITE_DATABASE_ID }}
+          PUBLIC_APPWRITE_STORAGE_BUCKET_ID: ${{ vars.PUBLIC_APPWRITE_STORAGE_BUCKET_ID }}
+          PUBLIC_APPWRITE_SHARED_PDFS_COLLECTION_ID: ${{ vars.PUBLIC_APPWRITE_SHARED_PDFS_COLLECTION_ID }}
+          PUBLIC_APPWRITE_PDF_ANNOTATIONS_COLLECTION_ID: ${{ vars.PUBLIC_APPWRITE_PDF_ANNOTATIONS_COLLECTION_ID }}
+        with:
+          # Use tag name if triggered by tag push, otherwise use manual input
+          tagName: ${{ github.event.inputs.version || github.ref_name }}
+          releaseName: 'LeedPDF ${{ github.event.inputs.version || github.ref_name }}'
+          releaseBody: ''
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+          assetNamePattern: 'LeedPDF_Setup.[ext]'
+          args: --target x86_64-pc-windows-msvc --bundles nsis

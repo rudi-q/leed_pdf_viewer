@@ -20,6 +20,8 @@ if (typeof window !== 'undefined' && !import.meta.env?.TEST) {
 					// Fallback for environments where URL construction fails
 					pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.mjs';
 				}
+				// Disable eval for security
+				pdfjsLib.GlobalWorkerOptions.isEvalSupported = false;
 			}
 			isInitialized = true;
 			console.log('PDF.js loaded successfully');
@@ -40,8 +42,21 @@ export interface RenderOptions {
 	canvas: HTMLCanvasElement;
 }
 
+// Custom error class to track retry information
+export class PDFLoadError extends Error {
+	attempts: number;
+	originalUrl: string;
+
+	constructor(message: string, attempts: number, originalUrl: string) {
+		super(message);
+		this.name = 'PDFLoadError';
+		this.attempts = attempts;
+		this.originalUrl = originalUrl;
+	}
+}
+
 // CORS proxy helper
-async function fetchWithCorsProxy(url: string): Promise<ArrayBuffer> {
+async function fetchWithCorsProxy(url: string, onRetry?: (attempt: number, total: number) => void): Promise<ArrayBuffer> {
 	const urlObj = new URL(url);
 	const needsProxy =
 		!urlObj.hostname.includes('localhost') && !urlObj.hostname.includes('127.0.0.1');
@@ -53,10 +68,16 @@ async function fetchWithCorsProxy(url: string): Promise<ArrayBuffer> {
 			]
 		: ['', 'https://corsproxy.io/?'];
 
-	for (const proxy of proxies) {
+	for (let i = 0; i < proxies.length; i++) {
+		const proxy = proxies[i];
 		try {
+			// Notify about retry attempt
+			if (onRetry && i > 0) {
+				onRetry(i + 1, proxies.length);
+			}
+
 			const fetchUrl = proxy ? proxy + encodeURIComponent(url) : url;
-			console.log(`Trying to fetch: ${fetchUrl}`);
+			console.log(`Trying to fetch (attempt ${i + 1}/${proxies.length}): ${fetchUrl}`);
 
 			const response = await fetch(fetchUrl);
 			if (!response.ok) {
@@ -78,13 +99,18 @@ async function fetchWithCorsProxy(url: string): Promise<ArrayBuffer> {
 			}
 		} catch (error: any) {
 			console.warn(`Failed with ${proxy || 'direct'}: ${error.message}`);
-			if (proxy === proxies[proxies.length - 1]) {
-				throw error;
+			if (i === proxies.length - 1) {
+				// Last attempt failed, throw custom error with attempt count
+				throw new PDFLoadError(
+					`Failed to load PDF after ${proxies.length} attempts: ${error.message}`,
+					proxies.length,
+					url
+				);
 			}
 		}
 	}
 
-	throw new Error('All fetch attempts failed');
+	throw new PDFLoadError('All fetch attempts failed', proxies.length, url);
 }
 
 // Enhanced Dropbox URL converter
@@ -161,7 +187,8 @@ export class PDFManager {
 			this.document = await pdfjsLib.getDocument({
 				data: uint8Array,
 				cMapUrl: '/pdfjs/cmaps/',
-				cMapPacked: true
+				cMapPacked: true,
+				isEvalSupported: false
 			}).promise;
 
 			return this.document!;
@@ -171,7 +198,10 @@ export class PDFManager {
 		}
 	}
 
-	async loadFromUrl(url: string): Promise<PDFDocumentProxy> {
+	async loadFromUrl(
+		url: string,
+		onRetry?: (attempt: number, total: number) => void
+	): Promise<PDFDocumentProxy> {
 		await this.ensurePDFJSLoaded();
 
 		try {
@@ -182,19 +212,24 @@ export class PDFManager {
 			console.log('Using direct URL:', directUrl);
 
 			// Fetch the PDF data with CORS proxy fallbacks
-			const arrayBuffer = await fetchWithCorsProxy(directUrl);
+			const arrayBuffer = await fetchWithCorsProxy(directUrl, onRetry);
 			const uint8Array = new Uint8Array(arrayBuffer);
 
 			this.document = await pdfjsLib.getDocument({
 				data: uint8Array,
 				cMapUrl: '/pdfjs/cmaps/',
-				cMapPacked: true
+				cMapPacked: true,
+				isEvalSupported: false
 			}).promise;
 
 			console.log('PDF loaded successfully from URL');
 			return this.document!;
 		} catch (error: any) {
 			console.error('Error loading PDF from URL:', error);
+			// Re-throw PDFLoadError as-is to preserve retry information
+			if (error instanceof PDFLoadError) {
+				throw error;
+			}
 			throw new Error(`Failed to load PDF from URL: ${error.message}`);
 		}
 	}

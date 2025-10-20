@@ -16,16 +16,19 @@
 		type Point,
 		stampAnnotations,
 		stickyNoteAnnotations,
-		textAnnotations
+		textAnnotations,
+		updatePagePathsWithUndo
 	} from '../stores/drawingStore';
-	import { PDFManager } from '../utils/pdfUtils';
-	import { DrawingEngine } from '../utils/drawingUtils';
+	import { PDFManager, PDFLoadError } from '../utils/pdfUtils';
+import { DrawingEngine, splitPathByEraser } from '../utils/drawingUtils';
 	import { toastStore } from '../stores/toastStore';
+	import { openExternalUrl } from '../utils/navigationUtils';
 	import { trackPdfUpload, trackPdfLoadTime, trackError, trackFirstAnnotation } from '../utils/analytics';
 	import TextOverlay from './TextOverlay.svelte';
 	import StickyNoteOverlay from './StickyNoteOverlay.svelte';
 	import StampOverlay from './StampOverlay.svelte';
 	import ArrowOverlay from './ArrowOverlay.svelte';
+	import TextSelectionOverlay from './TextSelectionOverlay.svelte';
 	import { TOOLBAR_HEIGHT } from '$lib/constants';
 
 	// Helper function to convert SVG string to image
@@ -77,10 +80,24 @@
   let isRendering = false;
   let isCtrlPressed = false;
   let cursorOverCanvas = false;
+  let isLoadingPdf = false; // Guard to prevent multiple simultaneous loads
+  
+  // Eraser gesture modifier: Alt for partial erase
+  let isAltEraseMode = false;
   
   // Canvas dimensions for overlays - will be updated manually
   let canvasDisplayWidth = 0;
   let canvasDisplayHeight = 0;
+  
+  // Text extraction state
+  let extractedPageText = '';
+  let isExtractingText = false;
+  let overlayHeight = 0;
+  
+  // Calculate overlay height to match container height minus toolbar
+  $: if (containerDiv) {
+    overlayHeight = containerDiv.clientHeight - TOOLBAR_HEIGHT;
+  }
   
   // Debug canvas dimensions
   $: if (canvasDisplayWidth > 0 && canvasDisplayHeight > 0) {
@@ -128,7 +145,72 @@
 		console.log(`${$drawingState.tool} tool selected - handled by overlay component`);
 	} else if (['pencil', 'eraser', 'highlight'].includes($drawingState.tool)) {
 		console.log(`${$drawingState.tool} tool selected - handled by drawing canvas`);
+	} else if ($drawingState.tool === 'select') {
+		console.log('select tool selected - extracting text');
+		extractTextFromCurrentPage();
 	}
+  }
+  
+  // Extract text when page changes if select tool is active
+  $: if ($pdfState.currentPage && $drawingState.tool === 'select' && $pdfState.document) {
+    extractTextFromCurrentPage();
+  }
+
+  async function extractTextFromCurrentPage() {
+    if (!$pdfState.document || isExtractingText) return;
+    
+    isExtractingText = true;
+    extractedPageText = '';
+    
+    try {
+      const page = await $pdfState.document.getPage($pdfState.currentPage);
+      const textContent = await page.getTextContent();
+      
+      // Use PDF.js positioning data to preserve layout
+      let lastY = -1;
+      let text = '';
+      const lineHeight = 12; // Threshold for detecting new lines
+      
+      textContent.items.forEach((item: any, index: number) => {
+        // Skip TextMarkedContent items (they don't have str property)
+        if (!('str' in item)) return;
+        
+        const currentY = item.transform[5]; // Y position
+        
+        // Detect new line if Y position changes significantly
+        if (lastY !== -1 && Math.abs(currentY - lastY) > lineHeight) {
+          // Check if it's a large gap (paragraph break)
+          if (Math.abs(currentY - lastY) > lineHeight * 2) {
+            text += '\n\n'; // Paragraph break
+          } else {
+            text += '\n'; // Line break
+          }
+        } else if (index > 0 && item.str.trim() !== '') {
+          // Add space between words on the same line
+          const prevItem = textContent.items[index - 1];
+          if ('str' in prevItem && prevItem.str.trim() !== '' && !prevItem.str.endsWith(' ')) {
+            text += ' ';
+          }
+        }
+        
+        text += item.str;
+        lastY = currentY;
+      });
+      
+      // Clean up excessive whitespace while preserving intentional breaks
+      text = text
+        .replace(/[ \t]+/g, ' ') // Normalize spaces and tabs
+        .replace(/\n{3,}/g, '\n\n') // Max 2 consecutive line breaks
+        .trim();
+      
+      extractedPageText = text || 'No text found on this page';
+      console.log('Extracted text with formatting, length:', text.length);
+    } catch (error) {
+      console.error('Error extracting text:', error);
+      extractedPageText = 'Error extracting text from this page';
+    } finally {
+      isExtractingText = false;
+    }
   }
 
   onMount(async () => {
@@ -193,6 +275,13 @@
       return;
     }
 
+    // Prevent multiple simultaneous loads
+    if (isLoadingPdf) {
+      console.log('Already loading a PDF, skipping...');
+      return;
+    }
+    isLoadingPdf = true;
+
     const isUrl = typeof pdfFile === 'string';
     const loadStartTime = performance.now();
     console.log('Loading PDF - isUrl:', isUrl, 'Value:', isUrl ? pdfFile : `${(pdfFile as File).name} (Size: ${(pdfFile as File).size})`);
@@ -210,9 +299,30 @@
       if (isUrl) {
         console.log('Calling pdfManager.loadFromUrl with:', pdfFile);
         try {
-          document = await pdfManager.loadFromUrl(pdfFile as string);
+          // Pass retry callback to show toast notifications
+          document = await pdfManager.loadFromUrl(
+            pdfFile as string,
+            (attempt: number, total: number) => {
+              toastStore.info(
+                'Retrying PDF Load',
+                `Attempting to load PDF (${attempt}/${total})...`,
+                { duration: 3000 }
+              );
+            }
+          );
         } catch (urlError) {
           console.error('Error loading from URL:', urlError);
+          console.log('Error type check:', urlError instanceof PDFLoadError, urlError);
+          
+          // Check if it's our custom PDFLoadError with retry information
+          if (urlError instanceof PDFLoadError) {
+            // Re-throw with updated message but preserve the PDFLoadError type
+            throw new PDFLoadError(
+              `Unable to load this PDF due to restrictions from the host website. The server doesn't allow loading PDFs through external tools like LeedPDF.`,
+              urlError.attempts,
+              urlError.originalUrl
+            );
+          }
           
           // Check if it might be a CORS issue
           const error = urlError as Error;
@@ -220,7 +330,8 @@
             throw new Error(`Failed to load PDF from URL: This might be a CORS issue. The PDF server doesn't allow cross-origin requests. Try using a PDF with CORS enabled or a direct download link.`);
           }
           
-          throw new Error(`Failed to load PDF from URL: ${(urlError as Error).message}`);
+          // Re-throw as-is to avoid wrapping
+          throw urlError;
         }
       } else {
         console.log('Calling pdfManager.loadFromFile...');
@@ -309,16 +420,57 @@
       trackPdfLoadTime(loadTime, fileSize, isUrl ? 'url' : 'file_upload');
       
       console.log('PDF render completed successfully');
+      isLoadingPdf = false;
     } catch (error) {
       console.error('Error loading PDF:', error);
+      console.log('Error is PDFLoadError?', error instanceof PDFLoadError);
+      console.log('Error has originalUrl?', (error as any).originalUrl);
+      console.log('Error details:', { 
+        name: (error as any).name, 
+        message: (error as any).message,
+        originalUrl: (error as any).originalUrl,
+        attempts: (error as any).attempts
+      });
+      
       pdfState.update(state => ({ ...state, isLoading: false }));
-      // Reset the tracking to allow retry
-      lastLoadedFile = null;
+      isLoadingPdf = false;
+      
+      // Don't reset lastLoadedFile to prevent retrigger
+      // lastLoadedFile = null;
       
       // Track the error
       trackError(error as Error, 'pdf_loading');
       
-      toastStore.error('PDF Loading Failed', (error as Error).message);
+      // Clear any existing toasts first to avoid duplicates
+      toastStore.clearAll();
+      
+      // Check if it's a PDFLoadError with retry information and original URL
+      if (error instanceof PDFLoadError && error.originalUrl) {
+        console.log('✅ Showing fallback button for PDFLoadError');
+        toastStore.error(
+          'PDF Loading Failed',
+          (error as Error).message,
+          {
+            duration: 0, // Don't auto-dismiss
+            actions: [
+              {
+                label: 'Launch Without LeedPDF',
+                onClick: async () => {
+                  // Add query parameter to prevent browser extension from redirecting back to Leed
+                  const url = new URL(error.originalUrl);
+                  url.searchParams.set('ignore-leedpdf-redirect', 'true');
+                  const finalUrl = url.toString();
+                  console.log('Opening original URL with ignore parameter:', finalUrl);
+                  await openExternalUrl(finalUrl);
+                }
+              }
+            ]
+          }
+        );
+      } else {
+        console.log('❌ Not showing fallback button - not a PDFLoadError or no originalUrl');
+        toastStore.error('PDF Loading Failed', (error as Error).message);
+      }
     }
   }
 
@@ -444,6 +596,12 @@ function handlePointerDown(event: PointerEvent) {
         return;
       }
       
+      // Select tool is handled by TextSelectionOverlay
+      if (['select'].includes($drawingState.tool)) {
+        console.log(`${$drawingState.tool} tool click ignored - text selection mode`);
+        return;
+      }
+      
       console.warn('Unknown tool event reached drawing canvas:', $drawingState.tool);
       return;
     }
@@ -454,6 +612,9 @@ function handlePointerDown(event: PointerEvent) {
     drawingCanvas.setPointerCapture(event.pointerId);
 
     isDrawing = true;
+    // Capture Alt state at gesture start when using eraser
+    isAltEraseMode = ($drawingState.tool === 'eraser') ? !!event.altKey : false;
+
     // Get point and convert to base viewport coordinates (scale 1.0)
     const canvasPoint = drawingEngine.getPointFromEvent(event);
     const basePoint = {
@@ -512,39 +673,49 @@ function handlePointerUp(event: PointerEvent) {
     if (finalPath.length > 1) {
       // Check tool type
       if ($drawingState.tool === 'eraser') {
-        // Remove intersecting pencil paths and ensure auto-save
-        drawingPaths.update(paths => {
-          const pagePaths = paths.get($pdfState.currentPage) || [];
-          const eraserPath = {
-            tool: 'eraser' as const,
-            color: '#000000',
-            lineWidth: $drawingState.eraserSize,
-            points: finalPath,
-            pageNumber: $pdfState.currentPage
-          };
-          
-          console.log('Checking eraser intersections with', pagePaths.length, 'paths');
-          const remainingPaths = pagePaths.filter((path, index) => {
-            const intersects = drawingEngine.pathsIntersect(path, eraserPath);
-            if (intersects) {
-              console.log(`Path ${index} intersects with eraser - removing`);
-            }
-            return !intersects;
+        // Use base-viewport coordinates for eraser path (consistent with stored paths)
+        const eraserBasePath = {
+          tool: 'eraser' as const,
+          color: '#000000',
+          lineWidth: $drawingState.eraserSize,
+          points: currentDrawingPath, // already in base viewport coords (CSS px at scale 1)
+          pageNumber: $pdfState.currentPage
+        };
+
+        // Convert eraser size to base-viewport tolerance (divide by current scale)
+        const tolerance = $drawingState.eraserSize / $pdfState.scale;
+
+        if (isAltEraseMode) {
+          // Partial erase: split intersecting strokes into subpaths
+          updatePagePathsWithUndo($pdfState.currentPage, (pagePaths) => {
+            console.log('Partial erase (Alt) on', pagePaths.length, 'paths');
+            const updated = pagePaths.flatMap((path, index) => {
+              // Only split freehand strokes
+              if (path.tool !== 'pencil' && path.tool !== 'highlight') return [path];
+              if (!drawingEngine.pathsIntersect(path, eraserBasePath, tolerance)) return [path];
+              const parts = splitPathByEraser(path, eraserBasePath, tolerance);
+              if (parts.length === 0) {
+                console.log(`Path ${index} fully erased by partial eraser`);
+              } else {
+                console.log(`Path ${index} split into`, parts.length, 'subpaths');
+              }
+              return parts;
+            });
+            return updated;
           });
-
-          // Always update to ensure auto-save triggers
-          paths.set($pdfState.currentPage, [...remainingPaths]);
-          console.log(`Eraser processed: ${pagePaths.length} -> ${remainingPaths.length} paths remaining`);
-          
-          // Force immediate re-render
-          setTimeout(() => {
-            if (drawingEngine) {
-              drawingEngine.renderPaths(remainingPaths, $pdfState.scale);
-            }
-          }, 0);
-
-          return new Map(paths);
-        });
+        } else {
+          // Default: erase whole intersecting strokes
+          updatePagePathsWithUndo($pdfState.currentPage, (pagePaths) => {
+            console.log('Checking eraser intersections with', pagePaths.length, 'paths');
+            return pagePaths.filter((path, index) => {
+              const intersects = drawingEngine.pathsIntersect(path, eraserBasePath, tolerance);
+              if (intersects) {
+                console.log(`Path ${index} intersects with eraser - removing`);
+              }
+              return !intersects;
+            });
+          });
+        }
       } else {
         // Add drawing path (pencil or highlight)
         const color = $drawingState.tool === 'highlight' ? $drawingState.highlightColor : $drawingState.color;
@@ -570,6 +741,7 @@ function handlePointerUp(event: PointerEvent) {
       }
     }
     currentDrawingPath = [];
+    isAltEraseMode = false; // reset gesture modifier
   }
 
   // Canvas hover handlers for cursor tracking
@@ -1025,22 +1197,23 @@ function handlePointerUp(event: PointerEvent) {
       // Use the same scaling as other annotations (output scale only)
       ctx.scale(outputScale, outputScale);
       
-      // Render each drawing path directly onto the export canvas
-      pageDrawingPaths.forEach(path => {
-        if (path.points && path.points.length > 1) {
-          ctx.strokeStyle = path.color || '#000000';
-          ctx.lineWidth = path.lineWidth || 2;
-          ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-          
-          // Set blend mode for highlight tool
-          if (path.tool === 'highlight') {
-            ctx.globalCompositeOperation = 'multiply';
-            ctx.globalAlpha = 0.3;
-          } else {
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.globalAlpha = 1.0;
-          }
+        // Render each drawing path directly onto the export canvas
+        pageDrawingPaths.forEach(path => {
+          if (path.points && path.points.length > 1) {
+            ctx.strokeStyle = path.color || '#000000';
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            // Set blend mode and line width for highlight tool
+            if (path.tool === 'highlight') {
+              ctx.globalCompositeOperation = 'multiply';
+              ctx.lineWidth = (path.lineWidth || 2) * 3; // Highlighter is wider
+              ctx.globalAlpha = 0.3;
+            } else {
+              ctx.globalCompositeOperation = 'source-over';
+              ctx.lineWidth = path.lineWidth || 2;
+              ctx.globalAlpha = 1.0;
+            }
           
           // SIMPLIFIED: Drawing paths are now stored at base viewport coordinates (scale 1.0)
           // No transformation needed - just draw at the stored coordinates
@@ -1424,16 +1597,17 @@ function handlePointerUp(event: PointerEvent) {
         currentPageDrawingPaths.forEach(path => {
           if (path.points && path.points.length > 1) {
             ctx.strokeStyle = path.color || '#000000';
-            ctx.lineWidth = path.lineWidth || 2;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             
-            // Set blend mode for highlight tool
+            // Set blend mode and line width for highlight tool
             if (path.tool === 'highlight') {
               ctx.globalCompositeOperation = 'multiply';
+              ctx.lineWidth = (path.lineWidth || 2) * 3; // Highlighter is wider
               ctx.globalAlpha = 0.3;
             } else {
               ctx.globalCompositeOperation = 'source-over';
+              ctx.lineWidth = path.lineWidth || 2;
               ctx.globalAlpha = 1.0;
             }
             
@@ -1792,6 +1966,16 @@ function handlePointerUp(event: PointerEvent) {
       
     </div>
   </div>
+  
+  <!-- Text Selection Overlay - Shows when select tool is active -->
+  {#if $drawingState.tool === 'select' && $pdfState.document}
+    <TextSelectionOverlay
+      extractedText={extractedPageText}
+      currentPage={$pdfState.currentPage}
+      isLoading={isExtractingText}
+      containerHeight={overlayHeight}
+    />
+  {/if}
 
   {#if $pdfState.isLoading}
     <div class="absolute inset-0 flex items-center justify-center">
