@@ -1153,6 +1153,13 @@
               >
                 Open from URL
               </button>
+
+              <button
+                class="secondary-button text-base sm:text-lg px-4 sm:px-6 py-3 sm:py-4 w-48 sm:w-56 h-14 sm:h-16 flex items-center justify-center"
+                on:click={() => goto('/modify-pdf')}
+              >
+                Modify PDF
+              </button>
             </div>
           {#if !isTauri}
             <div class="flex justify-center">
