@@ -93,12 +93,16 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 					event.preventDefault();
 					setTool('highlight');
 					break;
-				case '6':
-					event.preventDefault();
-					setTool('note');
-					break;
-				case 'h':
-				case 'H':
+			case '6':
+				event.preventDefault();
+				setTool('note');
+				break;
+			case '7':
+				event.preventDefault();
+				setTool('select');
+				break;
+			case 'h':
+			case 'H':
 					event.preventDefault();
 					params.pdfViewer?.fitToHeight();
 					break;
