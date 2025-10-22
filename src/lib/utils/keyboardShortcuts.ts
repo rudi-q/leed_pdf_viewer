@@ -16,8 +16,8 @@ export interface KeyboardShortcutsParams {
 	onShowShortcutsChange: (value: boolean) => void;
 	onShowThumbnailsChange: (value: boolean) => void;
 	onFocusModeChange: (value: boolean) => void;
-	onFileUploadClick?: () => void;
-	onStampToolClick?: () => void;
+	onFileUploadClick: () => void;
+	onStampToolClick: () => void;
 }
 
 /**
@@ -124,36 +124,22 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 					event.preventDefault();
 					params.onShowThumbnailsChange(!params.showThumbnails);
 					break;
-				case 'u':
-				case 'U':
-					event.preventDefault();
-					if (params.onFileUploadClick) {
-						params.onFileUploadClick();
-					} else {
-						// Fallback to DOM query if callback not provided
-						(document.querySelector('input[type="file"]') as HTMLInputElement)?.click();
-					}
-					break;
+			case 'u':
+			case 'U':
+				event.preventDefault();
+				params.onFileUploadClick();
+				break;
 				case 'f':
 				case 'F':
 					event.preventDefault();
 					params.onFocusModeChange(!params.focusMode);
 					break;
-				case 's':
-				case 'S':
-					event.preventDefault();
-					setTool('stamp');
-					// Trigger stamp palette if callback provided
-					if (params.onStampToolClick) {
-						params.onStampToolClick();
-					} else {
-						// Fallback to DOM query
-						const stampButton = document.querySelector('.stamp-palette-container button');
-						if (stampButton) {
-							(stampButton as HTMLButtonElement).click();
-						}
-					}
-					break;
+			case 's':
+			case 'S':
+				event.preventDefault();
+				setTool('stamp');
+				params.onStampToolClick();
+				break;
 			}
 		}
 	}
