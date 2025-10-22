@@ -32,6 +32,7 @@
 	import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
 	import { trackFullscreenToggle, trackPdfExport } from '$lib/utils/analytics';
 	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
+	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
 
 	let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
@@ -555,17 +556,6 @@
     if (!relatedTarget || !mainElement.contains(relatedTarget)) {
       console.log('Drag leave - setting dragOver to false');
       dragOver = false;
-    }
-  }
-
-  function handleFileUploadClick() {
-    (document.querySelector('input[type="file"]') as HTMLInputElement)?.click();
-  }
-
-  function handleStampToolClick() {
-    const stampButton = document.querySelector('.stamp-palette-container button');
-    if (stampButton) {
-      (stampButton as HTMLButtonElement).click();
     }
   }
 

@@ -30,6 +30,7 @@
 	import { trackFullscreenToggle, trackPdfExport } from '$lib/utils/analytics';
 import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
+	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
 
 	let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
@@ -498,17 +499,6 @@ import SharePDFModal from '$lib/components/SharePDFModal.svelte';
     // If relatedTarget is null (leaving the window) or not a child of main, we're truly leaving
     if (!relatedTarget || !mainElement.contains(relatedTarget)) {
       dragOver = false;
-    }
-  }
-
-  function handleFileUploadClick() {
-    (document.querySelector('input[type="file"]') as HTMLInputElement)?.click();
-  }
-
-  function handleStampToolClick() {
-    const stampButton = document.querySelector('.stamp-palette-container button');
-    if (stampButton) {
-      (stampButton as HTMLButtonElement).click();
     }
   }
 

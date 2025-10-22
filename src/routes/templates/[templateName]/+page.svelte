@@ -25,6 +25,7 @@ import DragOverlay from '$lib/components/DragOverlay.svelte';
 import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 import GlobalStyles from '$lib/components/GlobalStyles.svelte';
 	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
+	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
 
 	// Get the page data from the load function
   export let data;
@@ -334,17 +335,6 @@ import GlobalStyles from '$lib/components/GlobalStyles.svelte';
     
     if (!relatedTarget || !mainElement.contains(relatedTarget)) {
       dragOver = false;
-    }
-  }
-
-  function handleFileUploadClick() {
-    (document.querySelector('input[type="file"]') as HTMLInputElement)?.click();
-  }
-
-  function handleStampToolClick() {
-    const stampButton = document.querySelector('.stamp-palette-container button');
-    if (stampButton) {
-      (stampButton as HTMLButtonElement).click();
     }
   }
 
