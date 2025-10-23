@@ -16,7 +16,7 @@ export class PDFExporter {
 	 * Convert CSS pixels to PDF points (1/72 inch)
 	 * Assumes standard 96 DPI for CSS pixels
 	 */
-	private pixelsToPoints(pixels: number): number {
+	private static pixelsToPoints(pixels: number): number {
 		return pixels * 72 / 96;
 	}
 
@@ -67,8 +67,8 @@ export class PDFExporter {
 					}
 					// Convert pixel dimensions to PDF points (72 DPI)
 					const page = newDoc.addPage([
-						this.pixelsToPoints(canvas.width),
-						this.pixelsToPoints(canvas.height)
+						PDFExporter.pixelsToPoints(canvas.width),
+						PDFExporter.pixelsToPoints(canvas.height)
 					]);
 					await this.embedCanvasInPage(newDoc, page, canvas);
 				}
