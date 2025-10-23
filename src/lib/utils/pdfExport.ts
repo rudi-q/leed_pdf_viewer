@@ -12,6 +12,14 @@ export class PDFExporter {
 	private originalPdfBytes: Uint8Array | null = null;
 	private canvasElements: Map<number, HTMLCanvasElement> = new Map();
 
+	/**
+	 * Convert CSS pixels to PDF points (1/72 inch)
+	 * Assumes standard 96 DPI for CSS pixels
+	 */
+	private pixelsToPoints(pixels: number): number {
+		return pixels * 72 / 96;
+	}
+
 	setOriginalPDF(pdfBytes: Uint8Array) {
 		this.originalPdfBytes = pdfBytes;
 	}
@@ -57,7 +65,11 @@ export class PDFExporter {
 					if (!Number.isFinite(canvas.width) || !Number.isFinite(canvas.height) || canvas.width <= 0 || canvas.height <= 0) {
 						throw new Error(`Invalid canvas dimensions for page ${pageNum}: width=${canvas.width}, height=${canvas.height}`);
 					}
-					const page = newDoc.addPage([canvas.width, canvas.height]);
+					// Convert pixel dimensions to PDF points (72 DPI)
+					const page = newDoc.addPage([
+						this.pixelsToPoints(canvas.width),
+						this.pixelsToPoints(canvas.height)
+					]);
 					await this.embedCanvasInPage(newDoc, page, canvas);
 				}
 				return await newDoc.save();
