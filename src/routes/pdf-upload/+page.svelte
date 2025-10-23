@@ -28,7 +28,9 @@
 	import { isValidLPDFFile, isValidMarkdownFile, isValidPDFFile } from '$lib/utils/pdfUtils';
 	import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
 	import { trackFullscreenToggle, trackPdfExport } from '$lib/utils/analytics';
-	import SharePDFModal from '$lib/components/SharePDFModal.svelte';
+import SharePDFModal from '$lib/components/SharePDFModal.svelte';
+	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
+	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
 
 	let pdfViewer: PDFViewer;
   let currentFile: File | string | null = null;
@@ -70,7 +72,7 @@
     // Check for file ID in URL parameters
     const fileId = $page.url.searchParams.get('fileId');
     
-    if (fileId) {
+      if (fileId) {
       console.log('Found file ID in URL parameters:', fileId);
       try {
         const result = await retrieveUploadedFile(fileId);
@@ -500,129 +502,20 @@
     }
   }
 
-  function handleKeyboard(event: KeyboardEvent) {
-    const isTyping = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
-    if (isTyping && event.key !== 'Escape') {
-      return;
-    }
-
-    if (event.ctrlKey || event.metaKey) {
-      switch (event.key) {
-        case 'z':
-          if (event.shiftKey) {
-            event.preventDefault();
-            redo();
-          } else {
-            event.preventDefault();
-            undo();
-          }
-          break;
-        case 'y':
-          event.preventDefault();
-          redo();
-          break;
-        case '=':
-        case '+':
-          event.preventDefault();
-          pdfViewer?.zoomIn();
-          break;
-        case '-':
-          event.preventDefault();
-          pdfViewer?.zoomOut();
-          break;
-        case '0':
-          event.preventDefault();
-          pdfViewer?.resetZoom();
-          break;
-      }
-    } else {
-      switch (event.key) {
-        case 'ArrowLeft':
-          pdfViewer?.previousPage();
-          break;
-        case 'ArrowRight':
-          pdfViewer?.nextPage();
-          break;
-        case '1':
-          event.preventDefault();
-          setTool('pencil');
-          break;
-        case '2':
-          event.preventDefault();
-          setTool('eraser');
-          break;
-        case '3':
-          event.preventDefault();
-          setTool('text');
-          break;
-        case '4':
-          event.preventDefault();
-          setTool('arrow');
-          break;
-        case '5':
-          event.preventDefault();
-          setTool('highlight');
-          break;
-        case '6':
-          event.preventDefault();
-          setTool('note');
-          break;
-        case 'h':
-        case 'H':
-          event.preventDefault();
-          pdfViewer?.fitToHeight();
-          break;
-        case 'w':
-        case 'W':
-          event.preventDefault();
-          pdfViewer?.fitToWidth();
-          break;
-        case '?':
-          event.preventDefault();
-          showShortcuts = true;
-          break;
-        case 'F1':
-          event.preventDefault();
-          showShortcuts = true;
-          break;
-        case 't':
-        case 'T':
-          event.preventDefault();
-          showThumbnails = !showThumbnails;
-          break;
-        case 'u':
-        case 'U':
-          event.preventDefault();
-          (document.querySelector('input[type="file"]') as HTMLInputElement)?.click();
-          break;
-        case 'f':
-        case 'F':
-          event.preventDefault();
-          focusMode = !focusMode;
-          break;
-        case 's':
-        case 'S':
-          event.preventDefault();
-          setTool('stamp');
-          // Also open the stamp palette
-          // Dispatch event to the toolbar to show stamp palette
-          const stampButton = document.querySelector('.stamp-palette-container button');
-          if (stampButton) {
-            (stampButton as HTMLButtonElement).click();
-          }
-          break;
-        case 'F11':
-          event.preventDefault();
-          toggleFullscreen();
-          break;
-        case 'Escape':
-          if (isFullscreen) {
-            exitFullscreen();
-          } else if (showShortcuts) {
-            showShortcuts = false;
-          }
-          break;
-      }
+  // Page-specific keyboard shortcuts (F11, Escape)
+  function handlePageSpecificKeys(event: KeyboardEvent) {
+    switch (event.key) {
+      case 'F11':
+        event.preventDefault();
+        toggleFullscreen();
+        break;
+      case 'Escape':
+        if (isFullscreen) {
+          exitFullscreen();
+        } else if (showShortcuts) {
+          showShortcuts = false;
+        }
+        break;
     }
   }
 
@@ -676,44 +569,34 @@
       let pdfBytes: Uint8Array;
       let originalName: string;
 
-      if (typeof currentFile === 'string') {
-        console.log('Fetching PDF data from URL for export:', currentFile);
-        const response = await fetch(currentFile);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        pdfBytes = new Uint8Array(arrayBuffer);
-        originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
-      } else {
-        const arrayBuffer = await currentFile.arrayBuffer();
-        pdfBytes = new Uint8Array(arrayBuffer);
-        originalName = currentFile.name.replace(/\.pdf$/i, '');
-      }
+		if (typeof currentFile === 'string') {
+			console.log('Fetching PDF data from URL for export:', currentFile);
+			const response = await fetch(currentFile);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+			}
+			const arrayBuffer = await response.arrayBuffer();
+			pdfBytes = new Uint8Array(arrayBuffer);
+			originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
+		} else {
+			const arrayBuffer = await currentFile.arrayBuffer();
+			pdfBytes = new Uint8Array(arrayBuffer);
+			originalName = currentFile.name.replace(/\.pdf$/i, '');
+		}
 
       const exporter = new PDFExporter();
       exporter.setOriginalPDF(pdfBytes);
 
-      // Export ALL pages that have annotations
-      console.log('Checking all pages for annotations...');
+      // Always render merged canvases for ALL pages so we can fall back if the source PDF is encrypted
       const totalPages = $pdfState.totalPages;
       let pagesWithAnnotations = 0;
       
       for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
         const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
-        
-        if (hasAnnotations) {
-          console.log(`📄 Page ${pageNumber} has annotations - creating merged canvas`);
-          const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
-          if (mergedCanvas) {
-            exporter.setPageCanvas(pageNumber, mergedCanvas);
-            pagesWithAnnotations++;
-            console.log(`✅ Added merged canvas for page ${pageNumber}`);
-          } else {
-            console.warn(`❌ Failed to create merged canvas for page ${pageNumber}`);
-          }
-        } else {
-          console.log(`📄 Page ${pageNumber} has no annotations - will preserve original page`);
+        const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
+        if (mergedCanvas) {
+          exporter.setPageCanvas(pageNumber, mergedCanvas);
+          if (hasAnnotations) pagesWithAnnotations++;
         }
       }
       
@@ -880,7 +763,21 @@
 
 </script>
 
-<svelte:window on:keydown={handleKeyboard} on:wheel={handleWheel} />
+<svelte:window 
+  use:keyboardShortcuts={{
+    pdfViewer,
+    showShortcuts,
+    showThumbnails,
+    focusMode,
+    onShowShortcutsChange: (value) => showShortcuts = value,
+    onShowThumbnailsChange: (value) => showThumbnails = value,
+    onFocusModeChange: (value) => focusMode = value,
+    onFileUploadClick: handleFileUploadClick,
+    onStampToolClick: handleStampToolClick
+  }}
+  on:keydown={handlePageSpecificKeys}
+  on:wheel={handleWheel} 
+/>
 
 <main
   class="w-screen h-screen relative overflow-hidden"
