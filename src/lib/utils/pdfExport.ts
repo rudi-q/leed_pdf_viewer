@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFPage } from 'pdf-lib';
 import { invoke } from '@tauri-apps/api/core';
 import { isTauri } from './tauriUtils';
 
@@ -70,7 +70,7 @@ export class PDFExporter {
 		}
 	}
 
-	private async embedCanvasInPage(pdfDoc: any, page: any, canvas: HTMLCanvasElement) {
+	private async embedCanvasInPage(pdfDoc: PDFDocument, page: PDFPage, canvas: HTMLCanvasElement) {
 		// Convert canvas to PNG using Blob to avoid base64 memory spikes and tainted-canvas issues
 		const blob: Blob = await new Promise((resolve, reject) => {
 			canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas toBlob failed'))), 'image/png');
