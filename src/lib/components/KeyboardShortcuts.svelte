@@ -63,7 +63,6 @@
         { keys: ['Ctrl', 'Z'], description: 'Undo last action' },
         { keys: ['Ctrl', 'Y'], description: 'Redo action' },
         { keys: ['Ctrl', 'Shift', 'Z'], description: 'Redo action (alt)' },
-        { keys: ['Delete'], description: 'Delete selected shapes' },
       ]
     },
     {
