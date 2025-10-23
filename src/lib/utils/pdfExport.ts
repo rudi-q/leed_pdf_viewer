@@ -24,37 +24,44 @@ export class PDFExporter {
 		if (!this.originalPdfBytes) {
 			throw new Error('No original PDF loaded');
 		}
-
+		
+		// Primary path: load original PDF and overlay canvases
 		try {
-			console.log('Loading original PDF document');
-			const pdfDoc = await PDFDocument.load(this.originalPdfBytes);
+			const pdfDoc = await PDFDocument.load(this.originalPdfBytes, { ignoreEncryption: true });
 			const pages = pdfDoc.getPages();
-			console.log('Total pages in document:', pages.length);
-
-			// Embed images from canvases into PDF
-			// Process ALL pages to ensure they're preserved, even without annotations
 			for (let pageNumber = 1; pageNumber <= pages.length; pageNumber++) {
 				const canvas = this.canvasElements.get(pageNumber);
 				if (canvas) {
-					// Page has annotations - overlay the canvas
 					await this.embedCanvasInPage(pdfDoc, pages[pageNumber - 1], canvas);
 				}
-				// Pages without canvases are automatically preserved as-is by pdf-lib
-				// No action needed - the original page content remains intact
 			}
-
-			console.log('Saving annotated PDF');
 			return await pdfDoc.save();
-		} catch (error) {
-			console.error('Error exporting PDF:', error);
-			throw new Error('Failed to export annotated PDF');
+		} catch (primaryError) {
+			// Fallback path: build a brand-new PDF composed from merged canvases
+			try {
+				const newDoc = await PDFDocument.create();
+				const pageNumbers = Array.from(this.canvasElements.keys()).sort((a, b) => a - b);
+				if (pageNumbers.length === 0) {
+					throw new Error('No rendered pages available for export');
+				}
+				for (const pageNum of pageNumbers) {
+					const canvas = this.canvasElements.get(pageNum)!;
+					const page = newDoc.addPage([canvas.width, canvas.height]);
+					await this.embedCanvasInPage(newDoc, page, canvas);
+				}
+				return await newDoc.save();
+			} catch (fallbackError) {
+				throw new Error('Failed to export annotated PDF');
+			}
 		}
 	}
 
 	private async embedCanvasInPage(pdfDoc: any, page: any, canvas: HTMLCanvasElement) {
-		// Convert canvas to PNG data
-		const imageData = canvas.toDataURL('image/png');
-		const imageBytes = Uint8Array.from(atob(imageData.split(',')[1]), (c) => c.charCodeAt(0));
+		// Convert canvas to PNG using Blob to avoid base64 memory spikes and tainted-canvas issues
+		const blob: Blob = await new Promise((resolve, reject) => {
+			canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas toBlob failed'))), 'image/png');
+		});
+		const imageBytes = new Uint8Array(await blob.arrayBuffer());
 
 		// Embed the image in the PDF
 		const image = await pdfDoc.embedPng(imageBytes);
