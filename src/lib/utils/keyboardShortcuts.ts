@@ -70,12 +70,14 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 			}
 		} else {
 			switch (event.key) {
-				case 'ArrowLeft':
-					params.pdfViewer?.previousPage();
-					break;
-				case 'ArrowRight':
-					params.pdfViewer?.nextPage();
-					break;
+			case 'ArrowLeft':
+				event.preventDefault();
+				params.pdfViewer?.previousPage();
+				break;
+			case 'ArrowRight':
+				event.preventDefault();
+				params.pdfViewer?.nextPage();
+				break;
 				case '1':
 					event.preventDefault();
 					setTool('pencil');
