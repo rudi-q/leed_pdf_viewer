@@ -45,13 +45,27 @@ export class PDFExporter {
 					throw new Error('No rendered pages available for export');
 				}
 				for (const pageNum of pageNumbers) {
-					const canvas = this.canvasElements.get(pageNum)!;
+					// Safely retrieve and validate canvas
+					if (!this.canvasElements.has(pageNum)) {
+						throw new Error(`Canvas for page ${pageNum} not found in export buffer`);
+					}
+					const canvas = this.canvasElements.get(pageNum);
+					if (!canvas) {
+						throw new Error(`Canvas for page ${pageNum} is null`);
+					}
+					// Validate canvas dimensions
+					if (!Number.isFinite(canvas.width) || !Number.isFinite(canvas.height) || canvas.width <= 0 || canvas.height <= 0) {
+						throw new Error(`Invalid canvas dimensions for page ${pageNum}: width=${canvas.width}, height=${canvas.height}`);
+					}
 					const page = newDoc.addPage([canvas.width, canvas.height]);
 					await this.embedCanvasInPage(newDoc, page, canvas);
 				}
 				return await newDoc.save();
 			} catch (fallbackError) {
-				throw new Error('Failed to export annotated PDF');
+				const primaryMsg = primaryError instanceof Error ? `${primaryError.message}${primaryError.stack ? '\n' + primaryError.stack : ''}` : String(primaryError);
+				const fallbackMsg = fallbackError instanceof Error ? `${fallbackError.message}${fallbackError.stack ? '\n' + fallbackError.stack : ''}` : String(fallbackError);
+				console.error('PDF export failed. Primary:', primaryMsg, '| Fallback:', fallbackMsg);
+				throw new Error(`Failed to export annotated PDF: Primary load error: ${primaryMsg}. Fallback error: ${fallbackMsg}`);
 			}
 		}
 	}
