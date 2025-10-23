@@ -12,6 +12,8 @@ node_modules
 # Tauri build artifacts
 src-tauri/target/
 src-tauri/gen/
+src-tauri/msix
+src-tauri/*.microsoftstore.*.json
 
 # Tauri updater files
 src-tauri/latest.json
