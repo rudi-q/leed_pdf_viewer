@@ -47,7 +47,7 @@
       items: [
         { keys: ['1'], description: 'Switch to pencil' },
         { keys: ['2'], description: 'Switch to eraser' },
-        { keys: ['Alt', 'Erase'], description: 'Granular erase' },
+        { keys: ['Alt'], description: 'Hold Alt while erasing for granular erase' },
         { keys: ['3'], description: 'Switch to text' },
         { keys: ['4'], description: 'Switch to arrow' },
         { keys: ['5'], description: 'Switch to highlighter' },
