@@ -31,7 +31,10 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 	function handleKeyboard(event: Event) {
 		if (!(event instanceof KeyboardEvent)) return;
 		
-		const isTyping = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+		const isTyping = 
+			event.target instanceof HTMLInputElement || 
+			event.target instanceof HTMLTextAreaElement ||
+			(event.target instanceof HTMLElement && event.target.isContentEditable);
 		if (isTyping && event.key !== 'Escape') {
 			return;
 		}
@@ -93,16 +96,16 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 					event.preventDefault();
 					setTool('highlight');
 					break;
-			case '6':
-				event.preventDefault();
-				setTool('note');
-				break;
-			case '7':
-				event.preventDefault();
-				setTool('select');
-				break;
-			case 'h':
-			case 'H':
+				case '6':
+					event.preventDefault();
+					setTool('note');
+					break;
+				case '7':
+					event.preventDefault();
+					setTool('select');
+					break;
+				case 'h':
+				case 'H':
 					event.preventDefault();
 					params.pdfViewer?.fitToHeight();
 					break;
@@ -124,22 +127,22 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 					event.preventDefault();
 					params.onShowThumbnailsChange(!params.showThumbnails);
 					break;
-			case 'u':
-			case 'U':
-				event.preventDefault();
-				params.onFileUploadClick();
-				break;
+				case 'u':
+				case 'U':
+					event.preventDefault();
+					params.onFileUploadClick();
+					break;
 				case 'f':
 				case 'F':
 					event.preventDefault();
 					params.onFocusModeChange(!params.focusMode);
 					break;
-			case 's':
-			case 'S':
-				event.preventDefault();
-				setTool('stamp');
-				params.onStampToolClick();
-				break;
+				case 's':
+				case 'S':
+					event.preventDefault();
+					setTool('stamp');
+					params.onStampToolClick();
+					break;
 			}
 		}
 	}
