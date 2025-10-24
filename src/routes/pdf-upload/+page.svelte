@@ -72,7 +72,7 @@ import SharePDFModal from '$lib/components/SharePDFModal.svelte';
     // Check for file ID in URL parameters
     const fileId = $page.url.searchParams.get('fileId');
     
-    if (fileId) {
+      if (fileId) {
       console.log('Found file ID in URL parameters:', fileId);
       try {
         const result = await retrieveUploadedFile(fileId);
@@ -569,44 +569,34 @@ import SharePDFModal from '$lib/components/SharePDFModal.svelte';
       let pdfBytes: Uint8Array;
       let originalName: string;
 
-      if (typeof currentFile === 'string') {
-        console.log('Fetching PDF data from URL for export:', currentFile);
-        const response = await fetch(currentFile);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        pdfBytes = new Uint8Array(arrayBuffer);
-        originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
-      } else {
-        const arrayBuffer = await currentFile.arrayBuffer();
-        pdfBytes = new Uint8Array(arrayBuffer);
-        originalName = currentFile.name.replace(/\.pdf$/i, '');
-      }
+		if (typeof currentFile === 'string') {
+			console.log('Fetching PDF data from URL for export:', currentFile);
+			const response = await fetch(currentFile);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+			}
+			const arrayBuffer = await response.arrayBuffer();
+			pdfBytes = new Uint8Array(arrayBuffer);
+			originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
+		} else {
+			const arrayBuffer = await currentFile.arrayBuffer();
+			pdfBytes = new Uint8Array(arrayBuffer);
+			originalName = currentFile.name.replace(/\.pdf$/i, '');
+		}
 
       const exporter = new PDFExporter();
       exporter.setOriginalPDF(pdfBytes);
 
-      // Export ALL pages that have annotations
-      console.log('Checking all pages for annotations...');
+      // Always render merged canvases for ALL pages so we can fall back if the source PDF is encrypted
       const totalPages = $pdfState.totalPages;
       let pagesWithAnnotations = 0;
       
       for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
         const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
-        
-        if (hasAnnotations) {
-          console.log(`📄 Page ${pageNumber} has annotations - creating merged canvas`);
-          const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
-          if (mergedCanvas) {
-            exporter.setPageCanvas(pageNumber, mergedCanvas);
-            pagesWithAnnotations++;
-            console.log(`✅ Added merged canvas for page ${pageNumber}`);
-          } else {
-            console.warn(`❌ Failed to create merged canvas for page ${pageNumber}`);
-          }
-        } else {
-          console.log(`📄 Page ${pageNumber} has no annotations - will preserve original page`);
+        const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
+        if (mergedCanvas) {
+          exporter.setPageCanvas(pageNumber, mergedCanvas);
+          if (hasAnnotations) pagesWithAnnotations++;
         }
       }
       
