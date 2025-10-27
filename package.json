@@ -81,6 +81,6 @@
 		"pdfjs-dist": "5.4.296",
 		"postcss": "^8.5.6",
 		"posthog-js": "^1.279.3",
-		"tailwindcss": "^3.4.17"
+		"tailwindcss": "^4.1.16"
 	}
 }
