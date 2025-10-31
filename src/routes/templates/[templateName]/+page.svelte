@@ -24,6 +24,8 @@ import Footer from '$lib/components/Footer.svelte';
 import DragOverlay from '$lib/components/DragOverlay.svelte';
 import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 import GlobalStyles from '$lib/components/GlobalStyles.svelte';
+	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
+	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
 
 	// Get the page data from the load function
   export let data;
@@ -336,127 +338,54 @@ import GlobalStyles from '$lib/components/GlobalStyles.svelte';
     }
   }
 
-  function handleKeyboard(event: KeyboardEvent) {
-    const isTyping = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
-    if (isTyping && event.key !== 'Escape') {
-      return;
-    }
-
-    if (event.ctrlKey || event.metaKey) {
-      switch (event.key) {
-        case 'z':
-          if (event.shiftKey) {
-            event.preventDefault();
-            redo();
-          } else {
-            event.preventDefault();
-            undo();
-          }
-          break;
-        case 'y':
-          event.preventDefault();
-          redo();
-          break;
-        case '=':
-        case '+':
-          event.preventDefault();
-          pdfViewer?.zoomIn();
-          break;
-        case '-':
-          event.preventDefault();
-          pdfViewer?.zoomOut();
-          break;
-        case '0':
-          event.preventDefault();
-          pdfViewer?.resetZoom();
-          break;
-      }
-    } else {
-      switch (event.key) {
-        case 'ArrowLeft':
-          pdfViewer?.previousPage();
-          break;
-        case 'ArrowRight':
-          pdfViewer?.nextPage();
-          break;
-        case '1':
-          event.preventDefault();
-          setTool('pencil');
-          break;
-        case '2':
-          event.preventDefault();
-          setTool('eraser');
-          break;
-        case '3':
-          event.preventDefault();
-          setTool('text');
-          break;
-        case '4':
-          event.preventDefault();
-          setTool('arrow');
-          break;
-        case '5':
-          event.preventDefault();
-          setTool('highlight');
-          break;
-        case '6':
-          event.preventDefault();
-          setTool('note');
-          break;
-        case 'h':
-        case 'H':
-          event.preventDefault();
-          pdfViewer?.fitToHeight();
-          break;
-        case 'w':
-        case 'W':
-          event.preventDefault();
-          pdfViewer?.fitToWidth();
-          break;
-        case '?':
-          event.preventDefault();
-          showShortcuts = true;
-          break;
-        case 'F1':
-          event.preventDefault();
-          showShortcuts = true;
-          break;
-        case 't':
-        case 'T':
-          event.preventDefault();
-          showThumbnails = !showThumbnails;
-          break;
-        case 'u':
-        case 'U':
-          event.preventDefault();
-          (document.querySelector('input[type="file"]') as HTMLInputElement)?.click();
-          break;
-        case 'f':
-        case 'F':
-          event.preventDefault();
-          focusMode = !focusMode;
-          break;
-        case 's':
-        case 'S':
-          event.preventDefault();
-          setTool('stamp');
-          const stampButton = document.querySelector('.stamp-palette-container button');
-          if (stampButton) {
-            (stampButton as HTMLButtonElement).click();
-          }
-          break;
-      }
+  // Page-specific keyboard shortcuts (F11, Escape)
+  function handlePageSpecificKeys(event: KeyboardEvent) {
+    switch (event.key) {
+      case 'F11':
+        event.preventDefault();
+        toggleFullscreen();
+        break;
+      case 'Escape':
+        if (isFullscreen) {
+          exitFullscreen();
+        } else if (showShortcuts) {
+          showShortcuts = false;
+        }
+        break;
     }
   }
 
   function handleWheel(event: WheelEvent) {
     if (event.ctrlKey) {
       event.preventDefault();
-      if (event.deltaY < 0) {
+      const zoomIn = event.deltaY < 0;
+      if (zoomIn) {
         pdfViewer?.zoomIn();
       } else {
         pdfViewer?.zoomOut();
       }
+    }
+  }
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      enterFullscreen();
+    } else {
+      exitFullscreen();
+    }
+  }
+
+  function enterFullscreen() {
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen();
+      isFullscreen = true;
+    }
+  }
+
+  function exitFullscreen() {
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen();
+      isFullscreen = false;
     }
   }
 
@@ -679,7 +608,21 @@ import GlobalStyles from '$lib/components/GlobalStyles.svelte';
   }
 </script>
 
-<svelte:window on:keydown={handleKeyboard} on:wheel={handleWheel} />
+<svelte:window 
+  use:keyboardShortcuts={{
+    pdfViewer,
+    showShortcuts,
+    showThumbnails,
+    focusMode,
+    onShowShortcutsChange: (value) => showShortcuts = value,
+    onShowThumbnailsChange: (value) => showThumbnails = value,
+    onFocusModeChange: (value) => focusMode = value,
+    onFileUploadClick: handleFileUploadClick,
+    onStampToolClick: handleStampToolClick
+  }}
+  on:keydown={handlePageSpecificKeys}
+  on:wheel={handleWheel} 
+/>
 
 <main
   class="w-screen h-screen relative overflow-hidden"

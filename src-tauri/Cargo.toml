@@ -1,6 +1,6 @@
 [package]
 name = "leed-pdf"
-version = "2.19.0"
+version = "2.19.3"
 description = "A Lightweight, Opensource and Private PDF Viewer & Annotation Tool"
 authors = ["Rudi K <reach@rudi.engineer>"]
 license = "AGPL"
