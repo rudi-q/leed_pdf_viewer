@@ -22,5 +22,17 @@
     "title": "Cornell Notes",
     "description": "Cornell note-taking system template with cue column and summary section",
     "icon": "🎓"
+  },
+  {
+    "name": "HandwritingPractice",
+    "title": "Handwriting Practice",
+    "description": "A template for practicing handwriting with guided lines and spacing",
+    "icon": "✍️"
+  },
+  {
+    "name": "Storyboard_2x3",
+    "title": "Storyboard 2x3",
+    "description": "A 2x3 grid storyboard template for visual planning and storytelling",
+    "icon": "🎬"
   }
 ]
