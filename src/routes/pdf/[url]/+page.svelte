@@ -243,23 +243,31 @@ import { getFormattedVersion } from '$lib/utils/version';
         handleFileFromCommandLine(event.payload as string);
       });
 
-      const unlistenDeepLink = listen<{pdf_path: string; page: number}>('load-pdf-from-deep-link', (event) => {
+      const unlistenDeepLink = listen<{pdf_path?: string; pdf_url?: string; page: number}>('load-pdf-from-deep-link', (event) => {
       console.log('*** DEEP LINK EVENT RECEIVED ***');
       console.log('Event payload:', event.payload);
-      const { pdf_path, page } = event.payload;
+      const { pdf_path, pdf_url, page } = event.payload;
       
-      handleFileFromCommandLine(pdf_path).then(async (success) => {
-        if (success && page > 1) {
-          // Wait until the PDF is actually ready, then jump to the requested page
-          const ready = await waitForPdfReady(10000);
-          if (ready) {
-            console.log(`Jumping to page ${page} from deep link`);
-            pdfViewer?.goToPage(page);
-          } else {
-            console.warn('Timed out waiting for PDF to become ready before jumping to deep-linked page');
+      if (pdf_url) {
+        // Handle URL - navigate to the PDF route
+        console.log('Loading PDF from URL:', pdf_url);
+        const encodedUrl = encodeURIComponent(pdf_url);
+        goto(`/pdf/${encodedUrl}`);
+      } else if (pdf_path) {
+        // Handle local file path
+        handleFileFromCommandLine(pdf_path).then(async (success) => {
+          if (success && page > 1) {
+            // Wait until the PDF is actually ready, then jump to the requested page
+            const ready = await waitForPdfReady(10000);
+            if (ready) {
+              console.log(`Jumping to page ${page} from deep link`);
+              pdfViewer?.goToPage(page);
+            } else {
+              console.warn('Timed out waiting for PDF to become ready before jumping to deep-linked page');
+            }
           }
-        }
-      });
+        });
+      }
     });
 
       const unlistenDebug = listen('debug-info', (event) => {

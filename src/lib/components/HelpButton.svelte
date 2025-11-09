@@ -29,5 +29,5 @@
   aria-label="Show keyboard shortcuts"
 >
   <span>?</span>
-  <span>Help</span>
+  <span>Shortcuts</span>
 </button>

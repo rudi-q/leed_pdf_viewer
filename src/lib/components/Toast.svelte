@@ -16,17 +16,17 @@
   };
 
   const colorMap = {
-    success: 'border-green-200 bg-green-50 text-green-800',
-    error: 'border-red-200 bg-red-50 text-red-800',
-    warning: 'border-yellow-200 bg-yellow-50 text-yellow-800',
-    info: 'border-blue-200 bg-blue-50 text-blue-800'
+    success: 'border-sage/40 bg-sage/25 text-charcoal dark:bg-sage/30 dark:text-gray-100',
+    error: 'border-sage/40 bg-sage/25 text-charcoal dark:bg-sage/30 dark:text-gray-100',
+    warning: 'border-sage/40 bg-sage/25 text-charcoal dark:bg-sage/30 dark:text-gray-100',
+    info: 'border-sage/40 bg-sage/25 text-charcoal dark:bg-sage/30 dark:text-gray-100'
   };
 
   const iconColorMap = {
-    success: 'text-green-400',
-    error: 'text-red-400',
-    warning: 'text-yellow-400',
-    info: 'text-blue-400'
+    success: 'text-sage',
+    error: 'text-sage',
+    warning: 'text-sage',
+    info: 'text-sage'
   };
 
   function dismiss() {
@@ -63,6 +63,24 @@
         <p class="mt-1 text-sm opacity-90">
           {toast.message}
         </p>
+        {#if toast.actions && toast.actions.length > 0}
+          <div class="mt-3 flex gap-2">
+            {#each toast.actions as action}
+              <button
+                type="button"
+                class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors
+                  bg-sage text-white hover:bg-sage/90 dark:bg-sage/80 dark:hover:bg-sage
+                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sage"
+                on:click={() => {
+                  action.onClick();
+                  dismiss();
+                }}
+              >
+                {action.label}
+              </button>
+            {/each}
+          </div>
+        {/if}
       </div>
       {#if toast.dismissible}
         <div class="ml-4 flex flex-shrink-0">

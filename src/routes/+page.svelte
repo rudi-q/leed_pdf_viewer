@@ -1300,6 +1300,13 @@
               >
                 Open from URL
               </button>
+
+              <button
+                class="secondary-button text-base sm:text-lg px-4 sm:px-6 py-3 sm:py-4 w-48 sm:w-56 h-14 sm:h-16 flex items-center justify-center"
+                on:click={() => goto('/modify-pdf')}
+              >
+                Modify PDF
+              </button>
             </div>
           {#if !isTauri}
             <div class="flex justify-center">
@@ -1346,7 +1353,7 @@
                 class="secondary-button text-sm sm:text-lg px-3 sm:px-6 py-2 sm:py-4 w-28 sm:w-52 h-10 sm:h-16 flex items-center justify-center text-center flex-shrink-0 transform-gpu"
                 on:click={() => showTemplatePicker = true}
               >
-                Browse Templates
+                Use Templates
               </button>
 
               <button

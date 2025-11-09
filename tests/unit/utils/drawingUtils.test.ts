@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DrawingEngine, getPathBounds, simplifyPath } from '../../../src/lib/utils/drawingUtils';
+import { DrawingEngine, getPathBounds, simplifyPath, splitPathByEraser } from '../../../src/lib/utils/drawingUtils';
 import type { DrawingPath, Point } from '../../../src/lib/stores/drawingStore';
 
 describe('DrawingUtils', () => {
@@ -432,7 +432,34 @@ describe('DrawingUtils', () => {
 			});
 		});
 
-		describe('Error Handling', () => {
+			describe('splitPathByEraser', () => {
+				it('should split a multi-segment stroke into subpaths when erased through the middle', () => {
+					const stroke: DrawingPath = {
+						tool: 'pencil', color: '#000', lineWidth: 2, pageNumber: 1,
+						points: [
+							{ x: 0, y: 50 },
+							{ x: 40, y: 50 },
+							{ x: 60, y: 50 },
+							{ x: 100, y: 50 }
+						]
+					};
+					const eraser: DrawingPath = {
+						tool: 'eraser', color: '#000', lineWidth: 10, pageNumber: 1,
+						points: [
+							{ x: 50, y: 0 },
+							{ x: 50, y: 100 }
+						]
+					};
+					const parts = splitPathByEraser(stroke, eraser, 8);
+					expect(Array.isArray(parts)).toBe(true);
+					expect(parts.length).toBeGreaterThanOrEqual(1);
+					// Expect the resulting points to be on either side of the cut
+					const allPoints = parts.flatMap(p => p.points);
+					expect(allPoints.every(pt => pt.x <= 40 || pt.x >= 60)).toBe(true);
+				});
+			});
+
+			describe('Error Handling', () => {
 			it('should handle rendering with empty points', () => {
 				const emptyPath: DrawingPath = {
 					tool: 'pencil',

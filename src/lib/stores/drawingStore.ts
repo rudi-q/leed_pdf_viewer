@@ -1,7 +1,7 @@
 import { derived, writable } from 'svelte/store';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-export type DrawingTool = 'pencil' | 'eraser' | 'text' | 'arrow' | 'highlight' | 'note' | 'stamp';
+export type DrawingTool = 'pencil' | 'eraser' | 'text' | 'arrow' | 'highlight' | 'note' | 'stamp' | 'select';
 
 export interface DrawingState {
 	tool: DrawingTool;
@@ -713,6 +713,22 @@ export const addDrawingPath = (path: DrawingPath) => {
 
 		const newPaths = [...currentPaths, path];
 		paths.set(path.pageNumber, newPaths);
+		return new Map(paths);
+	});
+};
+
+// Generic helper to update a page's paths with undo/redo tracking
+export const updatePagePathsWithUndo = (
+	pageNumber: number,
+	updater: (paths: DrawingPath[]) => DrawingPath[]
+) => {
+	drawingPaths.update((paths) => {
+		const currentPaths = paths.get(pageNumber) || [];
+		// Save current state for undo
+		saveUndoState(pageNumber, currentPaths);
+
+		const newPaths = updater(currentPaths);
+		paths.set(pageNumber, newPaths);
 		return new Map(paths);
 	});
 };

@@ -51,15 +51,39 @@ fn process_deep_link(app_handle: &tauri::AppHandle, url: &str) {
             let page = parsed.page.unwrap_or(1);
 
             if let Some(path) = parsed.file {
-                // Canonicalize to resolve symlinks and normalize
-                let path_obj = std::path::Path::new(&path);
-                let canonical_path = match std::fs::canonicalize(path_obj) {
-                    Ok(canonical) => canonical,
-                    Err(e) => {
-                        println!("[DEEP_LINK] Failed to canonicalize path {}: {}", path, e);
-                        return;
+                // Check if it's a URL or local file path
+                if path.starts_with("http://") || path.starts_with("https://") {
+                    // It's a URL - emit directly to frontend for URL loading
+                    println!("[DEEP_LINK] Processing URL: {}", path);
+                    let payload = serde_json::json!({
+                        "pdf_url": path,
+                        "page": page
+                    });
+                    println!("[DEEP_LINK] Emitting load-pdf-from-deep-link event with payload: {:?}", payload);
+                    
+                    // Emit both events to ensure compatibility
+                    if let Err(e) = app_handle.emit("load-pdf-from-deep-link", payload.clone()) {
+                        println!("[DEEP_LINK] Failed to emit load-pdf-from-deep-link event: {:?}", e);
+                    } else {
+                        println!("[DEEP_LINK] Successfully emitted load-pdf-from-deep-link event");
                     }
-                };
+                    
+                    // Also emit the simple deep-link event as fallback
+                    if let Err(e) = app_handle.emit("deep-link", &path) {
+                        println!("[DEEP_LINK] Failed to emit deep-link event: {:?}", e);
+                    } else {
+                        println!("[DEEP_LINK] Successfully emitted deep-link event");
+                    }
+                } else {
+                    // It's a local file path - use existing security checks
+                    let path_obj = std::path::Path::new(&path);
+                    let canonical_path = match std::fs::canonicalize(path_obj) {
+                        Ok(canonical) => canonical,
+                        Err(e) => {
+                            println!("[DEEP_LINK] Failed to canonicalize path {}: {}", path, e);
+                            return;
+                        }
+                    };
 
                 // Check against allowed base directories
                 let allowed_bases = [
@@ -149,6 +173,7 @@ fn process_deep_link(app_handle: &tauri::AppHandle, url: &str) {
                 if let Err(e) = app_handle.emit("load-pdf-from-deep-link", payload) {
                     println!("[DEEP_LINK] Failed to emit event: {:?}", e);
                 }
+                }
             } else {
                 // No file parameter, emit the action for informational handlers only
                 let content = url.replace("leedpdf://", "").replace("?", "");
@@ -179,9 +204,15 @@ struct ParsedDeepLink {
 // - value lengths are bounded and types/ranges validated
 // - file param must be an absolute local path with an allowed extension
 fn parse_and_validate_deep_link(url: &str) -> Result<ParsedDeepLink, String> {
-    let parsed = url::Url::parse(url).map_err(|e| format!("invalid URL: {}", e))?;
+    println!("[DEEP_LINK] Parsing URL: {}", url);
+    let parsed = url::Url::parse(url).map_err(|e| {
+        println!("[DEEP_LINK] URL parse error: {}", e);
+        format!("invalid URL: {}", e)
+    })?;
 
+    println!("[DEEP_LINK] Parsed scheme: {}", parsed.scheme());
     if parsed.scheme() != "leedpdf" {
+        println!("[DEEP_LINK] Unsupported scheme: {}", parsed.scheme());
         return Err("unsupported scheme".to_string());
     }
 
@@ -189,6 +220,20 @@ fn parse_and_validate_deep_link(url: &str) -> Result<ParsedDeepLink, String> {
         .host_str()
         .map(|s| s.to_string())
         .unwrap_or_default();
+    
+    println!("[DEEP_LINK] Parsed action: {}", action);
+
+    // Handle direct URLs (leedpdf://https://example.com/file.pdf)
+    if action == "https" || action == "http" {
+        // Extract the full URL from the path
+        let full_url = format!("{}://{}", action, parsed.path().trim_start_matches('/'));
+        println!("[DEEP_LINK] Extracted full URL: {}", full_url);
+        return Ok(ParsedDeepLink {
+            action: "open".to_string(),
+            file: Some(full_url),
+            page: None,
+        });
+    }
 
     let allowed_actions = ["open"]; // whitelist of actions we support
     if !allowed_actions.contains(&action.as_str()) {
@@ -208,13 +253,14 @@ fn parse_and_validate_deep_link(url: &str) -> Result<ParsedDeepLink, String> {
 
         match key.as_ref() {
             "file" => {
-                // Reject obvious non-file origins
+                // Check if it's a URL or local file path
                 let lower = v.to_lowercase();
-                if lower.starts_with("http://")
-                    || lower.starts_with("https://")
-                    || lower.starts_with("file://")
-                {
-                    return Err("file param must be a local absolute path".to_string());
+                if lower.starts_with("http://") || lower.starts_with("https://") {
+                    // It's a URL - allow it
+                    file = Some(v);
+                    continue;
+                } else if lower.starts_with("file://") {
+                    return Err("file param must be a local absolute path, not file:// URL".to_string());
                 }
 
                 // Basic absolute path checks without fs access
