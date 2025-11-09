@@ -13,6 +13,11 @@ node_modules
 src-tauri/target/
 src-tauri/gen/
 
+# Build packages and archives
+*.pkg
+*.zip
+appstore-build/
+
 # Tauri updater files
 src-tauri/latest.json
 src-tauri/myapp.key
@@ -23,6 +28,9 @@ src-tauri/*.provisionprofile
 
 # Shell scripts in root
 /*.sh
+
+# Private build scripts
+scripts/private/
 
 # PowerShell scripts
 *.ps1
@@ -64,11 +72,4 @@ test-results/
 !CODE_OF_CONDUCT.md
 !CONTRIBUTING.md
 !URL_LOADING_FEATURE.md
-!IOS_APP_STORE_SUBMISSION.md
-!IOS_BUILD_QUICK_START.md
-!IOS_BUILD_COMPLETE.md
-!IOS_IMPLEMENTATION_SUMMARY.md
-!MAC_APP_STORE_SUBMISSION.md
-!APPSTORE_SETUP_GUIDE.md
-!docs/SEARCH_FEATURE.md
 !todo.md

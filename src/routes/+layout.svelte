@@ -16,9 +16,10 @@
 	import { getCurrent } from '@tauri-apps/plugin-deep-link';
 	import { listen } from '@tauri-apps/api/event';
 
-	// Detect if we're on macOS (App Store build - no license required)
+	// Detect if we're on macOS or iOS (App Store builds - no license required)
 	const isMacOS = detectOS() === 'macOS';
-	const requiresLicense = isTauri && !isMacOS; // Only Windows/Linux need license
+	const isIOS = detectOS() === 'iOS';
+	const requiresLicense = isTauri && !isMacOS && !isIOS; // Only Windows/Linux need license
 
 	// License validation state (only used on Windows/Linux)
 	let showLicenseModal = false;
@@ -45,7 +46,7 @@
 				// Check license immediately after app loads (removed delay)
 				performLicenseCheck();
 			} else {
-				// macOS App Store or web version doesn't need license validation
+				// macOS/iOS App Store or web version doesn't need license validation
 				licenseCheckCompleted = true;
 				hasValidLicense = true;
 			}

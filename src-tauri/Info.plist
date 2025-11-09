@@ -4,6 +4,8 @@
 <dict>
     <key>ITSAppUsesNonExemptEncryption</key>
     <false/>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>LeedPDF needs local network access to connect to the development server during development.</string>
 </dict>
 </plist>
 

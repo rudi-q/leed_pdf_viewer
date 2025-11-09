@@ -51,6 +51,10 @@ export function detectOS(): string {
 		return 'macOS';
 	} else if (userAgent.includes('Linux') || platform.includes('Linux')) {
 		return 'Linux';
+	} else if (userAgent.includes('iPhone') || userAgent.includes('iPad') || 
+	           userAgent.includes('iOS') || platform.includes('iPhone') || 
+	           platform.includes('iPad')) {
+		return 'iOS';
 	}
 	return 'Unknown';
 }

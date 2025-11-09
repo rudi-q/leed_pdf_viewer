@@ -11,7 +11,8 @@ export interface LicenseValidationResult {
 
 // Detect if license functionality is required
 const isMacOS = detectOS() === 'macOS';
-const requiresLicense = isTauri && !isMacOS;
+const isIOS = detectOS() === 'iOS';
+const requiresLicense = isTauri && !isMacOS && !isIOS;
 
 export class LicenseManager {
 	private static instance: LicenseManager;
@@ -27,7 +28,7 @@ export class LicenseManager {
 	}
 
     async activateLicense(licenseKey: string): Promise<LicenseValidationResult> {
-		// macOS App Store or web - no license required
+		// macOS/iOS App Store or web - no license required
 		if (!requiresLicense) return { valid: true };
 
 		try {
@@ -49,7 +50,7 @@ export class LicenseManager {
 	}
 
 	async validateLicense(licenseKey: string): Promise<LicenseValidationResult> {
-		// macOS App Store or web - no license required
+		// macOS/iOS App Store or web - no license required
 		if (!requiresLicense) return { valid: true };
 
 		try {
@@ -71,7 +72,7 @@ export class LicenseManager {
 	}
 
 	async getStoredLicenseKey(): Promise<string | null> {
-		// macOS App Store or web - no license storage
+		// macOS/iOS App Store or web - no license storage
 		if (!requiresLicense) return null;
 
 		try {
@@ -83,7 +84,7 @@ export class LicenseManager {
 	}
 
 	async clearLicense(): Promise<void> {
-		// macOS App Store or web - no license to clear
+		// macOS/iOS App Store or web - no license to clear
 		if (!requiresLicense) return;
 
 		try {
@@ -94,7 +95,7 @@ export class LicenseManager {
 	}
 
     async checkLicenseStatus(): Promise<LicenseValidationResult & { needsActivation?: boolean }> {
-		// macOS App Store or web - no license required
+		// macOS/iOS App Store or web - no license required
 		if (!requiresLicense) return { valid: true };
 
 		// Platform requires license - check if we have one stored
@@ -186,6 +187,14 @@ export class LicenseManager {
 				requires_license: false,
 				platform: 'macos',
 				reason: 'macOS App Store build - no license required (paid via App Store)'
+			};
+		}
+
+		if (isIOS) {
+			return {
+				requires_license: false,
+				platform: 'ios',
+				reason: 'iOS App Store build - no license required (paid via App Store)'
 			};
 		}
 

@@ -18,7 +18,9 @@ export default defineConfig({
 	},
 	server: {
 		// Allow network access for iOS/mobile development
-		host: process.env.TAURI_DEV_HOST || 'localhost',
+		// Always use 0.0.0.0 to allow connections from simulator/device
+		// This works for both desktop (localhost) and mobile (network IP)
+		host: '0.0.0.0',
 		fs: {
 			allow: ['..', 'node_modules/pdfjs-dist']
 		},
@@ -27,7 +29,7 @@ export default defineConfig({
 		},
 		hmr: {
 			port: 5173,
-			host: process.env.TAURI_DEV_HOST || 'localhost'
+			host: '0.0.0.0'
 		}
 	},
 	build: {

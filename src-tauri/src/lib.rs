@@ -978,7 +978,7 @@ pub fn run() {
     // NEW: Single-instance plugin for Windows/Linux (macOS is single-instance by default)
     #[cfg(desktop)]
     {
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
         {
             use tauri_plugin_deep_link::DeepLinkExt;
             

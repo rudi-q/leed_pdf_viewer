@@ -22,7 +22,10 @@
 		"tauri:dev": "tauri dev",
 		"tauri:build": "tauri build",
 		"tauri:build:debug": "tauri build --debug",
-		"tauri:check": "cd src-tauri && cargo check"
+		"tauri:check": "cd src-tauri && cargo check",
+		"ios:dev": "tauri ios dev --config src-tauri/tauri.ios.json --open --host",
+		"ios:dev:sim": "tauri ios dev --config src-tauri/tauri.ios.json \"iPhone 16 Pro\" --host",
+		"ios:build:sim": "tauri ios build --config src-tauri/tauri.ios.json --target aarch64-sim"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.37.0",
