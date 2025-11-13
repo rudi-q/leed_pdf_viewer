@@ -10,11 +10,11 @@
 		loadPDFInfo,
 		generateThumbnail,
 		mergePDFsWithFiles,
-		downloadPDF,
 		isValidPDF,
 		type PDFPageInfo,
 		type PDFFileInfo
 	} from '$lib/utils/pdfMergeUtils';
+	import { PDFExporter } from '$lib/utils/pdfExport';
 
 	let uploadedFiles: PDFFileInfo[] = [];
 	let pages: PDFPageInfo[] = [];
@@ -172,10 +172,14 @@ function handleReorder(fromIndex: number, toIndex: number) {
 			const timestamp = new Date().toISOString().split('T')[0];
 			const filename = `merged_${timestamp}.pdf`;
 
-			// Download
-			downloadPDF(mergedPdfBytes, filename);
+			// Export using smart logic (Tauri or browser)
+			const success = await PDFExporter.exportFile(mergedPdfBytes, filename, 'application/pdf');
 
-			toastStore.success('Success', `PDF merged successfully: ${filename}`);
+			if (success) {
+				toastStore.success('Success', `PDF merged successfully: ${filename}`);
+			} else {
+				console.log('Export was cancelled by user');
+			}
 		} catch (error) {
 			console.error('Error merging PDFs:', error);
 			toastStore.error('Merge Failed', 'Failed to merge PDFs. Please try again.');

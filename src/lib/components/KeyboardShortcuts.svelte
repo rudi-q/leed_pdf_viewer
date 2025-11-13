@@ -47,10 +47,12 @@
       items: [
         { keys: ['1'], description: 'Switch to pencil' },
         { keys: ['2'], description: 'Switch to eraser' },
+        { keys: ['Alt'], description: 'Hold Alt while erasing for granular erase' },
         { keys: ['3'], description: 'Switch to text' },
         { keys: ['4'], description: 'Switch to arrow' },
         { keys: ['5'], description: 'Switch to highlighter' },
         { keys: ['6'], description: 'Switch to sticky note' },
+        { keys: ['7'], description: 'Switch to select/copy text' },
         { keys: ['S'], description: 'Switch to stamps' },
       ]
     },
@@ -61,7 +63,6 @@
         { keys: ['Ctrl', 'Z'], description: 'Undo last action' },
         { keys: ['Ctrl', 'Y'], description: 'Redo action' },
         { keys: ['Ctrl', 'Shift', 'Z'], description: 'Redo action (alt)' },
-        { keys: ['Delete'], description: 'Delete selected shapes' },
       ]
     },
     {

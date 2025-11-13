@@ -27,6 +27,11 @@
     }
   },
   "bundle": {
+    "publisher": "DoublOne Studios Limited",
+    "homepage": "https://leedpdf.com",
+    "category": "productivity",
+    "shortDescription": "PDF annotation tool - Draw, highlight, and add notes to PDFs",
+    "longDescription": "LeedPDF is a lightweight PDF drawing and annotation tool that works in your browser and as a desktop app. Draw, highlight, add text, sticky notes, arrows, and stamps to your PDFs. Perfect for students, professionals, and anyone who needs to annotate documents. Works with mouse, touch, or stylus.",
     "active": true,
     "targets": "all",
     "createUpdaterArtifacts": true,
