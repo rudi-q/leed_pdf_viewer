@@ -14,6 +14,7 @@ declare global {
 		__pdfRouteCleanup?: {
 			unlistenFileOpened: Promise<() => void>;
 			unlistenStartupReady: Promise<() => void>;
+			unlistenDeepLink: Promise<() => void>;
 			unlistenDebug: Promise<() => void>;
 		};
 		__pdfUploadCleanup?: {
@@ -21,6 +22,8 @@ declare global {
 			unlistenStartupReady: Promise<() => void>;
 			unlistenDebug: Promise<() => void>;
 		};
+		__posthogInitialized?: boolean;
+		__isEUUser?: boolean;
 	}
 }
 

@@ -15,13 +15,28 @@ src-tauri/gen/
 src-tauri/msix
 src-tauri/*.microsoftstore.*.json
 
+# Build packages and archives
+*.pkg
+*.zip
+appstore-build/
+
 # Tauri updater files
 src-tauri/latest.json
 src-tauri/myapp.key
 src-tauri/myapp.key.pub
 
+# Provisioning profiles
+src-tauri/*.provisionprofile
+
 # Shell scripts in root
 /*.sh
+
+# Private build scripts
+scripts/private/
+
+# iOS development build scripts
+scripts/build_ios_device.sh
+scripts/build_ios_simulator.sh
 
 # PowerShell scripts
 *.ps1
@@ -63,5 +78,4 @@ test-results/
 !CODE_OF_CONDUCT.md
 !CONTRIBUTING.md
 !URL_LOADING_FEATURE.md
-!docs/SEARCH_FEATURE.md
 !todo.md
