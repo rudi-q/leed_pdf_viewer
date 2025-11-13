@@ -187,21 +187,17 @@ pnpm tauri build
 pnpm install
 
 # 2. Build iOS app
-./build_ios.sh
-
-# Or manually:
 pnpm tauri ios build --config src-tauri/tauri.ios.json
 ```
 
-See [IOS_APP_STORE_SUBMISSION.md](IOS_APP_STORE_SUBMISSION.md) for detailed iOS build instructions.
-
-#### macOS App Store
+#### macOS App
 ```bash
-# Build for Mac App Store
-./build_appstore.sh
-```
+# 1. Install dependencies
+pnpm install
 
-See [MAC_APP_STORE_SUBMISSION.md](MAC_APP_STORE_SUBMISSION.md) for detailed macOS build instructions.
+# 2. Build macOS app
+pnpm tauri build
+```
 
 ### Project Structure
 ```

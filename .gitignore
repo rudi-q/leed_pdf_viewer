@@ -32,6 +32,10 @@ src-tauri/*.provisionprofile
 # Private build scripts
 scripts/private/
 
+# iOS development build scripts
+scripts/build_ios_device.sh
+scripts/build_ios_simulator.sh
+
 # PowerShell scripts
 *.ps1
 
