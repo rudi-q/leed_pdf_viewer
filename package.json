@@ -30,6 +30,7 @@
 	"devDependencies": {
 		"@eslint/js": "^9.39.1",
 		"@playwright/test": "^1.56.1",
+		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/adapter-vercel": "^6.0.0",
 		"@sveltejs/enhanced-img": "^0.8.4",
 		"@sveltejs/kit": "^2.48.4",
