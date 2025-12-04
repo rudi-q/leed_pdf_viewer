@@ -67,6 +67,24 @@
   font-display: swap;
 }
 
+/* Lora - serif font */
+@font-face {
+  font-family: 'Lora';
+  src: url('/fonts/additional-fonts/Lora-VariableFont_wght.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Urbanist - modern sans-serif */
+@font-face {
+  font-family: 'Urbanist';
+  src: url('/fonts/additional-fonts/Urbanist-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
