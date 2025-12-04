@@ -659,6 +659,7 @@ export const currentPagePaths = derived([drawingPaths, pdfState], ([$drawingPath
 
 // Helper functions
 export const setTool = (tool: DrawingTool) => {
+	clearTextAnnotationSelection();
 	drawingState.update((state) => ({ ...state, tool }));
 };
 
