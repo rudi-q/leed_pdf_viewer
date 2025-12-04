@@ -600,6 +600,9 @@ if (typeof window !== 'undefined') {
 export const undoStack = writable<Array<{ pageNumber: number; paths: DrawingPath[] }>>([]);
 export const redoStack = writable<Array<{ pageNumber: number; paths: DrawingPath[] }>>([]);
 
+// Selected text annotation ID (for applying font/color changes to existing annotations)
+export const selectedTextAnnotationId = writable<string | null>(null);
+
 // Available colors for the color palette
 export const availableColors = [
 	'#2D3748', // charcoal
@@ -693,6 +696,28 @@ export const setStampId = (stampId: string) => {
 
 export const setTextFontFamily = (textFontFamily: string) => {
 	drawingState.update((state) => ({ ...state, textFontFamily }));
+};
+
+// Select a text annotation
+export const selectTextAnnotation = (annotationId: string | null) => {
+	selectedTextAnnotationId.set(annotationId);
+};
+
+// Clear text annotation selection
+export const clearTextAnnotationSelection = () => {
+	selectedTextAnnotationId.set(null);
+};
+
+// Update font family for a specific text annotation
+export const updateTextAnnotationFont = (annotationId: string, pageNumber: number, fontFamily: string) => {
+	textAnnotations.update((texts) => {
+		const currentTexts = texts.get(pageNumber) || [];
+		const newTexts = currentTexts.map((text) =>
+			text.id === annotationId ? { ...text, fontFamily } : text
+		);
+		texts.set(pageNumber, newTexts);
+		return new Map(texts);
+	});
 };
 
 // Helper function to get stamp by ID

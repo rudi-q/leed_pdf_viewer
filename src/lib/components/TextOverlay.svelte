@@ -2,12 +2,16 @@
 	import { onMount, tick } from 'svelte';
 	import {
 		addTextAnnotation,
+		clearTextAnnotationSelection,
 		currentPageTextAnnotations,
 		deleteTextAnnotation,
 		drawingState,
 		pdfState,
+		selectTextAnnotation,
+		selectedTextAnnotationId,
 		type TextAnnotation,
-		updateTextAnnotation
+		updateTextAnnotation,
+		updateTextAnnotationFont
 	} from '../stores/drawingStore';
 	import { trackFirstAnnotation } from '../utils/analytics';
 
@@ -61,6 +65,9 @@
     
     // Don't create new annotation if clicking on existing text
     if (event.target !== overlayContainer) return;
+    
+    // Clear selection when clicking on empty space
+    clearTextAnnotationSelection();
 
     const rect = overlayContainer.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -234,6 +241,9 @@
   function handleMouseDown(event: MouseEvent, annotation: TextAnnotation) {
     // Don't start drag if we're editing, resizing, or in view-only mode
     if (editingAnnotation || isResizing || viewOnlyMode) return;
+    
+    // Select this annotation when clicked
+    selectTextAnnotation(annotation.id);
     
     draggedAnnotation = annotation;
     dragStart = { x: event.clientX, y: event.clientY };
@@ -420,6 +430,7 @@
         class="text-box-container"
         class:text-box-display={true}
         class:text-box-active={$drawingState.tool === 'text'}
+        class:text-box-selected={$selectedTextAnnotationId === annotation.id}
         style="left: {pos.x}px; top: {pos.y}px; width: {displayWidth}px; height: {displayHeight}px;"
         on:dblclick={() => handleAnnotationDoubleClick(annotation)}
         on:mousedown={(e) => handleMouseDown(e, annotation)}
@@ -539,6 +550,20 @@
   
   .text-box-active {
     opacity: 0.85;
+  }
+  
+  /* Selected state - show border to indicate selection */
+  .text-box-selected {
+    background: white;
+    border: 2px solid #87A96B !important;
+    box-shadow: 0 4px 12px rgba(135, 169, 107, 0.3);
+    border-radius: 4px;
+    padding: 4px 6px;
+  }
+  
+  .text-box-selected .text-box-delete-btn,
+  .text-box-selected .text-box-resize-handle {
+    opacity: 1;
   }
   
   /* Text box textarea (edit mode) */

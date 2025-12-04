@@ -13,6 +13,7 @@
     pdfState,
     redo,
     redoStack,
+    selectedTextAnnotationId,
     setColor,
     setEraserSize,
     setHighlightColor,
@@ -21,7 +22,8 @@
     setTextFontFamily,
     setTool,
     undo,
-    undoStack
+    undoStack,
+    updateTextAnnotationFont
   } from '../stores/drawingStore';
   import { isDarkMode, toggleTheme } from '../stores/themeStore';
   import { hasParityBanner } from '../stores/parityBannerStore';
@@ -149,6 +151,12 @@
 
   function handleFontChange(fontFamily: string) {
     setTextFontFamily(fontFamily);
+    
+    // If a text annotation is selected, update its font too
+    if ($selectedTextAnnotationId) {
+      updateTextAnnotationFont($selectedTextAnnotationId, $pdfState.currentPage, fontFamily);
+    }
+    
     showFontPicker = false;
   }
 
