@@ -1119,6 +1119,25 @@
         <Type size={16} />
       </button>
 
+      <!-- Mobile font picker button (only visible when text tool is active) -->
+      {#if $drawingState.tool === 'text'}
+        <div class="relative font-picker-container">
+          <button
+            class="tool-button h-8 px-2 flex items-center justify-center gap-1 text-xs font-medium"
+            on:click={() => showFontPicker = !showFontPicker}
+            aria-label="Choose text font"
+            style="font-family: {$drawingState.textFontFamily};"
+          >
+            <span class="truncate max-w-[60px]">
+              {availableFonts.find(f => f.fontFamily === $drawingState.textFontFamily)?.name || 'Font'}
+            </span>
+            <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+      {/if}
+
       <button
         class="tool-button flex items-center justify-center"
         class:active={$drawingState.tool === 'arrow'}
@@ -1400,6 +1419,28 @@
               ></div>
             </div>
             <span class="ml-2 text-sm text-charcoal dark:text-gray-200">{size}px</span>
+          </button>
+        {/each}
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if showFontPicker}
+  <div class="fixed bottom-20 left-4 z-[70] lg:hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-3 min-w-[140px]">
+      <div class="flex flex-col gap-1">
+        {#each availableFonts as font}
+          <button
+            class="w-full px-3 py-2 text-left rounded-lg transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-sage focus:ring-offset-2"
+            class:bg-sage={font.fontFamily === $drawingState.textFontFamily}
+            class:text-white={font.fontFamily === $drawingState.textFontFamily}
+            class:bg-opacity-20={font.fontFamily === $drawingState.textFontFamily}
+            style="font-family: {font.fontFamily};"
+            on:click={() => handleFontChange(font.fontFamily)}
+            aria-label="Select font {font.name}"
+          >
+            <span class="text-sm">{font.name}</span>
           </button>
         {/each}
       </div>
