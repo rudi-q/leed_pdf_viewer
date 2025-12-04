@@ -1,5 +1,6 @@
 import { derived, writable } from 'svelte/store';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import { DEFAULT_TEXT_FONT, TEXT_TOOL_FONTS, type FontOption } from '../config/fonts';
 
 export type DrawingTool = 'pencil' | 'eraser' | 'text' | 'arrow' | 'highlight' | 'note' | 'stamp' | 'select';
 
@@ -13,6 +14,7 @@ export interface DrawingState {
 	noteColor: string;
 	isDrawing: boolean;
 	stampId: string;
+	textFontFamily: string;
 }
 
 export interface PDFState {
@@ -239,7 +241,8 @@ export const drawingState = writable<DrawingState>({
 	highlightOpacity: 0.4,
 	noteColor: '#FFF59D', // light yellow
 	isDrawing: false,
-	stampId: 'star' // default stamp
+	stampId: 'star', // default stamp
+	textFontFamily: DEFAULT_TEXT_FONT // default text font from config
 });
 
 // PDF state store
@@ -631,6 +634,9 @@ export const availableHighlightColors = [
 	'#607D8B' // blue grey
 ];
 
+// Re-export available fonts from config
+export const availableFonts = TEXT_TOOL_FONTS;
+
 // Available sticky note colors
 export const availableNoteColors = [
 	'#FFF59D', // light yellow
@@ -683,6 +689,10 @@ export const setIsDrawing = (isDrawing: boolean) => {
 
 export const setStampId = (stampId: string) => {
 	drawingState.update((state) => ({ ...state, stampId }));
+};
+
+export const setTextFontFamily = (textFontFamily: string) => {
+	drawingState.update((state) => ({ ...state, textFontFamily }));
 };
 
 // Helper function to get stamp by ID

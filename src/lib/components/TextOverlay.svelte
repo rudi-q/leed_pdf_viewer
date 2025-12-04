@@ -89,7 +89,7 @@
       text: '',
       fontSize: 24,
       color: $drawingState.color,
-      fontFamily: 'ReenieBeanie, cursive',
+      fontFamily: $drawingState.textFontFamily,
       width: initialWidth,
       height: initialHeight,
       relativeX,
