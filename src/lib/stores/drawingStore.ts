@@ -1,5 +1,6 @@
 import { derived, writable } from 'svelte/store';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import { DEFAULT_TEXT_FONT, TEXT_TOOL_FONTS, type FontOption } from '../config/fonts';
 
 export type DrawingTool = 'pencil' | 'eraser' | 'text' | 'arrow' | 'highlight' | 'note' | 'stamp' | 'select';
 
@@ -13,6 +14,7 @@ export interface DrawingState {
 	noteColor: string;
 	isDrawing: boolean;
 	stampId: string;
+	textFontFamily: string;
 }
 
 export interface PDFState {
@@ -239,7 +241,8 @@ export const drawingState = writable<DrawingState>({
 	highlightOpacity: 0.4,
 	noteColor: '#FFF59D', // light yellow
 	isDrawing: false,
-	stampId: 'star' // default stamp
+	stampId: 'star', // default stamp
+	textFontFamily: DEFAULT_TEXT_FONT // default text font from config
 });
 
 // PDF state store
@@ -315,6 +318,9 @@ export const setCurrentPDF = (fileName: string, fileSize: number) => {
 	loadStickyNotesForCurrentPDF();
 	loadStampAnnotationsForCurrentPDF();
 	loadArrowAnnotationsForCurrentPDF();
+
+	// Clear any text annotation selection from the previous PDF
+	selectedTextAnnotationId.set(null);
 };
 
 // Load drawings for current PDF
@@ -597,6 +603,9 @@ if (typeof window !== 'undefined') {
 export const undoStack = writable<Array<{ pageNumber: number; paths: DrawingPath[] }>>([]);
 export const redoStack = writable<Array<{ pageNumber: number; paths: DrawingPath[] }>>([]);
 
+// Selected text annotation ID (for applying font/color changes to existing annotations)
+export const selectedTextAnnotationId = writable<string | null>(null);
+
 // Available colors for the color palette
 export const availableColors = [
 	'#2D3748', // charcoal
@@ -631,6 +640,9 @@ export const availableHighlightColors = [
 	'#607D8B' // blue grey
 ];
 
+// Re-export available fonts from config
+export const availableFonts = TEXT_TOOL_FONTS;
+
 // Available sticky note colors
 export const availableNoteColors = [
 	'#FFF59D', // light yellow
@@ -650,6 +662,7 @@ export const currentPagePaths = derived([drawingPaths, pdfState], ([$drawingPath
 
 // Helper functions
 export const setTool = (tool: DrawingTool) => {
+	clearTextAnnotationSelection();
 	drawingState.update((state) => ({ ...state, tool }));
 };
 
@@ -683,6 +696,32 @@ export const setIsDrawing = (isDrawing: boolean) => {
 
 export const setStampId = (stampId: string) => {
 	drawingState.update((state) => ({ ...state, stampId }));
+};
+
+export const setTextFontFamily = (textFontFamily: string) => {
+	drawingState.update((state) => ({ ...state, textFontFamily }));
+};
+
+// Select a text annotation
+export const selectTextAnnotation = (annotationId: string | null) => {
+	selectedTextAnnotationId.set(annotationId);
+};
+
+// Clear text annotation selection
+export const clearTextAnnotationSelection = () => {
+	selectedTextAnnotationId.set(null);
+};
+
+// Update font family for a specific text annotation
+export const updateTextAnnotationFont = (annotationId: string, pageNumber: number, fontFamily: string) => {
+	textAnnotations.update((texts) => {
+		const currentTexts = texts.get(pageNumber) || [];
+		const newTexts = currentTexts.map((text) =>
+			text.id === annotationId ? { ...text, fontFamily } : text
+		);
+		texts.set(pageNumber, newTexts);
+		return new Map(texts);
+	});
 };
 
 // Helper function to get stamp by ID
