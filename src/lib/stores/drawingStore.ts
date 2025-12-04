@@ -318,6 +318,9 @@ export const setCurrentPDF = (fileName: string, fileSize: number) => {
 	loadStickyNotesForCurrentPDF();
 	loadStampAnnotationsForCurrentPDF();
 	loadArrowAnnotationsForCurrentPDF();
+
+	// Clear any text annotation selection from the previous PDF
+	selectedTextAnnotationId.set(null);
 };
 
 // Load drawings for current PDF
