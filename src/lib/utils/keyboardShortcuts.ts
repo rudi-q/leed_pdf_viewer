@@ -13,9 +13,11 @@ export interface KeyboardShortcutsParams {
 	showShortcuts: boolean;
 	showThumbnails: boolean;
 	focusMode: boolean;
+	presentationMode: boolean;
 	onShowShortcutsChange: (value: boolean) => void;
 	onShowThumbnailsChange: (value: boolean) => void;
 	onFocusModeChange: (value: boolean) => void;
+	onPresentationModeChange: (value: boolean) => void;
 	onFileUploadClick: () => void;
 	onStampToolClick: () => void;
 }
@@ -144,6 +146,11 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 					event.preventDefault();
 					setTool('stamp');
 					params.onStampToolClick();
+					break;
+				case 'p':
+				case 'P':
+					event.preventDefault();
+					params.onPresentationModeChange(!params.presentationMode);
 					break;
 			}
 		}

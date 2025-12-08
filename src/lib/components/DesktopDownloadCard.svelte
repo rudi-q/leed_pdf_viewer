@@ -3,6 +3,7 @@
 	import { detectOS, isTauri } from '$lib/utils/tauriUtils';
 
 	export let focusMode = false;
+	export let presentationMode = false;
   export let showDownloadCard = true;
   
   // Function to handle card dismissal
@@ -26,7 +27,7 @@
                    '/download';
 </script>
 
-{#if !focusMode && browser && !isTauri && showDownloadCard && (currentOS === 'Windows' || currentOS === 'macOS')}
+{#if !focusMode && !presentationMode && browser && !isTauri && showDownloadCard && (currentOS === 'Windows' || currentOS === 'macOS')}
 <!-- Optimized Desktop App Download Card -->
 <div class="absolute bottom-16 right-4 w-72 animate-fade-in download-card">
   <div class="floating-panel p-4 group hover:scale-[1.01] transition-all duration-300 hover:shadow-xl">

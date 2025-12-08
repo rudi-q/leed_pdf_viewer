@@ -39,6 +39,7 @@ import SharePDFModal from '$lib/components/SharePDFModal.svelte';
   let isFullscreen = false;
   let showThumbnails = false;
   let focusMode = false;
+  let presentationMode = false;
   let isLoading = true;
   let showDebugPanel = false;
   let showShareModal = false;
@@ -769,9 +770,18 @@ import SharePDFModal from '$lib/components/SharePDFModal.svelte';
     showShortcuts,
     showThumbnails,
     focusMode,
+    presentationMode,
     onShowShortcutsChange: (value) => showShortcuts = value,
     onShowThumbnailsChange: (value) => showThumbnails = value,
     onFocusModeChange: (value) => focusMode = value,
+    onPresentationModeChange: (value) => {
+      presentationMode = value;
+      if (value) {
+        document.documentElement.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+    },
     onFileUploadClick: handleFileUploadClick,
     onStampToolClick: handleStampToolClick
   }}
@@ -794,7 +804,7 @@ import SharePDFModal from '$lib/components/SharePDFModal.svelte';
       </div>
     </div>
   {:else if currentFile}
-    {#if !focusMode}
+    {#if !focusMode && !presentationMode}
       <Toolbar
         onFileUpload={handleFileUpload}
         onPreviousPage={() => pdfViewer?.previousPage()}
@@ -813,7 +823,7 @@ import SharePDFModal from '$lib/components/SharePDFModal.svelte';
       />
     {/if}
 
-    <div class="w-full h-full" class:pt-12={!focusMode}>
+    <div class="w-full h-full" class:pt-12={!focusMode && !presentationMode}>
       <div class="flex h-full">
         {#if showThumbnails}
           <PageThumbnails
@@ -823,12 +833,12 @@ import SharePDFModal from '$lib/components/SharePDFModal.svelte';
         {/if}
 
         <div class="flex-1">
-          <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} />
+          <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} {presentationMode} />
         </div>
       </div>
     </div>
 
-    {#if !focusMode}
+    {#if !focusMode && !presentationMode}
       <HelpButton
         position="absolute"
         positionClasses="bottom-4 left-4"
@@ -856,6 +866,7 @@ import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 
   <Footer
     {focusMode}
+    {presentationMode}
     getFormattedVersion={getFormattedVersion}
     on:helpClick={() => showShortcuts = true}
   />

@@ -45,6 +45,7 @@
   let urlInput = '';
   let urlError = '';
   let focusMode = false;
+  let presentationMode = false;
   let showTemplatePicker = false;
   let showDownloadCard = true;
   let showDebugPanel = false;
@@ -802,6 +803,10 @@
 
   function handleFullscreenChange() {
     isFullscreen = !!document.fullscreenElement;
+    // Exit presentation mode when fullscreen is exited
+    if (!document.fullscreenElement && presentationMode) {
+      presentationMode = false;
+    }
   }
 
   function handleViewFromLink() {
@@ -987,9 +992,18 @@
     showShortcuts,
     showThumbnails,
     focusMode,
+    presentationMode,
     onShowShortcutsChange: (value) => showShortcuts = value,
     onShowThumbnailsChange: (value) => showThumbnails = value,
     onFocusModeChange: (value) => focusMode = value,
+    onPresentationModeChange: (value) => {
+      presentationMode = value;
+      if (value) {
+        document.documentElement.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+    },
     onFileUploadClick: handleFileUploadClick,
     onStampToolClick: handleStampToolClick
   }}
@@ -1005,7 +1019,7 @@
   on:dragenter={handleDragEnter}
   on:dragleave={handleDragLeave}
 >
-  {#if !focusMode}
+  {#if !focusMode && !presentationMode}
     <Toolbar
       onFileUpload={handleFileUpload}
       onPreviousPage={() => pdfViewer?.previousPage()}
@@ -1023,7 +1037,7 @@
     />
   {/if}
 
-  <div class="w-full h-full" class:pt-12={!focusMode}>
+  <div class="w-full h-full" class:pt-12={!focusMode && !presentationMode}>
     {#if showWelcome}
       <div class="h-full flex flex-col">
         
@@ -1175,7 +1189,7 @@
         {/if}
 
         <div class="flex-1">
-          <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} />
+          <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} {presentationMode} />
         </div>
       </div>
     {/if}
@@ -1184,10 +1198,11 @@
   <DragOverlay {dragOver} />
 
 
-  <DesktopDownloadCard {focusMode} bind:showDownloadCard />
+  <DesktopDownloadCard {focusMode} {presentationMode} bind:showDownloadCard />
 
   <Footer
     {focusMode}
+    {presentationMode}
     showGithubLink={true}
     getFormattedVersion={getFormattedVersion}
     on:helpClick={() => showShortcuts = true}

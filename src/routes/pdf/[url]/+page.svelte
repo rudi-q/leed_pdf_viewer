@@ -34,6 +34,7 @@ import { getFormattedVersion } from '$lib/utils/version';
   let isFullscreen = false;
   let showThumbnails = false;
   let focusMode = false;
+  let presentationMode = false;
   let isLoading = true;
   let showShareModal = false;
 
@@ -773,9 +774,18 @@ import { getFormattedVersion } from '$lib/utils/version';
     showShortcuts,
     showThumbnails,
     focusMode,
+    presentationMode,
     onShowShortcutsChange: (value) => showShortcuts = value,
     onShowThumbnailsChange: (value) => showThumbnails = value,
     onFocusModeChange: (value) => focusMode = value,
+    onPresentationModeChange: (value) => {
+      presentationMode = value;
+      if (value) {
+        document.documentElement.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+    },
     onFileUploadClick: handleFileUploadClick,
     onStampToolClick: handleStampToolClick
   }}
@@ -798,7 +808,7 @@ import { getFormattedVersion } from '$lib/utils/version';
       </div>
     </div>
   {:else if currentFile}
-    {#if !focusMode}
+    {#if !focusMode && !presentationMode}
       <Toolbar
         onFileUpload={handleFileUpload}
         onPreviousPage={() => pdfViewer?.previousPage()}
@@ -817,7 +827,7 @@ import { getFormattedVersion } from '$lib/utils/version';
       />
     {/if}
 
-    <div class="w-full h-full" class:pt-12={!focusMode}>
+    <div class="w-full h-full" class:pt-12={!focusMode && !presentationMode}>
       <div class="flex h-full">
         {#if showThumbnails}
           <PageThumbnails
@@ -827,7 +837,7 @@ import { getFormattedVersion } from '$lib/utils/version';
         {/if}
 
         <div class="flex-1">
-          <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} />
+          <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} {presentationMode} />
         </div>
       </div>
     </div>
@@ -842,7 +852,7 @@ import { getFormattedVersion } from '$lib/utils/version';
       </div>
     {/if}
 
-    {#if !focusMode}
+    {#if !focusMode && !presentationMode}
       <HelpButton
         position="absolute"
         positionClasses="bottom-4 left-4"
@@ -858,6 +868,7 @@ import { getFormattedVersion } from '$lib/utils/version';
 
   <Footer
     {focusMode}
+    {presentationMode}
     getFormattedVersion={getFormattedVersion}
     on:helpClick={() => showShortcuts = true}
   />

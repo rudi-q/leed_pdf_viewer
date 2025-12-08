@@ -4,6 +4,7 @@
 	import { openExternalUrl } from '$lib/utils/navigationUtils';
 
 	export let focusMode = false;
+	export let presentationMode = false;
   export let getFormattedVersion: () => string;
   export let showGithubLink = false;
 
@@ -50,7 +51,7 @@
   }
 </script>
 
-{#if !focusMode}
+{#if !focusMode && !presentationMode}
   <div class="absolute bottom-4 right-4 text-xs flex items-center gap-2">
     <div 
       class="relative hover-trigger"

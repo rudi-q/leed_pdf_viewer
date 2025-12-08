@@ -26,6 +26,7 @@
   let showShortcuts = false;
   let showThumbnails = false;
   let focusMode = false;
+  let presentationMode = false;
   
   onMount(async () => {
     if (browser && $page.params.shareId) {
@@ -256,6 +257,16 @@
             (stampButton as HTMLButtonElement).click();
           }
           break;
+        case 'p':
+        case 'P':
+          event.preventDefault();
+          presentationMode = !presentationMode;
+          if (presentationMode) {
+            document.documentElement.requestFullscreen?.();
+          } else {
+            document.exitFullscreen?.();
+          }
+          break;
         case 'Escape':
           if (showShortcuts) {
             showShortcuts = false;
@@ -435,7 +446,7 @@
     </div>
     
   {:else if currentFile}
-    {#if !focusMode}
+    {#if !focusMode && !presentationMode}
       <Toolbar
         onFileUpload={() => {}}
         onPreviousPage={() => pdfViewer?.previousPage()}
@@ -456,7 +467,7 @@
       />
     {/if}
 
-    <div class="w-full h-full" class:pt-12={!focusMode}>
+    <div class="w-full h-full" class:pt-12={!focusMode && !presentationMode}>
       <div class="flex h-full">
         {#if showThumbnails}
           <PageThumbnails
@@ -466,13 +477,13 @@
         {/if}
 
         <div class="flex-1">
-          <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} viewOnlyMode={sharedPDFData?.viewOnly || false} />
+          <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} viewOnlyMode={sharedPDFData?.viewOnly || false} {presentationMode} />
         </div>
       </div>
     </div>
 
     <!-- Shared PDF Info (positioned properly based on focus mode) -->
-    {#if sharedPDFData && !focusMode}
+    {#if sharedPDFData && !focusMode && !presentationMode}
       <div class="absolute top-14 left-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg px-3 py-2 text-sm shadow-lg border border-gray-200 dark:border-gray-600">
         <div class="flex items-center gap-2">
           <Link class="w-4 h-4 text-sage" />
@@ -499,7 +510,8 @@
 
     <!-- Footer with all cards -->
     <Footer
-      focusMode={false}
+      focusMode={focusMode}
+      presentationMode={presentationMode}
       getFormattedVersion={getFormattedVersion}
       on:helpClick={() => showShortcuts = true}
     />

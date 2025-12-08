@@ -37,6 +37,7 @@ import GlobalStyles from '$lib/components/GlobalStyles.svelte';
   let isFullscreen = false;
   let showThumbnails = false;
   let focusMode = false;
+  let presentationMode = false;
   let isLoading = true;
   let templateError = false;
   let showShareModal = false;
@@ -614,9 +615,18 @@ import GlobalStyles from '$lib/components/GlobalStyles.svelte';
     showShortcuts,
     showThumbnails,
     focusMode,
+    presentationMode,
     onShowShortcutsChange: (value) => showShortcuts = value,
     onShowThumbnailsChange: (value) => showThumbnails = value,
     onFocusModeChange: (value) => focusMode = value,
+    onPresentationModeChange: (value) => {
+      presentationMode = value;
+      if (value) {
+        document.documentElement.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+    },
     onFileUploadClick: handleFileUploadClick,
     onStampToolClick: handleStampToolClick
   }}
@@ -631,7 +641,7 @@ import GlobalStyles from '$lib/components/GlobalStyles.svelte';
   on:dragover={handleDragOver}
   on:dragleave={handleDragLeave}
 >
-  {#if !focusMode}
+  {#if !focusMode && !presentationMode}
     <Toolbar
       onFileUpload={handleFileUpload}
       onPreviousPage={() => pdfViewer?.previousPage()}
@@ -650,7 +660,7 @@ import GlobalStyles from '$lib/components/GlobalStyles.svelte';
     />
   {/if}
 
-  <div class="w-full h-full" class:pt-12={!focusMode}>
+  <div class="w-full h-full" class:pt-12={!focusMode && !presentationMode}>
     {#if templateError}
       <!-- Error state when template is not found -->
       <div class="h-full flex items-center justify-center">
@@ -690,12 +700,13 @@ import GlobalStyles from '$lib/components/GlobalStyles.svelte';
         <PDFViewer
           bind:this={pdfViewer}
           pdfFile={currentFile}
+          presentationMode={presentationMode}
         />
       </div>
     {/if}
   </div>
 
-  {#if !focusMode}
+  {#if !focusMode && !presentationMode}
     <HelpButton
       position="absolute"
       positionClasses="bottom-4 left-4"
@@ -710,6 +721,7 @@ import GlobalStyles from '$lib/components/GlobalStyles.svelte';
 
   <Footer
     {focusMode}
+    {presentationMode}
     getFormattedVersion={getFormattedVersion}
     on:helpClick={() => showShortcuts = true}
   />

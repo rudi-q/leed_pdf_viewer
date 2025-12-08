@@ -63,6 +63,7 @@ import { DrawingEngine, splitPathByEraser } from '../utils/drawingUtils';
 
 	export let pdfFile: File | string | null = null;
 	export let viewOnlyMode = false;
+  export let presentationMode = false;
 
   let pdfCanvas: HTMLCanvasElement;
   let drawingCanvas: HTMLCanvasElement;
@@ -97,7 +98,7 @@ import { DrawingEngine, splitPathByEraser } from '../utils/drawingUtils';
   
   // Calculate overlay height to match container height minus toolbar
   $: if (containerDiv) {
-    overlayHeight = containerDiv.clientHeight - TOOLBAR_HEIGHT;
+    overlayHeight = containerDiv.clientHeight - (presentationMode ? 0 : TOOLBAR_HEIGHT);
   }
   
   // Debug canvas dimensions
@@ -941,7 +942,7 @@ function handlePointerUp(event: PointerEvent) {
     try {
       const page = await $pdfState.document.getPage($pdfState.currentPage);
       const viewport = page.getViewport({ scale: 1 });
-      const containerWidth = containerDiv.clientWidth - 40; // Account for padding
+      const containerWidth = containerDiv.clientWidth - (presentationMode ? 0 : 40); // Account for padding
       const newScale = containerWidth / viewport.width;
       
       panOffset = { x: 0, y: 0 };
@@ -959,7 +960,7 @@ function handlePointerUp(event: PointerEvent) {
     try {
       const page = await $pdfState.document.getPage($pdfState.currentPage);
       const viewport = page.getViewport({ scale: 1 });
-      const containerHeight = containerDiv.clientHeight - TOOLBAR_HEIGHT; // Account for toolbar and page info
+      const containerHeight = containerDiv.clientHeight - (presentationMode ? 0 : TOOLBAR_HEIGHT); // Account for toolbar and page info
       const newScale = containerHeight / viewport.height;
       
       panOffset = { x: 0, y: 0 };
@@ -971,8 +972,14 @@ function handlePointerUp(event: PointerEvent) {
     }
   }
 
-  // Function to get merged canvas for a specific page
-  // Helper function to check if a page has any annotations
+  // React to presentation mode changes
+  $: if (presentationMode !== undefined && $pdfState.document) {
+    // When entering presentation mode, wait for full screen and resize
+    // We use setTimeout to allow the browser to transition to fullscreen and layout to update
+    setTimeout(() => {
+      fitToHeight();
+    }, 100);
+  }
   export async function pageHasAnnotations(pageNumber: number): Promise<boolean> {
     // Get current values from all annotation stores
     let hasDrawingPaths = false;
@@ -1911,7 +1918,8 @@ function handlePointerUp(event: PointerEvent) {
       <!-- PDF Canvas -->
       <canvas
         bind:this={pdfCanvas}
-        class="shadow-lg rounded-lg"
+        class="shadow-lg"
+        class:rounded-lg={!presentationMode}
         class:hidden={!$pdfState.document}
         style="z-index: 1;"
       ></canvas>
@@ -1919,7 +1927,8 @@ function handlePointerUp(event: PointerEvent) {
       <!-- Drawing Canvas Overlay -->
       <canvas
         bind:this={drawingCanvas}
-        class="absolute top-0 left-0 drawing-canvas rounded-lg"
+        class="absolute top-0 left-0 drawing-canvas"
+        class:rounded-lg={!presentationMode}
         class:eraser={$drawingState.tool === 'eraser'}
         class:hidden={!$pdfState.document}
         style="z-index: 2;"
@@ -1984,7 +1993,7 @@ function handlePointerUp(event: PointerEvent) {
       <div class="animate-spin rounded-full h-12 w-12 border-4 border-sage border-t-transparent"></div>
       <span class="ml-3 text-charcoal dark:text-gray-200 font-medium">Opening your PDF...</span>
     </div>
-  {:else if $pdfState.document && $pdfState.totalPages > 0}
+  {:else if $pdfState.document && $pdfState.totalPages > 0 && !presentationMode}
     <!-- Page Info -->
     <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 floating-panel">
       <div class="flex items-center space-x-2 text-sm text-charcoal dark:text-gray-200">
@@ -1998,10 +2007,12 @@ function handlePointerUp(event: PointerEvent) {
     </div>
   {:else}
     <div class="absolute inset-0 flex items-center justify-center">
-      <div class="text-center">
-        <div class="text-6xl mb-4">📄</div>
-        <h3 class="text-xl font-medium text-charcoal mb-2">Drop a PDF here or click to browse</h3>
-      </div>
+      {#if !presentationMode}
+        <div class="text-center">
+          <div class="text-6xl mb-4">📄</div>
+          <h3 class="text-xl font-medium text-charcoal mb-2">Drop a PDF here or click to browse</h3>
+        </div>
+      {/if}
     </div>
   {/if}
 </div>
