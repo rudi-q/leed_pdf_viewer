@@ -3,7 +3,7 @@
  * Single source of truth for all available fonts
  * 
  * In the web app, only bundled fonts are available.
- * In the Tauri (Windows) app, system fonts are dynamically added.
+ * In the Tauri desktop app (Windows, macOS, Linux), system fonts are dynamically added.
  */
 
 export interface FontOption {
@@ -59,8 +59,9 @@ export function systemFontToOption(fontName: string): FontOption {
 }
 
 /**
- * Fetch system fonts from Tauri backend (Windows only)
- * Returns empty array if not running in Tauri or on non-Windows platforms
+ * Fetch system fonts from Tauri backend (all desktop platforms)
+ * Uses font-kit for native cross-platform font enumeration
+ * Returns empty array if not running in Tauri or if API is unavailable
  */
 export async function fetchSystemFonts(): Promise<FontOption[]> {
 	try {

@@ -45,13 +45,15 @@
 			if (requiresLicense) {
 				// Check license immediately after app loads (removed delay)
 				performLicenseCheck();
-
-				// Initialize system fonts for Windows
-				initializeFonts();
 			} else {
 				// macOS App Store or web version doesn't need license validation
 				licenseCheckCompleted = true;
 				hasValidLicense = true;
+			}
+			
+			// Initialize system fonts for all Tauri platforms (Windows, macOS, Linux)
+			if (isTauri) {
+				initializeFonts();
 			}
 			
 		// Deep link handling for all Tauri platforms

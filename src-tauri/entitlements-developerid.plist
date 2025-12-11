@@ -16,6 +16,12 @@
     <key>com.apple.security.files.user-selected.read-write</key>
     <true/>
     
+    <!-- Font access for font picker feature -->
+    <key>com.apple.security.assets.fonts.user-installed</key>
+    <true/>
+    <key>com.apple.security.assets.fonts.system</key>
+    <true/>
+    
     <!-- Access to Downloads folder (common PDF location) -->
     <key>com.apple.security.files.downloads.read-write</key>
     <true/>
