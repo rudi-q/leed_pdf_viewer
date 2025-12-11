@@ -656,7 +656,21 @@ pub fn run() {
 
                         if url_str.starts_with("file://") {
                             let path = url_str.replace("file://", "");
-                            let decoded_path = urlencoding::decode(&path).unwrap_or_default();
+
+                            // Properly handle URL decoding errors
+                            let decoded_path = match urlencoding::decode(&path) {
+                                Ok(decoded) => decoded.into_owned(),
+                                Err(e) => {
+                                    println!("Failed to decode URL path '{}': {:?}", path, e);
+                                    continue; // Skip this URL
+                                }
+                            };
+
+                            // Skip empty paths
+                            if decoded_path.is_empty() {
+                                println!("Decoded path is empty for URL: {}", url_str);
+                                continue;
+                            }
 
                             println!("Decoded path: {}", decoded_path);
 
@@ -665,7 +679,7 @@ pub fn run() {
                                 || lower.ends_with(".lpdf")
                                 || lower.ends_with(".md")
                             {
-                                pdf_files.push(decoded_path.to_string());
+                                pdf_files.push(decoded_path.clone());
                                 println!(
                                     "Found PDF/LPDF/MD file from opened event: {}",
                                     decoded_path
