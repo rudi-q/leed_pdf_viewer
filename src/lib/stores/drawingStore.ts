@@ -1,6 +1,6 @@
 import { derived, writable } from 'svelte/store';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { DEFAULT_TEXT_FONT, TEXT_TOOL_FONTS, type FontOption } from '../config/fonts';
+import { DEFAULT_TEXT_FONT, BUNDLED_FONTS, getAllAvailableFonts, type FontOption } from '../config/fonts';
 
 export type DrawingTool = 'pencil' | 'eraser' | 'text' | 'arrow' | 'highlight' | 'note' | 'stamp' | 'select';
 
@@ -640,8 +640,31 @@ export const availableHighlightColors = [
 	'#607D8B' // blue grey
 ];
 
-// Re-export available fonts from config
-export const availableFonts = TEXT_TOOL_FONTS;
+// Available fonts store - starts with bundled fonts, updated with system fonts in Tauri
+export const availableFonts = writable<FontOption[]>(BUNDLED_FONTS);
+
+// Flag to track if system fonts have been loaded
+let systemFontsLoaded = false;
+
+/**
+ * Initialize fonts by loading system fonts if running in Tauri (Windows)
+ * Call this once at app startup
+ */
+export const initializeFonts = async (): Promise<void> => {
+	if (systemFontsLoaded) return;
+
+	try {
+		const allFonts = await getAllAvailableFonts();
+		if (allFonts.length > BUNDLED_FONTS.length) {
+			availableFonts.set(allFonts);
+			console.log(`Loaded ${allFonts.length - BUNDLED_FONTS.length} system fonts`);
+		}
+		systemFontsLoaded = true;
+	} catch (error) {
+		console.log('System fonts not available:', error);
+		systemFontsLoaded = true; // Prevent retry
+	}
+};
 
 // Available sticky note colors
 export const availableNoteColors = [
