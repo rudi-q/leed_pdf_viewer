@@ -34,6 +34,16 @@
 	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
 	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
 
+	// Module-scoped cleanup handlers for Tauri event listeners
+	let tauriCleanupHandlers: {
+		unlistenFileOpened: Promise<() => void>;
+		unlistenStartupReady: Promise<() => void>;
+		unlistenDebug: Promise<() => void>;
+	} | null = null;
+
+	// Track pending files timeout for cleanup
+	let pendingFilesTimeout: ReturnType<typeof setTimeout> | null = null;
+
 	let pdfViewer: PDFViewer;
 	let currentFile: File | string | null = null;
 	let dragOver = false;
@@ -113,8 +123,8 @@
 				console.log('TAURI DEBUG:', event.payload);
 			});
 
-			// Store cleanup functions for later
-			window.__pdfRouteCleanup = {
+			// Store cleanup functions in module-scoped variable
+			tauriCleanupHandlers = {
 				unlistenFileOpened,
 				unlistenStartupReady,
 				unlistenDebug
@@ -128,13 +138,19 @@
 		console.log('[PDF Route] Cleaning up');
 		document.removeEventListener('fullscreenchange', handleFullscreenChange);
 
+		// Clear any pending file check timeout
+		if (pendingFilesTimeout !== null) {
+			clearTimeout(pendingFilesTimeout);
+			pendingFilesTimeout = null;
+		}
+
 		// Clean up Tauri event listeners
-		if (window.__pdfRouteCleanup) {
-			const { unlistenFileOpened, unlistenStartupReady, unlistenDebug } = window.__pdfRouteCleanup;
-			unlistenFileOpened.then((fn: () => void) => fn()).catch(console.error);
-			unlistenStartupReady.then((fn: () => void) => fn()).catch(console.error);
-			unlistenDebug.then((fn: () => void) => fn()).catch(console.error);
-			delete window.__pdfRouteCleanup;
+		if (tauriCleanupHandlers) {
+			const { unlistenFileOpened, unlistenStartupReady, unlistenDebug } = tauriCleanupHandlers;
+			unlistenFileOpened.then((fn) => fn()).catch(console.error);
+			unlistenStartupReady.then((fn) => fn()).catch(console.error);
+			unlistenDebug.then((fn) => fn()).catch(console.error);
+			tauriCleanupHandlers = null;
 		}
 	}
 
@@ -376,8 +392,8 @@
 				const success = await handleFileFromCommandLine(pendingFile);
 
 				if (success) {
-					// Check for more files
-					setTimeout(checkForPendingFiles, 100);
+					// Check for more files - track timeout for cleanup
+					pendingFilesTimeout = setTimeout(checkForPendingFiles, 100);
 				}
 			} else {
 				console.log('No pending files found via command');
@@ -704,11 +720,11 @@
 				}
 				const arrayBuffer = await response.arrayBuffer();
 				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = extractFilenameFromUrl(currentFile).replace(/\\.pdf$/i, '');
+				originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
 			} else {
 				const arrayBuffer = await currentFile.arrayBuffer();
 				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = currentFile.name.replace(/\\.pdf$/i, '');
+				originalName = currentFile.name.replace(/\.pdf$/i, '');
 			}
 
 			// First export to annotated PDF, then convert to DOCX

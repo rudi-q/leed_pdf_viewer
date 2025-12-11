@@ -54,6 +54,9 @@
 	// File loading variables
 	// (hasLoadedFromCommandLine removed - was unused dead code)
 
+	// Track pending files timeout for cleanup
+	let pendingFilesTimeout: ReturnType<typeof setTimeout> | null = null;
+
 	// Helper function to extract filename from URL
 	function extractFilenameFromUrl(url: string): string {
 		try {
@@ -193,6 +196,12 @@
 	function cleanup() {
 		console.log('[PDF Upload Route] Cleaning up');
 		document.removeEventListener('fullscreenchange', handleFullscreenChange);
+
+		// Clear any pending file check timeout
+		if (pendingFilesTimeout !== null) {
+			clearTimeout(pendingFilesTimeout);
+			pendingFilesTimeout = null;
+		}
 
 		// Clean up Tauri event listeners
 		if (window.__pdfUploadCleanup) {
@@ -402,8 +411,8 @@
 				const success = await handleFileFromCommandLine(pendingFile);
 
 				if (success) {
-					// Check for more files
-					setTimeout(checkForPendingFiles, 100);
+					// Check for more files - track timeout for cleanup
+					pendingFilesTimeout = setTimeout(checkForPendingFiles, 100);
 				}
 			} else {
 				console.log('No pending files found via command');
@@ -798,9 +807,9 @@
 		onPresentationModeChange: (value) => {
 			presentationMode = value;
 			if (value) {
-				document.documentElement.requestFullscreen?.();
+				enterFullscreen();
 			} else {
-				document.exitFullscreen?.();
+				exitFullscreen();
 			}
 		},
 		onFileUploadClick: handleFileUploadClick,
@@ -893,17 +902,19 @@
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => (showShortcuts = false)} />
 <DebugPanel bind:isVisible={showDebugPanel} />
 
-<!-- Share PDF Modal -->
-<SharePDFModal
-	bind:isOpen={showShareModal}
-	pdfFile={currentFile}
-	originalFileName={getOriginalFileName()}
-	on:close={() => (showShareModal = false)}
-	on:shared={(event) => {
-		console.log('PDF shared successfully:', event.detail);
-		showShareModal = false;
-	}}
-/>
+<!-- Share PDF Modal - only mount when we have a file -->
+{#if currentFile}
+	<SharePDFModal
+		bind:isOpen={showShareModal}
+		pdfFile={currentFile}
+		originalFileName={getOriginalFileName()}
+		on:close={() => (showShareModal = false)}
+		on:shared={(event) => {
+			console.log('PDF shared successfully:', event.detail);
+			showShareModal = false;
+		}}
+	/>
+{/if}
 
 <!-- Hidden file input -->
 <input

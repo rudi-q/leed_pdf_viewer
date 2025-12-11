@@ -17,7 +17,7 @@ export class PDFExporter {
 	 * Assumes standard 96 DPI for CSS pixels
 	 */
 	private static pixelsToPoints(pixels: number): number {
-		return pixels * 72 / 96;
+		return (pixels * 72) / 96;
 	}
 
 	setOriginalPDF(pdfBytes: Uint8Array) {
@@ -32,7 +32,7 @@ export class PDFExporter {
 		if (!this.originalPdfBytes) {
 			throw new Error('No original PDF loaded');
 		}
-		
+
 		// Primary path: load original PDF and overlay canvases
 		try {
 			const pdfDoc = await PDFDocument.load(this.originalPdfBytes, { ignoreEncryption: true });
@@ -62,8 +62,15 @@ export class PDFExporter {
 						throw new Error(`Canvas for page ${pageNum} is null`);
 					}
 					// Validate canvas dimensions
-					if (!Number.isFinite(canvas.width) || !Number.isFinite(canvas.height) || canvas.width <= 0 || canvas.height <= 0) {
-						throw new Error(`Invalid canvas dimensions for page ${pageNum}: width=${canvas.width}, height=${canvas.height}`);
+					if (
+						!Number.isFinite(canvas.width) ||
+						!Number.isFinite(canvas.height) ||
+						canvas.width <= 0 ||
+						canvas.height <= 0
+					) {
+						throw new Error(
+							`Invalid canvas dimensions for page ${pageNum}: width=${canvas.width}, height=${canvas.height}`
+						);
 					}
 					// Convert pixel dimensions to PDF points (72 DPI)
 					const page = newDoc.addPage([
@@ -74,10 +81,18 @@ export class PDFExporter {
 				}
 				return await newDoc.save();
 			} catch (fallbackError) {
-				const primaryMsg = primaryError instanceof Error ? `${primaryError.message}${primaryError.stack ? '\n' + primaryError.stack : ''}` : String(primaryError);
-				const fallbackMsg = fallbackError instanceof Error ? `${fallbackError.message}${fallbackError.stack ? '\n' + fallbackError.stack : ''}` : String(fallbackError);
+				const primaryMsg =
+					primaryError instanceof Error
+						? `${primaryError.message}${primaryError.stack ? '\n' + primaryError.stack : ''}`
+						: String(primaryError);
+				const fallbackMsg =
+					fallbackError instanceof Error
+						? `${fallbackError.message}${fallbackError.stack ? '\n' + fallbackError.stack : ''}`
+						: String(fallbackError);
 				console.error('PDF export failed. Primary:', primaryMsg, '| Fallback:', fallbackMsg);
-				throw new Error(`Failed to export annotated PDF: Primary load error: ${primaryMsg}. Fallback error: ${fallbackMsg}`);
+				throw new Error(
+					`Failed to export annotated PDF: Primary load error: ${primaryMsg}. Fallback error: ${fallbackMsg}`
+				);
 			}
 		}
 	}
@@ -85,7 +100,10 @@ export class PDFExporter {
 	private async embedCanvasInPage(pdfDoc: PDFDocument, page: PDFPage, canvas: HTMLCanvasElement) {
 		// Convert canvas to PNG using Blob to avoid base64 memory spikes and tainted-canvas issues
 		const blob: Blob = await new Promise((resolve, reject) => {
-			canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas toBlob failed'))), 'image/png');
+			canvas.toBlob(
+				(b) => (b ? resolve(b) : reject(new Error('Canvas toBlob failed'))),
+				'image/png'
+			);
 		});
 		const imageBytes = new Uint8Array(await blob.arrayBuffer());
 
