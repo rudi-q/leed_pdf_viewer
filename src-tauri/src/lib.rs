@@ -193,7 +193,7 @@ fn get_system_fonts() -> Result<Vec<String>, String> {
     // Sort alphabetically for consistent ordering
     fonts.sort();
 
-    println!("Found {} system fonts using font-kit", fonts.len());
+    log::debug!("Found {} system fonts using font-kit", fonts.len());
     Ok(fonts)
 }
 
