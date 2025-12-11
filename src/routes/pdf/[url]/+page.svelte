@@ -171,7 +171,10 @@
 		// Check file size for all file types before processing
 		if (file.size > MAX_FILE_SIZE) {
 			console.log('File too large');
-			toastStore.error('File Too Large', 'File too large. Please choose a file under 50MB.');
+			toastStore.error(
+				'File Too Large',
+				`File size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum limit of ${MAX_FILE_SIZE / (1024 * 1024)}MB.`
+			);
 			return;
 		}
 
@@ -924,7 +927,7 @@
 <!-- Hidden file input -->
 <input
 	type="file"
-	accept=".pdf,.lpdf,.md,.markdown"
+	accept=".pdf,.lpdf"
 	multiple={false}
 	class="hidden"
 	on:change={(event) => {
