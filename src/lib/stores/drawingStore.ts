@@ -640,15 +640,15 @@ export const availableHighlightColors = [
 	'#607D8B' // blue grey
 ];
 
-// Available fonts store - starts with bundled fonts, updated with system fonts in Tauri
+// Available fonts store - starts with bundled fonts, updated with system fonts in Tauri desktop app
 export const availableFonts = writable<FontOption[]>(BUNDLED_FONTS);
 
 // Flag to track if system fonts have been loaded
 let systemFontsLoaded = false;
 
 /**
- * Initialize fonts by loading system fonts if running in Tauri (Windows)
- * Call this once at app startup
+ * Initialize fonts by loading system fonts if running in Tauri desktop app
+ * Call this once at app startup (works on Windows, macOS, and Linux)
  */
 export const initializeFonts = async (): Promise<void> => {
 	if (systemFontsLoaded) return;

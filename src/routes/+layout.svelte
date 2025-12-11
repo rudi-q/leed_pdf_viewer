@@ -10,14 +10,18 @@
 	import { fileStorage } from '$lib/utils/fileStorageUtils';
 	import { licenseManager } from '$lib/utils/licenseManager';
 	import { initializeFonts } from '$lib/stores/drawingStore';
-	import { browser } from '$app/environment';
+	import { browser, dev } from '$app/environment';
 	import { onMount } from 'svelte';
-	import { isTauri } from '$lib/utils/tauriUtils';
+	import { isTauri, detectOS } from '$lib/utils/tauriUtils';
 	import { goto } from '$app/navigation';
 	import { getCurrent } from '@tauri-apps/plugin-deep-link';
 	import { listen } from '@tauri-apps/api/event';
 
-	// License validation state
+	// Detect if we're on macOS (App Store build - no license required)
+	const isMacOS = detectOS() === 'macOS';
+	const requiresLicense = isTauri && !isMacOS; // Only Windows/Linux need license
+
+	// License validation state (only used on Windows/Linux)
 	let showLicenseModal = false;
 	let licenseCheckCompleted = false;
 	let hasValidLicense = false;
@@ -29,27 +33,41 @@
 	// Initialize file storage auto-cleanup when app loads
 	if (browser) {
 		onMount(() => {
+			// Make licenseManager available in console for debugging (dev only)
+			if (dev) {
+				(window as any).licenseManager = licenseManager;
+			}
+			
 			// Start auto-cleanup of old files every AUTO_CLEANUP_INTERVAL milliseconds
 			const stopCleanup = fileStorage.startAutoCleanup();
-
-			// License validation for Tauri desktop app only
-			if (isTauri) {
+      
+			// License validation for Tauri desktop app only (Windows/Linux only)
+			if (requiresLicense) {
 				// Check license immediately after app loads (removed delay)
 				performLicenseCheck();
-
-				// Listen for deep-link events from Rust
-				listenForDeepLinks();
-
-				// Also register the plugin handler (might work for some cases)
-				registerDeepLinkHandler();
-
-				// Initialize system fonts for Windows
-				initializeFonts();
 			} else {
-				// Web version doesn't need license validation
+				// macOS App Store or web version doesn't need license validation
 				licenseCheckCompleted = true;
+				hasValidLicense = true;
 			}
-
+			
+			// Initialize system fonts for all Tauri platforms (Windows, macOS, Linux)
+			if (isTauri) {
+				initializeFonts();
+			}
+			
+		// Deep link handling for all Tauri platforms
+		if (isTauri) {
+			// Listen for deep-link events from Rust
+			listenForDeepLinks();
+			
+			// Also register the plugin handler (might work for some cases)
+			registerDeepLinkHandler();
+			
+			// Listen for load-pdf-from-deep-link events (for URLs with file parameters)
+			listenForLoadPdfFromDeepLink();
+		}
+			
 			// Cleanup on page unload
 			return stopCleanup;
 		});
@@ -145,6 +163,32 @@
 			console.error('❌ [Deep Link] Failed to register event listener:', error);
 		}
 	}
+	
+	// Listen for load-pdf-from-deep-link events (for URLs with file parameters)
+	async function listenForLoadPdfFromDeepLink() {
+		console.log('🔗 [Load PDF Deep Link] Setting up event listener...');
+		try {
+			const unlisten = await listen<{pdf_path?: string; pdf_url?: string; page: number}>('load-pdf-from-deep-link', (event) => {
+				console.log('🔗🔗🔗 [Load PDF Deep Link] EVENT RECEIVED!', event);
+				const { pdf_path, pdf_url, page } = event.payload;
+				
+				if (pdf_url) {
+					// Handle URL - navigate to the PDF route
+					console.log('🔗 [Load PDF Deep Link] Loading PDF from URL:', pdf_url);
+					const encodedUrl = encodeURIComponent(pdf_url);
+					goto(`/pdf/${encodedUrl}`);
+				} else if (pdf_path) {
+					// Handle local file path - navigate to the PDF route
+					console.log('🔗 [Load PDF Deep Link] Loading PDF from path:', pdf_path);
+					const encodedPath = encodeURIComponent(pdf_path);
+					goto(`/pdf/${encodedPath}`);
+				}
+			});
+			console.log('✅ [Load PDF Deep Link] Event listener registered successfully!');
+		} catch (error) {
+			console.error('❌ [Load PDF Deep Link] Failed to register event listener:', error);
+		}
+	}
 
 	// Register deep link handler - handles leedpdf:// URLs (plugin-based, may not work on all platforms)
 	async function registerDeepLinkHandler() {
@@ -214,10 +258,12 @@
 <UpdateNotification />
 <CookieConsentBanner />
 
-<!-- License Modal for Tauri Desktop App -->
-<LicenseModal
-	bind:isOpen={showLicenseModal}
-	bind:needsActivation
-	on:validated={handleLicenseValidated}
-	on:close={handleLicenseModalClose}
-/>
+<!-- License Modal for Windows/Linux only (excluded from macOS for App Store compliance) -->
+{#if requiresLicense}
+	<LicenseModal 
+		bind:isOpen={showLicenseModal}
+		bind:needsActivation={needsActivation}
+		on:validated={handleLicenseValidated}
+		on:close={handleLicenseModalClose}
+	/>
+{/if}
