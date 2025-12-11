@@ -177,7 +177,11 @@ fn test_tauri_detection() -> String {
 fn get_system_fonts() -> Result<Vec<String>, String> {
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
         use std::process::Command;
+
+        // Windows flag to hide console window
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
 
         // Use PowerShell to enumerate installed fonts
         // This is more reliable than reading registry directly
@@ -187,6 +191,7 @@ fn get_system_fonts() -> Result<Vec<String>, String> {
                 "-Command",
                 "[System.Reflection.Assembly]::LoadWithPartialName('System.Drawing') | Out-Null; (New-Object System.Drawing.Text.InstalledFontCollection).Families | ForEach-Object { $_.Name }"
             ])
+            .creation_flags(CREATE_NO_WINDOW)
             .output()
             .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
 

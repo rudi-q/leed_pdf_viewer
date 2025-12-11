@@ -110,11 +110,22 @@
 	let showEraserSizePicker = false;
 	let showStampPalette = false;
 	let showFontPicker = false;
+	let fontSearchQuery = '';
 	let showMoreMenu = false;
 	let showExportMenu = false;
 	let toolbarScrollContainer: HTMLDivElement;
 	let showLeftFade = false;
 	let showRightFade = true;
+
+	// Filter fonts based on search query
+	$: filteredFonts = fontSearchQuery.trim()
+		? $availableFonts.filter((font) =>
+				font.name.toLowerCase().includes(fontSearchQuery.toLowerCase())
+			)
+		: $availableFonts;
+
+	// Reset search when font picker closes
+	$: if (!showFontPicker) fontSearchQuery = '';
 
 	function handleToolChange(tool: DrawingTool) {
 		const previousTool = $drawingState.tool;
@@ -440,10 +451,22 @@
 						{#if showFontPicker}
 							<div class="absolute top-full mt-2 left-0 z-50">
 								<div
-									class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-3 min-w-[140px]"
+									class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-3 min-w-[200px]"
 								>
-									<div class="flex flex-col gap-1 max-h-[200px] overflow-y-auto">
-										{#each $availableFonts as font}
+									<!-- Search input -->
+									{#if $availableFonts.length > 5}
+										<div class="mb-2">
+											<input
+												type="text"
+												placeholder="Search fonts..."
+												bind:value={fontSearchQuery}
+												class="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-charcoal dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent"
+											/>
+										</div>
+									{/if}
+									<!-- Font list -->
+									<div class="flex flex-col gap-1 max-h-[200px] overflow-y-auto font-picker-scroll">
+										{#each filteredFonts as font}
 											<button
 												class="w-full px-3 py-2 text-left rounded-lg transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-sage focus:ring-offset-2"
 												class:bg-sage={font.fontFamily === $drawingState.textFontFamily}
@@ -455,6 +478,10 @@
 											>
 												<span class="text-sm">{font.name}</span>
 											</button>
+										{:else}
+											<p class="text-sm text-gray-400 dark:text-gray-500 px-3 py-2">
+												No fonts found
+											</p>
 										{/each}
 									</div>
 								</div>
@@ -1596,10 +1623,22 @@
 {#if showFontPicker}
 	<div class="fixed bottom-20 left-4 z-[70] lg:hidden">
 		<div
-			class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-3 min-w-[140px]"
+			class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-3 min-w-[200px]"
 		>
-			<div class="flex flex-col gap-1">
-				{#each $availableFonts as font}
+			<!-- Search input -->
+			{#if $availableFonts.length > 5}
+				<div class="mb-2">
+					<input
+						type="text"
+						placeholder="Search fonts..."
+						bind:value={fontSearchQuery}
+						class="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-charcoal dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent"
+					/>
+				</div>
+			{/if}
+			<!-- Font list -->
+			<div class="flex flex-col gap-1 max-h-[240px] overflow-y-auto font-picker-scroll">
+				{#each filteredFonts as font}
 					<button
 						class="w-full px-3 py-2 text-left rounded-lg transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-sage focus:ring-offset-2"
 						class:bg-sage={font.fontFamily === $drawingState.textFontFamily}
@@ -1611,6 +1650,8 @@
 					>
 						<span class="text-sm">{font.name}</span>
 					</button>
+				{:else}
+					<p class="text-sm text-gray-400 dark:text-gray-500 px-3 py-2">No fonts found</p>
 				{/each}
 			</div>
 		</div>
@@ -1630,5 +1671,41 @@
 
 	.floating-panel {
 		backdrop-filter: blur(20px);
+	}
+
+	/* Custom scrollbar for font picker */
+	.font-picker-scroll {
+		scrollbar-width: thin;
+		scrollbar-color: #87a96b transparent;
+	}
+
+	.font-picker-scroll::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	.font-picker-scroll::-webkit-scrollbar-track {
+		background: transparent;
+		border-radius: 3px;
+	}
+
+	.font-picker-scroll::-webkit-scrollbar-thumb {
+		background-color: #87a96b;
+		border-radius: 3px;
+	}
+
+	.font-picker-scroll::-webkit-scrollbar-thumb:hover {
+		background-color: #6b8c55;
+	}
+
+	:global(.dark) .font-picker-scroll {
+		scrollbar-color: #87a96b transparent;
+	}
+
+	:global(.dark) .font-picker-scroll::-webkit-scrollbar-thumb {
+		background-color: #87a96b;
+	}
+
+	:global(.dark) .font-picker-scroll::-webkit-scrollbar-thumb:hover {
+		background-color: #a8c68f;
 	}
 </style>
