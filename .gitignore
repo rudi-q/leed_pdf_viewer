@@ -12,6 +12,30 @@ node_modules
 # Tauri build artifacts
 src-tauri/target/
 src-tauri/gen/
+LeedPDF.pkg
+
+# Apple Development & macOS
+*.p12
+*.p8
+AuthKey_*.p8
+*.cer
+*.mobileprovision
+*.provisionprofile
+# Apple signing keys and certificates
+*.p12.key
+*.certSigningRequest
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
 src-tauri/msix
 src-tauri/*.microsoftstore.*.json
 
@@ -27,7 +51,6 @@ src-tauri/myapp.key.pub
 *.ps1
 
 # OS
-.DS_Store
 Thumbs.db
 
 # IDE

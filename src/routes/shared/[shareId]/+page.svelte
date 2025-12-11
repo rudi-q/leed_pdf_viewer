@@ -28,6 +28,11 @@
   let focusMode = false;
   
   onMount(async () => {
+    // Listen for menu shortcuts event from Tauri
+    window.addEventListener('show-shortcuts', () => {
+      showShortcuts = true;
+    });
+    
     if (browser && $page.params.shareId) {
       await loadSharedPDF($page.params.shareId);
     }

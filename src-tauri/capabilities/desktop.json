@@ -9,6 +9,11 @@
     "main"
   ],
   "permissions": [
-    "updater:default"
+    "core:default",
+    "core:window:allow-create",
+    "fs:default",
+    "dialog:default",
+    "shell:default",
+    "deep-link:default"
   ]
 }
