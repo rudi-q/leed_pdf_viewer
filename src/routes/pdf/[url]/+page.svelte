@@ -156,6 +156,13 @@
 
 	async function handleFileUpload(files: FileList) {
 		console.log('handleFileUpload called with:', files);
+
+		// Defensive guard for files array
+		if (!files || files.length === 0) {
+			toastStore.error('No File Selected', 'Please choose a file.');
+			return;
+		}
+
 		const file = files[0];
 		console.log('Selected file:', file?.name, 'Type:', file?.type, 'Size:', file?.size);
 
@@ -507,6 +514,36 @@
 		}
 	}
 
+	/**
+	 * Shared helper to get PDF bytes and base name from currentFile.
+	 * Call forceSaveAllAnnotations() before calling this.
+	 */
+	async function getPdfBytesAndBaseName(): Promise<{ pdfBytes: Uint8Array; originalName: string }> {
+		if (!currentFile) {
+			throw new Error('No PDF file available');
+		}
+
+		let pdfBytes: Uint8Array;
+		let originalName: string;
+
+		if (typeof currentFile === 'string') {
+			console.log('Fetching PDF data from URL:', currentFile);
+			const response = await fetch(currentFile);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+			}
+			const arrayBuffer = await response.arrayBuffer();
+			pdfBytes = new Uint8Array(arrayBuffer);
+			originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
+		} else {
+			const arrayBuffer = await currentFile.arrayBuffer();
+			pdfBytes = new Uint8Array(arrayBuffer);
+			originalName = currentFile.name.replace(/\.pdf$/i, '');
+		}
+
+		return { pdfBytes, originalName };
+	}
+
 	function handleDrop(event: DragEvent) {
 		event.preventDefault();
 		dragOver = false;
@@ -597,23 +634,7 @@
 			forceSaveAllAnnotations();
 			console.log('✅ All annotations force-saved to localStorage before export');
 
-			let pdfBytes: Uint8Array;
-			let originalName: string;
-
-			if (typeof currentFile === 'string') {
-				console.log('Fetching PDF data from URL for export:', currentFile);
-				const response = await fetch(currentFile);
-				if (!response.ok) {
-					throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-				}
-				const arrayBuffer = await response.arrayBuffer();
-				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
-			} else {
-				const arrayBuffer = await currentFile.arrayBuffer();
-				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = currentFile.name.replace(/\.pdf$/i, '');
-			}
+			const { pdfBytes, originalName } = await getPdfBytesAndBaseName();
 
 			const exporter = new PDFExporter();
 			exporter.setOriginalPDF(pdfBytes);
@@ -671,23 +692,7 @@
 			forceSaveAllAnnotations();
 			console.log('✅ All annotations force-saved to localStorage before export');
 
-			let pdfBytes: Uint8Array;
-			let originalName: string;
-
-			if (typeof currentFile === 'string') {
-				console.log('Fetching PDF data from URL for LPDF export:', currentFile);
-				const response = await fetch(currentFile);
-				if (!response.ok) {
-					throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-				}
-				const arrayBuffer = await response.arrayBuffer();
-				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
-			} else {
-				const arrayBuffer = await currentFile.arrayBuffer();
-				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = currentFile.name.replace(/\.pdf$/i, '');
-			}
+			const { pdfBytes, originalName } = await getPdfBytesAndBaseName();
 
 			const success = await exportCurrentPDFAsLPDF(pdfBytes, `${originalName}.pdf`);
 			if (success) {
@@ -712,23 +717,7 @@
 			forceSaveAllAnnotations();
 			console.log('✅ All annotations force-saved to localStorage before DOCX export');
 
-			let pdfBytes: Uint8Array;
-			let originalName: string;
-
-			if (typeof currentFile === 'string') {
-				console.log('Fetching PDF data from URL for DOCX export:', currentFile);
-				const response = await fetch(currentFile);
-				if (!response.ok) {
-					throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-				}
-				const arrayBuffer = await response.arrayBuffer();
-				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
-			} else {
-				const arrayBuffer = await currentFile.arrayBuffer();
-				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = currentFile.name.replace(/\.pdf$/i, '');
-			}
+			const { pdfBytes, originalName } = await getPdfBytesAndBaseName();
 
 			// First export to annotated PDF, then convert to DOCX
 			const exporter = new PDFExporter();
@@ -820,9 +809,10 @@
 		onPresentationModeChange: (value) => {
 			presentationMode = value;
 			if (value) {
-				document.documentElement.requestFullscreen?.();
-			} else {
-				document.exitFullscreen?.();
+				enterFullscreen();
+			} else if (document.fullscreenElement) {
+				// Only exit fullscreen if actually in fullscreen
+				exitFullscreen();
 			}
 		},
 		onFileUploadClick: handleFileUploadClick,
