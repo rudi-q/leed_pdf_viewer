@@ -171,60 +171,30 @@ fn test_tauri_detection() -> String {
     "Tauri detection working!".to_string()
 }
 
-/// Get all installed system fonts (Windows only)
+/// Get all installed system fonts
 /// Returns a sorted list of font family names installed on the system
+/// Uses font-kit for native cross-platform font enumeration
 #[tauri::command]
 fn get_system_fonts() -> Result<Vec<String>, String> {
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        use std::process::Command;
+    use font_kit::source::SystemSource;
+    use std::collections::HashSet;
 
-        // Windows flag to hide console window
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
+    let source = SystemSource::new();
 
-        // Use PowerShell to enumerate installed fonts
-        // This is more reliable than reading registry directly
-        let output = Command::new("powershell")
-            .args([
-                "-NoProfile",
-                "-Command",
-                "[System.Reflection.Assembly]::LoadWithPartialName('System.Drawing') | Out-Null; (New-Object System.Drawing.Text.InstalledFontCollection).Families | ForEach-Object { $_.Name }"
-            ])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output()
-            .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
+    // Get all font families from the system
+    let families = source
+        .all_families()
+        .map_err(|e| format!("Failed to enumerate fonts: {:?}", e))?;
 
-        if !output.status.success() {
-            return Err(format!(
-                "PowerShell command failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            ));
-        }
+    // Use HashSet to deduplicate, then collect and sort
+    let unique_fonts: HashSet<String> = families.into_iter().collect();
+    let mut fonts: Vec<String> = unique_fonts.into_iter().collect();
 
-        let fonts_str = String::from_utf8_lossy(&output.stdout);
-        let mut fonts: Vec<String> = fonts_str
-            .lines()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect();
+    // Sort alphabetically for consistent ordering
+    fonts.sort();
 
-        // Sort alphabetically for consistent ordering
-        fonts.sort();
-
-        // Remove duplicates
-        fonts.dedup();
-
-        println!("Found {} system fonts", fonts.len());
-        Ok(fonts)
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        // Return empty list on non-Windows platforms
-        // macOS and Linux would need different approaches
-        Ok(Vec::new())
-    }
+    println!("Found {} system fonts using font-kit", fonts.len());
+    Ok(fonts)
 }
 
 #[cfg(debug_assertions)]
