@@ -1,6 +1,6 @@
 [package]
 name = "leed-pdf"
-version = "2.19.0"
+version = "2.22.0"
 description = "A Lightweight, Opensource and Private PDF Viewer & Annotation Tool"
 authors = ["Rudi K <reach@rudi.engineer>"]
 license = "AGPL"
@@ -31,6 +31,7 @@ tokio = { version = "1.0", features = ["full"] }
 machine-uid = "0.5"
 rfd = "0.15"
 url = "2"
+font-kit = "0.14"
 
 # Linux-specific: Use gtk3 instead of xdg-portal to avoid conflict
 [target.'cfg(target_os = "linux")'.dependencies]

@@ -3,6 +3,7 @@
 	import {
 		addDrawingPath,
 		arrowAnnotations,
+		clearTextAnnotationSelection,
 		currentPageArrowAnnotations,
 		currentPagePaths,
 		currentPageStampAnnotations,
@@ -898,6 +899,7 @@ function handlePointerUp(event: PointerEvent) {
   export async function goToPage(pageNumber: number) {
     if (pageNumber < 1 || pageNumber > $pdfState.totalPages) return;
     
+    clearTextAnnotationSelection();
     pdfState.update(state => ({ ...state, currentPage: pageNumber }));
     await renderCurrentPage();
   }

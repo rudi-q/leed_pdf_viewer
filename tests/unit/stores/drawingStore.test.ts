@@ -38,17 +38,18 @@ describe('DrawingStore', () => {
 	describe('Initial State', () => {
 		it('should have correct initial drawing state', () => {
 			const state = get(drawingState);
-		expect(state).toEqual({
-			tool: 'pencil',
-			color: '#2D3748',
-			lineWidth: 2,
-			eraserSize: 8,
-			highlightColor: '#FFEB3B',
-			highlightOpacity: 0.4,
-			noteColor: '#FFF59D',
-			stampId: 'star',
-			isDrawing: false
-		});
+			expect(state).toEqual({
+				tool: 'pencil',
+				color: '#2D3748',
+				lineWidth: 2,
+				eraserSize: 8,
+				highlightColor: '#FFEB3B',
+				highlightOpacity: 0.4,
+				noteColor: '#FFF59D',
+				stampId: 'star',
+				textFontFamily: 'ReenieBeanie, cursive',
+				isDrawing: false
+			});
 		});
 
 		it('should have correct initial PDF state', () => {

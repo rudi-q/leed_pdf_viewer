@@ -36,6 +36,8 @@ Icon
 .Trashes
 .VolumeIcon.icns
 .com.apple.timemachine.donotpresent
+src-tauri/msix
+src-tauri/*.microsoftstore.*.json
 
 # Tauri updater files
 src-tauri/latest.json

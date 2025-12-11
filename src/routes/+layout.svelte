@@ -9,6 +9,7 @@
 	import ParityDeals from '$lib/components/ParityDeals.svelte';
 	import { fileStorage } from '$lib/utils/fileStorageUtils';
 	import { licenseManager } from '$lib/utils/licenseManager';
+	import { initializeFonts } from '$lib/stores/drawingStore';
 	import { browser, dev } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { isTauri, detectOS } from '$lib/utils/tauriUtils';
@@ -39,11 +40,14 @@
 			
 			// Start auto-cleanup of old files every AUTO_CLEANUP_INTERVAL milliseconds
 			const stopCleanup = fileStorage.startAutoCleanup();
-			
+      
 			// License validation for Tauri desktop app only (Windows/Linux only)
 			if (requiresLicense) {
 				// Check license immediately after app loads (removed delay)
 				performLicenseCheck();
+
+				// Initialize system fonts for Windows
+				initializeFonts();
 			} else {
 				// macOS App Store or web version doesn't need license validation
 				licenseCheckCompleted = true;
@@ -71,7 +75,7 @@
 	async function performLicenseCheck() {
 		try {
 			const result = await licenseManager.checkLicenseStatus();
-			
+
 			if (result.valid) {
 				hasValidLicense = true;
 				// Trigger update check only after license is validated
@@ -94,17 +98,22 @@
 	}
 
 	// Handle successful license processing (activation or validation)
-	function handleLicenseValidated(event: CustomEvent<{ licenseKey: string; wasActivation: boolean }>) {
+	function handleLicenseValidated(
+		event: CustomEvent<{ licenseKey: string; wasActivation: boolean }>
+	) {
 		const { licenseKey, wasActivation } = event.detail;
 		// Log success without exposing the raw license key
-		const maskedKey = licenseKey.length > 4 ? 
-			'*'.repeat(licenseKey.length - 4) + licenseKey.slice(-4) : 
-			'*'.repeat(licenseKey.length);
-		console.log(`License ${wasActivation ? 'activation' : 'validation'} successful - Key: ${maskedKey}`);
+		const maskedKey =
+			licenseKey.length > 4
+				? '*'.repeat(licenseKey.length - 4) + licenseKey.slice(-4)
+				: '*'.repeat(licenseKey.length);
+		console.log(
+			`License ${wasActivation ? 'activation' : 'validation'} successful - Key: ${maskedKey}`
+		);
 		showLicenseModal = false;
 		licenseCheckCompleted = true;
 		hasValidLicense = true;
-		
+
 		// Now that license is valid, trigger update check
 		if (updateManager && updateManager.manualCheckForUpdates) {
 			updateManager.manualCheckForUpdates();
@@ -118,7 +127,7 @@
 		licenseCheckCompleted = true;
 		// hasValidLicense remains false, so no update check will be triggered
 	}
-	
+
 	// Listen for deep-link events emitted from Rust backend
 	async function listenForDeepLinks() {
 		console.log('🔗 [Deep Link] Setting up event listener for deep-link events...');
@@ -127,13 +136,13 @@
 				console.log('🔗🔗🔗 [Deep Link] EVENT RECEIVED!', event);
 				let content = event.payload as string;
 				console.log('🔗 [Deep Link] Raw content:', content);
-				
+
 				// Windows strips the colon after https, fix it
 				if (content.startsWith('https//') || content.startsWith('http//')) {
 					content = content.replace('https//', 'https://').replace('http//', 'http://');
 					console.log('🔗 [Deep Link] Fixed URL:', content);
 				}
-				
+
 				if (content) {
 					// Navigate to /pdf/[url] route - DRY!
 					const encodedContent = encodeURIComponent(content);
@@ -142,7 +151,7 @@
 				}
 			});
 			console.log('✅ [Deep Link] Event listener registered successfully!');
-			
+
 			// Tell Rust backend we're ready to receive deep link events
 			// This will trigger a re-check of command line args
 			const { invoke } = await import('@tauri-apps/api/core');
@@ -186,17 +195,17 @@
 			console.log('🔗 [Deep Link] Getting current instance...');
 			const current = await getCurrent();
 			console.log('🔗 [Deep Link] Got current:', current);
-			
+
 			if (!current || typeof current !== 'object' || !('onOpenUrl' in current)) {
 				console.log('⚠️ [Deep Link] Plugin API not available, relying on custom event handler');
 				return;
 			}
-			
+
 			console.log('🔗 [Deep Link] Calling onOpenUrl...');
 			const unlisten = await (current as any).onOpenUrl((urls: string[]) => {
 				console.log('🔗🔗🔗 [Deep Link] PLUGIN CALLBACK TRIGGERED! Received:', urls);
 				console.log('🔗 [Deep Link] Type:', typeof urls, 'IsArray:', Array.isArray(urls));
-				
+
 				// Process each URL
 				for (const url of urls) {
 					console.log('🔗 [Deep Link] Processing URL:', url);
@@ -204,13 +213,13 @@
 						// Extract the content after leedpdf://
 						let content = url.replace('leedpdf://', '');
 						console.log('🔗 [Deep Link] Extracted content:', content);
-						
+
 						// Fix Windows colon stripping
 						if (content.startsWith('https//') || content.startsWith('http//')) {
 							content = content.replace('https//', 'https://').replace('http//', 'http://');
 							console.log('🔗 [Deep Link] Fixed URL:', content);
 						}
-						
+
 						if (content) {
 							// Navigate to /pdf/[url] route - same as web app!
 							const encodedContent = encodeURIComponent(content);
@@ -222,7 +231,10 @@
 					}
 				}
 			});
-			console.log('✅ [Deep Link] Plugin handler registered successfully! Unlisten function:', typeof unlisten);
+			console.log(
+				'✅ [Deep Link] Plugin handler registered successfully! Unlisten function:',
+				typeof unlisten
+			);
 		} catch (error: unknown) {
 			console.error('❌ [Deep Link] Failed to register plugin handler:', error);
 			if (error instanceof Error) {
