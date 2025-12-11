@@ -53,6 +53,22 @@
 		}
 	}
 
+	function enterFullscreen() {
+		if (document.documentElement.requestFullscreen) {
+			document.documentElement.requestFullscreen().catch((err) => {
+				console.warn('Failed to enter fullscreen:', err);
+			});
+		}
+	}
+
+	function exitFullscreen() {
+		if (document.fullscreenElement && document.exitFullscreen) {
+			document.exitFullscreen().catch((err) => {
+				console.warn('Failed to exit fullscreen:', err);
+			});
+		}
+	}
+
 	async function loadSharedPDF(shareId: string, providedPassword?: string) {
 		isLoading = true;
 		errorMessage = '';
@@ -441,9 +457,9 @@
 				onPresentationModeChange={(value) => {
 					presentationMode = value;
 					if (value) {
-						document.documentElement.requestFullscreen?.();
-					} else if (document.fullscreenElement) {
-						document.exitFullscreen?.();
+						enterFullscreen();
+					} else {
+						exitFullscreen();
 					}
 				}}
 			/>
