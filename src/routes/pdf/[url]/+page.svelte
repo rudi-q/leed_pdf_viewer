@@ -609,15 +609,17 @@
 
 	function enterFullscreen() {
 		if (document.documentElement.requestFullscreen) {
-			document.documentElement.requestFullscreen();
-			isFullscreen = true;
+			document.documentElement.requestFullscreen().catch((err) => {
+				console.warn('Failed to enter fullscreen:', err);
+			});
 		}
 	}
 
 	function exitFullscreen() {
 		if (document.fullscreenElement && document.exitFullscreen) {
-			document.exitFullscreen();
-			isFullscreen = false;
+			document.exitFullscreen().catch((err) => {
+				console.warn('Failed to exit fullscreen:', err);
+			});
 		}
 	}
 
@@ -853,6 +855,15 @@
 				onSharePDF={handleSharePDF}
 				{showThumbnails}
 				onToggleThumbnails={handleToggleThumbnails}
+				{presentationMode}
+				onPresentationModeChange={(value) => {
+					presentationMode = value;
+					if (value) {
+						enterFullscreen();
+					} else if (document.fullscreenElement) {
+						exitFullscreen();
+					}
+				}}
 			/>
 		{/if}
 

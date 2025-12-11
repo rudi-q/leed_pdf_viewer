@@ -850,6 +850,15 @@
 				onSharePDF={handleSharePDF}
 				{showThumbnails}
 				onToggleThumbnails={handleToggleThumbnails}
+				{presentationMode}
+				onPresentationModeChange={(value) => {
+					presentationMode = value;
+					if (value) {
+						enterFullscreen();
+					} else if (document.fullscreenElement) {
+						exitFullscreen();
+					}
+				}}
 			/>
 		{/if}
 

@@ -437,6 +437,15 @@
 				isSharedView={true}
 				viewOnlyMode={sharedPDFData?.viewOnly || false}
 				allowDownloading={sharedPDFData?.allowDownloading !== false}
+				{presentationMode}
+				onPresentationModeChange={(value) => {
+					presentationMode = value;
+					if (value) {
+						document.documentElement.requestFullscreen?.();
+					} else if (document.fullscreenElement) {
+						document.exitFullscreen?.();
+					}
+				}}
 			/>
 		{/if}
 
