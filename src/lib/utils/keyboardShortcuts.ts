@@ -32,9 +32,9 @@ export interface KeyboardShortcutsParams {
 export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardShortcutsParams) {
 	function handleKeyboard(event: Event) {
 		if (!(event instanceof KeyboardEvent)) return;
-		
-		const isTyping = 
-			event.target instanceof HTMLInputElement || 
+
+		const isTyping =
+			event.target instanceof HTMLInputElement ||
 			event.target instanceof HTMLTextAreaElement ||
 			(event.target instanceof HTMLElement && event.target.isContentEditable);
 		if (isTyping && event.key !== 'Escape') {
@@ -151,6 +151,18 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 				case 'P':
 					event.preventDefault();
 					params.onPresentationModeChange(!params.presentationMode);
+					break;
+				case 'Escape':
+					// Exit presentation mode on ESC if active
+					if (params.presentationMode) {
+						event.preventDefault();
+						params.onPresentationModeChange(false);
+					}
+					// Close shortcuts modal if open
+					if (params.showShortcuts) {
+						event.preventDefault();
+						params.onShowShortcutsChange(false);
+					}
 					break;
 			}
 		}

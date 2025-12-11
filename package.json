@@ -57,6 +57,7 @@
 			"cookie": "0.7.0"
 		},
 		"onlyBuiltDependencies": [
+			"core-js",
 			"esbuild",
 			"sharp"
 		]
