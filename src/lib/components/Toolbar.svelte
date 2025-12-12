@@ -49,6 +49,7 @@
 		MoreHorizontal,
 		MousePointerClick,
 		Package,
+		Presentation,
 		Redo2,
 		RotateCcw,
 		Search,
@@ -102,6 +103,10 @@
 	export let isSharedView = false;
 	export let viewOnlyMode = false;
 	export let allowDownloading = true;
+
+	// Presentation mode control
+	export let presentationMode = false;
+	export let onPresentationModeChange: ((value: boolean) => void) | undefined = undefined;
 
 	let fileInput: HTMLInputElement;
 	let showColorPalette = false;
@@ -966,6 +971,22 @@
 							{/if}
 						</button>
 					</Tooltip>
+
+					<!-- Presentation mode button -->
+					{#if onPresentationModeChange}
+						<Tooltip content="Presentation mode (P)">
+							<button
+								class="tool-button w-8 h-8 flex items-center justify-center"
+								class:active={presentationMode}
+								class:opacity-50={!$pdfState.document}
+								disabled={!$pdfState.document}
+								on:click={() => onPresentationModeChange(!presentationMode)}
+								aria-label="Toggle presentation mode"
+							>
+								<Presentation size={16} />
+							</button>
+						</Tooltip>
+					{/if}
 				</div>
 
 				<!-- Mobile: Current tool indicator, Light/Dark mode (Hidden) -->
