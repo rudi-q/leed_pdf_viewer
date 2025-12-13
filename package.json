@@ -27,6 +27,7 @@
 	"devDependencies": {
 		"@eslint/js": "^9.39.1",
 		"@playwright/test": "^1.57.0",
+		"@rollup/rollup-darwin-arm64": "^4.53.3",
 		"@sveltejs/adapter-vercel": "^6.2.0",
 		"@sveltejs/enhanced-img": "^0.9.2",
 		"@sveltejs/kit": "^2.49.1",

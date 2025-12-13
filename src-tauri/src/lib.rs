@@ -199,7 +199,9 @@ struct ParsedDeepLink {
 // - host/action is whitelisted (currently: "open")
 // - only "file" and "page" params are accepted
 // - value lengths are bounded and types/ranges validated
-// - file param must be an absolute local path with an allowed extension
+// - file param must be either:
+//   - an HTTP(S) URL for loading remote PDFs, or
+//   - an absolute local path with an allowed extension (pdf, lpdf, md)
 fn parse_and_validate_deep_link(url: &str) -> Result<ParsedDeepLink, String> {
     println!("[DEEP_LINK] Parsing URL: {}", url);
     let parsed = url::Url::parse(url).map_err(|e| {
@@ -330,8 +332,20 @@ mod tests {
     }
 
     #[test]
-    fn rejects_http_origin_in_file() {
-        assert!(parse_and_validate_deep_link("leedpdf://open?file=http://evil/a.pdf").is_err());
+    fn accepts_http_url_in_file() {
+        // HTTP(S) URLs are allowed in the file parameter to support loading remote PDFs
+        let result = parse_and_validate_deep_link("leedpdf://open?file=http://example.com/doc.pdf");
+        assert!(result.is_ok());
+        let parsed = result.unwrap();
+        assert_eq!(parsed.file, Some("http://example.com/doc.pdf".to_string()));
+    }
+
+    #[test]
+    fn accepts_https_url_in_file() {
+        let result = parse_and_validate_deep_link("leedpdf://open?file=https://example.com/doc.pdf");
+        assert!(result.is_ok());
+        let parsed = result.unwrap();
+        assert_eq!(parsed.file, Some("https://example.com/doc.pdf".to_string()));
     }
 
     #[test]
@@ -1008,7 +1022,7 @@ fn process_pdf_files(app_handle: &tauri::AppHandle, pdf_files: Vec<String>) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default();
+    let mut builder = tauri::Builder::default();
 
     // NEW: Single-instance plugin for Windows/Linux (macOS is single-instance by default)
     #[cfg(desktop)]
@@ -1039,9 +1053,14 @@ pub fn run() {
             );
         }
     }
+    // Enable updater for non-macOS builds (App Store compliance)
+    #[cfg(not(target_os = "macos"))]
+    {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+
 	let builder_result = builder
         .plugin(tauri_plugin_deep_link::init())
-        // .plugin(tauri_plugin_updater::Builder::new().build()) // Disabled for App Store
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())

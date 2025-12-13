@@ -226,9 +226,7 @@ import SharePDFModal from '$lib/components/SharePDFModal.svelte';
     console.log('[PDF Upload Route] Setting up event listeners');
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     
-    window.addEventListener('show-shortcuts', () => {
-      showShortcuts = true;
-    });
+    window.addEventListener('show-shortcuts', handleMenuEvent);
     window.addEventListener('menu-undo', handleMenuEvent);
     window.addEventListener('menu-redo', handleMenuEvent);
     window.addEventListener('menu-previous-page', handleMenuEvent);
@@ -292,7 +290,7 @@ import SharePDFModal from '$lib/components/SharePDFModal.svelte';
     document.removeEventListener('fullscreenchange', handleFullscreenChange);
     
     // Clean up menu event listeners
-    window.removeEventListener('show-shortcuts', () => {});
+    window.removeEventListener('show-shortcuts', handleMenuEvent);
     window.removeEventListener('menu-undo', handleMenuEvent);
     window.removeEventListener('menu-redo', handleMenuEvent);
     window.removeEventListener('menu-previous-page', handleMenuEvent);
