@@ -34,6 +34,16 @@
 	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
 	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
 
+	// Module-scoped cleanup handlers for Tauri event listeners
+	let tauriCleanupHandlers: {
+		unlistenFileOpened: Promise<() => void>;
+		unlistenStartupReady: Promise<() => void>;
+		unlistenDebug: Promise<() => void>;
+	} | null = null;
+
+	// Track pending files timeout for cleanup
+	let pendingFilesTimeout: ReturnType<typeof setTimeout> | null = null;
+
 	let pdfViewer: PDFViewer;
 	let currentFile: File | string | null = null;
 	let dragOver = false;
@@ -41,6 +51,7 @@
 	let isFullscreen = false;
 	let showThumbnails = false;
 	let focusMode = false;
+	let presentationMode = false;
 	let isLoading = true;
 	let showShareModal = false;
 
@@ -307,6 +318,10 @@
 				unlistenFileOpened,
 				unlistenStartupReady,
 				unlistenDeepLink,
+			// Store cleanup functions in module-scoped variable
+			tauriCleanupHandlers = {
+				unlistenFileOpened,
+				unlistenStartupReady,
 				unlistenDebug
 			};
 		}
@@ -349,11 +364,31 @@
 			unlistenDeepLink.then((fn: () => void) => fn()).catch(console.error);
 			unlistenDebug.then((fn: () => void) => fn()).catch(console.error);
 			delete window.__pdfRouteCleanup;
+		// Clear any pending file check timeout
+		if (pendingFilesTimeout !== null) {
+			clearTimeout(pendingFilesTimeout);
+			pendingFilesTimeout = null;
+		}
+
+		// Clean up Tauri event listeners
+		if (tauriCleanupHandlers) {
+			const { unlistenFileOpened, unlistenStartupReady, unlistenDebug } = tauriCleanupHandlers;
+			unlistenFileOpened.then((fn) => fn()).catch(console.error);
+			unlistenStartupReady.then((fn) => fn()).catch(console.error);
+			unlistenDebug.then((fn) => fn()).catch(console.error);
+			tauriCleanupHandlers = null;
 		}
 	}
 
 	async function handleFileUpload(files: FileList) {
 		console.log('handleFileUpload called with:', files);
+
+		// Defensive guard for files array
+		if (!files || files.length === 0) {
+			toastStore.error('No File Selected', 'Please choose a file.');
+			return;
+		}
+
 		const file = files[0];
 		console.log('Selected file:', file?.name, 'Type:', file?.type, 'Size:', file?.size);
 
@@ -369,7 +404,10 @@
 		// Check file size for all file types before processing
 		if (file.size > MAX_FILE_SIZE) {
 			console.log('File too large');
-			toastStore.error('File Too Large', 'File too large. Please choose a file under 50MB.');
+			toastStore.error(
+				'File Too Large',
+				`File size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum limit of ${MAX_FILE_SIZE / (1024 * 1024)}MB.`
+			);
 			return;
 		}
 
@@ -590,8 +628,8 @@
 				const success = await handleFileFromCommandLine(pendingFile);
 
 				if (success) {
-					// Check for more files
-					setTimeout(checkForPendingFiles, 100);
+					// Check for more files - track timeout for cleanup
+					pendingFilesTimeout = setTimeout(checkForPendingFiles, 100);
 				}
 			} else {
 				console.log('No pending files found via command');
@@ -702,6 +740,36 @@
 		}
 	}
 
+	/**
+	 * Shared helper to get PDF bytes and base name from currentFile.
+	 * Call forceSaveAllAnnotations() before calling this.
+	 */
+	async function getPdfBytesAndBaseName(): Promise<{ pdfBytes: Uint8Array; originalName: string }> {
+		if (!currentFile) {
+			throw new Error('No PDF file available');
+		}
+
+		let pdfBytes: Uint8Array;
+		let originalName: string;
+
+		if (typeof currentFile === 'string') {
+			console.log('Fetching PDF data from URL:', currentFile);
+			const response = await fetch(currentFile);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+			}
+			const arrayBuffer = await response.arrayBuffer();
+			pdfBytes = new Uint8Array(arrayBuffer);
+			originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
+		} else {
+			const arrayBuffer = await currentFile.arrayBuffer();
+			pdfBytes = new Uint8Array(arrayBuffer);
+			originalName = currentFile.name.replace(/\.pdf$/i, '');
+		}
+
+		return { pdfBytes, originalName };
+	}
+
 	function handleDrop(event: DragEvent) {
 		event.preventDefault();
 		dragOver = false;
@@ -767,15 +835,17 @@
 
 	function enterFullscreen() {
 		if (document.documentElement.requestFullscreen) {
-			document.documentElement.requestFullscreen();
-			isFullscreen = true;
+			document.documentElement.requestFullscreen().catch((err) => {
+				console.warn('Failed to enter fullscreen:', err);
+			});
 		}
 	}
 
 	function exitFullscreen() {
 		if (document.fullscreenElement && document.exitFullscreen) {
-			document.exitFullscreen();
-			isFullscreen = false;
+			document.exitFullscreen().catch((err) => {
+				console.warn('Failed to exit fullscreen:', err);
+			});
 		}
 	}
 
@@ -792,23 +862,7 @@
 			forceSaveAllAnnotations();
 			console.log('✅ All annotations force-saved to localStorage before export');
 
-			let pdfBytes: Uint8Array;
-			let originalName: string;
-
-			if (typeof currentFile === 'string') {
-				console.log('Fetching PDF data from URL for export:', currentFile);
-				const response = await fetch(currentFile);
-				if (!response.ok) {
-					throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-				}
-				const arrayBuffer = await response.arrayBuffer();
-				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
-			} else {
-				const arrayBuffer = await currentFile.arrayBuffer();
-				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = currentFile.name.replace(/\.pdf$/i, '');
-			}
+			const { pdfBytes, originalName } = await getPdfBytesAndBaseName();
 
 			const exporter = new PDFExporter();
 			exporter.setOriginalPDF(pdfBytes);
@@ -866,23 +920,7 @@
 			forceSaveAllAnnotations();
 			console.log('✅ All annotations force-saved to localStorage before export');
 
-			let pdfBytes: Uint8Array;
-			let originalName: string;
-
-			if (typeof currentFile === 'string') {
-				console.log('Fetching PDF data from URL for LPDF export:', currentFile);
-				const response = await fetch(currentFile);
-				if (!response.ok) {
-					throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-				}
-				const arrayBuffer = await response.arrayBuffer();
-				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
-			} else {
-				const arrayBuffer = await currentFile.arrayBuffer();
-				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = currentFile.name.replace(/\.pdf$/i, '');
-			}
+			const { pdfBytes, originalName } = await getPdfBytesAndBaseName();
 
 			const success = await exportCurrentPDFAsLPDF(pdfBytes, `${originalName}.pdf`);
 			if (success) {
@@ -907,23 +945,7 @@
 			forceSaveAllAnnotations();
 			console.log('✅ All annotations force-saved to localStorage before DOCX export');
 
-			let pdfBytes: Uint8Array;
-			let originalName: string;
-
-			if (typeof currentFile === 'string') {
-				console.log('Fetching PDF data from URL for DOCX export:', currentFile);
-				const response = await fetch(currentFile);
-				if (!response.ok) {
-					throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-				}
-				const arrayBuffer = await response.arrayBuffer();
-				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = extractFilenameFromUrl(currentFile).replace(/\\.pdf$/i, '');
-			} else {
-				const arrayBuffer = await currentFile.arrayBuffer();
-				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = currentFile.name.replace(/\\.pdf$/i, '');
-			}
+			const { pdfBytes, originalName } = await getPdfBytesAndBaseName();
 
 			// First export to annotated PDF, then convert to DOCX
 			const exporter = new PDFExporter();
@@ -995,6 +1017,10 @@
 
 	function handleFullscreenChange() {
 		isFullscreen = !!document.fullscreenElement;
+		// Exit presentation mode when fullscreen is exited
+		if (!document.fullscreenElement && presentationMode) {
+			presentationMode = false;
+		}
 	}
 </script>
 
@@ -1004,9 +1030,19 @@
 		showShortcuts,
 		showThumbnails,
 		focusMode,
+		presentationMode,
 		onShowShortcutsChange: (value) => (showShortcuts = value),
 		onShowThumbnailsChange: (value) => (showThumbnails = value),
 		onFocusModeChange: (value) => (focusMode = value),
+		onPresentationModeChange: (value) => {
+			presentationMode = value;
+			if (value) {
+				enterFullscreen();
+			} else if (document.fullscreenElement) {
+				// Only exit fullscreen if actually in fullscreen
+				exitFullscreen();
+			}
+		},
 		onFileUploadClick: handleFileUploadClick,
 		onStampToolClick: handleStampToolClick
 	}}
@@ -1029,7 +1065,7 @@
 			</div>
 		</div>
 	{:else if currentFile}
-		{#if !focusMode}
+		{#if !focusMode && !presentationMode}
 			<Toolbar
 				onFileUpload={handleFileUpload}
 				onPreviousPage={() => pdfViewer?.previousPage()}
@@ -1045,17 +1081,26 @@
 				onSharePDF={handleSharePDF}
 				{showThumbnails}
 				onToggleThumbnails={handleToggleThumbnails}
+				{presentationMode}
+				onPresentationModeChange={(value) => {
+					presentationMode = value;
+					if (value) {
+						enterFullscreen();
+					} else if (document.fullscreenElement) {
+						exitFullscreen();
+					}
+				}}
 			/>
 		{/if}
 
-		<div class="w-full h-full" class:pt-12={!focusMode}>
+		<div class="w-full h-full" class:pt-12={!focusMode && !presentationMode}>
 			<div class="flex h-full">
 				{#if showThumbnails}
 					<PageThumbnails isVisible={showThumbnails} onPageSelect={handlePageSelect} />
 				{/if}
 
 				<div class="flex-1">
-					<PDFViewer bind:this={pdfViewer} pdfFile={currentFile} />
+					<PDFViewer bind:this={pdfViewer} pdfFile={currentFile} {presentationMode} />
 				</div>
 			</div>
 		</div>
@@ -1072,7 +1117,7 @@
 			</div>
 		{/if}
 
-		{#if !focusMode}
+		{#if !focusMode && !presentationMode}
 			<HelpButton
 				position="absolute"
 				positionClasses="bottom-4 left-4"
@@ -1084,7 +1129,12 @@
 		{/if}
 	{/if}
 
-	<Footer {focusMode} {getFormattedVersion} on:helpClick={() => (showShortcuts = true)} />
+	<Footer
+		{focusMode}
+		{presentationMode}
+		{getFormattedVersion}
+		on:helpClick={() => (showShortcuts = true)}
+	/>
 </main>
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => (showShortcuts = false)} />
@@ -1103,9 +1153,8 @@
 
 <!-- Hidden file input -->
 <input
-	id="file-input"
 	type="file"
-	accept=".pdf,.lpdf,.md,.markdown"
+	accept=".pdf,.lpdf"
 	multiple={false}
 	class="hidden"
 	on:change={(event) => {

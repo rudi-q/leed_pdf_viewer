@@ -16,7 +16,14 @@
 	import DragOverlay from '$lib/components/DragOverlay.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import GlobalStyles from '$lib/components/GlobalStyles.svelte';
-	import { forceSaveAllAnnotations, pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
+	import {
+		forceSaveAllAnnotations,
+		pdfState,
+		redo,
+		setCurrentPDF,
+		setTool,
+		undo
+	} from '$lib/stores/drawingStore';
 	import { PDFExporter } from '$lib/utils/pdfExport';
 	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
@@ -28,1001 +35,908 @@
 	import { isValidLPDFFile, isValidMarkdownFile, isValidPDFFile } from '$lib/utils/pdfUtils';
 	import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
 	import { trackFullscreenToggle, trackPdfExport } from '$lib/utils/analytics';
-import SharePDFModal from '$lib/components/SharePDFModal.svelte';
+	import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
 	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
 
 	let pdfViewer: PDFViewer;
-  let currentFile: File | string | null = null;
-  let dragOver = false;
-  let showShortcuts = false;
-  let isFullscreen = false;
-  let showThumbnails = false;
-  let focusMode = false;
-  let isLoading = true;
-  let showDebugPanel = false;
-  let showShareModal = false;
-
-  // File loading variables
-  // (hasLoadedFromCommandLine removed - was unused dead code)
-  
-  // Helper function to extract filename from URL
-  function extractFilenameFromUrl(url: string): string {
-    try {
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname;
-      const filename = pathname.split('/').pop() || 'document.pdf';
-      return filename.toLowerCase().endsWith('.pdf') ? filename : filename + '.pdf';
-    } catch {
-      return 'document.pdf';
-    }
-  }
-
-  // Check if we have a file from the previous page or URL parameters
-  $: if (browser && $page && $page.url) {
-    const pdfUrl = $page.url.searchParams.get('pdf');
-    if (pdfUrl && !currentFile) {
-      console.log('[PDF Upload Route] Found PDF parameter:', pdfUrl);
-      handlePdfUrlLoad(pdfUrl);
-    }
-  }
-
-  // Check for uploaded file data from URL parameters or IndexedDB
-  onMount(async () => {
-    // Check for file ID in URL parameters
-    const fileId = $page.url.searchParams.get('fileId');
-    
-      if (fileId) {
-      console.log('Found file ID in URL parameters:', fileId);
-      try {
-        const result = await retrieveUploadedFile(fileId);
-        
-        if (result.success && result.file) {
-          currentFile = result.file;
-          isLoading = false;
-          
-          // Set current PDF for auto-save functionality
-          setCurrentPDF(result.file.name, result.file.size);
-          console.log('File loaded successfully from IndexedDB');
-        } else {
-          console.error('Failed to retrieve file from IndexedDB:', result.error);
-          toastStore.error('File Not Found', 'The uploaded file could not be found. Please try uploading again.');
-          goto('/');
-        }
-      } catch (error) {
-        console.error('Error retrieving file from IndexedDB:', error);
-        toastStore.error('Storage Error', 'Could not load the uploaded file. Please try again.');
-        goto('/');
-      }
-    } else {
-      // Fallback: Check sessionStorage for backward compatibility
-      const tempFileData = sessionStorage.getItem('tempPdfFile');
-      if (tempFileData) {
-        console.log('Found uploaded file in sessionStorage (legacy)');
-        try {
-          const fileData = JSON.parse(tempFileData);
-          const uint8Array = new Uint8Array(fileData.data);
-          const reconstructedFile = new File([uint8Array], fileData.name, {
-            type: fileData.type
-          });
-          
-          currentFile = reconstructedFile;
-          isLoading = false;
-          
-          setCurrentPDF(reconstructedFile.name, reconstructedFile.size);
-          sessionStorage.removeItem('tempPdfFile');
-          console.log('File loaded successfully from sessionStorage');
-        } catch (error) {
-          console.error('Error parsing file data from sessionStorage:', error);
-          toastStore.error('File Error', 'Could not load the uploaded file. Please try uploading again.');
-          goto('/');
-        }
-      } else {
-        // If no file, redirect back to home
-        console.log('No file found, redirecting to home');
-        toastStore.info('No File', 'No file was found to load. Please upload a PDF first.');
-        goto('/');
-      }
-    }
-
-    // Setup all the event listeners and handlers
-    setupEventListeners();
-  });
-
-  // Separate cleanup on destroy
-  onDestroy(() => {
-    cleanup();
-  });
-
-  // Listen for menu events from Tauri
-  const handleMenuEvent = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      console.log('[MENU] Received menu event:', event.type, customEvent.detail);
-      
-      switch(event.type) {
-        case 'show-shortcuts':
-          showShortcuts = true;
-          break;
-        case 'menu-undo':
-          undo();
-          break;
-        case 'menu-redo':
-          redo();
-          break;
-        case 'menu-previous-page':
-          pdfViewer?.previousPage();
-          break;
-        case 'menu-next-page':
-          pdfViewer?.nextPage();
-          break;
-        case 'menu-zoom-in':
-          pdfViewer?.zoomIn();
-          break;
-        case 'menu-zoom-out':
-          pdfViewer?.zoomOut();
-          break;
-        case 'menu-reset-zoom':
-          pdfViewer?.resetZoom();
-          break;
-        case 'menu-fit-width':
-          pdfViewer?.fitToWidth();
-          break;
-        case 'menu-fit-height':
-          pdfViewer?.fitToHeight();
-          break;
-        case 'menu-focus-mode':
-          focusMode = !focusMode;
-          break;
-        case 'menu-open-file':
-          document.getElementById('file-input')?.click();
-          break;
-        case 'menu-browse-templates':
-          goto('/');
-          break;
-        case 'menu-start-fresh':
-          // Navigate to home with blank PDF creation trigger
-          goto('/?create-blank=true');
-          break;
-        case 'menu-search-pdf':
-          goto('/search');
-          break;
-        case 'menu-export-as-pdf':
-          if (currentFile) {
-            handleExportPDF();
-          }
-          break;
-        case 'menu-export-as-lpdf':
-          if (currentFile) {
-            handleExportLPDF();
-          }
-          break;
-        case 'menu-export-as-docx':
-          if (currentFile) {
-            handleExportDOCX();
-          }
-          break;
-        case 'menu-share-pdf':
-          if (currentFile) {
-            console.log('Share PDF requested');
-            showShareModal = true;
-          }
-          break;
-        case 'menu-select-tool':
-          const toolName = customEvent.detail;
-          switch(toolName) {
-            case 'pencil': setTool('pencil'); break;
-            case 'eraser': setTool('eraser'); break;
-            case 'text': setTool('text'); break;
-            case 'arrow': setTool('arrow'); break;
-                case 'highlighter': setTool('highlight'); break;
-                case 'sticky': setTool('note'); break;
-            case 'stamps': setTool('stamp'); break;
-          }
-          break;
-      }
-    };
-
-  function setupEventListeners() {
-    console.log('[PDF Upload Route] Setting up event listeners');
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    
-    window.addEventListener('show-shortcuts', handleMenuEvent);
-    window.addEventListener('menu-undo', handleMenuEvent);
-    window.addEventListener('menu-redo', handleMenuEvent);
-    window.addEventListener('menu-previous-page', handleMenuEvent);
-    window.addEventListener('menu-next-page', handleMenuEvent);
-    window.addEventListener('menu-zoom-in', handleMenuEvent);
-    window.addEventListener('menu-zoom-out', handleMenuEvent);
-    window.addEventListener('menu-reset-zoom', handleMenuEvent);
-    window.addEventListener('menu-fit-width', handleMenuEvent);
-    window.addEventListener('menu-fit-height', handleMenuEvent);
-    window.addEventListener('menu-focus-mode', handleMenuEvent);
-    window.addEventListener('menu-open-file', handleMenuEvent);
-    window.addEventListener('menu-browse-templates', handleMenuEvent);
-    window.addEventListener('menu-start-fresh', handleMenuEvent);
-    window.addEventListener('menu-search-pdf', handleMenuEvent);
-    window.addEventListener('menu-export-as-pdf', handleMenuEvent);
-    window.addEventListener('menu-export-as-lpdf', handleMenuEvent);
-    window.addEventListener('menu-export-as-docx', handleMenuEvent);
-    window.addEventListener('menu-share-pdf', handleMenuEvent);
-    window.addEventListener('menu-select-tool', handleMenuEvent);
-
-    // Strategy 1: Immediate checks for Tauri file associations
-    if (isTauri) {
-      console.log('Starting immediate file checks...');
-      checkForPendingFiles();
-      checkFileAssociations();
-    }
-
-    // Strategy 2: Event listeners for Tauri
-    if (isTauri) {
-      console.log('Setting up Tauri event listeners...');
-
-      const unlistenFileOpened = listen('file-opened', (event) => {
-        console.log('*** FILE-OPENED EVENT RECEIVED ***');
-        console.log('Event payload:', event.payload);
-        handleFileFromCommandLine(event.payload as string);
-      });
-
-      const unlistenStartupReady = listen('startup-file-ready', (event) => {
-        console.log('*** STARTUP-FILE-READY EVENT RECEIVED ***');
-        console.log('Event payload:', event.payload);
-        handleFileFromCommandLine(event.payload as string);
-      });
-
-      const unlistenDebug = listen('debug-info', (event) => {
-        console.log('TAURI DEBUG:', event.payload);
-      });
-
-      // Store cleanup functions for later
-      window.__pdfUploadCleanup = {
-        unlistenFileOpened,
-        unlistenStartupReady,
-        unlistenDebug
-      };
-    }
-
-    console.log('✅ All file loading strategies initialized');
-  }
-
-  function cleanup() {
-    console.log('[PDF Upload Route] Cleaning up');
-    document.removeEventListener('fullscreenchange', handleFullscreenChange);
-    
-    // Clean up menu event listeners
-    window.removeEventListener('show-shortcuts', handleMenuEvent);
-    window.removeEventListener('menu-undo', handleMenuEvent);
-    window.removeEventListener('menu-redo', handleMenuEvent);
-    window.removeEventListener('menu-previous-page', handleMenuEvent);
-    window.removeEventListener('menu-next-page', handleMenuEvent);
-    window.removeEventListener('menu-zoom-in', handleMenuEvent);
-    window.removeEventListener('menu-zoom-out', handleMenuEvent);
-    window.removeEventListener('menu-reset-zoom', handleMenuEvent);
-    window.removeEventListener('menu-fit-width', handleMenuEvent);
-    window.removeEventListener('menu-fit-height', handleMenuEvent);
-    window.removeEventListener('menu-focus-mode', handleMenuEvent);
-    window.removeEventListener('menu-open-file', handleMenuEvent);
-    window.removeEventListener('menu-browse-templates', handleMenuEvent);
-    window.removeEventListener('menu-start-fresh', handleMenuEvent);
-    window.removeEventListener('menu-search-pdf', handleMenuEvent);
-    window.removeEventListener('menu-export-as-pdf', handleMenuEvent);
-    window.removeEventListener('menu-export-as-lpdf', handleMenuEvent);
-    window.removeEventListener('menu-export-as-docx', handleMenuEvent);
-    window.removeEventListener('menu-share-pdf', handleMenuEvent);
-    window.removeEventListener('menu-select-tool', handleMenuEvent);
-
-    // Clean up Tauri event listeners
-    if (window.__pdfUploadCleanup) {
-      const { unlistenFileOpened, unlistenStartupReady, unlistenDebug } = window.__pdfUploadCleanup;
-      unlistenFileOpened.then((fn: () => void) => fn()).catch(console.error);
-      unlistenStartupReady.then((fn: () => void) => fn()).catch(console.error);
-      unlistenDebug.then((fn: () => void) => fn()).catch(console.error);
-      delete window.__pdfUploadCleanup;
-    }
-  }
-
-  async function handleFileUpload(files: FileList) {
-    console.log('handleFileUpload called with:', files);
-    const file = files[0];
-    console.log('Selected file:', file?.name, 'Type:', file?.type, 'Size:', file?.size);
-
-    // Check if it's a PDF, Markdown, or LPDF file
-    const isPDF = isValidPDFFile(file);
-    const isMarkdown = isValidMarkdownFile(file);
-    const isLPDF = isValidLPDFFile(file);
-    
-    if (!isPDF && !isMarkdown && !isLPDF) {
-      console.log('Invalid file type');
-      toastStore.error('Invalid File', 'Please choose a valid PDF, Markdown, or LPDF file.');
-      return;
-    }
-
-    // Check file size for all file types before processing
-    if (file.size > MAX_FILE_SIZE) {
-      console.log('File too large');
-      toastStore.error('File Too Large', `File size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum limit of ${(MAX_FILE_SIZE / (1024 * 1024))}MB.`);
-      return;
-    }
-
-    // If it's an LPDF file, import it and set the extracted PDF as currentFile
-    if (isLPDF) {
-      console.log('LPDF file detected, importing...');
-      try {
-        const result = await importLPDFFile(file);
-        if (result.success && result.pdfFile) {
-          console.log('🎉 LPDF imported successfully, loading PDF...');
-          
-          // Set the extracted PDF as the current file
-          currentFile = result.pdfFile;
-          isLoading = false;
-          
-          // Set current PDF for auto-save functionality
-          setCurrentPDF(result.pdfFile.name, result.pdfFile.size);
-          console.log('LPDF imported and PDF loaded successfully');
-        } else {
-          console.log('❌ LPDF import failed or was cancelled');
-        }
-      } catch (error) {
-        console.error('LPDF import failed:', error);
-        toastStore.error('Import Failed', 'LPDF import failed. Please try again.');
-      }
-      return;
-    }
-
-    try {
-      let fileToUse = file;
-      
-      // If it's a markdown file, convert it to PDF first
-      if (isMarkdown) {
-        console.log('Converting markdown file to PDF...');
-        toastStore.info('Converting...', 'Converting markdown to PDF, please wait...');
-        
-        const markdownContent = await readMarkdownFile(file);
-        const pdfFilename = file.name.replace(/\.(md|markdown|mdown|mkd|mkdn)$/i, '.pdf');
-        fileToUse = await convertMarkdownToPDF(markdownContent, pdfFilename);
-        console.log('Markdown converted to PDF successfully');
-      }
-      
-      console.log('Setting currentFile');
-      currentFile = fileToUse;
-      isLoading = false;
-
-      // Set current PDF for auto-save functionality
-      setCurrentPDF(fileToUse.name, fileToUse.size);
-      console.log('Updated state:', { currentFile: !!currentFile });
-    } catch (conversionError) {
-      console.error('Failed to process file:', conversionError);
-      toastStore.error('Processing Failed', 'Failed to process the file. Please check your file.');
-      return;
-    }
-  }
-
-  function isValidPdfUrl(url: string): boolean {
-    try {
-      const validUrl = new URL(url);
-      return validUrl.protocol === 'https:' || validUrl.protocol === 'http:';
-    } catch {
-      return false;
-    }
-  }
-
-
-  async function handleFileFromCommandLine(filePath: string): Promise<boolean> {
-    console.log('*** HANDLING FILE FROM COMMAND LINE ***');
-    console.log('File path:', filePath);
-
-    // File loading from command line initiated
-
-    try {
-      // Step 1: Validate path
-      if (!filePath || typeof filePath !== 'string') {
-        throw new Error('Invalid file path received');
-      }
-
-      // Step 2: Sanitize path
-      let cleanPath = filePath.trim();
-      if (cleanPath.startsWith('"') && cleanPath.endsWith('"')) {
-        cleanPath = cleanPath.slice(1, -1);
-      }
-
-      // Step 3: Extract filename
-      const fileName = cleanPath.split(/[\\\/]/).pop() || 'document.pdf';
-
-      // Step 4: Check if it's a PDF
-      if (!fileName.toLowerCase().endsWith('.pdf')) {
-        return false;
-      }
-
-      // Step 5: Try to read the file
-      let fileData: Uint8Array;
-      try {
-        fileData = await readFile(cleanPath);
-      } catch (readError: unknown) {
-        const errorMsg = readError instanceof Error ? readError.message : String(readError);
-        console.error('File read error:', errorMsg);
-
-        // Try alternative path formats
-        const altPaths = [
-          cleanPath.replace(/\\/g, '/'),
-          cleanPath.replace(/\//g, '\\'),
-          `"${cleanPath}"` // Try with quotes
-        ];
-
-        let success = false;
-        for (const altPath of altPaths) {
-          try {
-            fileData = await readFile(altPath);
-            cleanPath = altPath;
-            success = true;
-            break;
-          } catch (altError: unknown) {
-            console.warn('Alternative path failed:', altPath, altError);
-          }
-        }
-
-        if (!success) {
-          console.error('All path formats failed');
-          return false;
-        }
-      }
-
-      // Step 6: Validate PDF header
-      const pdfHeader = new Uint8Array(fileData!.slice(0, 4));
-      const pdfSignature = String.fromCharCode(...pdfHeader);
-      if (pdfSignature !== '%PDF') {
-        console.error('Invalid PDF signature:', pdfSignature);
-        return false;
-      }
-
-      // Step 7: Create File object
-      const file = new File([new Uint8Array(fileData!)], fileName, { type: 'application/pdf' });
-
-      // Step 8: Size check
-      if (file.size > MAX_FILE_SIZE) {
-        console.error('File too large:', file.size);
-        return false;
-      }
-
-      // Step 9: Set state
-      currentFile = file;
-      isLoading = false;
-
-      // Step 10: Set PDF for auto-save
-      setCurrentPDF(file.name, file.size);
-
-      // Step 11: Mark as processed
-      try {
-        await invoke('mark_file_processed');
-      } catch (e) {
-        console.warn('Could not mark as processed (not critical)');
-      }
-
-      console.log('PDF loaded successfully from command line');
-      return true;
-
-    } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error('Unexpected error in handleFileFromCommandLine:', errorMsg);
-      return false;
-    }
-  }
-
-  // Multiple strategies for checking files
-  async function checkForPendingFiles() {
-    try {
-      console.log('Checking for pending files (strategy 1: command)...');
-      const pendingFile = await invoke('get_pending_file') as string | null;
-
-      if (pendingFile) {
-        console.log('Found pending file via command:', pendingFile);
-        const success = await handleFileFromCommandLine(pendingFile);
-
-        if (success) {
-          // Check for more files
-          setTimeout(checkForPendingFiles, 100);
-        }
-      } else {
-        console.log('No pending files found via command');
-      }
-    } catch (error) {
-      console.error('Error checking for pending files:', error);
-    }
-  }
-
-  async function checkFileAssociations() {
-    try {
-      console.log('Checking file associations (strategy 2: direct check)...');
-      const pdfFiles = await invoke('check_file_associations') as string[];
-
-      if (pdfFiles && pdfFiles.length > 0) {
-        console.log('Found PDF files via direct check:', pdfFiles);
-        for (const pdfFile of pdfFiles) {
-          const success = await handleFileFromCommandLine(pdfFile);
-          if (success) {
-            break; // Only load the first one
-          }
-        }
-      } else {
-        console.log('No PDF files found via direct check');
-      }
-    } catch (error) {
-      console.error('Error checking file associations:', error);
-    }
-  }
-
-  function fixDropboxUrl(url: string): string {
-    try {
-      const urlObj = new URL(url);
-
-      if (!urlObj.hostname.includes('dropbox.com')) {
-        return url;
-      }
-
-      // Remove problematic st parameter and ensure dl=1
-      urlObj.searchParams.delete('st');
-      urlObj.searchParams.set('dl', '1');
-
-      // For /scl/fi/ format, try to convert to dropboxusercontent.com
-      if (urlObj.pathname.includes('/scl/fi/')) {
-        const pathMatch = urlObj.pathname.match(/\/scl\/fi\/([^\/]+)\/(.+)/);
-        if (pathMatch) {
-          const fileId = pathMatch[1];
-          const fileName = pathMatch[2];
-          const rlkey = urlObj.searchParams.get('rlkey');
-
-          if (rlkey) {
-            console.log('Converting to dropboxusercontent.com domain');
-            return `https://dl.dropboxusercontent.com/scl/fi/${fileId}/${fileName}?rlkey=${rlkey}&dl=1`;
-          }
-        }
-      }
-
-      return urlObj.toString();
-    } catch (error) {
-      console.warn('Error fixing Dropbox URL:', error);
-      return url;
-    }
-  }
-
-  async function handlePdfUrlLoad(url: string) {
-    console.log('[handlePdfUrlLoad] Starting with URL:', url);
-
-    if (!isValidPdfUrl(url)) {
-      console.log('Invalid PDF URL');
-      toastStore.error('Invalid URL', 'Invalid PDF URL. Please provide a valid web address.');
-      return;
-    }
-
-    // Fix Dropbox URLs
-    const fixedUrl = fixDropboxUrl(url);
-    console.log('Fixed URL:', fixedUrl);
-
-    console.log('Setting currentFile');
-    currentFile = fixedUrl;
-    isLoading = false;
-
-    // Set current PDF for auto-save functionality
-    const filename = extractFilenameFromUrl(fixedUrl);
-    setCurrentPDF(filename, 0);
-    console.log('PDF URL setup completed');
-  }
-
-  function handleDrop(event: DragEvent) {
-    event.preventDefault();
-    dragOver = false;
-
-    if (event.dataTransfer?.files) {
-      handleFileUpload(event.dataTransfer.files);
-    }
-  }
-
-  function handleDragOver(event: DragEvent) {
-    event.preventDefault();
-    dragOver = true;
-  }
-
-  function handleDragLeave(event: DragEvent) {
-    // Only set dragOver to false if we're actually leaving the main container
-    // Check if the related target is outside the main element
-    const mainElement = event.currentTarget as Element;
-    const relatedTarget = event.relatedTarget as Element;
-    
-    // If relatedTarget is null (leaving the window) or not a child of main, we're truly leaving
-    if (!relatedTarget || !mainElement.contains(relatedTarget)) {
-      dragOver = false;
-    }
-  }
-
-  // Page-specific keyboard shortcuts (F11, Escape)
-  function handlePageSpecificKeys(event: KeyboardEvent) {
-    switch (event.key) {
-      case 'F11':
-        event.preventDefault();
-        toggleFullscreen();
-        break;
-      case 'Escape':
-        if (isFullscreen) {
-          exitFullscreen();
-        } else if (showShortcuts) {
-          showShortcuts = false;
-        }
-        break;
-    }
-  }
-
-  function handleWheel(event: WheelEvent) {
-    if (event.ctrlKey) {
-      event.preventDefault();
-      const zoomIn = event.deltaY < 0;
-      if (zoomIn) {
-        pdfViewer?.zoomIn();
-      } else {
-        pdfViewer?.zoomOut();
-      }
-    }
-  }
-
-  function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      enterFullscreen();
-    } else {
-      exitFullscreen();
-    }
-  }
-
-  function enterFullscreen() {
-    if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen();
-      isFullscreen = true;
-    }
-  }
-
-  function exitFullscreen() {
-    if (document.fullscreenElement && document.exitFullscreen) {
-      document.exitFullscreen();
-      isFullscreen = false;
-    }
-  }
-
-  async function handleExportPDF() {
-    if (!currentFile || !pdfViewer) {
-      toastStore.warning('No PDF', 'No PDF to export');
-      return;
-    }
-
-    try {
-      console.log('Starting multi-page PDF export with annotations...');
-      
-      // Force save all annotations to localStorage before export
-      forceSaveAllAnnotations();
-      console.log('✅ All annotations force-saved to localStorage before export');
-      
-      let pdfBytes: Uint8Array;
-      let originalName: string;
-
-		if (typeof currentFile === 'string') {
-			console.log('Fetching PDF data from URL for export:', currentFile);
-			const response = await fetch(currentFile);
-			if (!response.ok) {
-				throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+	let currentFile: File | string | null = null;
+	let dragOver = false;
+	let showShortcuts = false;
+	let isFullscreen = false;
+	let showThumbnails = false;
+	let focusMode = false;
+	let presentationMode = false;
+	let isLoading = true;
+	let showDebugPanel = false;
+	let showShareModal = false;
+
+	// File loading variables
+	// (hasLoadedFromCommandLine removed - was unused dead code)
+
+	// Track pending files timeout for cleanup
+	let pendingFilesTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	// Helper function to extract filename from URL
+	function extractFilenameFromUrl(url: string): string {
+		try {
+			const urlObj = new URL(url);
+			const pathname = urlObj.pathname;
+			const filename = pathname.split('/').pop() || 'document.pdf';
+			return filename.toLowerCase().endsWith('.pdf') ? filename : filename + '.pdf';
+		} catch {
+			return 'document.pdf';
+		}
+	}
+
+	// Check if we have a file from the previous page or URL parameters
+	$: if (browser && $page && $page.url) {
+		const pdfUrl = $page.url.searchParams.get('pdf');
+		if (pdfUrl && !currentFile) {
+			console.log('[PDF Upload Route] Found PDF parameter:', pdfUrl);
+			handlePdfUrlLoad(pdfUrl);
+		}
+	}
+
+	// Check for uploaded file data from URL parameters or IndexedDB
+	onMount(async () => {
+		// Check for file ID in URL parameters
+		const fileId = $page.url.searchParams.get('fileId');
+
+		if (fileId) {
+			console.log('Found file ID in URL parameters:', fileId);
+			try {
+				const result = await retrieveUploadedFile(fileId);
+
+				if (result.success && result.file) {
+					currentFile = result.file;
+					isLoading = false;
+
+					// Set current PDF for auto-save functionality
+					setCurrentPDF(result.file.name, result.file.size);
+					console.log('File loaded successfully from IndexedDB');
+				} else {
+					console.error('Failed to retrieve file from IndexedDB:', result.error);
+					toastStore.error(
+						'File Not Found',
+						'The uploaded file could not be found. Please try uploading again.'
+					);
+					goto('/');
+				}
+			} catch (error) {
+				console.error('Error retrieving file from IndexedDB:', error);
+				toastStore.error('Storage Error', 'Could not load the uploaded file. Please try again.');
+				goto('/');
 			}
-			const arrayBuffer = await response.arrayBuffer();
-			pdfBytes = new Uint8Array(arrayBuffer);
-			originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
 		} else {
-			const arrayBuffer = await currentFile.arrayBuffer();
-			pdfBytes = new Uint8Array(arrayBuffer);
-			originalName = currentFile.name.replace(/\.pdf$/i, '');
+			// Fallback: Check sessionStorage for backward compatibility
+			const tempFileData = sessionStorage.getItem('tempPdfFile');
+			if (tempFileData) {
+				console.log('Found uploaded file in sessionStorage (legacy)');
+				try {
+					const fileData = JSON.parse(tempFileData);
+					const uint8Array = new Uint8Array(fileData.data);
+					const reconstructedFile = new File([uint8Array], fileData.name, {
+						type: fileData.type
+					});
+
+					currentFile = reconstructedFile;
+					isLoading = false;
+
+					setCurrentPDF(reconstructedFile.name, reconstructedFile.size);
+					sessionStorage.removeItem('tempPdfFile');
+					console.log('File loaded successfully from sessionStorage');
+				} catch (error) {
+					console.error('Error parsing file data from sessionStorage:', error);
+					toastStore.error(
+						'File Error',
+						'Could not load the uploaded file. Please try uploading again.'
+					);
+					goto('/');
+				}
+			} else {
+				// If no file, redirect back to home
+				console.log('No file found, redirecting to home');
+				toastStore.info('No File', 'No file was found to load. Please upload a PDF first.');
+				goto('/');
+			}
 		}
 
-      const exporter = new PDFExporter();
-      exporter.setOriginalPDF(pdfBytes);
+		// Setup all the event listeners and handlers
+		setupEventListeners();
+	});
 
-      // Always render merged canvases for ALL pages so we can fall back if the source PDF is encrypted
-      const totalPages = $pdfState.totalPages;
-      let pagesWithAnnotations = 0;
-      
-      for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
-        const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
-        const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
-        if (mergedCanvas) {
-          exporter.setPageCanvas(pageNumber, mergedCanvas);
-          if (hasAnnotations) pagesWithAnnotations++;
-        }
-      }
-      
-      console.log(`📊 Export summary: ${pagesWithAnnotations} pages with annotations out of ${totalPages} total pages`);
+	// Separate cleanup on destroy
+	onDestroy(() => {
+		cleanup();
+	});
 
-      const annotatedPdfBytes = await exporter.exportToPDF();
-      const filename = `${originalName}_annotated.pdf`;
+	function setupEventListeners() {
+		console.log('[PDF Upload Route] Setting up event listeners');
+		document.addEventListener('fullscreenchange', handleFullscreenChange);
 
-      const success = await PDFExporter.exportFile(annotatedPdfBytes, filename, 'application/pdf');
-      if (success) {
-        console.log('🎉 Multi-page PDF exported successfully:', filename);
-      } else {
-        console.log('📄 Export was cancelled by user');
-      }
-    } catch (error) {
-      console.error('Export failed:', error);
-      toastStore.error('Export Failed', 'Export failed. Please try again.');
-    }
-  }
+		// Strategy 1: Immediate checks for Tauri file associations
+		if (isTauri) {
+			console.log('Starting immediate file checks...');
+			checkForPendingFiles();
+			checkFileAssociations();
+		}
 
-  async function handleExportLPDF() {
-    if (!currentFile || !pdfViewer) {
-      toastStore.warning('No PDF', 'No PDF to export');
-      return;
-    }
+		// Strategy 2: Event listeners for Tauri
+		if (isTauri) {
+			console.log('Setting up Tauri event listeners...');
 
-    try {
-      console.log('Starting LPDF export with all annotations...');
-      
-      // Force save all annotations to localStorage before export
-      forceSaveAllAnnotations();
-      console.log('✅ All annotations force-saved to localStorage before LPDF export');
-      
-      let pdfBytes: Uint8Array;
-      let originalName: string;
+			const unlistenFileOpened = listen('file-opened', (event) => {
+				console.log('*** FILE-OPENED EVENT RECEIVED ***');
+				console.log('Event payload:', event.payload);
+				handleFileFromCommandLine(event.payload as string);
+			});
 
-      if (typeof currentFile === 'string') {
-        console.log('Fetching PDF data from URL for LPDF export:', currentFile);
-        const response = await fetch(currentFile);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        pdfBytes = new Uint8Array(arrayBuffer);
-        originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
-      } else {
-        const arrayBuffer = await currentFile.arrayBuffer();
-        pdfBytes = new Uint8Array(arrayBuffer);
-        originalName = currentFile.name.replace(/\.pdf$/i, '');
-      }
+			const unlistenStartupReady = listen('startup-file-ready', (event) => {
+				console.log('*** STARTUP-FILE-READY EVENT RECEIVED ***');
+				console.log('Event payload:', event.payload);
+				handleFileFromCommandLine(event.payload as string);
+			});
 
-      const success = await exportCurrentPDFAsLPDF(pdfBytes, `${originalName}.pdf`);
-      if (success) {
-        console.log('🎉 LPDF exported successfully');
-      } else {
-        console.log('📄 LPDF export was cancelled by user');
-      }
-    } catch (error) {
-      console.error('LPDF export failed:', error);
-      toastStore.error('Export Failed', 'LPDF export failed. Please try again.');
-    }
-  }
+			const unlistenDebug = listen('debug-info', (event) => {
+				console.log('TAURI DEBUG:', event.payload);
+			});
 
-  async function handleExportDOCX() {
-    if (!currentFile || !pdfViewer) {
-      toastStore.warning('No PDF', 'No PDF to export');
-      return;
-    }
+			// Store cleanup functions for later
+			window.__pdfUploadCleanup = {
+				unlistenFileOpened,
+				unlistenStartupReady,
+				unlistenDebug
+			};
+		}
 
-    try {
-      console.log('Starting DOCX export with all annotations...');
-      
-      // Force save all annotations to localStorage before export
-      forceSaveAllAnnotations();
-      console.log('✅ All annotations force-saved to localStorage before DOCX export');
-      
-      let pdfBytes: Uint8Array;
-      let originalName: string;
+		console.log('✅ All file loading strategies initialized');
+	}
 
-      if (typeof currentFile === 'string') {
-        console.log('Fetching PDF data from URL for DOCX export:', currentFile);
-        const response = await fetch(currentFile);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        pdfBytes = new Uint8Array(arrayBuffer);
-        originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
-      } else {
-        const arrayBuffer = await currentFile.arrayBuffer();
-        pdfBytes = new Uint8Array(arrayBuffer);
-        originalName = currentFile.name.replace(/\.pdf$/i, '');
-      }
+	function cleanup() {
+		console.log('[PDF Upload Route] Cleaning up');
+		document.removeEventListener('fullscreenchange', handleFullscreenChange);
 
-      // First export to annotated PDF, then convert to DOCX
-      const exporter = new PDFExporter();
-      exporter.setOriginalPDF(pdfBytes);
+		// Clear any pending file check timeout
+		if (pendingFilesTimeout !== null) {
+			clearTimeout(pendingFilesTimeout);
+			pendingFilesTimeout = null;
+		}
 
-      // Export ALL pages that have annotations
-      console.log('Checking all pages for annotations...');
-      const totalPages = $pdfState.totalPages;
-      let pagesWithAnnotations = 0;
-      
-      for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
-        const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
-        
-        if (hasAnnotations) {
-          console.log(`📄 Page ${pageNumber} has annotations - creating merged canvas`);
-          const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
-          if (mergedCanvas) {
-            exporter.setPageCanvas(pageNumber, mergedCanvas);
-            pagesWithAnnotations++;
-            console.log(`✅ Added merged canvas for page ${pageNumber}`);
-          } else {
-            console.warn(`❌ Failed to create merged canvas for page ${pageNumber}`);
-          }
-        } else {
-          console.log(`📄 Page ${pageNumber} has no annotations - will preserve original page`);
-        }
-      }
-      
-      console.log(`📊 Export summary: ${pagesWithAnnotations} pages with annotations out of ${totalPages} total pages`);
+		// Clean up Tauri event listeners
+		if (window.__pdfUploadCleanup) {
+			const { unlistenFileOpened, unlistenStartupReady, unlistenDebug } = window.__pdfUploadCleanup;
+			unlistenFileOpened.then((fn: () => void) => fn()).catch(console.error);
+			unlistenStartupReady.then((fn: () => void) => fn()).catch(console.error);
+			unlistenDebug.then((fn: () => void) => fn()).catch(console.error);
+			delete window.__pdfUploadCleanup;
+		}
+	}
 
-      // Generate annotated PDF bytes
-      const annotatedPdfBytes = await exporter.exportToPDF();
-      
-      // Convert annotated PDF to DOCX
-      const success = await exportCurrentPDFAsDocx(annotatedPdfBytes, `${originalName}.pdf`);
-      if (success) {
-        console.log('🎉 DOCX exported successfully');
-      } else {
-        console.log('📄 DOCX export was cancelled by user');
-      }
-    } catch (error) {
-      console.error('DOCX export failed:', error);
-      toastStore.error('Export Failed', 'DOCX export failed. Please try again.');
-    }
-  }
+	async function handleFileUpload(files: FileList) {
+		console.log('handleFileUpload called with:', files);
+		const file = files[0];
+		console.log('Selected file:', file?.name, 'Type:', file?.type, 'Size:', file?.size);
 
-  function handleToggleThumbnails(show: boolean) {
-    showThumbnails = show;
-  }
+		// Check if it's a PDF, Markdown, or LPDF file
+		const isPDF = isValidPDFFile(file);
+		const isMarkdown = isValidMarkdownFile(file);
+		const isLPDF = isValidLPDFFile(file);
 
-  function handlePageSelect(pageNumber: number) {
-    pdfViewer?.goToPage(pageNumber);
-  }
+		if (!isPDF && !isMarkdown && !isLPDF) {
+			console.log('Invalid file type');
+			toastStore.error('Invalid File', 'Please choose a valid PDF, Markdown, or LPDF file.');
+			return;
+		}
 
-  function handleFullscreenChange() {
-    isFullscreen = !!document.fullscreenElement;
-  }
+		// Check file size for all file types before processing
+		if (file.size > MAX_FILE_SIZE) {
+			console.log('File too large');
+			toastStore.error(
+				'File Too Large',
+				`File size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum limit of ${MAX_FILE_SIZE / (1024 * 1024)}MB.`
+			);
+			return;
+		}
 
-  function handleSharePDF() {
-    showShareModal = true;
-  }
+		// If it's an LPDF file, import it and set the extracted PDF as currentFile
+		if (isLPDF) {
+			console.log('LPDF file detected, importing...');
+			try {
+				const result = await importLPDFFile(file);
+				if (result.success && result.pdfFile) {
+					console.log('🎉 LPDF imported successfully, loading PDF...');
 
-  function getOriginalFileName(): string {
-    if (typeof currentFile === 'string') {
-      return extractFilenameFromUrl(currentFile);
-    } else if (currentFile) {
-      return currentFile.name;
-    }
-    return 'document.pdf';
-  }
+					// Set the extracted PDF as the current file
+					currentFile = result.pdfFile;
+					isLoading = false;
 
+					// Set current PDF for auto-save functionality
+					setCurrentPDF(result.pdfFile.name, result.pdfFile.size);
+					console.log('LPDF imported and PDF loaded successfully');
+				} else {
+					console.log('❌ LPDF import failed or was cancelled');
+				}
+			} catch (error) {
+				console.error('LPDF import failed:', error);
+				toastStore.error('Import Failed', 'LPDF import failed. Please try again.');
+			}
+			return;
+		}
+
+		try {
+			let fileToUse = file;
+
+			// If it's a markdown file, convert it to PDF first
+			if (isMarkdown) {
+				console.log('Converting markdown file to PDF...');
+				toastStore.info('Converting...', 'Converting markdown to PDF, please wait...');
+
+				const markdownContent = await readMarkdownFile(file);
+				const pdfFilename = file.name.replace(/\.(md|markdown|mdown|mkd|mkdn)$/i, '.pdf');
+				fileToUse = await convertMarkdownToPDF(markdownContent, pdfFilename);
+				console.log('Markdown converted to PDF successfully');
+			}
+
+			console.log('Setting currentFile');
+			currentFile = fileToUse;
+			isLoading = false;
+
+			// Set current PDF for auto-save functionality
+			setCurrentPDF(fileToUse.name, fileToUse.size);
+			console.log('Updated state:', { currentFile: !!currentFile });
+		} catch (conversionError) {
+			console.error('Failed to process file:', conversionError);
+			toastStore.error('Processing Failed', 'Failed to process the file. Please check your file.');
+			return;
+		}
+	}
+
+	function isValidPdfUrl(url: string): boolean {
+		try {
+			const validUrl = new URL(url);
+			return validUrl.protocol === 'https:' || validUrl.protocol === 'http:';
+		} catch {
+			return false;
+		}
+	}
+
+	async function handleFileFromCommandLine(filePath: string): Promise<boolean> {
+		console.log('*** HANDLING FILE FROM COMMAND LINE ***');
+		console.log('File path:', filePath);
+
+		// File loading from command line initiated
+
+		try {
+			// Step 1: Validate path
+			if (!filePath || typeof filePath !== 'string') {
+				throw new Error('Invalid file path received');
+			}
+
+			// Step 2: Sanitize path
+			let cleanPath = filePath.trim();
+			if (cleanPath.startsWith('"') && cleanPath.endsWith('"')) {
+				cleanPath = cleanPath.slice(1, -1);
+			}
+
+			// Step 3: Extract filename
+			const fileName = cleanPath.split(/[\\\/]/).pop() || 'document.pdf';
+
+			// Step 4: Check if it's a PDF
+			if (!fileName.toLowerCase().endsWith('.pdf')) {
+				return false;
+			}
+
+			// Step 5: Try to read the file
+			let fileData: Uint8Array;
+			try {
+				fileData = await readFile(cleanPath);
+			} catch (readError: unknown) {
+				const errorMsg = readError instanceof Error ? readError.message : String(readError);
+				console.error('File read error:', errorMsg);
+
+				// Try alternative path formats
+				const altPaths = [
+					cleanPath.replace(/\\/g, '/'),
+					cleanPath.replace(/\//g, '\\'),
+					`"${cleanPath}"` // Try with quotes
+				];
+
+				let success = false;
+				for (const altPath of altPaths) {
+					try {
+						fileData = await readFile(altPath);
+						cleanPath = altPath;
+						success = true;
+						break;
+					} catch (altError: unknown) {
+						console.warn('Alternative path failed:', altPath, altError);
+					}
+				}
+
+				if (!success) {
+					console.error('All path formats failed');
+					return false;
+				}
+			}
+
+			// Step 6: Validate PDF header
+			const pdfHeader = new Uint8Array(fileData!.slice(0, 4));
+			const pdfSignature = String.fromCharCode(...pdfHeader);
+			if (pdfSignature !== '%PDF') {
+				console.error('Invalid PDF signature:', pdfSignature);
+				return false;
+			}
+
+			// Step 7: Create File object
+			const file = new File([new Uint8Array(fileData!)], fileName, { type: 'application/pdf' });
+
+			// Step 8: Size check
+			if (file.size > MAX_FILE_SIZE) {
+				console.error('File too large:', file.size);
+				return false;
+			}
+
+			// Step 9: Set state
+			currentFile = file;
+			isLoading = false;
+
+			// Step 10: Set PDF for auto-save
+			setCurrentPDF(file.name, file.size);
+
+			// Step 11: Mark as processed
+			try {
+				await invoke('mark_file_processed');
+			} catch (e) {
+				console.warn('Could not mark as processed (not critical)');
+			}
+
+			console.log('PDF loaded successfully from command line');
+			return true;
+		} catch (error: unknown) {
+			const errorMsg = error instanceof Error ? error.message : String(error);
+			console.error('Unexpected error in handleFileFromCommandLine:', errorMsg);
+			return false;
+		}
+	}
+
+	// Multiple strategies for checking files
+	async function checkForPendingFiles() {
+		try {
+			console.log('Checking for pending files (strategy 1: command)...');
+			const pendingFile = (await invoke('get_pending_file')) as string | null;
+
+			if (pendingFile) {
+				console.log('Found pending file via command:', pendingFile);
+				const success = await handleFileFromCommandLine(pendingFile);
+
+				if (success) {
+					// Check for more files - track timeout for cleanup
+					pendingFilesTimeout = setTimeout(checkForPendingFiles, 100);
+				}
+			} else {
+				console.log('No pending files found via command');
+			}
+		} catch (error) {
+			console.error('Error checking for pending files:', error);
+		}
+	}
+
+	async function checkFileAssociations() {
+		try {
+			console.log('Checking file associations (strategy 2: direct check)...');
+			const pdfFiles = (await invoke('check_file_associations')) as string[];
+
+			if (pdfFiles && pdfFiles.length > 0) {
+				console.log('Found PDF files via direct check:', pdfFiles);
+				for (const pdfFile of pdfFiles) {
+					const success = await handleFileFromCommandLine(pdfFile);
+					if (success) {
+						break; // Only load the first one
+					}
+				}
+			} else {
+				console.log('No PDF files found via direct check');
+			}
+		} catch (error) {
+			console.error('Error checking file associations:', error);
+		}
+	}
+
+	function fixDropboxUrl(url: string): string {
+		try {
+			const urlObj = new URL(url);
+
+			if (!urlObj.hostname.includes('dropbox.com')) {
+				return url;
+			}
+
+			// Remove problematic st parameter and ensure dl=1
+			urlObj.searchParams.delete('st');
+			urlObj.searchParams.set('dl', '1');
+
+			// For /scl/fi/ format, try to convert to dropboxusercontent.com
+			if (urlObj.pathname.includes('/scl/fi/')) {
+				const pathMatch = urlObj.pathname.match(/\/scl\/fi\/([^\/]+)\/(.+)/);
+				if (pathMatch) {
+					const fileId = pathMatch[1];
+					const fileName = pathMatch[2];
+					const rlkey = urlObj.searchParams.get('rlkey');
+
+					if (rlkey) {
+						console.log('Converting to dropboxusercontent.com domain');
+						return `https://dl.dropboxusercontent.com/scl/fi/${fileId}/${fileName}?rlkey=${rlkey}&dl=1`;
+					}
+				}
+			}
+
+			return urlObj.toString();
+		} catch (error) {
+			console.warn('Error fixing Dropbox URL:', error);
+			return url;
+		}
+	}
+
+	async function handlePdfUrlLoad(url: string) {
+		console.log('[handlePdfUrlLoad] Starting with URL:', url);
+
+		if (!isValidPdfUrl(url)) {
+			console.log('Invalid PDF URL');
+			toastStore.error('Invalid URL', 'Invalid PDF URL. Please provide a valid web address.');
+			return;
+		}
+
+		// Fix Dropbox URLs
+		const fixedUrl = fixDropboxUrl(url);
+		console.log('Fixed URL:', fixedUrl);
+
+		console.log('Setting currentFile');
+		currentFile = fixedUrl;
+		isLoading = false;
+
+		// Set current PDF for auto-save functionality
+		const filename = extractFilenameFromUrl(fixedUrl);
+		setCurrentPDF(filename, 0);
+		console.log('PDF URL setup completed');
+	}
+
+	function handleDrop(event: DragEvent) {
+		event.preventDefault();
+		dragOver = false;
+
+		if (event.dataTransfer?.files) {
+			handleFileUpload(event.dataTransfer.files);
+		}
+	}
+
+	function handleDragOver(event: DragEvent) {
+		event.preventDefault();
+		dragOver = true;
+	}
+
+	function handleDragLeave(event: DragEvent) {
+		// Only set dragOver to false if we're actually leaving the main container
+		// Check if the related target is outside the main element
+		const mainElement = event.currentTarget as Element;
+		const relatedTarget = event.relatedTarget as Element;
+
+		// If relatedTarget is null (leaving the window) or not a child of main, we're truly leaving
+		if (!relatedTarget || !mainElement.contains(relatedTarget)) {
+			dragOver = false;
+		}
+	}
+
+	// Page-specific keyboard shortcuts (F11, Escape)
+	function handlePageSpecificKeys(event: KeyboardEvent) {
+		switch (event.key) {
+			case 'F11':
+				event.preventDefault();
+				toggleFullscreen();
+				break;
+			case 'Escape':
+				if (isFullscreen) {
+					exitFullscreen();
+				} else if (showShortcuts) {
+					showShortcuts = false;
+				}
+				break;
+		}
+	}
+
+	function handleWheel(event: WheelEvent) {
+		if (event.ctrlKey) {
+			event.preventDefault();
+			const zoomIn = event.deltaY < 0;
+			if (zoomIn) {
+				pdfViewer?.zoomIn();
+			} else {
+				pdfViewer?.zoomOut();
+			}
+		}
+	}
+
+	function toggleFullscreen() {
+		if (!document.fullscreenElement) {
+			enterFullscreen();
+		} else {
+			exitFullscreen();
+		}
+	}
+
+	function enterFullscreen() {
+		if (document.documentElement.requestFullscreen) {
+			document.documentElement.requestFullscreen();
+			isFullscreen = true;
+		}
+	}
+
+	function exitFullscreen() {
+		if (document.fullscreenElement && document.exitFullscreen) {
+			document.exitFullscreen();
+			isFullscreen = false;
+		}
+	}
+
+	async function handleExportPDF() {
+		if (!currentFile || !pdfViewer) {
+			toastStore.warning('No PDF', 'No PDF to export');
+			return;
+		}
+
+		try {
+			console.log('Starting multi-page PDF export with annotations...');
+
+			// Force save all annotations to localStorage before export
+			forceSaveAllAnnotations();
+			console.log('✅ All annotations force-saved to localStorage before export');
+
+			let pdfBytes: Uint8Array;
+			let originalName: string;
+
+			if (typeof currentFile === 'string') {
+				console.log('Fetching PDF data from URL for export:', currentFile);
+				const response = await fetch(currentFile);
+				if (!response.ok) {
+					throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+				}
+				const arrayBuffer = await response.arrayBuffer();
+				pdfBytes = new Uint8Array(arrayBuffer);
+				originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
+			} else {
+				const arrayBuffer = await currentFile.arrayBuffer();
+				pdfBytes = new Uint8Array(arrayBuffer);
+				originalName = currentFile.name.replace(/\.pdf$/i, '');
+			}
+
+			const exporter = new PDFExporter();
+			exporter.setOriginalPDF(pdfBytes);
+
+			// Always render merged canvases for ALL pages so we can fall back if the source PDF is encrypted
+			const totalPages = $pdfState.totalPages;
+			let pagesWithAnnotations = 0;
+
+			for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
+				const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
+				if (mergedCanvas) {
+					exporter.setPageCanvas(pageNumber, mergedCanvas);
+					if (hasAnnotations) pagesWithAnnotations++;
+				}
+			}
+
+			console.log(
+				`📊 Export summary: ${pagesWithAnnotations} pages with annotations out of ${totalPages} total pages`
+			);
+
+			const annotatedPdfBytes = await exporter.exportToPDF();
+			const filename = `${originalName}_annotated.pdf`;
+
+			const success = await PDFExporter.exportFile(annotatedPdfBytes, filename, 'application/pdf');
+			if (success) {
+				console.log('🎉 Multi-page PDF exported successfully:', filename);
+			} else {
+				console.log('📄 Export was cancelled by user');
+			}
+		} catch (error) {
+			console.error('Export failed:', error);
+			toastStore.error('Export Failed', 'Export failed. Please try again.');
+		}
+	}
+
+	async function handleExportLPDF() {
+		if (!currentFile || !pdfViewer) {
+			toastStore.warning('No PDF', 'No PDF to export');
+			return;
+		}
+
+		try {
+			console.log('Starting LPDF export with all annotations...');
+
+			// Force save all annotations to localStorage before export
+			forceSaveAllAnnotations();
+			console.log('✅ All annotations force-saved to localStorage before LPDF export');
+
+			let pdfBytes: Uint8Array;
+			let originalName: string;
+
+			if (typeof currentFile === 'string') {
+				console.log('Fetching PDF data from URL for LPDF export:', currentFile);
+				const response = await fetch(currentFile);
+				if (!response.ok) {
+					throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+				}
+				const arrayBuffer = await response.arrayBuffer();
+				pdfBytes = new Uint8Array(arrayBuffer);
+				originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
+			} else {
+				const arrayBuffer = await currentFile.arrayBuffer();
+				pdfBytes = new Uint8Array(arrayBuffer);
+				originalName = currentFile.name.replace(/\.pdf$/i, '');
+			}
+
+			const success = await exportCurrentPDFAsLPDF(pdfBytes, `${originalName}.pdf`);
+			if (success) {
+				console.log('🎉 LPDF exported successfully');
+			} else {
+				console.log('📄 LPDF export was cancelled by user');
+			}
+		} catch (error) {
+			console.error('LPDF export failed:', error);
+			toastStore.error('Export Failed', 'LPDF export failed. Please try again.');
+		}
+	}
+
+	async function handleExportDOCX() {
+		if (!currentFile || !pdfViewer) {
+			toastStore.warning('No PDF', 'No PDF to export');
+			return;
+		}
+
+		try {
+			console.log('Starting DOCX export with all annotations...');
+
+			// Force save all annotations to localStorage before export
+			forceSaveAllAnnotations();
+			console.log('✅ All annotations force-saved to localStorage before DOCX export');
+
+			let pdfBytes: Uint8Array;
+			let originalName: string;
+
+			if (typeof currentFile === 'string') {
+				console.log('Fetching PDF data from URL for DOCX export:', currentFile);
+				const response = await fetch(currentFile);
+				if (!response.ok) {
+					throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+				}
+				const arrayBuffer = await response.arrayBuffer();
+				pdfBytes = new Uint8Array(arrayBuffer);
+				originalName = extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '');
+			} else {
+				const arrayBuffer = await currentFile.arrayBuffer();
+				pdfBytes = new Uint8Array(arrayBuffer);
+				originalName = currentFile.name.replace(/\.pdf$/i, '');
+			}
+
+			// First export to annotated PDF, then convert to DOCX
+			const exporter = new PDFExporter();
+			exporter.setOriginalPDF(pdfBytes);
+
+			// Export ALL pages that have annotations
+			console.log('Checking all pages for annotations...');
+			const totalPages = $pdfState.totalPages;
+			let pagesWithAnnotations = 0;
+
+			for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
+
+				if (hasAnnotations) {
+					console.log(`📄 Page ${pageNumber} has annotations - creating merged canvas`);
+					const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
+					if (mergedCanvas) {
+						exporter.setPageCanvas(pageNumber, mergedCanvas);
+						pagesWithAnnotations++;
+						console.log(`✅ Added merged canvas for page ${pageNumber}`);
+					} else {
+						console.warn(`❌ Failed to create merged canvas for page ${pageNumber}`);
+					}
+				} else {
+					console.log(`📄 Page ${pageNumber} has no annotations - will preserve original page`);
+				}
+			}
+
+			console.log(
+				`📊 Export summary: ${pagesWithAnnotations} pages with annotations out of ${totalPages} total pages`
+			);
+
+			// Generate annotated PDF bytes
+			const annotatedPdfBytes = await exporter.exportToPDF();
+
+			// Convert annotated PDF to DOCX
+			const success = await exportCurrentPDFAsDocx(annotatedPdfBytes, `${originalName}.pdf`);
+			if (success) {
+				console.log('🎉 DOCX exported successfully');
+			} else {
+				console.log('📄 DOCX export was cancelled by user');
+			}
+		} catch (error) {
+			console.error('DOCX export failed:', error);
+			toastStore.error('Export Failed', 'DOCX export failed. Please try again.');
+		}
+	}
+
+	function handleToggleThumbnails(show: boolean) {
+		showThumbnails = show;
+	}
+
+	function handlePageSelect(pageNumber: number) {
+		pdfViewer?.goToPage(pageNumber);
+	}
+
+	function handleFullscreenChange() {
+		isFullscreen = !!document.fullscreenElement;
+		// Exit presentation mode when fullscreen is exited
+		if (!document.fullscreenElement && presentationMode) {
+			presentationMode = false;
+		}
+	}
+
+	function handleSharePDF() {
+		showShareModal = true;
+	}
+
+	function getOriginalFileName(): string {
+		if (typeof currentFile === 'string') {
+			return extractFilenameFromUrl(currentFile);
+		} else if (currentFile) {
+			return currentFile.name;
+		}
+		return 'document.pdf';
+	}
 </script>
 
-<svelte:window 
-  use:keyboardShortcuts={{
-    pdfViewer,
-    showShortcuts,
-    showThumbnails,
-    focusMode,
-    onShowShortcutsChange: (value) => showShortcuts = value,
-    onShowThumbnailsChange: (value) => showThumbnails = value,
-    onFocusModeChange: (value) => focusMode = value,
-    onFileUploadClick: handleFileUploadClick,
-    onStampToolClick: handleStampToolClick
-  }}
-  on:keydown={handlePageSpecificKeys}
-  on:wheel={handleWheel} 
+<svelte:window
+	use:keyboardShortcuts={{
+		pdfViewer,
+		showShortcuts,
+		showThumbnails,
+		focusMode,
+		presentationMode,
+		onShowShortcutsChange: (value) => (showShortcuts = value),
+		onShowThumbnailsChange: (value) => (showThumbnails = value),
+		onFocusModeChange: (value) => (focusMode = value),
+		onPresentationModeChange: (value) => {
+			presentationMode = value;
+			if (value) {
+				enterFullscreen();
+			} else {
+				exitFullscreen();
+			}
+		},
+		onFileUploadClick: handleFileUploadClick,
+		onStampToolClick: handleStampToolClick
+	}}
+	on:keydown={handlePageSpecificKeys}
+	on:wheel={handleWheel}
 />
 
 <main
-  class="w-screen h-screen relative overflow-hidden"
-  class:drag-over={dragOver}
-  on:drop={handleDrop}
-  on:dragover={handleDragOver}
-  on:dragleave={handleDragLeave}
+	class="w-screen h-screen relative overflow-hidden"
+	class:drag-over={dragOver}
+	on:drop={handleDrop}
+	on:dragover={handleDragOver}
+	on:dragleave={handleDragLeave}
 >
-  {#if isLoading}
-    <div class="h-full flex items-center justify-center">
-      <div class="text-center">
-        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-sage mx-auto mb-4"></div>
-        <p class="text-lg text-charcoal dark:text-gray-300">Loading PDF...</p>
-      </div>
-    </div>
-  {:else if currentFile}
-    {#if !focusMode}
-      <Toolbar
-        onFileUpload={handleFileUpload}
-        onPreviousPage={() => pdfViewer?.previousPage()}
-        onNextPage={() => pdfViewer?.nextPage()}
-        onZoomIn={() => pdfViewer?.zoomIn()}
-        onZoomOut={() => pdfViewer?.zoomOut()}
-        onResetZoom={() => pdfViewer?.resetZoom()}
-        onFitToWidth={() => pdfViewer?.fitToWidth()}
-        onFitToHeight={() => pdfViewer?.fitToHeight()}
-        onExportPDF={handleExportPDF}
-        onExportLPDF={handleExportLPDF}
-        onExportDOCX={handleExportDOCX}
-        onSharePDF={handleSharePDF}
-        {showThumbnails}
-        onToggleThumbnails={handleToggleThumbnails}
-      />
-    {/if}
+	{#if isLoading}
+		<div class="h-full flex items-center justify-center">
+			<div class="text-center">
+				<div class="animate-spin rounded-full h-16 w-16 border-b-2 border-sage mx-auto mb-4"></div>
+				<p class="text-lg text-charcoal dark:text-gray-300">Loading PDF...</p>
+			</div>
+		</div>
+	{:else if currentFile}
+		{#if !focusMode && !presentationMode}
+			<Toolbar
+				onFileUpload={handleFileUpload}
+				onPreviousPage={() => pdfViewer?.previousPage()}
+				onNextPage={() => pdfViewer?.nextPage()}
+				onZoomIn={() => pdfViewer?.zoomIn()}
+				onZoomOut={() => pdfViewer?.zoomOut()}
+				onResetZoom={() => pdfViewer?.resetZoom()}
+				onFitToWidth={() => pdfViewer?.fitToWidth()}
+				onFitToHeight={() => pdfViewer?.fitToHeight()}
+				onExportPDF={handleExportPDF}
+				onExportLPDF={handleExportLPDF}
+				onExportDOCX={handleExportDOCX}
+				onSharePDF={handleSharePDF}
+				{showThumbnails}
+				onToggleThumbnails={handleToggleThumbnails}
+				{presentationMode}
+				onPresentationModeChange={(value) => {
+					presentationMode = value;
+					if (value) {
+						enterFullscreen();
+					} else if (document.fullscreenElement) {
+						exitFullscreen();
+					}
+				}}
+			/>
+		{/if}
 
-    <div class="w-full h-full" class:pt-12={!focusMode}>
-      <div class="flex h-full">
-        {#if showThumbnails}
-          <PageThumbnails
-            isVisible={showThumbnails}
-            onPageSelect={handlePageSelect}
-          />
-        {/if}
+		<div class="w-full h-full" class:pt-12={!focusMode && !presentationMode}>
+			<div class="flex h-full">
+				{#if showThumbnails}
+					<PageThumbnails isVisible={showThumbnails} onPageSelect={handlePageSelect} />
+				{/if}
 
-        <div class="flex-1">
-          <PDFViewer bind:this={pdfViewer} pdfFile={currentFile} />
-        </div>
-      </div>
-    </div>
+				<div class="flex-1">
+					<PDFViewer bind:this={pdfViewer} pdfFile={currentFile} {presentationMode} />
+				</div>
+			</div>
+		</div>
 
-    {#if !focusMode}
-      <HelpButton
-        position="absolute"
-        positionClasses="bottom-4 left-4"
-        showOnDesktopOnly={true}
-        on:click={() => showShortcuts = true}
-      />
+		{#if !focusMode && !presentationMode}
+			<HelpButton
+				position="absolute"
+				positionClasses="bottom-4 left-4"
+				showOnDesktopOnly={true}
+				on:click={() => (showShortcuts = true)}
+			/>
 
-      <!-- Debug button (only visible in development mode) -->
-      {#if isTauri && import.meta.env.DEV}
-        <button
-          class="absolute bottom-4 left-20 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors flex items-center gap-1 bg-white/50 hover:bg-white/80 dark:bg-gray-800/50 dark:hover:bg-gray-700/80 px-2 py-1 rounded-lg backdrop-blur-sm border border-blue-200 dark:border-blue-700"
-          on:click={() => showDebugPanel = true}
-          title="Open debug panel"
-        >
-          <span>🔧</span>
-          <span>Debug</span>
-        </button>
-      {/if}
+			<!-- Debug button (only visible in development mode) -->
+			{#if isTauri && import.meta.env.DEV}
+				<button
+					class="absolute bottom-4 left-20 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors flex items-center gap-1 bg-white/50 hover:bg-white/80 dark:bg-gray-800/50 dark:hover:bg-gray-700/80 px-2 py-1 rounded-lg backdrop-blur-sm border border-blue-200 dark:border-blue-700"
+					on:click={() => (showDebugPanel = true)}
+					title="Open debug panel"
+				>
+					<span>🔧</span>
+					<span>Debug</span>
+				</button>
+			{/if}
 
-      <HomeButton
-        {showThumbnails}
-      />
-    {/if}
-  {/if}
+			<HomeButton {showThumbnails} />
+		{/if}
+	{/if}
 
-  <Footer
-    {focusMode}
-    getFormattedVersion={getFormattedVersion}
-    on:helpClick={() => showShortcuts = true}
-  />
+	<Footer
+		{focusMode}
+		{presentationMode}
+		{getFormattedVersion}
+		on:helpClick={() => (showShortcuts = true)}
+	/>
 </main>
 
 <DragOverlay {dragOver} />
 
-<KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => showShortcuts = false} />
+<KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => (showShortcuts = false)} />
 <DebugPanel bind:isVisible={showDebugPanel} />
 
-<!-- Share PDF Modal -->
-<SharePDFModal 
-  bind:isOpen={showShareModal}
-  pdfFile={currentFile}
-  originalFileName={getOriginalFileName()}
-  on:close={() => showShareModal = false}
-  on:shared={(event) => {
-    console.log('PDF shared successfully:', event.detail);
-    showShareModal = false;
-  }}
-/>
+<!-- Share PDF Modal - only mount when we have a file -->
+{#if currentFile}
+	<SharePDFModal
+		bind:isOpen={showShareModal}
+		pdfFile={currentFile}
+		originalFileName={getOriginalFileName()}
+		on:close={() => (showShareModal = false)}
+		on:shared={(event) => {
+			console.log('PDF shared successfully:', event.detail);
+			showShareModal = false;
+		}}
+	/>
+{/if}
 
 <!-- Hidden file input -->
 <input
-  id="file-input"
-  type="file"
-  accept=".pdf,.lpdf,.md,.markdown"
-  multiple={false}
-  class="hidden"
-  on:change={(event) => {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      handleFileUpload(input.files);
-    }
-  }}
+	type="file"
+	accept=".pdf,.lpdf,.md,.markdown"
+	multiple={false}
+	class="hidden"
+	on:change={(event) => {
+		const input = event.target as HTMLInputElement;
+		if (input.files && input.files.length > 0) {
+			handleFileUpload(input.files);
+		}
+	}}
 />
 
 <GlobalStyles />
-
