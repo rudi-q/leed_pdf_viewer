@@ -44,6 +44,9 @@
 	// Track pending files timeout for cleanup
 	let pendingFilesTimeout: ReturnType<typeof setTimeout> | null = null;
 
+	// Track menu event unlisten functions
+	let menuUnlistenFns: Promise<() => void>[] = [];
+
 	let pdfViewer: PDFViewer;
 	let currentFile: File | string | null = null;
 	let dragOver = false;
@@ -111,27 +114,20 @@
 			const intervalId = setInterval(() => {
 				if (isPdfReady()) {
 					clearInterval(intervalId);
-					clearTimeout(timeoutId);
 					resolve(true);
 				} else if (performance.now() - start >= maxWaitMs) {
 					clearInterval(intervalId);
-					clearTimeout(timeoutId);
 					resolve(false);
 				}
 			}, intervalMs);
-			const timeoutId = setTimeout(() => {
-				clearInterval(intervalId);
-				resolve(false);
-			}, maxWaitMs + 10);
 		});
 	}
 
-	// Listen for menu events from Tauri
-	const handleMenuEvent = (event: Event) => {
-		const customEvent = event as CustomEvent;
-		console.log('[MENU] Received menu event:', event.type, customEvent.detail);
+	// Handle menu actions triggered by Tauri events
+	const handleMenuAction = (action: string, payload?: any) => {
+		console.log('[MENU] Received menu action:', action, payload);
 
-		switch (event.type) {
+		switch (action) {
 			case 'show-shortcuts':
 				showShortcuts = true;
 				break;
@@ -200,8 +196,11 @@
 					showShareModal = true;
 				}
 				break;
+			case 'menu-help':
+				goto('/help');
+				break;
 			case 'menu-select-tool':
-				const toolName = customEvent.detail;
+				const toolName = payload;
 				switch (toolName) {
 					case 'pencil':
 						setTool('pencil');
@@ -233,26 +232,39 @@
 		console.log('[PDF Route] Setting up event listeners');
 		document.addEventListener('fullscreenchange', handleFullscreenChange);
 
-		window.addEventListener('show-shortcuts', handleMenuEvent);
-		window.addEventListener('menu-undo', handleMenuEvent);
-		window.addEventListener('menu-redo', handleMenuEvent);
-		window.addEventListener('menu-previous-page', handleMenuEvent);
-		window.addEventListener('menu-next-page', handleMenuEvent);
-		window.addEventListener('menu-zoom-in', handleMenuEvent);
-		window.addEventListener('menu-zoom-out', handleMenuEvent);
-		window.addEventListener('menu-reset-zoom', handleMenuEvent);
-		window.addEventListener('menu-fit-width', handleMenuEvent);
-		window.addEventListener('menu-fit-height', handleMenuEvent);
-		window.addEventListener('menu-focus-mode', handleMenuEvent);
-		window.addEventListener('menu-open-file', handleMenuEvent);
-		window.addEventListener('menu-browse-templates', handleMenuEvent);
-		window.addEventListener('menu-start-fresh', handleMenuEvent);
-		window.addEventListener('menu-search-pdf', handleMenuEvent);
-		window.addEventListener('menu-export-as-pdf', handleMenuEvent);
-		window.addEventListener('menu-export-as-lpdf', handleMenuEvent);
-		window.addEventListener('menu-export-as-docx', handleMenuEvent);
-		window.addEventListener('menu-share-pdf', handleMenuEvent);
-		window.addEventListener('menu-select-tool', handleMenuEvent);
+		// Register Tauri menu event listeners
+		if (isTauri) {
+			const simpleMenuEvents = [
+				'show-shortcuts',
+				'menu-undo',
+				'menu-redo',
+				'menu-previous-page',
+				'menu-next-page',
+				'menu-zoom-in',
+				'menu-zoom-out',
+				'menu-reset-zoom',
+				'menu-fit-width',
+				'menu-fit-height',
+				'menu-focus-mode',
+				'menu-open-file',
+				'menu-browse-templates',
+				'menu-start-fresh',
+				'menu-search-pdf',
+				'menu-export-as-pdf',
+				'menu-export-as-lpdf',
+				'menu-export-as-docx',
+				'menu-share-pdf',
+				'menu-help'
+			];
+
+			simpleMenuEvents.forEach((event) => {
+				menuUnlistenFns.push(listen(event, () => handleMenuAction(event)));
+			});
+
+			menuUnlistenFns.push(
+				listen('menu-select-tool', (event) => handleMenuAction('menu-select-tool', event.payload))
+			);
+		}
 
 		// Strategy 1: Immediate checks for Tauri file associations
 		if (isTauri) {
@@ -336,26 +348,11 @@
 		document.removeEventListener('fullscreenchange', handleFullscreenChange);
 
 		// Clean up menu event listeners
-		window.removeEventListener('show-shortcuts', handleMenuEvent);
-		window.removeEventListener('menu-undo', handleMenuEvent);
-		window.removeEventListener('menu-redo', handleMenuEvent);
-		window.removeEventListener('menu-previous-page', handleMenuEvent);
-		window.removeEventListener('menu-next-page', handleMenuEvent);
-		window.removeEventListener('menu-zoom-in', handleMenuEvent);
-		window.removeEventListener('menu-zoom-out', handleMenuEvent);
-		window.removeEventListener('menu-reset-zoom', handleMenuEvent);
-		window.removeEventListener('menu-fit-width', handleMenuEvent);
-		window.removeEventListener('menu-fit-height', handleMenuEvent);
-		window.removeEventListener('menu-focus-mode', handleMenuEvent);
-		window.removeEventListener('menu-open-file', handleMenuEvent);
-		window.removeEventListener('menu-browse-templates', handleMenuEvent);
-		window.removeEventListener('menu-start-fresh', handleMenuEvent);
-		window.removeEventListener('menu-search-pdf', handleMenuEvent);
-		window.removeEventListener('menu-export-as-pdf', handleMenuEvent);
-		window.removeEventListener('menu-export-as-lpdf', handleMenuEvent);
-		window.removeEventListener('menu-export-as-docx', handleMenuEvent);
-		window.removeEventListener('menu-share-pdf', handleMenuEvent);
-		window.removeEventListener('menu-select-tool', handleMenuEvent);
+		// Clean up menu event listeners
+		menuUnlistenFns.forEach((unlistenPromise) => {
+			unlistenPromise.then((unlisten) => unlisten()).catch(console.error);
+		});
+		menuUnlistenFns = [];
 
 		// Clean up Tauri event listeners
 		if (window.__pdfRouteCleanup) {
@@ -1156,6 +1153,7 @@
 
 <!-- Hidden file input -->
 <input
+	id="file-input"
 	type="file"
 	accept=".pdf,.lpdf"
 	multiple={false}

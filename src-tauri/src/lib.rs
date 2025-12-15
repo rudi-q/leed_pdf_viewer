@@ -5,12 +5,15 @@ use std::time::Duration;
 use tauri::{Emitter, Manager, RunEvent};
 
 #[cfg(target_os = "macos")]
-use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, AboutMetadata};
+use tauri::menu::{AboutMetadata, MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 
 mod license;
 // License imports only needed for Windows/Linux builds (excluded from macOS for App Store compliance)
 #[cfg(not(target_os = "macos"))]
-use license::{activate_license_key, validate_license_key, get_stored_license, store_license, store_activated_license, remove_stored_license, check_license_smart, get_license_requirement_info};
+use license::{
+    activate_license_key, check_license_smart, get_license_requirement_info, get_stored_license,
+    remove_stored_license, store_activated_license, store_license, validate_license_key,
+};
 
 // Global state to store pending file paths
 static PENDING_FILES: Mutex<VecDeque<String>> = Mutex::new(VecDeque::new());
@@ -59,15 +62,21 @@ fn process_deep_link(app_handle: &tauri::AppHandle, url: &str) {
                         "pdf_url": path,
                         "page": page
                     });
-                    println!("[DEEP_LINK] Emitting load-pdf-from-deep-link event with payload: {:?}", payload);
-                    
+                    println!(
+                        "[DEEP_LINK] Emitting load-pdf-from-deep-link event with payload: {:?}",
+                        payload
+                    );
+
                     // Emit both events to ensure compatibility
                     if let Err(e) = app_handle.emit("load-pdf-from-deep-link", payload.clone()) {
-                        println!("[DEEP_LINK] Failed to emit load-pdf-from-deep-link event: {:?}", e);
+                        println!(
+                            "[DEEP_LINK] Failed to emit load-pdf-from-deep-link event: {:?}",
+                            e
+                        );
                     } else {
                         println!("[DEEP_LINK] Successfully emitted load-pdf-from-deep-link event");
                     }
-                    
+
                     // Also emit the simple deep-link event as fallback
                     if let Err(e) = app_handle.emit("deep-link", &path) {
                         println!("[DEEP_LINK] Failed to emit deep-link event: {:?}", e);
@@ -85,96 +94,105 @@ fn process_deep_link(app_handle: &tauri::AppHandle, url: &str) {
                         }
                     };
 
-                // Check against allowed base directories
-                let allowed_bases = [
-                    std::env::var("HOME").unwrap_or_default(),
-                    std::env::var("USERPROFILE").unwrap_or_default(),
-                    std::env::var("APPDATA").unwrap_or_default(),
-                    std::env::var("LOCALAPPDATA").unwrap_or_default(),
-                    #[cfg(target_os = "windows")]
-                    "C:\\Users".to_string(),
-                    #[cfg(target_os = "linux")]
-                    "/home".to_string(),
-                    #[cfg(target_os = "macos")]
-                    "/Users".to_string(),
-                ];
+                    // Check against allowed base directories
+                    let allowed_bases = [
+                        std::env::var("HOME").unwrap_or_default(),
+                        std::env::var("USERPROFILE").unwrap_or_default(),
+                        std::env::var("APPDATA").unwrap_or_default(),
+                        std::env::var("LOCALAPPDATA").unwrap_or_default(),
+                        #[cfg(target_os = "windows")]
+                        "C:\\Users".to_string(),
+                        #[cfg(target_os = "linux")]
+                        "/home".to_string(),
+                        #[cfg(target_os = "macos")]
+                        "/Users".to_string(),
+                    ];
 
-                let mut is_allowed = false;
-                for base in &allowed_bases {
-                    if !base.is_empty() {
-                        let base_path = std::path::Path::new(base);
-                        if canonical_path.starts_with(base_path) {
-                            is_allowed = true;
-                            break;
+                    let mut is_allowed = false;
+                    for base in &allowed_bases {
+                        if !base.is_empty() {
+                            let base_path = std::path::Path::new(base);
+                            if canonical_path.starts_with(base_path) {
+                                is_allowed = true;
+                                break;
+                            }
                         }
                     }
-                }
 
-                if !is_allowed {
-                    println!(
-                        "[DEEP_LINK] Rejected path outside allowed directories: {}",
-                        canonical_path.display()
-                    );
-                    println!("[DEEP_LINK] Allowed bases were: {:?}", allowed_bases);
-                    if allowed_bases.iter().all(|s| s.is_empty()) {
-                        println!("[DEEP_LINK] WARNING: All environment variables are empty, blocking all files");
-                    }
-                    return;
-                }
-
-                // Verify it's a regular file
-                let metadata = match std::fs::metadata(&canonical_path) {
-                    Ok(meta) => meta,
-                    Err(e) => {
+                    if !is_allowed {
                         println!(
-                            "[DEEP_LINK] Failed to read file metadata for {}: {}",
-                            canonical_path.display(),
-                            e
+                            "[DEEP_LINK] Rejected path outside allowed directories: {}",
+                            canonical_path.display()
+                        );
+                        println!("[DEEP_LINK] Allowed bases were: {:?}", allowed_bases);
+                        if allowed_bases.iter().all(|s| s.is_empty()) {
+                            println!("[DEEP_LINK] WARNING: All environment variables are empty, blocking all files");
+                        }
+                        return;
+                    }
+
+                    // Verify it's a regular file
+                    let metadata = match std::fs::metadata(&canonical_path) {
+                        Ok(meta) => meta,
+                        Err(e) => {
+                            println!(
+                                "[DEEP_LINK] Failed to read file metadata for {}: {}",
+                                canonical_path.display(),
+                                e
+                            );
+                            return;
+                        }
+                    };
+
+                    if !metadata.is_file() {
+                        println!(
+                            "[DEEP_LINK] Rejected non-file path: {}",
+                            canonical_path.display()
                         );
                         return;
                     }
-                };
 
-                if !metadata.is_file() {
-                    println!("[DEEP_LINK] Rejected non-file path: {}", canonical_path.display());
-                    return;
-                }
+                    // Explicit user confirmation before opening the file
+                    let confirm = rfd::MessageDialog::new()
+                        .set_title("Open file from link?")
+                        .set_description(format!(
+                            "A link is requesting to open this file:\n{}\nPage: {}",
+                            canonical_path.display(),
+                            page
+                        ))
+                        .set_level(rfd::MessageLevel::Info)
+                        .set_buttons(rfd::MessageButtons::OkCancel)
+                        .show();
 
-                // Explicit user confirmation before opening the file
-                let confirm = rfd::MessageDialog::new()
-                    .set_title("Open file from link?")
-                    .set_description(format!(
-                        "A link is requesting to open this file:\n{}\nPage: {}",
+                    if confirm != rfd::MessageDialogResult::Ok {
+                        println!(
+                            "[DEEP_LINK] User declined opening deep-linked file: {}",
+                            canonical_path.display()
+                        );
+                        return;
+                    }
+
+                    println!(
+                        "[DEEP_LINK] Approved PDF path: {}, page: {}",
                         canonical_path.display(),
                         page
-                    ))
-                    .set_level(rfd::MessageLevel::Info)
-                    .set_buttons(rfd::MessageButtons::OkCancel)
-                    .show();
+                    );
 
-                if confirm != rfd::MessageDialogResult::Ok {
-                    println!("[DEEP_LINK] User declined opening deep-linked file: {}", canonical_path.display());
-                    return;
-                }
-
-                println!(
-                    "[DEEP_LINK] Approved PDF path: {}, page: {}",
-                    canonical_path.display(),
-                    page
-                );
-
-                let payload = serde_json::json!({
-                    "pdf_path": canonical_path.to_string_lossy().to_string(),
-                    "page": page
-                });
-                if let Err(e) = app_handle.emit("load-pdf-from-deep-link", payload) {
-                    println!("[DEEP_LINK] Failed to emit event: {:?}", e);
-                }
+                    let payload = serde_json::json!({
+                        "pdf_path": canonical_path.to_string_lossy().to_string(),
+                        "page": page
+                    });
+                    if let Err(e) = app_handle.emit("load-pdf-from-deep-link", payload) {
+                        println!("[DEEP_LINK] Failed to emit event: {:?}", e);
+                    }
                 }
             } else {
                 // No file parameter, emit the action for informational handlers only
                 let content = url.replace("leedpdf://", "").replace("?", "");
-                println!("[DEEP_LINK] No file param, emitting raw content: {}", content);
+                println!(
+                    "[DEEP_LINK] No file param, emitting raw content: {}",
+                    content
+                );
                 if let Err(e) = app_handle.emit("deep-link", &content) {
                     println!("[DEEP_LINK] Failed to emit deep-link event: {:?}", e);
                 }
@@ -215,11 +233,8 @@ fn parse_and_validate_deep_link(url: &str) -> Result<ParsedDeepLink, String> {
         return Err("unsupported scheme".to_string());
     }
 
-    let action = parsed
-        .host_str()
-        .map(|s| s.to_string())
-        .unwrap_or_default();
-    
+    let action = parsed.host_str().map(|s| s.to_string()).unwrap_or_default();
+
     println!("[DEEP_LINK] Parsed action: {}", action);
 
     // Handle direct URLs (leedpdf://https://example.com/file.pdf)
@@ -259,7 +274,9 @@ fn parse_and_validate_deep_link(url: &str) -> Result<ParsedDeepLink, String> {
                     file = Some(v);
                     continue;
                 } else if lower.starts_with("file://") {
-                    return Err("file param must be a local absolute path, not file:// URL".to_string());
+                    return Err(
+                        "file param must be a local absolute path, not file:// URL".to_string()
+                    );
                 }
 
                 // Basic absolute path checks without fs access
@@ -342,7 +359,8 @@ mod tests {
 
     #[test]
     fn accepts_https_url_in_file() {
-        let result = parse_and_validate_deep_link("leedpdf://open?file=https://example.com/doc.pdf");
+        let result =
+            parse_and_validate_deep_link("leedpdf://open?file=https://example.com/doc.pdf");
         assert!(result.is_ok());
         let parsed = result.unwrap();
         assert_eq!(parsed.file, Some("https://example.com/doc.pdf".to_string()));
@@ -361,7 +379,9 @@ mod tests {
     #[test]
     fn rejects_page_out_of_range() {
         assert!(parse_and_validate_deep_link("leedpdf://open?file=/tmp/a.pdf&page=0").is_err());
-        assert!(parse_and_validate_deep_link("leedpdf://open?file=/tmp/a.pdf&page=100001").is_err());
+        assert!(
+            parse_and_validate_deep_link("leedpdf://open?file=/tmp/a.pdf&page=100001").is_err()
+        );
     }
 
     #[test]
@@ -373,7 +393,9 @@ mod tests {
     #[test]
     fn accepts_minimal_valid_windows() {
         #[cfg(windows)]
-        assert!(parse_and_validate_deep_link("leedpdf://open?file=C:/Users/test/a.pdf&page=2").is_ok());
+        assert!(
+            parse_and_validate_deep_link("leedpdf://open?file=C:/Users/test/a.pdf&page=2").is_ok()
+        );
     }
 }
 
@@ -723,66 +745,68 @@ fn get_default_test_path() -> Result<String, String> {
 
 // Function to create the application menu (macOS)
 #[cfg(target_os = "macos")]
-fn create_app_menu(app_handle: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wry>, tauri::Error> {
+fn create_app_menu(
+    app_handle: &tauri::AppHandle,
+) -> Result<tauri::menu::Menu<tauri::Wry>, tauri::Error> {
     // Create File menu items
     let open_file_item = MenuItemBuilder::with_id("open_file", "Open...")
         .accelerator("U")
         .build(app_handle)?;
-    
+
     let browse_templates_item = MenuItemBuilder::with_id("browse_templates", "Browse Templates...")
         .accelerator("CmdOrCtrl+Shift+T")
         .build(app_handle)?;
-    
+
     let start_fresh_item = MenuItemBuilder::with_id("start_fresh", "Start Fresh")
         .accelerator("CmdOrCtrl+N")
         .build(app_handle)?;
-    
+
     let search_pdf_item = MenuItemBuilder::with_id("search_pdf", "Search PDF...")
         .accelerator("CmdOrCtrl+F")
         .build(app_handle)?;
-    
+
     // Create Edit menu items
     let undo_item = MenuItemBuilder::with_id("undo", "Undo")
         .accelerator("CmdOrCtrl+Z")
         .build(app_handle)?;
-    
+
     let redo_item = MenuItemBuilder::with_id("redo", "Redo")
         .accelerator("CmdOrCtrl+Shift+Z")
         .build(app_handle)?;
-    
+
     // Create View menu items
     let previous_page_item = MenuItemBuilder::with_id("previous_page", "Previous Page")
         .accelerator("Left")
         .build(app_handle)?;
-    
+
     let next_page_item = MenuItemBuilder::with_id("next_page", "Next Page")
         .accelerator("Right")
         .build(app_handle)?;
-    
+
     let zoom_in_item = MenuItemBuilder::with_id("zoom_in", "Zoom In")
         .accelerator("CmdOrCtrl+=")
         .build(app_handle)?;
-    
+
     let zoom_out_item = MenuItemBuilder::with_id("zoom_out", "Zoom Out")
         .accelerator("CmdOrCtrl+-")
         .build(app_handle)?;
-    
+
     let reset_zoom_item = MenuItemBuilder::with_id("reset_zoom", "Reset Zoom")
         .accelerator("CmdOrCtrl+0")
         .build(app_handle)?;
-    
+
     let fit_width_item = MenuItemBuilder::with_id("fit_width", "Fit Width")
         .accelerator("W")
         .build(app_handle)?;
-    
+
     let fit_height_item = MenuItemBuilder::with_id("fit_height", "Fit Height")
         .accelerator("H")
         .build(app_handle)?;
-    
+
     let focus_mode_item = MenuItemBuilder::with_id("focus_mode", "Focus Mode")
         .accelerator("F")
         .build(app_handle)?;
-    
+
     // Create View submenu
     let view_menu = tauri::menu::SubmenuBuilder::new(app_handle, "View")
         .item(&previous_page_item)
@@ -797,31 +821,31 @@ fn create_app_menu(app_handle: &tauri::AppHandle) -> Result<tauri::menu::Menu<ta
         .separator()
         .item(&focus_mode_item)
         .build()?;
-    
+
     // Create Export submenu items
     let export_as_pdf_item = MenuItemBuilder::with_id("export_as_pdf", "PDF")
         .accelerator("CmdOrCtrl+Shift+P")
         .build(app_handle)?;
-    
+
     let export_as_lpdf_item = MenuItemBuilder::with_id("export_as_lpdf", "LPDF")
         .accelerator("CmdOrCtrl+Shift+L")
         .build(app_handle)?;
-    
+
     let export_as_docx_item = MenuItemBuilder::with_id("export_as_docx", "DOCX")
         .accelerator("CmdOrCtrl+Shift+D")
         .build(app_handle)?;
-    
+
     // Create Export submenu
     let export_menu = tauri::menu::SubmenuBuilder::new(app_handle, "Export as")
         .item(&export_as_pdf_item)
         .item(&export_as_lpdf_item)
         .item(&export_as_docx_item)
         .build()?;
-    
+
     let share_pdf_item = MenuItemBuilder::with_id("share_pdf", "Share PDF...")
         .accelerator("CmdOrCtrl+E")
         .build(app_handle)?;
-    
+
     // Create File submenu
     let file_menu = tauri::menu::SubmenuBuilder::new(app_handle, "File")
         .item(&open_file_item)
@@ -838,31 +862,31 @@ fn create_app_menu(app_handle: &tauri::AppHandle) -> Result<tauri::menu::Menu<ta
     let pencil_tool_item = MenuItemBuilder::with_id("tool_pencil", "Pencil")
         .accelerator("1")
         .build(app_handle)?;
-    
+
     let eraser_tool_item = MenuItemBuilder::with_id("tool_eraser", "Eraser")
         .accelerator("2")
         .build(app_handle)?;
-    
+
     let text_tool_item = MenuItemBuilder::with_id("tool_text", "Text")
         .accelerator("3")
         .build(app_handle)?;
-    
+
     let arrow_tool_item = MenuItemBuilder::with_id("tool_arrow", "Arrow")
         .accelerator("4")
         .build(app_handle)?;
-    
+
     let highlighter_tool_item = MenuItemBuilder::with_id("tool_highlighter", "Highlighter")
         .accelerator("5")
         .build(app_handle)?;
-    
+
     let sticky_note_tool_item = MenuItemBuilder::with_id("tool_sticky", "Sticky Note")
         .accelerator("6")
         .build(app_handle)?;
-    
+
     let stamps_tool_item = MenuItemBuilder::with_id("tool_stamps", "Stamps")
         .accelerator("S")
         .build(app_handle)?;
-    
+
     // Create Tools submenu
     let tools_menu = tauri::menu::SubmenuBuilder::new(app_handle, "Tools")
         .item(&pencil_tool_item)
@@ -878,17 +902,17 @@ fn create_app_menu(app_handle: &tauri::AppHandle) -> Result<tauri::menu::Menu<ta
     let help_item = MenuItemBuilder::with_id("help", "LeedPDF Help")
         .accelerator("CmdOrCtrl+?")
         .build(app_handle)?;
-    
+
     let shortcuts_item = MenuItemBuilder::with_id("shortcuts", "Keyboard Shortcuts")
         .accelerator("?")
         .build(app_handle)?;
-    
-    let report_bug_item = MenuItemBuilder::with_id("report_bug", "Report Bug...")
-        .build(app_handle)?;
-    
-    let feedback_item = MenuItemBuilder::with_id("feedback", "Submit Feedback...")
-        .build(app_handle)?;
-    
+
+    let report_bug_item =
+        MenuItemBuilder::with_id("report_bug", "Report Bug...").build(app_handle)?;
+
+    let feedback_item =
+        MenuItemBuilder::with_id("feedback", "Submit Feedback...").build(app_handle)?;
+
     // Create Help submenu
     let help_menu = tauri::menu::SubmenuBuilder::new(app_handle, "Help")
         .item(&help_item)
@@ -901,40 +925,46 @@ fn create_app_menu(app_handle: &tauri::AppHandle) -> Result<tauri::menu::Menu<ta
 
     // Create the full menu with macOS standard app menu
     let menu = MenuBuilder::new(app_handle)
-        .item(&tauri::menu::SubmenuBuilder::new(app_handle, "LeedPDF")
-            .about(Some(AboutMetadata {
-                name: Some("LeedPDF".to_string()),
-                version: Some(env!("CARGO_PKG_VERSION").to_string()),
-                short_version: None,
-                authors: None,
-                comments: Some("Draw and Annotate on PDFs".to_string()),
-                copyright: None,
-                license: None,
-                website: None,
-                website_label: None,
-                credits: None,
-                icon: None,
-            }))
-            .separator()
-            .item(&PredefinedMenuItem::hide(app_handle, None)?)
-            .item(&PredefinedMenuItem::hide_others(app_handle, None)?)
-            .item(&PredefinedMenuItem::show_all(app_handle, None)?)
-            .separator()
-            .item(&PredefinedMenuItem::quit(app_handle, None)?)
-            .build()?)
+        .item(
+            &tauri::menu::SubmenuBuilder::new(app_handle, "LeedPDF")
+                .about(Some(AboutMetadata {
+                    name: Some("LeedPDF".to_string()),
+                    version: Some(env!("CARGO_PKG_VERSION").to_string()),
+                    short_version: None,
+                    authors: None,
+                    comments: Some("Draw and Annotate on PDFs".to_string()),
+                    copyright: None,
+                    license: None,
+                    website: None,
+                    website_label: None,
+                    credits: None,
+                    icon: None,
+                }))
+                .separator()
+                .item(&PredefinedMenuItem::hide(app_handle, None)?)
+                .item(&PredefinedMenuItem::hide_others(app_handle, None)?)
+                .item(&PredefinedMenuItem::show_all(app_handle, None)?)
+                .separator()
+                .item(&PredefinedMenuItem::quit(app_handle, None)?)
+                .build()?,
+        )
         .item(&file_menu)
-        .item(&tauri::menu::SubmenuBuilder::new(app_handle, "Edit")
-            .item(&undo_item)
-            .item(&redo_item)
-            .build()?)
+        .item(
+            &tauri::menu::SubmenuBuilder::new(app_handle, "Edit")
+                .item(&undo_item)
+                .item(&redo_item)
+                .build()?,
+        )
         .item(&view_menu)
         .item(&tools_menu)
-        .item(&tauri::menu::SubmenuBuilder::new(app_handle, "Window")
-            .item(&PredefinedMenuItem::minimize(app_handle, None)?)
-            .item(&PredefinedMenuItem::maximize(app_handle, None)?)
-            .separator()
-            .item(&PredefinedMenuItem::close_window(app_handle, None)?)
-            .build()?)
+        .item(
+            &tauri::menu::SubmenuBuilder::new(app_handle, "Window")
+                .item(&PredefinedMenuItem::minimize(app_handle, None)?)
+                .item(&PredefinedMenuItem::maximize(app_handle, None)?)
+                .separator()
+                .item(&PredefinedMenuItem::close_window(app_handle, None)?)
+                .build()?,
+        )
         .item(&help_menu)
         .build()?;
 
@@ -1030,28 +1060,27 @@ pub fn run() {
     {
         #[cfg(not(target_os = "macos"))]
         {
-            use tauri_plugin_deep_link::DeepLinkExt;
-            
-            builder = builder.plugin(
-                tauri_plugin_single_instance::init(|app, argv, _cwd| {
-                    println!("[SINGLE_INSTANCE] New instance attempted with args: {:?}", argv);
-                    
-                    // Bring window to front
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.set_focus();
-                        let _ = window.show();
-                        let _ = window.unminimize();
+            builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+                println!(
+                    "[SINGLE_INSTANCE] New instance attempted with args: {:?}",
+                    argv
+                );
+
+                // Bring window to front
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_focus();
+                    let _ = window.show();
+                    let _ = window.unminimize();
+                }
+
+                // Process any deep links in the arguments
+                for arg in &argv {
+                    if arg.starts_with("leedpdf://") {
+                        println!("[SINGLE_INSTANCE] Found deep link: {}", arg);
+                        process_deep_link(&app, arg);
                     }
-                    
-                    // Process any deep links in the arguments
-                    for arg in &argv {
-                        if arg.starts_with("leedpdf://") {
-                            println!("[SINGLE_INSTANCE] Found deep link: {}", arg);
-                            process_deep_link(&app, arg);
-                        }
-                    }
-                })
-            );
+                }
+            }));
         }
     }
     // Enable updater for non-macOS builds (App Store compliance)
@@ -1060,7 +1089,7 @@ pub fn run() {
         builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     }
 
-	let builder_result = builder
+    let builder_result = builder
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
@@ -1099,163 +1128,159 @@ pub fn run() {
         .setup(|app| {
             // NEW: Add import at the top of setup
             use tauri_plugin_deep_link::DeepLinkExt;
-            
+
             // Setup macOS menu
             #[cfg(target_os = "macos")]
             {
                 let menu = create_app_menu(&app.handle())?;
                 app.set_menu(menu)?;
-                
+
                 // Handle menu events
                 app.on_menu_event(move |app, event| {
                     let event_id = event.id().as_ref();
                     println!("[MENU] Menu event: {}", event_id);
-                    
+
                     if let Some(window) = app.get_webview_window("main") {
-            match event_id {
-                    // Edit menu
-                    "undo" => {
-                        println!("[MENU] Undo clicked");
-                        let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-undo'))");
-                    },
-                    "redo" => {
-                        println!("[MENU] Redo clicked");
-                        let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-redo'))");
-                    },
-                    
-                    // View menu
-                    "previous_page" => {
-                        println!("[MENU] Previous Page clicked");
-                        let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-previous-page'))");
-                    },
-                    "next_page" => {
-                        println!("[MENU] Next Page clicked");
-                        let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-next-page'))");
-                    },
-                    "zoom_in" => {
-                        println!("[MENU] Zoom In clicked");
-                        let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-zoom-in'))");
-                    },
-                    "zoom_out" => {
-                        println!("[MENU] Zoom Out clicked");
-                        let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-zoom-out'))");
-                    },
-                    "reset_zoom" => {
-                        println!("[MENU] Reset Zoom clicked");
-                        let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-reset-zoom'))");
-                    },
-                    "fit_width" => {
-                        println!("[MENU] Fit Width clicked");
-                        let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-fit-width'))");
-                    },
-                    "fit_height" => {
-                        println!("[MENU] Fit Height clicked");
-                        let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-fit-height'))");
-                    },
-                    "focus_mode" => {
-                        println!("[MENU] Focus Mode clicked");
-                        let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-focus-mode'))");
-                    },
-                    
-                    // File menu
-                    "open_file" => {
+                        match event_id {
+                            // Edit menu
+                            "undo" => {
+                                println!("[MENU] Undo clicked");
+                                let _ = window.emit("menu-undo", ());
+                            }
+                            "redo" => {
+                                println!("[MENU] Redo clicked");
+                                let _ = window.emit("menu-redo", ());
+                            }
+
+                            // View menu
+                            "previous_page" => {
+                                println!("[MENU] Previous Page clicked");
+                                let _ = window.emit("menu-previous-page", ());
+                            }
+                            "next_page" => {
+                                println!("[MENU] Next Page clicked");
+                                let _ = window.emit("menu-next-page", ());
+                            }
+                            "zoom_in" => {
+                                println!("[MENU] Zoom In clicked");
+                                let _ = window.emit("menu-zoom-in", ());
+                            }
+                            "zoom_out" => {
+                                println!("[MENU] Zoom Out clicked");
+                                let _ = window.emit("menu-zoom-out", ());
+                            }
+                            "reset_zoom" => {
+                                println!("[MENU] Reset Zoom clicked");
+                                let _ = window.emit("menu-reset-zoom", ());
+                            }
+                            "fit_width" => {
+                                println!("[MENU] Fit Width clicked");
+                                let _ = window.emit("menu-fit-width", ());
+                            }
+                            "fit_height" => {
+                                println!("[MENU] Fit Height clicked");
+                                let _ = window.emit("menu-fit-height", ());
+                            }
+                            "focus_mode" => {
+                                println!("[MENU] Focus Mode clicked");
+                                let _ = window.emit("menu-focus-mode", ());
+                            }
+
+                            // File menu
+                            "open_file" => {
                                 println!("[MENU] Open File clicked");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-open-file'))");
-                            },
+                                let _ = window.emit("menu-open-file", ());
+                            }
                             "browse_templates" => {
                                 println!("[MENU] Browse Templates clicked");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-browse-templates'))");
-                            },
+                                let _ = window.emit("menu-browse-templates", ());
+                            }
                             "start_fresh" => {
                                 println!("[MENU] Start Fresh clicked");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-start-fresh'))");
-                            },
+                                let _ = window.emit("menu-start-fresh", ());
+                            }
                             "search_pdf" => {
                                 println!("[MENU] Search PDF clicked");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-search-pdf'))");
-                            },
+                                let _ = window.emit("menu-search-pdf", ());
+                            }
                             "export_as_pdf" => {
                                 println!("[MENU] Export as PDF clicked");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-export-as-pdf'))");
-                            },
+                                let _ = window.emit("menu-export-as-pdf", ());
+                            }
                             "export_as_lpdf" => {
                                 println!("[MENU] Export as LPDF clicked");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-export-as-lpdf'))");
-                            },
+                                let _ = window.emit("menu-export-as-lpdf", ());
+                            }
                             "export_as_docx" => {
                                 println!("[MENU] Export as DOCX clicked");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-export-as-docx'))");
-                            },
+                                let _ = window.emit("menu-export-as-docx", ());
+                            }
                             "share_pdf" => {
                                 println!("[MENU] Share PDF clicked");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-share-pdf'))");
-                            },
-                            
+                                let _ = window.emit("menu-share-pdf", ());
+                            }
+
                             // Tools menu
                             "tool_pencil" => {
                                 println!("[MENU] Pencil tool selected");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-select-tool', {detail: 'pencil'}))");
-                            },
+                                let _ = window.emit("menu-select-tool", "pencil");
+                            }
                             "tool_eraser" => {
                                 println!("[MENU] Eraser tool selected");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-select-tool', {detail: 'eraser'}))");
-                            },
+                                let _ = window.emit("menu-select-tool", "eraser");
+                            }
                             "tool_text" => {
                                 println!("[MENU] Text tool selected");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-select-tool', {detail: 'text'}))");
-                            },
+                                let _ = window.emit("menu-select-tool", "text");
+                            }
                             "tool_arrow" => {
                                 println!("[MENU] Arrow tool selected");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-select-tool', {detail: 'arrow'}))");
-                            },
+                                let _ = window.emit("menu-select-tool", "arrow");
+                            }
                             "tool_highlighter" => {
                                 println!("[MENU] Highlighter tool selected");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-select-tool', {detail: 'highlighter'}))");
-                            },
+                                let _ = window.emit("menu-select-tool", "highlighter");
+                            }
                             "tool_sticky" => {
                                 println!("[MENU] Sticky Note tool selected");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-select-tool', {detail: 'sticky'}))");
-                            },
+                                let _ = window.emit("menu-select-tool", "sticky");
+                            }
                             "tool_stamps" => {
                                 println!("[MENU] Stamps tool selected");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('menu-select-tool', {detail: 'stamps'}))");
-                            },
-                            
+                                let _ = window.emit("menu-select-tool", "stamps");
+                            }
+
                             // Help menu
                             "help" => {
                                 println!("[MENU] Help menu clicked, opening help page");
-                                let _ = window.eval("window.location.href = '/help'");
-                            },
+                                let _ = window.emit("menu-help", ());
+                            }
                             "shortcuts" => {
                                 println!("[MENU] Shortcuts menu clicked, opening shortcuts modal");
-                                let _ = window.eval("window.dispatchEvent(new CustomEvent('show-shortcuts'))");
-                            },
+                                let _ = window.emit("show-shortcuts", ());
+                            }
                             "report_bug" => {
                                 println!("[MENU] Report Bug clicked, opening GitHub issues");
                                 let url = "https://github.com/rudi-q/leed_pdf_viewer/issues";
                                 #[cfg(target_os = "macos")]
                                 {
-                                    let _ = std::process::Command::new("open")
-                                        .arg(url)
-                                        .spawn();
+                                    let _ = std::process::Command::new("open").arg(url).spawn();
                                 }
-                            },
+                            }
                             "feedback" => {
                                 println!("[MENU] Submit Feedback clicked, opening email");
                                 let url = "mailto:write@leed.my?subject=LeedPDF%20Feedback";
                                 #[cfg(target_os = "macos")]
                                 {
-                                    let _ = std::process::Command::new("open")
-                                        .arg(url)
-                                        .spawn();
+                                    let _ = std::process::Command::new("open").arg(url).spawn();
                                 }
-                            },
+                            }
                             _ => {}
                         }
                     }
                 });
             }
-            
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -1266,7 +1291,7 @@ pub fn run() {
 
             // ============ NEW: DEEP LINK HANDLING (macOS) ============
             let app_handle = app.handle().clone();
-            
+
             // CRITICAL: Check for launch URLs immediately (fixes first-attempt issue)
             println!("=== CHECKING FOR LAUNCH DEEP LINKS ===");
             match app.deep_link().get_current() {
@@ -1290,9 +1315,9 @@ pub fn run() {
             // Set up listener for when app is already running (fixes subsequent-attempt issue)
             let handle = app_handle.clone();
             app.deep_link().on_open_url(move |event| {
-                let urls = event.urls();  // Call once and store
+                let urls = event.urls(); // Call once and store
                 println!("[DEEP_LINK] Deep link while running: {:?}", urls);
-                
+
                 // CRITICAL: Bring window to front (fixes "nothing happens" issue)
                 if let Some(window) = handle.get_webview_window("main") {
                     let _ = window.set_focus();
@@ -1300,9 +1325,10 @@ pub fn run() {
                     let _ = window.unminimize();
                     println!("[DEEP_LINK] Brought window to front");
                 }
-                
+
                 // Process URLs (convert Url to &str)
-                for url in &urls {  // Iterate over reference
+                for url in &urls {
+                    // Iterate over reference
                     let url_str = url.as_str();
                     if !url_str.is_empty() {
                         process_deep_link(&handle, url_str);
@@ -1431,98 +1457,98 @@ pub fn run() {
                 }
             }
 
-		Ok(())
-	})
-		.build(tauri::generate_context!());
+            Ok(())
+        })
+        .build(tauri::generate_context!());
 
-	match builder_result {
-		Ok(app) => {
-			app.run(|app_handle, event| {
-            // Log all events for debugging (debug builds only)
-            if cfg!(debug_assertions) {
-                println!("Received event: {:?}", event);
-            }
+    match builder_result {
+        Ok(app) => {
+            app.run(|app_handle, event| {
+                // Log all events for debugging (debug builds only)
+                if cfg!(debug_assertions) {
+                    println!("Received event: {:?}", event);
+                }
 
-            match event {
-                // Handle macOS file association events
-                #[cfg(any(target_os = "macos", target_os = "ios"))]
-                RunEvent::Opened { urls } => {
-                    println!("*** FILE ASSOCIATION EVENT RECEIVED ***");
-                    println!("Received opened event with URLs: {:?}", urls);
+                match event {
+                    // Handle macOS file association events
+                    #[cfg(any(target_os = "macos", target_os = "ios"))]
+                    RunEvent::Opened { urls } => {
+                        println!("*** FILE ASSOCIATION EVENT RECEIVED ***");
+                        println!("Received opened event with URLs: {:?}", urls);
 
-                    let mut pdf_files: Vec<String> = Vec::new();
-                    for url in urls {
-                        // Convert URL to file path
-                        let url_str = url.to_string();
-                        println!("Processing URL: {}", url_str);
+                        let mut pdf_files: Vec<String> = Vec::new();
+                        for url in urls {
+                            // Convert URL to file path
+                            let url_str = url.to_string();
+                            println!("Processing URL: {}", url_str);
 
-                        if url_str.starts_with("file://") {
-                            let path = url_str.replace("file://", "");
+                            if url_str.starts_with("file://") {
+                                let path = url_str.replace("file://", "");
 
-                            // Properly handle URL decoding errors
-                            let decoded_path = match urlencoding::decode(&path) {
-                                Ok(decoded) => decoded.into_owned(),
-                                Err(e) => {
-                                    println!("Failed to decode URL path '{}': {:?}", path, e);
-                                    continue; // Skip this URL
+                                // Properly handle URL decoding errors
+                                let decoded_path = match urlencoding::decode(&path) {
+                                    Ok(decoded) => decoded.into_owned(),
+                                    Err(e) => {
+                                        println!("Failed to decode URL path '{}': {:?}", path, e);
+                                        continue; // Skip this URL
+                                    }
+                                };
+
+                                // Skip empty paths
+                                if decoded_path.is_empty() {
+                                    println!("Decoded path is empty for URL: {}", url_str);
+                                    continue;
                                 }
-                            };
 
-                            // Skip empty paths
-                            if decoded_path.is_empty() {
-                                println!("Decoded path is empty for URL: {}", url_str);
-                                continue;
-                            }
+                                println!("Decoded path: {}", decoded_path);
 
-                            println!("Decoded path: {}", decoded_path);
-
-                            let lower = decoded_path.to_lowercase();
-                            if lower.ends_with(".pdf")
-                                || lower.ends_with(".lpdf")
-                                || lower.ends_with(".md")
-                            {
-                                pdf_files.push(decoded_path.clone());
-                                println!(
-                                    "Found PDF/LPDF/MD file from opened event: {}",
-                                    decoded_path
-                                );
+                                let lower = decoded_path.to_lowercase();
+                                if lower.ends_with(".pdf")
+                                    || lower.ends_with(".lpdf")
+                                    || lower.ends_with(".md")
+                                {
+                                    pdf_files.push(decoded_path.clone());
+                                    println!(
+                                        "Found PDF/LPDF/MD file from opened event: {}",
+                                        decoded_path
+                                    );
+                                } else {
+                                    println!("Not a supported file: {}", decoded_path);
+                                }
                             } else {
-                                println!("Not a supported file: {}", decoded_path);
+                                println!("Not a file:// URL: {}", url_str);
                             }
+                        }
+
+                        if !pdf_files.is_empty() {
+                            println!(
+                                "Processing {} PDF files from file association event",
+                                pdf_files.len()
+                            );
+                            process_pdf_files(&app_handle, pdf_files);
                         } else {
-                            println!("Not a file:// URL: {}", url_str);
+                            println!("No PDF files found in file association event");
                         }
                     }
 
-                    if !pdf_files.is_empty() {
-                        println!(
-                            "Processing {} PDF files from file association event",
-                            pdf_files.len()
-                        );
-                        process_pdf_files(&app_handle, pdf_files);
-                    } else {
-                        println!("No PDF files found in file association event");
+                    // Handle other events for debugging
+                    RunEvent::WindowEvent { label, event, .. } => {
+                        println!("Window event for {}: {:?}", label, event);
+                    }
+
+                    RunEvent::ExitRequested { code, .. } => {
+                        println!("Exit requested with code: {:?}", code);
+                    }
+
+                    _ => {
+                        println!("Other event: {:?}", event);
                     }
                 }
-
-                // Handle other events for debugging
-                RunEvent::WindowEvent { label, event, .. } => {
-                    println!("Window event for {}: {:?}", label, event);
-                }
-
-                RunEvent::ExitRequested { code, .. } => {
-                    println!("Exit requested with code: {:?}", code);
-                }
-
-                _ => {
-                    println!("Other event: {:?}", event);
-                }
-            }
-			});
-		}
-		Err(e) => {
-			eprintln!("Failed to build Tauri application: {e}");
-			std::process::exit(1);
-		}
-	}
+            });
+        }
+        Err(e) => {
+            eprintln!("Failed to build Tauri application: {e}");
+            std::process::exit(1);
+        }
+    }
 }

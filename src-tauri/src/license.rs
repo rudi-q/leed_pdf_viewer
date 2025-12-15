@@ -52,8 +52,10 @@ mod license_impl {
         pub device_id: String,
     }
 
-    pub(super) const POLAR_VALIDATION_URL: &str = "https://api.polar.sh/v1/customer-portal/license-keys/validate";
-    pub(super) const POLAR_ACTIVATION_URL: &str = "https://api.polar.sh/v1/customer-portal/license-keys/activate";
+    pub(super) const POLAR_VALIDATION_URL: &str =
+        "https://api.polar.sh/v1/customer-portal/license-keys/validate";
+    pub(super) const POLAR_ACTIVATION_URL: &str =
+        "https://api.polar.sh/v1/customer-portal/license-keys/activate";
     pub(super) const ORGANIZATION_ID: &str = "2ec4183f-eaad-4089-b9dc-9008f3748460";
     pub(super) const OFFLINE_GRACE_PERIOD: u64 = 7 * 24 * 60 * 60;
 
@@ -75,7 +77,7 @@ mod license_impl {
 #[cfg(not(target_os = "macos"))]
 pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
     use license_impl::*;
-    
+
     if !is_valid_license_key_prefix(license_key) {
         #[cfg(target_os = "windows")]
         {
@@ -93,7 +95,7 @@ pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
 
     let client = reqwest::Client::new();
     let device_id = get_device_id()?;
-    
+
     let request_body = LicenseActivationRequest {
         key: license_key.to_string(),
         organization_id: ORGANIZATION_ID.to_string(),
@@ -118,9 +120,11 @@ pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
             _ => Err(format!("License activation failed with error code {}. Please contact support if this persists.", status_code)),
         };
     }
-    
+
     if !response.status().is_success() {
-        return Err("License server is temporarily unavailable. Please try again later.".to_string());
+        return Err(
+            "License server is temporarily unavailable. Please try again later.".to_string(),
+        );
     }
 
     let activation_response: LicenseActivationResponse = response
@@ -138,7 +142,7 @@ pub async fn activate_license_key(license_key: &str) -> Result<bool, String> {
 #[cfg(not(target_os = "macos"))]
 pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
     use license_impl::*;
-    
+
     if !is_valid_license_key_prefix(license_key) {
         #[cfg(target_os = "windows")]
         {
@@ -149,9 +153,9 @@ pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
             return Err("Invalid license key format. Please ensure your license key starts with 'LEEDWIN' or 'LEEDMAC'.".to_string());
         }
     }
-    
+
     let client = reqwest::Client::new();
-    
+
     let request_body = LicenseValidationRequest {
         key: license_key.to_string(),
         organization_id: ORGANIZATION_ID.to_string(),
@@ -174,9 +178,11 @@ pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
             _ => Err(format!("License validation failed with error code {}. Please contact support if this persists.", status_code)),
         };
     }
-    
+
     if !response.status().is_success() {
-        return Err("License server is temporarily unavailable. Please try again later.".to_string());
+        return Err(
+            "License server is temporarily unavailable. Please try again later.".to_string(),
+        );
     }
 
     let validation_response: LicenseValidationResponse = response
@@ -187,7 +193,10 @@ pub async fn validate_license_key(license_key: &str) -> Result<bool, String> {
     if validation_response.status == "granted" {
         Ok(true)
     } else {
-        Err(format!("License validation was rejected. Status: {}. Your license may be expired or invalid.", validation_response.status))
+        Err(format!(
+            "License validation was rejected. Status: {}. Your license may be expired or invalid.",
+            validation_response.status
+        ))
     }
 }
 
@@ -205,11 +214,13 @@ fn get_license_file_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn get_stored_license(app_handle: &AppHandle) -> Result<Option<license_impl::StoredLicense>, String> {
+pub fn get_stored_license(
+    app_handle: &AppHandle,
+) -> Result<Option<license_impl::StoredLicense>, String> {
     use license_impl::*;
-    
+
     let license_file = get_license_file_path(app_handle)?;
-    
+
     if !license_file.exists() {
         return Ok(None);
     }
@@ -226,14 +237,14 @@ pub fn get_stored_license(app_handle: &AppHandle) -> Result<Option<license_impl:
 #[cfg(not(target_os = "macos"))]
 pub fn store_activated_license(app_handle: &AppHandle, license_key: &str) -> Result<(), String> {
     use license_impl::*;
-    
+
     let license_file = get_license_file_path(app_handle)?;
     let device_id = get_device_id()?;
     let current_time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    
+
     let stored_license = StoredLicense {
         key: license_key.to_string(),
         validated_at: current_time,
@@ -253,13 +264,13 @@ pub fn store_activated_license(app_handle: &AppHandle, license_key: &str) -> Res
 #[cfg(not(target_os = "macos"))]
 pub fn store_license(app_handle: &AppHandle, license_key: &str) -> Result<(), String> {
     use license_impl::*;
-    
+
     let existing_license = get_stored_license(app_handle)?;
-    
+
     match existing_license {
         Some(license) => {
             let license_file = get_license_file_path(app_handle)?;
-            
+
             let updated_license = StoredLicense {
                 key: license_key.to_string(),
                 validated_at: std::time::SystemTime::now()
@@ -269,26 +280,23 @@ pub fn store_license(app_handle: &AppHandle, license_key: &str) -> Result<(), St
                 activated_at: license.activated_at,
                 device_id: license.device_id,
             };
-        
+
             let content = serde_json::to_string_pretty(&updated_license)
                 .map_err(|e| format!("Failed to serialize license: {}", e))?;
-        
+
             std::fs::write(&license_file, content)
                 .map_err(|e| format!("Failed to write license file: {}", e))?;
-        
+
             Ok(())
-        },
-        None => {
-            store_activated_license(app_handle, license_key)
         }
+        None => store_activated_license(app_handle, license_key),
     }
 }
 
 #[cfg(not(target_os = "macos"))]
 pub fn remove_stored_license(app_handle: &AppHandle) -> Result<(), String> {
-    
     let license_file = get_license_file_path(app_handle)?;
-    
+
     if license_file.exists() {
         std::fs::remove_file(&license_file)
             .map_err(|e| format!("Failed to remove license file: {}", e))?;
@@ -300,32 +308,32 @@ pub fn remove_stored_license(app_handle: &AppHandle) -> Result<(), String> {
 #[cfg(not(target_os = "macos"))]
 pub async fn check_license_smart(app_handle: &AppHandle) -> Result<bool, String> {
     use license_impl::*;
-    
+
     let stored_license = match get_stored_license(app_handle)? {
         Some(license) => license,
         None => return Err("No license key found".to_string()),
     };
-    
+
     let current_time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    
+
     let time_since_validation = current_time - stored_license.validated_at;
-    
+
     if time_since_validation < OFFLINE_GRACE_PERIOD {
         return Ok(true);
     }
-    
+
     match validate_license_key(&stored_license.key).await {
         Ok(true) => {
             store_license(app_handle, &stored_license.key)?;
             Ok(true)
-        },
+        }
         Ok(false) => {
             remove_stored_license(app_handle)?;
             Err("License key is no longer valid".to_string())
-        },
+        }
         Err(network_error) => {
             // Extended allowance during transient network outages: double the offline grace period
             eprintln!("License validation network error: {}", network_error);
