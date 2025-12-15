@@ -46,7 +46,7 @@ jobs:
         run: pnpm build
 
       - name: Upload test results
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: test-results
@@ -81,7 +81,7 @@ jobs:
         run: pnpm test:coverage
 
       - name: Upload coverage reports
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-report
           path: coverage/
@@ -171,7 +171,7 @@ jobs:
 
       - name: Upload Tauri artifacts (PR only)
         if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: leedpdf-${{ runner.os }}-${{ github.event.pull_request.head.sha }}
           path: |
