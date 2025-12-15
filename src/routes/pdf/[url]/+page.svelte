@@ -318,6 +318,8 @@
 				unlistenFileOpened,
 				unlistenStartupReady,
 				unlistenDeepLink,
+				unlistenDebug
+			};
 			// Store cleanup functions in module-scoped variable
 			tauriCleanupHandlers = {
 				unlistenFileOpened,
@@ -364,6 +366,7 @@
 			unlistenDeepLink.then((fn: () => void) => fn()).catch(console.error);
 			unlistenDebug.then((fn: () => void) => fn()).catch(console.error);
 			delete window.__pdfRouteCleanup;
+		}
 		// Clear any pending file check timeout
 		if (pendingFilesTimeout !== null) {
 			clearTimeout(pendingFilesTimeout);

@@ -1022,6 +1022,7 @@ fn process_pdf_files(app_handle: &tauri::AppHandle, pdf_files: Vec<String>) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[allow(unused_mut)]
     let mut builder = tauri::Builder::default();
 
     // NEW: Single-instance plugin for Windows/Linux (macOS is single-instance by default)
