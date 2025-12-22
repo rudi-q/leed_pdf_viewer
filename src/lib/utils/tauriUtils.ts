@@ -12,15 +12,15 @@
  * across different Tauri versions and build configurations.
  */
 function detectTauri(): boolean {
-  if (typeof window === 'undefined') return false;
-  
-  // Check for various Tauri-specific globals for maximum compatibility
-  return !!(
-    (window as any).__TAURI__ ||
-    (window as any).__TAURI_INTERNALS__ ||
-    (window as any).__TAURI_IPC__ ||
-    (window as any).__TAURI_EVENT_PLUGIN_INTERNALS__
-  );
+	if (typeof window === 'undefined') return false;
+
+	// Check for various Tauri-specific globals for maximum compatibility
+	return !!(
+		(window as any).__TAURI__ ||
+		(window as any).__TAURI_INTERNALS__ ||
+		(window as any).__TAURI_IPC__ ||
+		(window as any).__TAURI_EVENT_PLUGIN_INTERNALS__
+	);
 }
 
 /**
@@ -36,9 +36,18 @@ export const isTauri = detectTauri();
  * (though in most cases you should use the cached `isTauri` constant)
  */
 export function checkIsTauri(): boolean {
-  return detectTauri();
+	return detectTauri();
 }
 
+/**
+ * Detect operating system from userAgent and platform strings
+ * 
+ * @deprecated This function uses unreliable userAgent/platform sniffing.
+ * Use the Tauri OS plugin instead: `import { platform } from '@tauri-apps/plugin-os'`
+ * and call `await platform()` which returns 'macos', 'windows', 'linux', etc.
+ * 
+ * @returns OS name: 'Windows', 'macOS', 'Linux', or 'Unknown'
+ */
 export function detectOS(): string {
 	if (typeof window === 'undefined') return 'Unknown';
 
