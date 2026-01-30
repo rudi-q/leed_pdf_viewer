@@ -72,7 +72,9 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 				break;
 			case 's':
 				event.preventDefault();
-				params.onDownloadClick();
+				// Use setTimeout to detach the heavy export operation from the keyboard event
+				// This prevents the event handler from blocking UI updates in Tauri
+				setTimeout(() => params.onDownloadClick(), 0);
 				break;
 		}
 	} else {
