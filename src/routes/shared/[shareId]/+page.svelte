@@ -355,7 +355,8 @@
 			}
 		},
 		onFileUploadClick: handleFileUploadClick,
-		onStampToolClick: handleStampToolClick
+		onStampToolClick: handleStampToolClick,
+		onDownloadClick: () => {}
 	}}
 	on:keydown={handlePageSpecificKeys}
 	on:wheel={handleWheel}

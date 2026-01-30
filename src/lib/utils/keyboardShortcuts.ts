@@ -20,6 +20,7 @@ export interface KeyboardShortcutsParams {
 	onPresentationModeChange: (value: boolean) => void;
 	onFileUploadClick: () => void;
 	onStampToolClick: () => void;
+	onDownloadClick: () => void;
 }
 
 /**
@@ -65,12 +66,16 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 					event.preventDefault();
 					params.pdfViewer?.zoomOut();
 					break;
-				case '0':
-					event.preventDefault();
-					params.pdfViewer?.resetZoom();
-					break;
-			}
-		} else {
+			case '0':
+				event.preventDefault();
+				params.pdfViewer?.resetZoom();
+				break;
+			case 's':
+				event.preventDefault();
+				params.onDownloadClick();
+				break;
+		}
+	} else {
 			switch (event.key) {
 				case 'ArrowLeft':
 					event.preventDefault();
