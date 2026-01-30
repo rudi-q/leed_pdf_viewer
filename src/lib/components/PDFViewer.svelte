@@ -36,6 +36,7 @@
 	import ArrowOverlay from './ArrowOverlay.svelte';
 	import TextSelectionOverlay from './TextSelectionOverlay.svelte';
 	import { TOOLBAR_HEIGHT } from '$lib/constants';
+	import { setWindowTitle } from '$lib/utils/tauriUtils';
 
 	// Helper function to convert SVG string to image
 	async function svgToImage(
@@ -380,6 +381,7 @@
 				if (pdfTitle && pdfTitle.trim()) {
 					const cleanTitle = pdfTitle.trim();
 					window.document.title = `${cleanTitle} - LeedPDF`;
+					setWindowTitle(`${cleanTitle} - LeedPDF`);
 					console.log('✅ Updated webpage title to PDF title:', `${cleanTitle} - LeedPDF`);
 				} else {
 					// Fallback to filename if available
@@ -388,6 +390,7 @@
 							? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
 							: pdfFile.name.replace(/\.pdf$/i, '');
 					window.document.title = `${fallbackTitle} - LeedPDF`;
+					setWindowTitle(`${fallbackTitle} - LeedPDF`);
 					console.log(
 						'✅ No PDF title found, updated webpage title to filename:',
 						`${fallbackTitle} - LeedPDF`
@@ -402,6 +405,7 @@
 							? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
 							: pdfFile.name.replace(/\.pdf$/i, '');
 					window.document.title = `${fallbackTitle} - LeedPDF`;
+					setWindowTitle(`${fallbackTitle} - LeedPDF`);
 					console.log('✅ Used fallback filename as title:', `${fallbackTitle} - LeedPDF`);
 				} catch (fallbackError) {
 					console.error('❌ Even fallback title failed:', fallbackError);
