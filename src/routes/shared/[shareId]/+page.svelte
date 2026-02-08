@@ -356,7 +356,7 @@
 		},
 		onFileUploadClick: handleFileUploadClick,
 		onStampToolClick: handleStampToolClick,
-		onDownloadClick: () => {}
+		onDownloadClick: sharedPDFData?.allowDownloading !== false ? handleExportDOCX : undefined
 	}}
 	on:keydown={handlePageSpecificKeys}
 	on:wheel={handleWheel}

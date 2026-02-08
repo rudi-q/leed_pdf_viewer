@@ -9,25 +9,44 @@
   ],
   "permissions": [
     "core:default",
+    "core:window:allow-set-title",
     "fs:allow-read-file",
     "fs:allow-write-file",
     {
       "identifier": "fs:allow-read-file",
       "allow": [
-        { "path": "~/Documents/**" },
-        { "path": "~/Desktop/**" },
-        { "path": "~/Downloads/**" },
-        { "path": "~/Pictures/**" },
-        { "path": "~/Music/**" },
-        { "path": "~/Movies/**" }
+        {
+          "path": "~/Documents/**"
+        },
+        {
+          "path": "~/Desktop/**"
+        },
+        {
+          "path": "~/Downloads/**"
+        },
+        {
+          "path": "~/Pictures/**"
+        },
+        {
+          "path": "~/Music/**"
+        },
+        {
+          "path": "~/Movies/**"
+        }
       ]
     },
     {
       "identifier": "fs:allow-write-file",
       "allow": [
-        { "path": "~/Downloads/**" },
-        { "path": "~/Documents/**" },
-        { "path": "~/Desktop/**" }
+        {
+          "path": "~/Downloads/**"
+        },
+        {
+          "path": "~/Documents/**"
+        },
+        {
+          "path": "~/Desktop/**"
+        }
       ]
     }
   ]
