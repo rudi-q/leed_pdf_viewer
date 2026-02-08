@@ -20,7 +20,7 @@ export interface KeyboardShortcutsParams {
 	onPresentationModeChange: (value: boolean) => void;
 	onFileUploadClick: () => void;
 	onStampToolClick: () => void;
-	onDownloadClick: () => void;
+	onDownloadClick?: () => void;
 }
 
 /**
@@ -66,18 +66,20 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 					event.preventDefault();
 					params.pdfViewer?.zoomOut();
 					break;
-			case '0':
-				event.preventDefault();
-				params.pdfViewer?.resetZoom();
-				break;
-			case 's':
-				event.preventDefault();
-				// Use setTimeout to detach the heavy export operation from the keyboard event
-				// This prevents the event handler from blocking UI updates in Tauri
-				setTimeout(() => params.onDownloadClick(), 0);
-				break;
-		}
-	} else {
+				case '0':
+					event.preventDefault();
+					params.pdfViewer?.resetZoom();
+					break;
+				case 's':
+					event.preventDefault();
+					// Use setTimeout to detach the heavy export operation from the keyboard event
+					// This prevents the event handler from blocking UI updates in Tauri
+					if (params.onDownloadClick) {
+						setTimeout(() => params.onDownloadClick!(), 0);
+					}
+					break;
+			}
+		} else {
 			switch (event.key) {
 				case 'ArrowLeft':
 					event.preventDefault();

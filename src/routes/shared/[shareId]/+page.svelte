@@ -15,6 +15,7 @@
 	import { getFormattedVersion } from '$lib/utils/version';
 	import { PDFExporter } from '$lib/utils/pdfExport';
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
+	import { exportCurrentPDFAsLPDF } from '$lib/utils/lpdfExport';
 	import { Frown, Link, Lock } from 'lucide-svelte';
 
 	let isLoading = true;
@@ -334,6 +335,111 @@
 			toastStore.error('Export Failed', 'DOCX export failed. Please try again.');
 		}
 	}
+
+	// PDF export handler for shared PDFs
+	async function handleExportPDF() {
+		// Check if downloading is allowed for this shared PDF
+		if (sharedPDFData?.allowDownloading === false) {
+			toastStore.warning('Export Disabled', 'PDF export is not allowed for this shared PDF.');
+			return;
+		}
+
+		if (!currentFile || !pdfViewer) {
+			toastStore.warning('No PDF', 'No PDF to export');
+			return;
+		}
+
+		try {
+			console.log('Starting PDF export for shared PDF...');
+
+			// Get the PDF bytes (currentFile should be a File object from LPDF import)
+			if (typeof currentFile === 'string') {
+				throw new Error('Shared PDF export expects a File object, not a URL');
+			}
+			const arrayBuffer = await currentFile.arrayBuffer();
+			const pdfBytes = new Uint8Array(arrayBuffer);
+			const originalName =
+				sharedPDFData?.originalFileName?.replace(/\.pdf$/i, '') || 'shared-document';
+
+			// Create annotated PDF
+			const exporter = new PDFExporter();
+			exporter.setOriginalPDF(pdfBytes);
+
+			// Export all pages with annotations
+			console.log('Exporting PDF with', $pdfState.totalPages, 'pages');
+			const totalPages = $pdfState.totalPages;
+
+			for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+				console.log(`Processing page ${pageNumber} for shared PDF export...`);
+
+				// Check if this page has any annotations
+				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
+
+				if (hasAnnotations) {
+					console.log(`📝 Page ${pageNumber} has annotations - creating merged canvas`);
+					const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
+					if (mergedCanvas) {
+						exporter.setPageCanvas(pageNumber, mergedCanvas);
+						console.log(`✅ Added merged canvas for page ${pageNumber}`);
+					} else {
+						console.log(`❌ Failed to create merged canvas for page ${pageNumber}`);
+					}
+				} else {
+					console.log(`📄 Page ${pageNumber} has no annotations - will preserve original page`);
+				}
+			}
+
+			const annotatedPdfBytes = await exporter.exportToPDF();
+			const filename = `${originalName}_annotated.pdf`;
+
+			const success = await PDFExporter.exportFile(annotatedPdfBytes, filename, 'application/pdf');
+			if (success) {
+				console.log('🎉 Shared PDF exported successfully:', filename);
+			} else {
+				console.log('📄 Shared PDF export was cancelled by user');
+			}
+		} catch (error) {
+			console.error('Shared PDF export failed:', error);
+			toastStore.error('Export Failed', 'PDF export failed. Please try again.');
+		}
+	}
+
+	// LPDF export handler for shared PDFs
+	async function handleExportLPDF() {
+		// Check if downloading is allowed for this shared PDF
+		if (sharedPDFData?.allowDownloading === false) {
+			toastStore.warning('Export Disabled', 'LPDF export is not allowed for this shared PDF.');
+			return;
+		}
+
+		if (!currentFile || !pdfViewer) {
+			toastStore.warning('No PDF', 'No PDF to export');
+			return;
+		}
+
+		try {
+			console.log('Starting LPDF export for shared PDF...');
+
+			// Get the PDF bytes (currentFile should be a File object from LPDF import)
+			if (typeof currentFile === 'string') {
+				throw new Error('Shared PDF export expects a File object, not a URL');
+			}
+			const arrayBuffer = await currentFile.arrayBuffer();
+			const pdfBytes = new Uint8Array(arrayBuffer);
+			const originalName =
+				sharedPDFData?.originalFileName?.replace(/\.pdf$/i, '') || 'shared-document';
+
+			const success = await exportCurrentPDFAsLPDF(pdfBytes, `${originalName}.pdf`);
+			if (success) {
+				console.log('🎉 Shared LPDF exported successfully');
+			} else {
+				console.log('📄 Shared LPDF export was cancelled by user');
+			}
+		} catch (error) {
+			console.error('Shared LPDF export failed:', error);
+			toastStore.error('Export Failed', 'LPDF export failed. Please try again.');
+		}
+	}
 </script>
 
 <svelte:window
@@ -356,7 +462,7 @@
 		},
 		onFileUploadClick: handleFileUploadClick,
 		onStampToolClick: handleStampToolClick,
-		onDownloadClick: sharedPDFData?.allowDownloading !== false ? handleExportDOCX : undefined
+		onDownloadClick: sharedPDFData?.allowDownloading !== false ? handleExportPDF : undefined
 	}}
 	on:keydown={handlePageSpecificKeys}
 	on:wheel={handleWheel}
@@ -446,8 +552,8 @@
 				onResetZoom={() => pdfViewer?.resetZoom()}
 				onFitToWidth={() => pdfViewer?.fitToWidth()}
 				onFitToHeight={() => pdfViewer?.fitToHeight()}
-				onExportPDF={() => {}}
-				onExportLPDF={() => {}}
+				onExportPDF={handleExportPDF}
+				onExportLPDF={handleExportLPDF}
 				onExportDOCX={handleExportDOCX}
 				{showThumbnails}
 				onToggleThumbnails={handleToggleThumbnails}
