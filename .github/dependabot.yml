@@ -10,9 +10,9 @@ updates:
       time: "09:00"
     open-pull-requests-limit: 10
     reviewers:
-      - "@dependabot[bot]"
+      - "@rudi-q"
     assignees:
-      - "@dependabot[bot]"
+      - "@rudi-q"
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
