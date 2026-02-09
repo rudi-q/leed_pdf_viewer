@@ -871,10 +871,10 @@
 						</Tooltip>
 					{/if}
 
-					<!-- Export Menu -->
-					{#if allowDownloading}
-						<div class="relative export-menu-container">
-							<Tooltip content="Export options">
+				<!-- Export Menu -->
+				{#if allowDownloading}
+					<div class="relative export-menu-container">
+						<Tooltip content="Export options (Ctrl+S)">
 								<button
 									class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-sage hover:bg-sage/10"
 									class:opacity-50={!$pdfState.document}

@@ -39,6 +39,22 @@ export function checkIsTauri(): boolean {
   return detectTauri();
 }
 
+/**
+ * Set the Tauri window title
+ * 
+ * This function updates the native window title when running in Tauri.
+ * It's a no-op in the web version. Errors are logged but don't break the app.
+ */
+export async function setWindowTitle(title: string): Promise<void> {
+  if (!isTauri) return;
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    await getCurrentWindow().setTitle(title);
+  } catch (error) {
+    console.error('Failed to set window title:', error);
+  }
+}
+
 export function detectOS(): string {
 	if (typeof window === 'undefined') return 'Unknown';
 
