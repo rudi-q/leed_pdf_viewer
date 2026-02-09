@@ -15,6 +15,7 @@
 	import { getFormattedVersion } from '$lib/utils/version';
 	import { PDFExporter } from '$lib/utils/pdfExport';
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
+	import { exportCurrentPDFAsLPDF } from '$lib/utils/lpdfExport';
 	import { Frown, Link, Lock } from 'lucide-svelte';
 
 	let isLoading = true;
@@ -256,73 +257,121 @@
 		}
 	}
 
-	// DOCX export handler for shared PDFs
-	async function handleExportDOCX() {
+	/**
+	 * Shared helper for preparing export data for shared PDFs.
+	 * Handles permission checks, file validation, byte extraction, and PDFExporter setup.
+	 * @param formatName - Name of the export format (for toast messages)
+	 * @param needsExporter - Whether to build a PDFExporter with page canvases
+	 * @returns Prepared export data, or null if validation fails
+	 */
+	async function prepareExportForShare(
+		formatName: string,
+		needsExporter: boolean = true
+	): Promise<{
+		pdfBytes: Uint8Array;
+		originalName: string;
+		exporter: PDFExporter | null;
+	} | null> {
 		// Check if downloading is allowed for this shared PDF
 		if (sharedPDFData?.allowDownloading === false) {
-			toastStore.warning('Export Disabled', 'DOCX export is not allowed for this shared PDF.');
-			return;
+			toastStore.warning(
+				'Export Disabled',
+				`${formatName} export is not allowed for this shared PDF.`
+			);
+			return null;
 		}
 
+		// Validate file and viewer are available
 		if (!currentFile || !pdfViewer) {
 			toastStore.warning('No PDF', 'No PDF to export');
-			return;
+			return null;
 		}
 
+		// Shared PDFs should always be File objects (from LPDF import), not URLs
+		if (typeof currentFile === 'string') {
+			toastStore.error('Export Error', 'Shared PDF export expects a File object, not a URL');
+			return null;
+		}
+
+		// Extract PDF bytes
+		const arrayBuffer = await currentFile.arrayBuffer();
+		const pdfBytes = new Uint8Array(arrayBuffer);
+
+		// Normalize original filename
+		const originalName =
+			sharedPDFData?.originalFileName?.replace(/\.pdf$/i, '') || 'shared-document';
+
+		// If exporter not needed (e.g., LPDF export uses raw bytes), skip annotation processing
+		if (!needsExporter) {
+			return { pdfBytes, originalName, exporter: null };
+		}
+
+		// Create and configure PDFExporter with page canvases
+		const exporter = new PDFExporter();
+		exporter.setOriginalPDF(pdfBytes);
+
+		const totalPages = $pdfState.totalPages;
+		console.log(`Preparing ${formatName} export with ${totalPages} pages`);
+
+		for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+			const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
+
+			if (hasAnnotations) {
+				console.log(`📝 Page ${pageNumber} has annotations - creating merged canvas`);
+				const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
+				if (mergedCanvas) {
+					exporter.setPageCanvas(pageNumber, mergedCanvas);
+					console.log(`✅ Added merged canvas for page ${pageNumber}`);
+				} else {
+					console.log(`❌ Failed to create merged canvas for page ${pageNumber}`);
+				}
+			} else {
+				console.log(`📄 Page ${pageNumber} has no annotations - will preserve original page`);
+			}
+		}
+
+		return { pdfBytes, originalName, exporter };
+	}
+
+	// PDF export handler for shared PDFs
+	async function handleExportPDF() {
+		try {
+			console.log('Starting PDF export for shared PDF...');
+
+			const prepared = await prepareExportForShare('PDF', true);
+			if (!prepared || !prepared.exporter) return;
+
+			const { originalName, exporter } = prepared;
+			const annotatedPdfBytes = await exporter.exportToPDF();
+			const filename = `${originalName}_annotated.pdf`;
+
+			const success = await PDFExporter.exportFile(annotatedPdfBytes, filename, 'application/pdf');
+			if (success) {
+				console.log('🎉 Shared PDF exported successfully:', filename);
+			} else {
+				console.log('📄 Shared PDF export was cancelled by user');
+			}
+		} catch (error) {
+			console.error('Shared PDF export failed:', error);
+			toastStore.error('Export Failed', 'PDF export failed. Please try again.');
+		}
+	}
+
+	// DOCX export handler for shared PDFs
+	async function handleExportDOCX() {
 		try {
 			console.log('Starting DOCX export for shared PDF...');
 
-			// Get the PDF bytes (currentFile should be a File object from LPDF import)
-			if (typeof currentFile === 'string') {
-				throw new Error('Shared PDF export expects a File object, not a URL');
-			}
-			const arrayBuffer = await currentFile.arrayBuffer();
-			const pdfBytes = new Uint8Array(arrayBuffer);
-			const originalName =
-				sharedPDFData?.originalFileName?.replace(/\.pdf$/i, '') || 'shared-document';
+			const prepared = await prepareExportForShare('DOCX', true);
+			if (!prepared || !prepared.exporter) return;
 
-			// Create annotated PDF first (same process as other pages)
-			const exporter = new PDFExporter();
-			exporter.setOriginalPDF(pdfBytes);
-
-			// Export all pages with annotations
-			console.log('Creating annotated PDF for DOCX export with', $pdfState.totalPages, 'pages');
-			const totalPages = $pdfState.totalPages;
-			let pagesWithAnnotations = 0;
-
-			for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
-				console.log(`Processing page ${pageNumber} for shared PDF DOCX export...`);
-
-				// Check if this page has any annotations
-				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
-
-				if (hasAnnotations) {
-					console.log(`📝 Page ${pageNumber} has annotations - creating merged canvas`);
-					const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
-					if (mergedCanvas) {
-						exporter.setPageCanvas(pageNumber, mergedCanvas);
-						pagesWithAnnotations++;
-						console.log(`✅ Added merged canvas for page ${pageNumber} to shared PDF DOCX export`);
-					} else {
-						console.log(`❌ Failed to create merged canvas for page ${pageNumber}`);
-					}
-				} else {
-					console.log(`📄 Page ${pageNumber} has no annotations - will preserve original page`);
-				}
-			}
-
-			console.log(
-				`📊 Shared PDF DOCX Export summary: ${pagesWithAnnotations} pages with annotations out of ${totalPages} total pages`
-			);
-
-			// Get the annotated PDF bytes
+			const { originalName, exporter } = prepared;
 			const annotatedPdfBytes = await exporter.exportToPDF();
 			console.log(
 				'Annotated PDF created for shared DOCX conversion, size:',
 				annotatedPdfBytes.length
 			);
 
-			// Now convert the annotated PDF to DOCX
 			const success = await exportCurrentPDFAsDocx(annotatedPdfBytes, `${originalName}.pdf`);
 			if (success) {
 				console.log('🎉 Shared PDF DOCX exported successfully with annotations');
@@ -332,6 +381,29 @@
 		} catch (error) {
 			console.error('Shared PDF DOCX export failed:', error);
 			toastStore.error('Export Failed', 'DOCX export failed. Please try again.');
+		}
+	}
+
+	// LPDF export handler for shared PDFs
+	async function handleExportLPDF() {
+		try {
+			console.log('Starting LPDF export for shared PDF...');
+
+			// LPDF uses raw PDF bytes, doesn't need the exporter with canvases
+			const prepared = await prepareExportForShare('LPDF', false);
+			if (!prepared) return;
+
+			const { pdfBytes, originalName } = prepared;
+
+			const success = await exportCurrentPDFAsLPDF(pdfBytes, `${originalName}.pdf`);
+			if (success) {
+				console.log('🎉 Shared LPDF exported successfully');
+			} else {
+				console.log('📄 Shared LPDF export was cancelled by user');
+			}
+		} catch (error) {
+			console.error('Shared LPDF export failed:', error);
+			toastStore.error('Export Failed', 'LPDF export failed. Please try again.');
 		}
 	}
 </script>
@@ -355,7 +427,8 @@
 			}
 		},
 		onFileUploadClick: handleFileUploadClick,
-		onStampToolClick: handleStampToolClick
+		onStampToolClick: handleStampToolClick,
+		onDownloadClick: sharedPDFData?.allowDownloading !== false ? handleExportPDF : undefined
 	}}
 	on:keydown={handlePageSpecificKeys}
 	on:wheel={handleWheel}
@@ -445,8 +518,8 @@
 				onResetZoom={() => pdfViewer?.resetZoom()}
 				onFitToWidth={() => pdfViewer?.fitToWidth()}
 				onFitToHeight={() => pdfViewer?.fitToHeight()}
-				onExportPDF={() => {}}
-				onExportLPDF={() => {}}
+				onExportPDF={handleExportPDF}
+				onExportLPDF={handleExportLPDF}
 				onExportDOCX={handleExportDOCX}
 				{showThumbnails}
 				onToggleThumbnails={handleToggleThumbnails}

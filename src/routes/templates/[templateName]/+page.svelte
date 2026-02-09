@@ -645,7 +645,8 @@
 			}
 		},
 		onFileUploadClick: handleFileUploadClick,
-		onStampToolClick: handleStampToolClick
+		onStampToolClick: handleStampToolClick,
+		onDownloadClick: handleExportPDF
 	}}
 	on:keydown={handlePageSpecificKeys}
 	on:wheel={handleWheel}
