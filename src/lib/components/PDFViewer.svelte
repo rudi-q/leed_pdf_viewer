@@ -936,29 +936,36 @@
 		const viewportHeight = containerDiv.clientHeight;
 		const overflow = canvasHeight - viewportHeight;
 
+		// Buffer zone past the page edge — shows the background briefly
+		// before navigating, so the user sees a visual "page gap"
+		const PAGE_GAP_BUFFER = 60;
+
 		if (overflow > 0) {
 			// Zoomed in: canvas is taller than viewport — pan first
 			const scrollAmount = Math.min(Math.abs(event.deltaY), 100);
 			const maxPanUp = overflow / 2;
 			const maxPanDown = -(overflow / 2);
+			// Extended bounds include the buffer zone past the page edge
+			const extendedPanDown = maxPanDown - PAGE_GAP_BUFFER;
+			const extendedPanUp = maxPanUp + PAGE_GAP_BUFFER;
 
 			if (event.deltaY > 0) {
 				// Scrolling down
-				if (panOffset.y > maxPanDown) {
-					// Still room to pan down
-					panOffset = { ...panOffset, y: Math.max(panOffset.y - scrollAmount, maxPanDown) };
+				if (panOffset.y > extendedPanDown) {
+					// Still room to pan (including buffer zone)
+					panOffset = { ...panOffset, y: Math.max(panOffset.y - scrollAmount, extendedPanDown) };
 				} else {
-					// At bottom edge — go to next page, reset pan to top
+					// Past buffer — go to next page, reset pan to top
 					panOffset = { x: 0, y: maxPanUp };
 					nextPage();
 				}
 			} else if (event.deltaY < 0) {
 				// Scrolling up
-				if (panOffset.y < maxPanUp) {
-					// Still room to pan up
-					panOffset = { ...panOffset, y: Math.min(panOffset.y + scrollAmount, maxPanUp) };
+				if (panOffset.y < extendedPanUp) {
+					// Still room to pan (including buffer zone)
+					panOffset = { ...panOffset, y: Math.min(panOffset.y + scrollAmount, extendedPanUp) };
 				} else {
-					// At top edge — go to previous page, reset pan to bottom
+					// Past buffer — go to previous page, reset pan to bottom
 					panOffset = { x: 0, y: maxPanDown };
 					previousPage();
 				}
