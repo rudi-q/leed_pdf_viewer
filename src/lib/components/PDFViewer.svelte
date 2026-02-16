@@ -34,6 +34,7 @@
 	import StickyNoteOverlay from './StickyNoteOverlay.svelte';
 	import StampOverlay from './StampOverlay.svelte';
 	import ArrowOverlay from './ArrowOverlay.svelte';
+	import LinkOverlay from './LinkOverlay.svelte';
 	import TextSelectionOverlay from './TextSelectionOverlay.svelte';
 	import { TOOLBAR_HEIGHT } from '$lib/constants';
 	import { setWindowTitle } from '$lib/utils/tauriUtils';
@@ -105,6 +106,14 @@
 	let extractedPageText = '';
 	let isExtractingText = false;
 	let overlayHeight = 0;
+
+	// PDF link annotations for the current page
+	let pageLinks: Array<{
+		url: string;
+		rect: { left: number; top: number; width: number; height: number };
+		isInternal: boolean;
+		destPage?: number;
+	}> = [];
 
 	// Calculate overlay height to match container height minus toolbar
 	$: if (containerDiv) {
@@ -552,11 +561,62 @@
 			// Update canvas display dimensions for overlays
 			canvasDisplayWidth = viewport.width;
 			canvasDisplayHeight = viewport.height;
-			console.log('Canvas dimensions set after render:', {
-				width: canvasDisplayWidth,
-				height: canvasDisplayHeight,
-				scale: scaleToRender
-			});
+
+			// Extract PDF link annotations for this page
+			try {
+				const annotations = await page.getAnnotations();
+				const extractedLinks: typeof pageLinks = [];
+
+				for (const annot of annotations) {
+					if (annot.subtype !== 'Link' || !annot.rect) continue;
+
+					// Convert PDF rect [x1, y1, x2, y2] to viewport coordinates
+					const [x1, y1, x2, y2] = viewport.convertToViewportRectangle(annot.rect);
+					const left = Math.min(x1, x2);
+					const top = Math.min(y1, y2);
+					const width = Math.abs(x2 - x1);
+					const height = Math.abs(y2 - y1);
+
+					// Determine if it's an external URL or internal page link
+					if (annot.url) {
+						extractedLinks.push({
+							url: annot.url,
+							rect: { left, top, width, height },
+							isInternal: false
+						});
+					} else if (annot.dest) {
+						// Internal link — resolve destination to page number
+						let destPage: number | undefined;
+						try {
+							if (typeof annot.dest === 'string' && $pdfState.document) {
+								const dest = await $pdfState.document.getDestination(annot.dest);
+								if (dest && dest[0]) {
+									const pageIndex = await $pdfState.document.getPageIndex(dest[0]);
+									destPage = pageIndex + 1; // 0-indexed → 1-indexed
+								}
+							} else if (Array.isArray(annot.dest) && annot.dest[0]) {
+								const pageIndex = await $pdfState.document!.getPageIndex(annot.dest[0]);
+								destPage = pageIndex + 1;
+							}
+						} catch {
+							// Could not resolve destination — skip
+						}
+						if (destPage) {
+							extractedLinks.push({
+								url: '',
+								rect: { left, top, width, height },
+								isInternal: true,
+								destPage
+							});
+						}
+					}
+				}
+
+				pageLinks = extractedLinks;
+			} catch (linkError) {
+				console.warn('Could not extract link annotations:', linkError);
+				pageLinks = [];
+			}
 		} catch (error) {
 			console.error('Error rendering page:', error);
 		} finally {
@@ -582,9 +642,6 @@
 		containerDiv.addEventListener('pointermove', handleContainerPointerMove);
 		containerDiv.addEventListener('pointerup', handleContainerPointerUp);
 		containerDiv.addEventListener('pointerleave', handleContainerPointerUp);
-
-		// Add wheel event for zoom with Ctrl+scroll to container
-		containerDiv.addEventListener('wheel', handleWheel, { passive: false });
 
 		// Add keyboard events for Ctrl key tracking
 		document.addEventListener('keydown', handleKeyDown);
@@ -916,26 +973,99 @@
 		}
 	}
 
-	async function handleWheel(event: WheelEvent) {
-		// Only handle wheel events when Ctrl is pressed (for zooming)
+	/**
+	 * Shared scroll logic: pans when zoomed in, navigates pages otherwise.
+	 * Positive delta = scroll down, negative delta = scroll up.
+	 * Called by both handleWheel and arrow key handlers.
+	 */
+	function scrollByDelta(delta: number) {
+		if (!pdfCanvas || !containerDiv) return;
+
+		const canvasHeight = parseFloat(pdfCanvas.style.height) || 0;
+		const viewportHeight = containerDiv.clientHeight;
+		const overflow = canvasHeight - viewportHeight;
+
+		// Buffer zone past the page edge — shows the background briefly
+		// before navigating, so the user sees a visual "page gap"
+		const PAGE_GAP_BUFFER = 60;
+
+		if (overflow > 0) {
+			// Zoomed in: canvas is taller than viewport — pan first
+			const scrollAmount = Math.min(Math.abs(delta), 100);
+			const maxPanUp = overflow / 2;
+			const maxPanDown = -(overflow / 2);
+			// Extended bounds include the buffer zone past the page edge
+			const extendedPanDown = maxPanDown - PAGE_GAP_BUFFER;
+			const extendedPanUp = maxPanUp + PAGE_GAP_BUFFER;
+
+			if (delta > 0) {
+				// Scrolling down
+				if (panOffset.y > extendedPanDown) {
+					panOffset = { ...panOffset, y: Math.max(panOffset.y - scrollAmount, extendedPanDown) };
+				} else if ($pdfState.currentPage < $pdfState.totalPages) {
+					panOffset = { x: 0, y: maxPanUp };
+					nextPage();
+				}
+			} else if (delta < 0) {
+				// Scrolling up
+				if (panOffset.y < extendedPanUp) {
+					panOffset = { ...panOffset, y: Math.min(panOffset.y + scrollAmount, extendedPanUp) };
+				} else if ($pdfState.currentPage > 1) {
+					panOffset = { x: 0, y: maxPanDown };
+					previousPage();
+				}
+			}
+		} else {
+			// Zoom ≤ 100%: canvas fits in viewport — navigate pages directly
+			if (delta > 0) {
+				nextPage();
+			} else if (delta < 0) {
+				previousPage();
+			}
+		}
+	}
+
+	// Fixed scroll amount for arrow key presses (in pixels)
+	const ARROW_KEY_SCROLL_PX = 60;
+
+	export function scrollDown() {
+		scrollByDelta(ARROW_KEY_SCROLL_PX);
+	}
+
+	export function scrollUp() {
+		scrollByDelta(-ARROW_KEY_SCROLL_PX);
+	}
+
+	function handleWheel(event: WheelEvent) {
+		// Only handle wheel events that originate inside the PDF container.
+		// This prevents blocking scrolling on toolbar, thumbnails, modals, etc.
+		if (!containerDiv?.contains(event.target as Node)) return;
+
 		if (event.ctrlKey) {
+			// Ctrl + scroll = zoom
 			event.preventDefault();
 
-			// Fix zoom direction: deltaY < 0 means scroll up (zoom in)
-			const zoomIn = event.deltaY < 0;
-
-			let newScale: number;
-			if (zoomIn) {
-				newScale = Math.min($pdfState.scale * 1.1, 10); // Allow much more zoom in
+			if (event.deltaY < 0) {
+				zoomIn();
 			} else {
-				newScale = Math.max($pdfState.scale / 1.1, 0.1); // Allow much more zoom out
+				zoomOut();
 			}
-
-			// CRITICAL: Render FIRST, update state AFTER
-			// This ensures canvas dimensions are updated before overlays re-render
-			await renderCurrentPage(newScale);
-			pdfState.update((state) => ({ ...state, scale: newScale }));
+			return;
 		}
+
+		// Plain scroll: pan when zoomed in, navigate pages otherwise
+		event.preventDefault();
+
+		if (!pdfCanvas || !containerDiv) return;
+
+		// Normalize deltaY to pixels across browsers.
+		// Firefox reports deltaMode=1 (lines), most others report deltaMode=0 (pixels).
+		const LINE_HEIGHT = 16;
+		let pixelDelta = event.deltaY;
+		if (event.deltaMode === 1) pixelDelta *= LINE_HEIGHT;
+		else if (event.deltaMode === 2) pixelDelta *= containerDiv.clientHeight;
+
+		scrollByDelta(pixelDelta);
 	}
 
 	export async function goToPage(pageNumber: number) {
@@ -2021,6 +2151,8 @@
 	}
 </script>
 
+<svelte:window on:wheel|nonpassive={handleWheel} />
+
 <div bind:this={containerDiv} class="pdf-viewer relative w-full h-full overflow-hidden">
 	<!-- Debug info logged to console -->
 
@@ -2086,6 +2218,16 @@
 					containerHeight={canvasDisplayHeight}
 					scale={$pdfState.scale}
 					{viewOnlyMode}
+				/>
+			{/if}
+
+			<!-- PDF Link Overlay for clickable hyperlinks -->
+			{#if $pdfState.document && canvasDisplayWidth > 0 && canvasDisplayHeight > 0 && pageLinks.length > 0}
+				<LinkOverlay
+					links={pageLinks}
+					containerWidth={canvasDisplayWidth}
+					containerHeight={canvasDisplayHeight}
+					onGoToPage={goToPage}
 				/>
 			{/if}
 		</div>
