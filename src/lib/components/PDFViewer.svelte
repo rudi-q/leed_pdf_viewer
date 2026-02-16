@@ -106,6 +106,14 @@
 	let isExtractingText = false;
 	let overlayHeight = 0;
 
+	// PDF link annotations for the current page
+	let pageLinks: Array<{
+		url: string;
+		rect: { left: number; top: number; width: number; height: number };
+		isInternal: boolean;
+		destPage?: number;
+	}> = [];
+
 	// Calculate overlay height to match container height minus toolbar
 	$: if (containerDiv) {
 		overlayHeight = containerDiv.clientHeight - (presentationMode ? 0 : TOOLBAR_HEIGHT);
@@ -552,11 +560,62 @@
 			// Update canvas display dimensions for overlays
 			canvasDisplayWidth = viewport.width;
 			canvasDisplayHeight = viewport.height;
-			console.log('Canvas dimensions set after render:', {
-				width: canvasDisplayWidth,
-				height: canvasDisplayHeight,
-				scale: scaleToRender
-			});
+
+			// Extract PDF link annotations for this page
+			try {
+				const annotations = await page.getAnnotations();
+				const extractedLinks: typeof pageLinks = [];
+
+				for (const annot of annotations) {
+					if (annot.subtype !== 'Link' || !annot.rect) continue;
+
+					// Convert PDF rect [x1, y1, x2, y2] to viewport coordinates
+					const [x1, y1, x2, y2] = viewport.convertToViewportRectangle(annot.rect);
+					const left = Math.min(x1, x2);
+					const top = Math.min(y1, y2);
+					const width = Math.abs(x2 - x1);
+					const height = Math.abs(y2 - y1);
+
+					// Determine if it's an external URL or internal page link
+					if (annot.url) {
+						extractedLinks.push({
+							url: annot.url,
+							rect: { left, top, width, height },
+							isInternal: false
+						});
+					} else if (annot.dest) {
+						// Internal link — resolve destination to page number
+						let destPage: number | undefined;
+						try {
+							if (typeof annot.dest === 'string' && $pdfState.document) {
+								const dest = await $pdfState.document.getDestination(annot.dest);
+								if (dest && dest[0]) {
+									const pageIndex = await $pdfState.document.getPageIndex(dest[0]);
+									destPage = pageIndex + 1; // 0-indexed → 1-indexed
+								}
+							} else if (Array.isArray(annot.dest) && annot.dest[0]) {
+								const pageIndex = await $pdfState.document!.getPageIndex(annot.dest[0]);
+								destPage = pageIndex + 1;
+							}
+						} catch {
+							// Could not resolve destination — skip
+						}
+						if (destPage) {
+							extractedLinks.push({
+								url: '',
+								rect: { left, top, width, height },
+								isInternal: true,
+								destPage
+							});
+						}
+					}
+				}
+
+				pageLinks = extractedLinks;
+			} catch (linkError) {
+				console.warn('Could not extract link annotations:', linkError);
+				pageLinks = [];
+			}
 		} catch (error) {
 			console.error('Error rendering page:', error);
 		} finally {
@@ -2158,6 +2217,16 @@
 					containerHeight={canvasDisplayHeight}
 					scale={$pdfState.scale}
 					{viewOnlyMode}
+				/>
+			{/if}
+
+			<!-- PDF Link Overlay for clickable hyperlinks -->
+			{#if $pdfState.document && canvasDisplayWidth > 0 && canvasDisplayHeight > 0 && pageLinks.length > 0}
+				<LinkOverlay
+					links={pageLinks}
+					containerWidth={canvasDisplayWidth}
+					containerHeight={canvasDisplayHeight}
+					onGoToPage={goToPage}
 				/>
 			{/if}
 		</div>
