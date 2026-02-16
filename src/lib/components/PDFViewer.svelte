@@ -34,6 +34,7 @@
 	import StickyNoteOverlay from './StickyNoteOverlay.svelte';
 	import StampOverlay from './StampOverlay.svelte';
 	import ArrowOverlay from './ArrowOverlay.svelte';
+	import LinkOverlay from './LinkOverlay.svelte';
 	import TextSelectionOverlay from './TextSelectionOverlay.svelte';
 	import { TOOLBAR_HEIGHT } from '$lib/constants';
 	import { setWindowTitle } from '$lib/utils/tauriUtils';
