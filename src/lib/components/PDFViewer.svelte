@@ -965,8 +965,8 @@
 				if (panOffset.y > extendedPanDown) {
 					// Still room to pan (including buffer zone)
 					panOffset = { ...panOffset, y: Math.max(panOffset.y - scrollAmount, extendedPanDown) };
-				} else {
-					// Past buffer — go to next page, reset pan to top
+				} else if ($pdfState.currentPage < $pdfState.totalPages) {
+					// Past buffer and not on last page — go to next page, reset pan to top
 					panOffset = { x: 0, y: maxPanUp };
 					nextPage();
 				}
@@ -975,8 +975,8 @@
 				if (panOffset.y < extendedPanUp) {
 					// Still room to pan (including buffer zone)
 					panOffset = { ...panOffset, y: Math.min(panOffset.y + scrollAmount, extendedPanUp) };
-				} else {
-					// Past buffer — go to previous page, reset pan to bottom
+				} else if ($pdfState.currentPage > 1) {
+					// Past buffer and not on first page — go to previous page, reset pan to bottom
 					panOffset = { x: 0, y: maxPanDown };
 					previousPage();
 				}
