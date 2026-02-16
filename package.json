@@ -78,7 +78,7 @@
 		"jspdf": "^3.0.4",
 		"jszip": "^3.10.1",
 		"lucide-svelte": "^0.563.0",
-		"markdown-it": "^12.3.2",
+		"markdown-it": "^14.1.1",
 		"pdf-lib": "^1.17.1",
 		"pdfjs-dist": "5.4.624",
 		"postcss": "^8.5.6",
