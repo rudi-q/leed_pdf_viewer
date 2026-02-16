@@ -1244,6 +1244,7 @@
 		{focusMode}
 		{presentationMode}
 		showGithubLink={true}
+		showVersion={true}
 		{getFormattedVersion}
 		on:helpClick={() => (showShortcuts = true)}
 	/>
