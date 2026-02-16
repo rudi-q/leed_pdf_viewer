@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
+	import { trapFocus } from '$lib/utils/trapFocus';
 
 	export let isOpen = false;
 
@@ -83,6 +84,7 @@
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="shortcuts-title"
+			use:trapFocus
 		>
 			<!-- Header -->
 			<div class="border-b border-charcoal/10 px-6 py-4">
