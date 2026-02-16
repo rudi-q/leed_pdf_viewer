@@ -71,22 +71,25 @@
 
 {#if isOpen}
 	<!-- Backdrop -->
+	<!-- svelte-ignore a11y-click-events-have-key-events -->
+	<!-- svelte-ignore a11y-no-static-element-interactions -->
 	<div
 		class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"
 		on:click|self={close}
-		on:keydown|self={() => {}}
-		role="button"
-		tabindex="-1"
-		aria-label="Close modal overlay"
 	>
 		<!-- Modal -->
 		<div
 			class="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/30 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="shortcuts-title"
 		>
 			<!-- Header -->
 			<div class="border-b border-charcoal/10 px-6 py-4">
 				<div class="flex items-center justify-between">
-					<h2 class="text-xl font-semibold text-charcoal">Keyboard Shortcuts</h2>
+					<h2 id="shortcuts-title" class="text-xl font-semibold text-charcoal">
+						Keyboard Shortcuts
+					</h2>
 					<button
 						on:click={close}
 						class="p-2 hover:bg-charcoal/10 rounded-lg transition-colors"

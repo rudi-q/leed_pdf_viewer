@@ -66,6 +66,8 @@
 				type="button"
 				class="text-charcoal/60 dark:text-gray-300 cursor-pointer hover:text-sage dark:hover:text-sage transition-colors bg-transparent border-none p-0 font-inherit text-xs"
 				aria-expanded={showSocialOverlay}
+				aria-haspopup="dialog"
+				aria-controls="social-overlay-menu"
 				aria-label="Show social media links"
 				on:click={toggleOverlay}
 				on:keydown={handleKeyDown}
@@ -74,7 +76,7 @@
 			</button>
 
 			{#if showSocialOverlay}
-				<div class="social-overlay">
+				<div id="social-overlay-menu" class="social-overlay" role="dialog" tabindex="-1">
 					<div class="flex flex-col gap-3">
 						<div
 							class="text-xs font-semibold text-charcoal/80 dark:text-gray-300 text-center tracking-wide"
@@ -156,15 +158,15 @@
 <style>
 	.hover-trigger {
 		/* Add padding to create a larger hover area */
-		padding: 8px 8px 20px 8px;
-		margin: -8px -8px -20px -8px;
+		padding: 8px 8px 12px 8px;
+		margin: -8px -8px -12px -8px;
 	}
 
 	.social-overlay {
 		position: absolute;
 		bottom: calc(100% + 4px);
 		right: -8px;
-		z-index: 9999;
+		z-index: var(--z-index-overlay, 9999);
 
 		/* Glass morphism effect matching the app style */
 		background: rgba(255, 255, 255, 0.95);
@@ -217,6 +219,10 @@
 		justify-content: center;
 		width: 44px;
 		height: 44px;
+		border: none;
+		padding: 0;
+		cursor: pointer;
+		appearance: none;
 		border-radius: 50%;
 		background: rgba(37, 37, 37, 0.05);
 		transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);

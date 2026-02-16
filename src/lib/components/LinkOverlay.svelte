@@ -1,19 +1,28 @@
 <script lang="ts">
 	import { openExternalUrl } from '../utils/navigationUtils';
 
-	export let links: Array<{
+	type Link = {
 		url: string;
 		rect: { left: number; top: number; width: number; height: number };
 		isInternal: boolean;
 		destPage?: number;
-	}> = [];
-	export let containerWidth: number = 0;
-	export let containerHeight: number = 0;
-	export let onGoToPage: ((page: number) => void) | undefined = undefined;
+	};
 
-	let hoveredIndex: number = -1;
+	let {
+		links = [],
+		containerWidth = 0,
+		containerHeight = 0,
+		onGoToPage = undefined
+	}: {
+		links?: Link[];
+		containerWidth?: number;
+		containerHeight?: number;
+		onGoToPage?: (page: number) => void;
+	} = $props();
 
-	function handleClick(link: (typeof links)[0]) {
+	let hoveredIndex: number = $state(-1);
+
+	function handleClick(link: Link) {
 		if (link.isInternal && link.destPage !== undefined && onGoToPage) {
 			onGoToPage(link.destPage);
 		} else if (link.url) {
@@ -41,9 +50,13 @@
 				target="_blank"
 				rel="noopener noreferrer"
 				title={link.isInternal ? `Go to page ${link.destPage}` : link.url}
-				on:mouseenter={() => (hoveredIndex = i)}
-				on:mouseleave={() => (hoveredIndex = -1)}
-				on:click|preventDefault={() => handleClick(link)}
+				aria-label={link.isInternal ? `Go to page ${link.destPage}` : `Open ${link.url}`}
+				onmouseenter={() => (hoveredIndex = i)}
+				onmouseleave={() => (hoveredIndex = -1)}
+				onclick={(e) => {
+					e.preventDefault();
+					handleClick(link);
+				}}
 			></a>
 		{/each}
 	</div>
