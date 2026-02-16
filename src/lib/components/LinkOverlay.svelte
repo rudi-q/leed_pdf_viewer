@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { openExternalUrl } from '../utils/navigationUtils';
 
 	export let links: Array<{
 		url: string;
@@ -17,9 +17,7 @@
 		if (link.isInternal && link.destPage && onGoToPage) {
 			onGoToPage(link.destPage);
 		} else if (link.url) {
-			if (browser) {
-				window.open(link.url, '_blank', 'noopener,noreferrer');
-			}
+			openExternalUrl(link.url);
 		}
 	}
 </script>

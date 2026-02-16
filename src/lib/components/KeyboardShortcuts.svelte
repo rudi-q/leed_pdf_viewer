@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
-	import { browser } from '$app/environment';
+	import { createEventDispatcher } from 'svelte';
 
 	export let isOpen = false;
 
@@ -10,24 +9,6 @@
 		isOpen = false;
 		dispatch('close');
 	}
-
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			close();
-		}
-	}
-
-	onMount(() => {
-		if (browser) {
-			document.addEventListener('keydown', handleKeydown);
-		}
-	});
-
-	onDestroy(() => {
-		if (browser) {
-			document.removeEventListener('keydown', handleKeydown);
-		}
-	});
 
 	const shortcuts = [
 		{
@@ -94,7 +75,7 @@
 	<div
 		class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"
 		on:click|self={close}
-		on:keydown={(e) => e.key === 'Escape' && close()}
+		on:keydown|self={() => {}}
 		role="button"
 		tabindex="-1"
 		aria-label="Close modal overlay"
