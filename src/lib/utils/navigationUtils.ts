@@ -12,8 +12,7 @@ async function invokeCommand(command: string, payload?: any): Promise<any> {
 		return await invoke(command, payload);
 	} catch (error) {
 		throw new Error(
-			`Failed to invoke Tauri command "${command}": ${
-				error instanceof Error ? error.message : String(error)
+			`Failed to invoke Tauri command "${command}": ${error instanceof Error ? error.message : String(error)
 			}`
 		);
 	}
@@ -68,11 +67,12 @@ export async function openExternalUrl(url: string): Promise<void> {
 
 	try {
 		const urlObj = new URL(trimmedUrl);
-		
-		// Only allow http and https protocols to prevent XSS and other attacks
-		if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+
+		// Allow http, https, mailto, and tel protocols
+		const allowedProtocols = ['http:', 'https:', 'mailto:', 'tel:'];
+		if (!allowedProtocols.includes(urlObj.protocol)) {
 			console.error(
-				`[openExternalUrl] Blocked unsafe URL scheme: ${urlObj.protocol}. Only http: and https: are allowed.`
+				`[openExternalUrl] Blocked unsafe URL scheme: ${urlObj.protocol}. Only http, https, mailto, and tel are allowed.`
 			);
 			return;
 		}
