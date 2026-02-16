@@ -913,6 +913,69 @@
 		}
 	}
 
+	/**
+	 * Shared scroll logic: pans when zoomed in, navigates pages otherwise.
+	 * Positive delta = scroll down, negative delta = scroll up.
+	 * Called by both handleWheel and arrow key handlers.
+	 */
+	function scrollByDelta(delta: number) {
+		if (!pdfCanvas || !containerDiv) return;
+
+		const canvasHeight = parseFloat(pdfCanvas.style.height) || 0;
+		const viewportHeight = containerDiv.clientHeight;
+		const overflow = canvasHeight - viewportHeight;
+
+		// Buffer zone past the page edge — shows the background briefly
+		// before navigating, so the user sees a visual "page gap"
+		const PAGE_GAP_BUFFER = 60;
+
+		if (overflow > 0) {
+			// Zoomed in: canvas is taller than viewport — pan first
+			const scrollAmount = Math.min(Math.abs(delta), 100);
+			const maxPanUp = overflow / 2;
+			const maxPanDown = -(overflow / 2);
+			// Extended bounds include the buffer zone past the page edge
+			const extendedPanDown = maxPanDown - PAGE_GAP_BUFFER;
+			const extendedPanUp = maxPanUp + PAGE_GAP_BUFFER;
+
+			if (delta > 0) {
+				// Scrolling down
+				if (panOffset.y > extendedPanDown) {
+					panOffset = { ...panOffset, y: Math.max(panOffset.y - scrollAmount, extendedPanDown) };
+				} else if ($pdfState.currentPage < $pdfState.totalPages) {
+					panOffset = { x: 0, y: maxPanUp };
+					nextPage();
+				}
+			} else if (delta < 0) {
+				// Scrolling up
+				if (panOffset.y < extendedPanUp) {
+					panOffset = { ...panOffset, y: Math.min(panOffset.y + scrollAmount, extendedPanUp) };
+				} else if ($pdfState.currentPage > 1) {
+					panOffset = { x: 0, y: maxPanDown };
+					previousPage();
+				}
+			}
+		} else {
+			// Zoom ≤ 100%: canvas fits in viewport — navigate pages directly
+			if (delta > 0) {
+				nextPage();
+			} else if (delta < 0) {
+				previousPage();
+			}
+		}
+	}
+
+	// Fixed scroll amount for arrow key presses (in pixels)
+	const ARROW_KEY_SCROLL_PX = 60;
+
+	export function scrollDown() {
+		scrollByDelta(ARROW_KEY_SCROLL_PX);
+	}
+
+	export function scrollUp() {
+		scrollByDelta(-ARROW_KEY_SCROLL_PX);
+	}
+
 	function handleWheel(event: WheelEvent) {
 		// Only handle wheel events that originate inside the PDF container.
 		// This prevents blocking scrolling on toolbar, thumbnails, modals, etc.
@@ -922,7 +985,6 @@
 			// Ctrl + scroll = zoom
 			event.preventDefault();
 
-			// deltaY < 0 means scroll up (zoom in)
 			if (event.deltaY < 0) {
 				zoomIn();
 			} else {
@@ -934,61 +996,16 @@
 		// Plain scroll: pan when zoomed in, navigate pages otherwise
 		event.preventDefault();
 
-		if (!pdfCanvas) return;
-
-		const canvasHeight = parseFloat(pdfCanvas.style.height) || 0;
-		const viewportHeight = containerDiv.clientHeight;
-		const overflow = canvasHeight - viewportHeight;
+		if (!pdfCanvas || !containerDiv) return;
 
 		// Normalize deltaY to pixels across browsers.
 		// Firefox reports deltaMode=1 (lines), most others report deltaMode=0 (pixels).
 		const LINE_HEIGHT = 16;
 		let pixelDelta = event.deltaY;
 		if (event.deltaMode === 1) pixelDelta *= LINE_HEIGHT;
-		else if (event.deltaMode === 2) pixelDelta *= viewportHeight;
+		else if (event.deltaMode === 2) pixelDelta *= containerDiv.clientHeight;
 
-		// Buffer zone past the page edge — shows the background briefly
-		// before navigating, so the user sees a visual "page gap"
-		const PAGE_GAP_BUFFER = 60;
-
-		if (overflow > 0) {
-			// Zoomed in: canvas is taller than viewport — pan first
-			const scrollAmount = Math.min(Math.abs(pixelDelta), 100);
-			const maxPanUp = overflow / 2;
-			const maxPanDown = -(overflow / 2);
-			// Extended bounds include the buffer zone past the page edge
-			const extendedPanDown = maxPanDown - PAGE_GAP_BUFFER;
-			const extendedPanUp = maxPanUp + PAGE_GAP_BUFFER;
-
-			if (pixelDelta > 0) {
-				// Scrolling down
-				if (panOffset.y > extendedPanDown) {
-					// Still room to pan (including buffer zone)
-					panOffset = { ...panOffset, y: Math.max(panOffset.y - scrollAmount, extendedPanDown) };
-				} else if ($pdfState.currentPage < $pdfState.totalPages) {
-					// Past buffer and not on last page — go to next page, reset pan to top
-					panOffset = { x: 0, y: maxPanUp };
-					nextPage();
-				}
-			} else if (pixelDelta < 0) {
-				// Scrolling up
-				if (panOffset.y < extendedPanUp) {
-					// Still room to pan (including buffer zone)
-					panOffset = { ...panOffset, y: Math.min(panOffset.y + scrollAmount, extendedPanUp) };
-				} else if ($pdfState.currentPage > 1) {
-					// Past buffer and not on first page — go to previous page, reset pan to bottom
-					panOffset = { x: 0, y: maxPanDown };
-					previousPage();
-				}
-			}
-		} else {
-			// Zoom ≤ 100%: canvas fits in viewport — navigate pages directly
-			if (pixelDelta > 0) {
-				nextPage();
-			} else if (pixelDelta < 0) {
-				previousPage();
-			}
-		}
+		scrollByDelta(pixelDelta);
 	}
 
 	export async function goToPage(pageNumber: number) {

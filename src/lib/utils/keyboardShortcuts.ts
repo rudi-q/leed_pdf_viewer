@@ -9,6 +9,8 @@ export interface KeyboardShortcutsParams {
 		nextPage: () => void;
 		fitToHeight: () => void;
 		fitToWidth: () => void;
+		scrollUp: () => void;
+		scrollDown: () => void;
 	} | null;
 	showShortcuts: boolean;
 	showThumbnails: boolean;
@@ -88,6 +90,14 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 				case 'ArrowRight':
 					event.preventDefault();
 					params.pdfViewer?.nextPage();
+					break;
+				case 'ArrowUp':
+					event.preventDefault();
+					params.pdfViewer?.scrollUp();
+					break;
+				case 'ArrowDown':
+					event.preventDefault();
+					params.pdfViewer?.scrollDown();
 					break;
 				case '1':
 					event.preventDefault();
