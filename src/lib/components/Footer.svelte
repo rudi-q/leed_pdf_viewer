@@ -5,7 +5,7 @@
 
 	export let focusMode = false;
 	export let presentationMode = false;
-	export let getFormattedVersion: () => string;
+	export let getFormattedVersion: () => string = () => '';
 	export let showGithubLink = false;
 	export let showVersion = false;
 

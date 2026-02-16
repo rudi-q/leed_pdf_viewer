@@ -63,7 +63,6 @@
 			category: 'Help',
 			items: [
 				{ keys: ['?'], description: 'Show this help' },
-				/*{ keys: ['F1'], description: 'Show this help' },*/
 				{ keys: ['Esc'], description: 'Close dialogs' }
 			]
 		}

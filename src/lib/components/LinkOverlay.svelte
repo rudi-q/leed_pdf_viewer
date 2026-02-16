@@ -14,7 +14,7 @@
 	let hoveredIndex: number = -1;
 
 	function handleClick(link: (typeof links)[0]) {
-		if (link.isInternal && link.destPage && onGoToPage) {
+		if (link.isInternal && link.destPage !== undefined && onGoToPage) {
 			onGoToPage(link.destPage);
 		} else if (link.url) {
 			openExternalUrl(link.url);
