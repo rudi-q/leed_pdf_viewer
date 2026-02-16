@@ -924,11 +924,47 @@
 			} else {
 				zoomOut();
 			}
-		} else {
-			// Plain scroll = page navigation
-			event.preventDefault();
+			return;
+		}
 
-			// deltaY > 0 means scroll down (next page)
+		// Plain scroll: pan when zoomed in, navigate pages otherwise
+		event.preventDefault();
+
+		if (!pdfCanvas || !containerDiv) return;
+
+		const canvasHeight = parseFloat(pdfCanvas.style.height) || 0;
+		const viewportHeight = containerDiv.clientHeight;
+		const overflow = canvasHeight - viewportHeight;
+
+		if (overflow > 0) {
+			// Zoomed in: canvas is taller than viewport — pan first
+			const scrollAmount = Math.min(Math.abs(event.deltaY), 100);
+			const maxPanUp = overflow / 2;
+			const maxPanDown = -(overflow / 2);
+
+			if (event.deltaY > 0) {
+				// Scrolling down
+				if (panOffset.y > maxPanDown) {
+					// Still room to pan down
+					panOffset = { ...panOffset, y: Math.max(panOffset.y - scrollAmount, maxPanDown) };
+				} else {
+					// At bottom edge — go to next page, reset pan to top
+					panOffset = { x: 0, y: maxPanUp };
+					nextPage();
+				}
+			} else if (event.deltaY < 0) {
+				// Scrolling up
+				if (panOffset.y < maxPanUp) {
+					// Still room to pan up
+					panOffset = { ...panOffset, y: Math.min(panOffset.y + scrollAmount, maxPanUp) };
+				} else {
+					// At top edge — go to previous page, reset pan to bottom
+					panOffset = { x: 0, y: maxPanDown };
+					previousPage();
+				}
+			}
+		} else {
+			// Zoom ≤ 100%: canvas fits in viewport — navigate pages directly
 			if (event.deltaY > 0) {
 				nextPage();
 			} else if (event.deltaY < 0) {
