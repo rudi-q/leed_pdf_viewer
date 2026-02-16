@@ -914,6 +914,10 @@
 	}
 
 	function handleWheel(event: WheelEvent) {
+		// Only handle wheel events that originate inside the PDF container.
+		// This prevents blocking scrolling on toolbar, thumbnails, modals, etc.
+		if (!containerDiv?.contains(event.target as Node)) return;
+
 		if (event.ctrlKey) {
 			// Ctrl + scroll = zoom
 			event.preventDefault();
@@ -930,11 +934,18 @@
 		// Plain scroll: pan when zoomed in, navigate pages otherwise
 		event.preventDefault();
 
-		if (!pdfCanvas || !containerDiv) return;
+		if (!pdfCanvas) return;
 
 		const canvasHeight = parseFloat(pdfCanvas.style.height) || 0;
 		const viewportHeight = containerDiv.clientHeight;
 		const overflow = canvasHeight - viewportHeight;
+
+		// Normalize deltaY to pixels across browsers.
+		// Firefox reports deltaMode=1 (lines), most others report deltaMode=0 (pixels).
+		const LINE_HEIGHT = 16;
+		let pixelDelta = event.deltaY;
+		if (event.deltaMode === 1) pixelDelta *= LINE_HEIGHT;
+		else if (event.deltaMode === 2) pixelDelta *= viewportHeight;
 
 		// Buffer zone past the page edge — shows the background briefly
 		// before navigating, so the user sees a visual "page gap"
@@ -942,14 +953,14 @@
 
 		if (overflow > 0) {
 			// Zoomed in: canvas is taller than viewport — pan first
-			const scrollAmount = Math.min(Math.abs(event.deltaY), 100);
+			const scrollAmount = Math.min(Math.abs(pixelDelta), 100);
 			const maxPanUp = overflow / 2;
 			const maxPanDown = -(overflow / 2);
 			// Extended bounds include the buffer zone past the page edge
 			const extendedPanDown = maxPanDown - PAGE_GAP_BUFFER;
 			const extendedPanUp = maxPanUp + PAGE_GAP_BUFFER;
 
-			if (event.deltaY > 0) {
+			if (pixelDelta > 0) {
 				// Scrolling down
 				if (panOffset.y > extendedPanDown) {
 					// Still room to pan (including buffer zone)
@@ -959,7 +970,7 @@
 					panOffset = { x: 0, y: maxPanUp };
 					nextPage();
 				}
-			} else if (event.deltaY < 0) {
+			} else if (pixelDelta < 0) {
 				// Scrolling up
 				if (panOffset.y < extendedPanUp) {
 					// Still room to pan (including buffer zone)
@@ -972,9 +983,9 @@
 			}
 		} else {
 			// Zoom ≤ 100%: canvas fits in viewport — navigate pages directly
-			if (event.deltaY > 0) {
+			if (pixelDelta > 0) {
 				nextPage();
-			} else if (event.deltaY < 0) {
+			} else if (pixelDelta < 0) {
 				previousPage();
 			}
 		}
