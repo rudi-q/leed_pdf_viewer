@@ -914,8 +914,8 @@
 	}
 
 	function handleWheel(event: WheelEvent) {
-		// Only handle wheel events when Ctrl is pressed (for zooming)
 		if (event.ctrlKey) {
+			// Ctrl + scroll = zoom
 			event.preventDefault();
 
 			// deltaY < 0 means scroll up (zoom in)
@@ -923,6 +923,16 @@
 				zoomIn();
 			} else {
 				zoomOut();
+			}
+		} else {
+			// Plain scroll = page navigation
+			event.preventDefault();
+
+			// deltaY > 0 means scroll down (next page)
+			if (event.deltaY > 0) {
+				nextPage();
+			} else if (event.deltaY < 0) {
+				previousPage();
 			}
 		}
 	}
