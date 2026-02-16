@@ -244,19 +244,6 @@
 		pdfViewer?.goToPage(pageNumber);
 	}
 
-	// Wheel zoom handler
-	function handleWheel(event: WheelEvent) {
-		if (event.ctrlKey) {
-			event.preventDefault();
-			const zoomIn = event.deltaY < 0;
-			if (zoomIn) {
-				pdfViewer?.zoomIn();
-			} else {
-				pdfViewer?.zoomOut();
-			}
-		}
-	}
-
 	/**
 	 * Shared helper for preparing export data for shared PDFs.
 	 * Handles permission checks, file validation, byte extraction, and PDFExporter setup.
@@ -431,7 +418,6 @@
 		onDownloadClick: sharedPDFData?.allowDownloading !== false ? handleExportPDF : undefined
 	}}
 	on:keydown={handlePageSpecificKeys}
-	on:wheel={handleWheel}
 />
 
 <main class="w-screen h-screen relative overflow-hidden">

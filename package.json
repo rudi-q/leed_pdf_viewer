@@ -1,7 +1,7 @@
 {
 	"name": "leedpdf",
 	"private": true,
-	"version": "2.24.0",
+	"version": "2.25.0",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
@@ -40,7 +40,7 @@
 		"@vitest/coverage-v8": "^3.2.4",
 		"@vitest/ui": "^3.2.4",
 		"eslint-plugin-svelte": "^3.15.0",
-		"jsdom": "^27.3.0",
+		"jsdom": "^28.1.0",
 		"prettier": "^3.8.1",
 		"prettier-plugin-svelte": "^3.4.1",
 		"svelte": "5.51.2",
