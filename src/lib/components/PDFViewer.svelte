@@ -583,9 +583,6 @@
 		containerDiv.addEventListener('pointerup', handleContainerPointerUp);
 		containerDiv.addEventListener('pointerleave', handleContainerPointerUp);
 
-		// Add wheel event for zoom with Ctrl+scroll to container
-		containerDiv.addEventListener('wheel', handleWheel, { passive: false });
-
 		// Add keyboard events for Ctrl key tracking
 		document.addEventListener('keydown', handleKeyDown);
 		document.addEventListener('keyup', handleKeyUp);
@@ -916,25 +913,17 @@
 		}
 	}
 
-	async function handleWheel(event: WheelEvent) {
+	function handleWheel(event: WheelEvent) {
 		// Only handle wheel events when Ctrl is pressed (for zooming)
 		if (event.ctrlKey) {
 			event.preventDefault();
 
-			// Fix zoom direction: deltaY < 0 means scroll up (zoom in)
-			const zoomIn = event.deltaY < 0;
-
-			let newScale: number;
-			if (zoomIn) {
-				newScale = Math.min($pdfState.scale * 1.1, 10); // Allow much more zoom in
+			// deltaY < 0 means scroll up (zoom in)
+			if (event.deltaY < 0) {
+				zoomIn();
 			} else {
-				newScale = Math.max($pdfState.scale / 1.1, 0.1); // Allow much more zoom out
+				zoomOut();
 			}
-
-			// CRITICAL: Render FIRST, update state AFTER
-			// This ensures canvas dimensions are updated before overlays re-render
-			await renderCurrentPage(newScale);
-			pdfState.update((state) => ({ ...state, scale: newScale }));
 		}
 	}
 
@@ -2020,6 +2009,8 @@
 		}
 	}
 </script>
+
+<svelte:window on:wheel|nonpassive={handleWheel} />
 
 <div bind:this={containerDiv} class="pdf-viewer relative w-full h-full overflow-hidden">
 	<!-- Debug info logged to console -->

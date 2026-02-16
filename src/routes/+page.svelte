@@ -593,18 +593,6 @@
 		}
 	}
 
-	function handleWheel(event: WheelEvent) {
-		if (event.ctrlKey) {
-			event.preventDefault();
-			const zoomIn = event.deltaY < 0;
-			if (zoomIn) {
-				pdfViewer?.zoomIn();
-			} else {
-				pdfViewer?.zoomOut();
-			}
-		}
-	}
-
 	function toggleFullscreen() {
 		if (!document.fullscreenElement) {
 			enterFullscreen();
@@ -1032,7 +1020,6 @@
 		onDownloadClick: handleExportPDF
 	}}
 	on:keydown={handlePageSpecificKeys}
-	on:wheel|nonpassive|preventDefault={handleWheel}
 />
 
 <main
