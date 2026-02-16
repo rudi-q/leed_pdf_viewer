@@ -73,7 +73,7 @@
 		"@tauri-apps/plugin-updater": "~2.10.0",
 		"@types/markdown-it": "^14.1.2",
 		"@vercel/analytics": "^1.6.1",
-		"appwrite": "^21.5.0",
+		"appwrite": "^22.3.0",
 		"autoprefixer": "^10.4.24",
 		"jspdf": "^4.1.0",
 		"jszip": "^3.10.1",
