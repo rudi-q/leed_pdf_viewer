@@ -2,6 +2,7 @@
 	import { fly } from 'svelte/transition';
 	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
+	import { onDestroy } from 'svelte';
 	import { CheckCircle, Loader2, AlertCircle, X } from 'lucide-svelte';
 
 	export let isExporting = false;
@@ -16,23 +17,32 @@
 
 	$: percentText = Math.round($smoothProgress);
 
+	let dismissTimeout: ReturnType<typeof setTimeout> | null = null;
+
 	// Auto-dismiss after success
 	$: if (status === 'success') {
-		setTimeout(() => {
+		clearTimeout(dismissTimeout!);
+		dismissTimeout = setTimeout(() => {
 			isExporting = false;
 		}, 3000);
 	}
 
 	// Auto-dismiss after error
 	$: if (status === 'error') {
-		setTimeout(() => {
+		clearTimeout(dismissTimeout!);
+		dismissTimeout = setTimeout(() => {
 			isExporting = false;
 		}, 5000);
 	}
 
 	function dismiss() {
+		clearTimeout(dismissTimeout!);
 		isExporting = false;
 	}
+
+	onDestroy(() => {
+		clearTimeout(dismissTimeout!);
+	});
 </script>
 
 {#if isExporting}
