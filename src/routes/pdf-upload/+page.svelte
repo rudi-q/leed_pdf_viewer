@@ -858,23 +858,23 @@
 				onResetZoom={() => pdfViewer?.resetZoom()}
 				onFitToWidth={() => pdfViewer?.fitToWidth()}
 				onFitToHeight={() => pdfViewer?.fitToHeight()}
-			onExportPDF={handleExportPDF}
-			onExportLPDF={handleExportLPDF}
-			onExportDOCX={handleExportDOCX}
-			onExportCompressedPDF={handleExportCompressedPDF}
-			onSharePDF={handleSharePDF}
-			{showThumbnails}
-			onToggleThumbnails={handleToggleThumbnails}
-			{presentationMode}
-			onPresentationModeChange={(value) => {
-				presentationMode = value;
-				if (value) {
-					enterFullscreen();
-				} else if (document.fullscreenElement) {
-					exitFullscreen();
-				}
-			}}
-		/>
+				onExportPDF={handleExportPDF}
+				onExportLPDF={handleExportLPDF}
+				onExportDOCX={handleExportDOCX}
+				onExportCompressedPDF={handleExportCompressedPDF}
+				onSharePDF={handleSharePDF}
+				{showThumbnails}
+				onToggleThumbnails={handleToggleThumbnails}
+				{presentationMode}
+				onPresentationModeChange={(value) => {
+					presentationMode = value;
+					if (value) {
+						enterFullscreen();
+					} else if (document.fullscreenElement) {
+						exitFullscreen();
+					}
+				}}
+			/>
 	{/if}
 
 	<div class="w-full h-full" class:pt-12={!focusMode && !presentationMode}>
