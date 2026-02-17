@@ -375,7 +375,8 @@ fn compress_pdf_blocking(content: Vec<u8>, quality: Option<u8>) -> Result<Vec<u8
 
     let mut skip_counts: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
     let mut filter_types: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
-    let mut colorspace_types: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+    let mut colorspace_types: std::collections::HashMap<String, u32> =
+        std::collections::HashMap::new();
 
     let image_ids: Vec<ObjectId> = doc
         .objects
@@ -384,32 +385,30 @@ fn compress_pdf_blocking(content: Vec<u8>, quality: Option<u8>) -> Result<Vec<u8
             if let Object::Stream(stream) = obj {
                 match is_recompressible_image(stream) {
                     Some(Ok(())) => return Some(id),
-                    Some(Err(reason)) => {
-                        match reason {
-                            SkipReason::HasTransparency => {
-                                *skip_counts.entry("transparency".to_string()).or_insert(0) += 1;
-                            }
-                            SkipReason::TooSmall => {
-                                *skip_counts.entry("<2KB".to_string()).or_insert(0) += 1;
-                            }
-                            SkipReason::UnsupportedBitsPerComponent => {
-                                *skip_counts.entry("bits/component".to_string()).or_insert(0) += 1;
-                            }
-                            SkipReason::UnsupportedColorSpace(cs) => {
-                                let cs_name = String::from_utf8_lossy(&cs).to_string();
-                                *skip_counts.entry("colorspace".to_string()).or_insert(0) += 1;
-                                *colorspace_types.entry(cs_name).or_insert(0) += 1;
-                            }
-                            SkipReason::UnsupportedFilter(f) => {
-                                let filter_name = String::from_utf8_lossy(&f).to_string();
-                                *skip_counts.entry("filter".to_string()).or_insert(0) += 1;
-                                *filter_types.entry(filter_name).or_insert(0) += 1;
-                            }
-                            SkipReason::HasPredictor => {
-                                *skip_counts.entry("predictor".to_string()).or_insert(0) += 1;
-                            }
+                    Some(Err(reason)) => match reason {
+                        SkipReason::HasTransparency => {
+                            *skip_counts.entry("transparency".to_string()).or_insert(0) += 1;
                         }
-                    }
+                        SkipReason::TooSmall => {
+                            *skip_counts.entry("<2KB".to_string()).or_insert(0) += 1;
+                        }
+                        SkipReason::UnsupportedBitsPerComponent => {
+                            *skip_counts.entry("bits/component".to_string()).or_insert(0) += 1;
+                        }
+                        SkipReason::UnsupportedColorSpace(cs) => {
+                            let cs_name = String::from_utf8_lossy(&cs).to_string();
+                            *skip_counts.entry("colorspace".to_string()).or_insert(0) += 1;
+                            *colorspace_types.entry(cs_name).or_insert(0) += 1;
+                        }
+                        SkipReason::UnsupportedFilter(f) => {
+                            let filter_name = String::from_utf8_lossy(&f).to_string();
+                            *skip_counts.entry("filter".to_string()).or_insert(0) += 1;
+                            *filter_types.entry(filter_name).or_insert(0) += 1;
+                        }
+                        SkipReason::HasPredictor => {
+                            *skip_counts.entry("predictor".to_string()).or_insert(0) += 1;
+                        }
+                    },
                     None => {
                         // Not an image stream, don't count it
                     }
@@ -503,27 +502,35 @@ enum SkipReason {
     HasPredictor,
 }
 
-/// Convert CMYK pixels to RGB
+/// Convert CMYK pixels to RGB.
+///
+/// Note: This implements a simple (1-C)(1-K) CMYK→RGB transform which is an approximation
+/// and ignores ICC profiles and under-color removal. It is a rough, non-color-managed
+/// conversion suitable for compressed/export-preview only.
+///
+/// TODO: Use color-managed libraries or ICC profile handling for print-quality results
+/// when better color accuracy is required.
+///
 /// CMYK uses subtractive color model, RGB uses additive
 fn cmyk_to_rgb(cmyk_data: &[u8]) -> Vec<u8> {
     let mut rgb_data = Vec::with_capacity((cmyk_data.len() / 4) * 3);
-    
+
     for chunk in cmyk_data.chunks_exact(4) {
         let c = chunk[0] as f32 / 255.0;
         let m = chunk[1] as f32 / 255.0;
         let y = chunk[2] as f32 / 255.0;
         let k = chunk[3] as f32 / 255.0;
-        
+
         // Standard CMYK to RGB conversion
         let r = ((1.0 - c) * (1.0 - k) * 255.0) as u8;
         let g = ((1.0 - m) * (1.0 - k) * 255.0) as u8;
         let b = ((1.0 - y) * (1.0 - k) * 255.0) as u8;
-        
+
         rgb_data.push(r);
         rgb_data.push(g);
         rgb_data.push(b);
     }
-    
+
     rgb_data
 }
 
@@ -541,16 +548,16 @@ fn expand_indexed_to_rgb(
     } else {
         return Err(()); // Unsupported base colorspace
     };
-    
+
     let mut rgb_data = Vec::with_capacity(indexed_data.len() * 3);
-    
+
     for &index in indexed_data {
         let palette_offset = (index as usize) * colors_per_pixel;
-        
+
         if palette_offset + colors_per_pixel > palette_data.len() {
             return Err(()); // Invalid palette index
         }
-        
+
         if colors_per_pixel == 3 {
             // RGB palette
             rgb_data.push(palette_data[palette_offset]);
@@ -564,7 +571,7 @@ fn expand_indexed_to_rgb(
             rgb_data.push(gray);
         }
     }
-    
+
     Ok(rgb_data)
 }
 
@@ -630,16 +637,26 @@ fn is_recompressible_image(stream: &lopdf::Stream) -> Option<Result<(), SkipReas
                             return Some(Err(SkipReason::UnsupportedColorSpace(name.to_vec())));
                         }
                     } else {
-                        return Some(Err(SkipReason::UnsupportedColorSpace(b"<array-error>".to_vec())));
+                        return Some(Err(SkipReason::UnsupportedColorSpace(
+                            b"<array-error>".to_vec(),
+                        )));
                     }
                 } else {
-                    return Some(Err(SkipReason::UnsupportedColorSpace(b"<empty-array>".to_vec())));
+                    return Some(Err(SkipReason::UnsupportedColorSpace(
+                        b"<empty-array>".to_vec(),
+                    )));
                 }
             } else {
-                return Some(Err(SkipReason::UnsupportedColorSpace(b"<complex>".to_vec())));
+                return Some(Err(SkipReason::UnsupportedColorSpace(
+                    b"<complex>".to_vec(),
+                )));
             }
         }
-        Err(_) => return Some(Err(SkipReason::UnsupportedColorSpace(b"<missing>".to_vec()))),
+        Err(_) => {
+            return Some(Err(SkipReason::UnsupportedColorSpace(
+                b"<missing>".to_vec(),
+            )))
+        }
     }
 
     // Handle filters we know how to decode (single or array)
@@ -663,12 +680,16 @@ fn is_recompressible_image(stream: &lopdf::Stream) -> Option<Result<(), SkipReas
                                 return Some(Err(SkipReason::UnsupportedFilter(name.to_vec())));
                             }
                         } else {
-                            return Some(Err(SkipReason::UnsupportedFilter(b"<array-error>".to_vec())));
+                            return Some(Err(SkipReason::UnsupportedFilter(
+                                b"<array-error>".to_vec(),
+                            )));
                         }
                     }
                 } else {
                     // Multiple filters - too complex for now
-                    return Some(Err(SkipReason::UnsupportedFilter(b"<multi-filter>".to_vec())));
+                    return Some(Err(SkipReason::UnsupportedFilter(
+                        b"<multi-filter>".to_vec(),
+                    )));
                 }
             } else {
                 return Some(Err(SkipReason::UnsupportedFilter(b"<unknown>".to_vec())));
@@ -725,14 +746,22 @@ fn recompress_icc_cmyk(
     let cs_display = "ICCBased(CMYK→RGB)";
     println!(
         "  Image {}x{} {}: {} -> {} bytes (saved {})",
-        width, height, cs_display, original_stream_size, jpeg_data.len(),
+        width,
+        height,
+        cs_display,
+        original_stream_size,
+        jpeg_data.len(),
         original_stream_size - jpeg_data.len()
     );
 
     stream.set_content(jpeg_data);
-    stream.dict.set("Filter", lopdf::Object::Name(b"DCTDecode".to_vec()));
+    stream
+        .dict
+        .set("Filter", lopdf::Object::Name(b"DCTDecode".to_vec()));
     stream.dict.remove(b"DecodeParms");
-    stream.dict.set("ColorSpace", lopdf::Object::Name(b"DeviceRGB".to_vec()));
+    stream
+        .dict
+        .set("ColorSpace", lopdf::Object::Name(b"DeviceRGB".to_vec()));
     stream.allows_compression = false;
 
     ImageCompressionResult::Recompressed
@@ -760,8 +789,12 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
 
     // Get colorspace - handle both simple names and arrays (for Indexed)
     // For Indexed, extract: [/Indexed /BaseColorSpace hival lookup]
-    let (cs_bytes, is_indexed, is_cmyk, indexed_info): (Vec<u8>, bool, bool, Option<(Vec<u8>, i64, Vec<u8>)>) = 
-        match stream.dict.get(b"ColorSpace") {
+    let (cs_bytes, is_indexed, is_cmyk, indexed_info): (
+        Vec<u8>,
+        bool,
+        bool,
+        Option<(Vec<u8>, i64, Vec<u8>)>,
+    ) = match stream.dict.get(b"ColorSpace") {
         Ok(cs) => {
             if let Ok(name) = cs.as_name() {
                 let is_cmyk = name == b"DeviceCMYK";
@@ -787,7 +820,7 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
                                                 return ImageCompressionResult::Failed;
                                             }
                                         };
-                                        
+
                                         (
                                             b"Indexed".to_vec(),
                                             true,
@@ -860,7 +893,9 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
         } else if let Ok(arr) = f.as_array() {
             // Single-element filter array
             if arr.len() == 1 {
-                arr.first().and_then(|obj| obj.as_name().ok()).map(|n| n.to_vec())
+                arr.first()
+                    .and_then(|obj| obj.as_name().ok())
+                    .map(|n| n.to_vec())
             } else {
                 None
             }
@@ -883,7 +918,7 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
             return ImageCompressionResult::Failed;
         }
         let decompressed = temp_stream.content;
-        
+
         if is_indexed {
             // Indexed image: expand palette to RGB
             if let Some((ref base_cs, _hival, ref palette)) = indexed_info {
@@ -908,7 +943,7 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
         match image::load_from_memory_with_format(&stream.content, image::ImageFormat::Jpeg) {
             Ok(img) => {
                 // Convert to RGB8 or Luma8 depending on source
-                if is_cmyk || cs_bytes == b"DeviceRGB" {
+                if is_cmyk || cs_bytes == b"DeviceRGB" || (cs_bytes == b"ICCBased") {
                     img.to_rgb8().into_raw()
                 } else {
                     img.to_luma8().into_raw()
@@ -919,7 +954,7 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
     } else if filter_name.is_none() {
         // Uncompressed raw data
         let raw_data = stream.content.clone();
-        
+
         if is_indexed {
             // Indexed image: expand palette to RGB
             if let Some((ref base_cs, _hival, ref palette)) = indexed_info {
@@ -947,6 +982,11 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
         if pixel_count == 0 {
             return ImageCompressionResult::Failed;
         }
+
+        if raw_pixels.len() % pixel_count != 0 {
+            return ImageCompressionResult::Failed;
+        }
+
         let inferred_channels = raw_pixels.len() / pixel_count;
         match inferred_channels {
             1 => (ExtendedColorType::L8, 1u32),
@@ -955,7 +995,15 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
                 // ICCBased CMYK: convert to RGB
                 let rgb_data = cmyk_to_rgb(&raw_pixels);
                 // We need to replace raw_pixels but can't reassign; handled below
-                return recompress_icc_cmyk(stream, &rgb_data, width, height, quality, original_stream_size, is_already_jpeg);
+                return recompress_icc_cmyk(
+                    stream,
+                    &rgb_data,
+                    width,
+                    height,
+                    quality,
+                    original_stream_size,
+                    is_already_jpeg,
+                );
             }
             _ => return ImageCompressionResult::Failed,
         }
@@ -1019,12 +1067,21 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
         .dict
         .set("Filter", lopdf::Object::Name(b"DCTDecode".to_vec()));
     stream.dict.remove(b"DecodeParms");
-    
-    // If we converted CMYK or Indexed to RGB, update the colorspace
-    if is_cmyk || is_indexed {
-        stream.dict.set("ColorSpace", lopdf::Object::Name(b"DeviceRGB".to_vec()));
+
+    // If we converted CMYK, Indexed, or ICCBased to RGB/Gray, update the colorspace
+    if is_cmyk || is_indexed || is_icc_based {
+        let new_cs = if target_channels == 1 {
+            b"DeviceGray".to_vec()
+        } else {
+            b"DeviceRGB".to_vec()
+        };
+        stream.dict.set("ColorSpace", lopdf::Object::Name(new_cs));
+        if is_icc_based {
+            // Remove stale ICCBased dictionary entries if present
+            // The simple name setting above already handles the key update
+        }
     }
-    
+
     stream.allows_compression = false;
 
     ImageCompressionResult::Recompressed
