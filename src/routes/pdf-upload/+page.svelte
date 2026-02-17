@@ -29,8 +29,7 @@
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
 	import {
 		getPdfBytesAndName,
-		buildAnnotatedPdfExporter,
-		compressPdfBytes
+		buildAnnotatedPdfExporter
 	} from '$lib/utils/exportHandlers';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { retrieveUploadedFile } from '$lib/utils/fileStorageUtils';
@@ -41,7 +40,7 @@
 	import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
 	import { trackFullscreenToggle, trackPdfExport } from '$lib/utils/analytics';
 	import SharePDFModal from '$lib/components/SharePDFModal.svelte';
-	import ExportProgressCard from '$lib/components/ExportProgressCard.svelte';
+	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
 	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
 	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
 
@@ -57,12 +56,7 @@
 	let showDebugPanel = false;
 	let showShareModal = false;
 
-	// Export progress state
-	let isExporting = false;
-	let exportOperation = '';
-	let exportStatus: 'processing' | 'success' | 'error' = 'processing';
-	let exportMessage = '';
-	let exportProgress = 0;
+	let compressedPDFExport: CompressedPDFExport;
 
 	// File loading variables
 	// (hasLoadedFromCommandLine removed - was unused dead code)
@@ -765,71 +759,23 @@
 		}
 	}
 
-	async function handleExportCompressedPDF() {
+	function handleExportCompressedPDF() {
 		if (!currentFile || !pdfViewer) {
 			toastStore.warning('No PDF', 'No PDF to export');
 			return;
 		}
+		compressedPDFExport?.open();
+	}
 
-		try {
-			forceSaveAllAnnotations();
-
-			isExporting = true;
-			exportOperation = 'Compressing PDF';
-			exportStatus = 'processing';
-			exportProgress = 5;
-			exportMessage = 'Preparing PDF...';
-
-			const { pdfBytes, originalName } = await getPdfBytesAndName(
-				currentFile,
-				extractFilenameFromUrl
-			);
-
-			exportProgress = 15;
-			exportMessage = 'Merging annotations...';
-			const exporter = await buildAnnotatedPdfExporter(
-				pdfBytes,
-				pdfViewer,
-				$pdfState.totalPages
-			);
-
-			exportProgress = 30;
-			exportMessage = 'Building annotated PDF...';
-			const annotatedPdfBytes = await exporter.exportToPDF();
-			const originalSize = annotatedPdfBytes.length;
-
-			exportProgress = 45;
-			exportMessage = 'Compressing images & streams...';
-			const compressedBytes = await compressPdfBytes(annotatedPdfBytes);
-			const compressedSize = compressedBytes.length;
-			const filename = `${originalName}_compressed.pdf`;
-
-			exportProgress = 85;
-			exportMessage = 'Saving file...';
-			const success = await PDFExporter.exportFile(
-				compressedBytes,
-				filename,
-				'application/pdf'
-			);
-
-			if (success) {
-				const ratio = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
-				exportProgress = 100;
-				exportStatus = 'success';
-				exportOperation = 'Export Complete';
-				exportMessage = `${filename} (${ratio}% smaller)`;
-				console.log('Compressed PDF exported successfully:', filename);
-			} else {
-				isExporting = false;
-				console.log('Compressed PDF export was cancelled by user');
-			}
-		} catch (error) {
-			console.error('Compressed PDF export failed:', error);
-			exportProgress = 0;
-			exportStatus = 'error';
-			exportOperation = 'Export Failed';
-			exportMessage = 'Failed to compress PDF. Please try again.';
-		}
+	async function getAnnotatedPdfForCompression() {
+		forceSaveAllAnnotations();
+		const { pdfBytes, originalName } = await getPdfBytesAndName(
+			currentFile!,
+			extractFilenameFromUrl
+		);
+		const exporter = await buildAnnotatedPdfExporter(pdfBytes, pdfViewer, $pdfState.totalPages);
+		const bytes = await exporter.exportToPDF();
+		return { bytes, filename: originalName };
 	}
 
 	function handleToggleThumbnails(show: boolean) {
@@ -977,13 +923,10 @@
 
 <DragOverlay {dragOver} />
 
-<!-- Export Progress Card -->
-<ExportProgressCard
-	bind:isExporting
-	operation={exportOperation}
-	status={exportStatus}
-	message={exportMessage}
-	progress={exportProgress}
+<!-- Compressed PDF Export (modal + progress) -->
+<CompressedPDFExport
+	bind:this={compressedPDFExport}
+	getAnnotatedPdf={currentFile && pdfViewer ? getAnnotatedPdfForCompression : null}
 />
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => (showShortcuts = false)} />

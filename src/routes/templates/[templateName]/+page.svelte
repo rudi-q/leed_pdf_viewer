@@ -21,7 +21,7 @@
 	import { PDFExporter } from '$lib/utils/pdfExport';
 	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
-	import { buildAnnotatedPdfExporter, compressPdfBytes } from '$lib/utils/exportHandlers';
+	import { buildAnnotatedPdfExporter } from '$lib/utils/exportHandlers';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { getFormattedVersion } from '$lib/utils/version';
 	import { isTauri } from '$lib/utils/tauriUtils';
@@ -32,7 +32,7 @@
 	import DragOverlay from '$lib/components/DragOverlay.svelte';
 	import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 	import GlobalStyles from '$lib/components/GlobalStyles.svelte';
-	import ExportProgressCard from '$lib/components/ExportProgressCard.svelte';
+	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
 	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
 	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
 
@@ -51,12 +51,7 @@
 	let templateError = false;
 	let showShareModal = false;
 
-	// Export progress state
-	let isExporting = false;
-	let exportOperation = '';
-	let exportStatus: 'processing' | 'success' | 'error' = 'processing';
-	let exportMessage = '';
-	let exportProgress = 0;
+	let compressedPDFExport: CompressedPDFExport;
 
 	// Load template PDF if it exists
 	$: if (browser && data) {
@@ -593,82 +588,37 @@
 		}
 	}
 
-	async function handleExportCompressedPDF() {
+	function handleExportCompressedPDF() {
 		if (!currentFile || !pdfViewer) {
 			return;
 		}
+		compressedPDFExport?.open();
+	}
 
-		try {
-			forceSaveAllAnnotations();
+	async function getAnnotatedPdfForCompression() {
+		forceSaveAllAnnotations();
+		let pdfBytes: Uint8Array;
+		let originalName: string;
 
-			isExporting = true;
-			exportOperation = 'Compressing PDF';
-			exportStatus = 'processing';
-			exportProgress = 5;
-			exportMessage = 'Preparing PDF...';
-
-			let pdfBytes: Uint8Array;
-			let originalName: string;
-
-			if (typeof currentFile === 'string') {
-				const response = await fetch(currentFile);
-				if (!response.ok) {
-					throw new Error(`Failed to fetch template: ${response.statusText}`);
-				}
-				const arrayBuffer = await response.arrayBuffer();
-				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = data.templateName || 'template';
-			} else {
-				const arrayBuffer = await currentFile.arrayBuffer();
-				pdfBytes = new Uint8Array(arrayBuffer);
-				originalName = currentFile.name.replace(/\.pdf$/i, '');
+		if (typeof currentFile === 'string') {
+			const response = await fetch(currentFile);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch template: ${response.statusText}`);
 			}
-
-			exportProgress = 15;
-			exportMessage = 'Merging annotations...';
-			const exporter = await buildAnnotatedPdfExporter(
-				pdfBytes,
-				pdfViewer,
-				$pdfState.totalPages
-			);
-
-			exportProgress = 30;
-			exportMessage = 'Building annotated PDF...';
-			const annotatedPdfBytes = await exporter.exportToPDF();
-			const originalSize = annotatedPdfBytes.length;
-
-			exportProgress = 45;
-			exportMessage = 'Compressing images & streams...';
-			const compressedBytes = await compressPdfBytes(annotatedPdfBytes);
-			const compressedSize = compressedBytes.length;
-			const filename = `${originalName}_compressed.pdf`;
-
-			exportProgress = 85;
-			exportMessage = 'Saving file...';
-			const success = await PDFExporter.exportFile(
-				compressedBytes,
-				filename,
-				'application/pdf'
-			);
-
-			if (success) {
-				const ratio = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
-				exportProgress = 100;
-				exportStatus = 'success';
-				exportOperation = 'Export Complete';
-				exportMessage = `${filename} (${ratio}% smaller)`;
-				console.log('Compressed PDF exported successfully:', filename);
-			} else {
-				isExporting = false;
-				console.log('Compressed PDF export was cancelled by user');
-			}
-		} catch (error) {
-			console.error('Compressed PDF export failed:', error);
-			exportProgress = 0;
-			exportStatus = 'error';
-			exportOperation = 'Export Failed';
-			exportMessage = 'Failed to compress PDF. Please try again.';
+			const arrayBuffer = await response.arrayBuffer();
+			pdfBytes = new Uint8Array(arrayBuffer);
+			originalName = data.templateName || 'template';
+		} else if (currentFile) {
+			const arrayBuffer = await currentFile.arrayBuffer();
+			pdfBytes = new Uint8Array(arrayBuffer);
+			originalName = currentFile.name.replace(/\.pdf$/i, '');
+		} else {
+			throw new Error('No PDF file available');
 		}
+
+		const exporter = await buildAnnotatedPdfExporter(pdfBytes, pdfViewer, $pdfState.totalPages);
+		const bytes = await exporter.exportToPDF();
+		return { bytes, filename: originalName };
 	}
 
 	function handleToggleThumbnails(show: boolean) {
@@ -824,13 +774,10 @@
 
 <DragOverlay {dragOver} />
 
-<!-- Export Progress Card -->
-<ExportProgressCard
-	bind:isExporting
-	operation={exportOperation}
-	status={exportStatus}
-	message={exportMessage}
-	progress={exportProgress}
+<!-- Compressed PDF Export (modal + progress) -->
+<CompressedPDFExport
+	bind:this={compressedPDFExport}
+	getAnnotatedPdf={currentFile && pdfViewer ? getAnnotatedPdfForCompression : null}
 />
 
 <!-- Keyboard shortcuts modal -->

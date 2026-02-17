@@ -16,8 +16,7 @@
 	import { PDFExporter } from '$lib/utils/pdfExport';
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
 	import { exportCurrentPDFAsLPDF } from '$lib/utils/lpdfExport';
-	import { compressPdfBytes } from '$lib/utils/exportHandlers';
-	import ExportProgressCard from '$lib/components/ExportProgressCard.svelte';
+	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
 	import { Frown, Link, Lock } from 'lucide-svelte';
 
 	let isLoading = true;
@@ -33,12 +32,7 @@
 	let presentationMode = false;
 	let isFullscreen = false;
 
-	// Export progress state
-	let isExporting = false;
-	let exportOperation = '';
-	let exportStatus: 'processing' | 'success' | 'error' = 'processing';
-	let exportMessage = '';
-	let exportProgress = 0;
+	let compressedPDFExport: CompressedPDFExport;
 
 	onMount(() => {
 		if (browser && $page.params.shareId) {
@@ -403,61 +397,18 @@
 		}
 	}
 
-	// Compressed PDF export handler for shared PDFs
-	async function handleExportCompressedPDF() {
-		try {
-			console.log('Starting Compressed PDF export for shared PDF...');
+	function handleExportCompressedPDF() {
+		compressedPDFExport?.open();
+	}
 
-			isExporting = true;
-			exportOperation = 'Compressing PDF';
-			exportStatus = 'processing';
-			exportProgress = 5;
-			exportMessage = 'Preparing PDF...';
-
-			const prepared = await prepareExportForShare('Compressed PDF', true);
-			if (!prepared || !prepared.exporter) {
-				isExporting = false;
-				return;
-			}
-
-			exportProgress = 20;
-			exportMessage = 'Building annotated PDF...';
-			const { originalName, exporter } = prepared;
-			const annotatedPdfBytes = await exporter.exportToPDF();
-			const originalSize = annotatedPdfBytes.length;
-
-			exportProgress = 45;
-			exportMessage = 'Compressing images & streams...';
-			const compressedBytes = await compressPdfBytes(annotatedPdfBytes);
-			const compressedSize = compressedBytes.length;
-			const filename = `${originalName}_compressed.pdf`;
-
-			exportProgress = 85;
-			exportMessage = 'Saving file...';
-			const success = await PDFExporter.exportFile(
-				compressedBytes,
-				filename,
-				'application/pdf'
-			);
-
-			if (success) {
-				const ratio = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
-				exportProgress = 100;
-				exportStatus = 'success';
-				exportOperation = 'Export Complete';
-				exportMessage = `${filename} (${ratio}% smaller)`;
-				console.log('Shared compressed PDF exported successfully:', filename);
-			} else {
-				isExporting = false;
-				console.log('Shared compressed PDF export was cancelled by user');
-			}
-		} catch (error) {
-			console.error('Shared compressed PDF export failed:', error);
-			exportProgress = 0;
-			exportStatus = 'error';
-			exportOperation = 'Export Failed';
-			exportMessage = 'Failed to compress PDF. Please try again.';
+	async function getAnnotatedPdfForCompression() {
+		const prepared = await prepareExportForShare('Compressed PDF', true);
+		if (!prepared || !prepared.exporter) {
+			throw new Error('Could not prepare PDF for compression');
 		}
+		const { originalName, exporter } = prepared;
+		const bytes = await exporter.exportToPDF();
+		return { bytes, filename: originalName };
 	}
 </script>
 
@@ -646,13 +597,10 @@
 	{/if}
 </main>
 
-<!-- Export Progress Card -->
-<ExportProgressCard
-	bind:isExporting
-	operation={exportOperation}
-	status={exportStatus}
-	message={exportMessage}
-	progress={exportProgress}
+<!-- Compressed PDF Export (modal + progress) -->
+<CompressedPDFExport
+	bind:this={compressedPDFExport}
+	getAnnotatedPdf={currentFile && pdfViewer ? getAnnotatedPdfForCompression : null}
 />
 
 <!-- Help/Shortcuts Modal -->
