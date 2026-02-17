@@ -54,6 +54,7 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
+		if (!isOpen) return;
 		if (e.key === 'Escape') close();
 		if (e.key === 'Enter') confirm();
 	}

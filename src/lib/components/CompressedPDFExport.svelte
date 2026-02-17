@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
 	import CompressionSettingsModal from './CompressionSettingsModal.svelte';
 	import ExportProgressCard from './ExportProgressCard.svelte';
 	import { compressPdfBytes } from '$lib/utils/exportHandlers';
@@ -43,8 +42,6 @@
 	let exportStatus: 'processing' | 'success' | 'error' = 'processing';
 	let exportMessage = '';
 	let exportProgress = 0;
-
-	const dispatch = createEventDispatcher<{ triggerExport: void }>();
 
 	/** Called by the parent (via bind:this or Toolbar callback) to open the settings modal */
 	export function open() {
@@ -96,11 +93,17 @@
 			);
 
 			if (success) {
-				const ratio = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
+				const deltaPct = ((originalSize - compressedSize) / originalSize * 100);
+				const absPct = Math.abs(deltaPct).toFixed(1);
+				const sizeLabel = compressedSize < originalSize
+					? `${absPct}% smaller`
+					: compressedSize > originalSize
+						? `${absPct}% larger`
+						: 'no change';
 				exportProgress = 100;
 				exportStatus = 'success';
 				exportOperation = 'Export Complete';
-				exportMessage = `${filename} (${ratio}% smaller)`;
+				exportMessage = `${filename} (${sizeLabel})`;
 				console.log('Compressed PDF exported successfully:', filename);
 				onExportSuccess?.(filename, compressedSize);
 			} else {

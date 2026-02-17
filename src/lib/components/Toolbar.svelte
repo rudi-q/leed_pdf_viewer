@@ -941,6 +941,8 @@
 										{#if onExportCompressedPDF}
 											<button
 												class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
+												class:opacity-50={!$pdfState.document}
+												disabled={!$pdfState.document}
 												on:click={() => {
 													onExportCompressedPDF();
 													showExportMenu = false;

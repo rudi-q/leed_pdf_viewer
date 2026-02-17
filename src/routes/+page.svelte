@@ -1272,13 +1272,6 @@
 
 	<DragOverlay {dragOver} />
 
-	<!-- Compressed PDF Export (modal + progress) -->
-	<CompressedPDFExport
-		bind:this={compressedPDFExport}
-		getAnnotatedPdf={currentFile && pdfViewer ? getAnnotatedPdfForCompression : null}
-		onExportSuccess={(filename, size) => trackPdfExport('compressed_pdf', $pdfState.totalPages, size)}
-	/>
-
 	<DesktopDownloadCard {focusMode} {presentationMode} bind:showDownloadCard />
 
 	<Footer
@@ -1290,6 +1283,13 @@
 		on:helpClick={() => (showShortcuts = true)}
 	/>
 </main>
+
+<!-- Compressed PDF Export (modal + progress) - outside main to avoid fixed-position clipping -->
+<CompressedPDFExport
+	bind:this={compressedPDFExport}
+	getAnnotatedPdf={currentFile && pdfViewer ? getAnnotatedPdfForCompression : null}
+	onExportSuccess={(filename, size) => trackPdfExport('compressed_pdf', $pdfState.totalPages, size)}
+/>
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => (showShortcuts = false)} />
 <TemplatePicker bind:isOpen={showTemplatePicker} on:close={() => (showTemplatePicker = false)} />
