@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { PDFDocument } from 'pdf-lib';
 import { PDFExporter } from './pdfExport';
 import { isTauri } from './tauriUtils';
 
@@ -104,7 +105,6 @@ export async function compressPdfBytes(pdfBytes: Uint8Array, quality = 75): Prom
 
 	// Fallback: use pdf-lib for basic compression (useObjectStreams)
 	try {
-		const { PDFDocument } = await import('pdf-lib');
 		const doc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
 		return await doc.save({ useObjectStreams: true });
 	} catch (error) {
