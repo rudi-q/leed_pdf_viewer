@@ -12,7 +12,8 @@ node_modules
 # Tauri build artifacts
 src-tauri/target/
 src-tauri/gen/
-LeedPDF.pkg
+*.pkg
+appstore-build/
 
 # Apple Development & macOS
 *.p12

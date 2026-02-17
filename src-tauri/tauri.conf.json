@@ -72,10 +72,11 @@
       }
     ],
     "macOS": {
-      "entitlements": "entitlements.plist",
+      "entitlements": "Entitlements.plist",
       "exceptionDomain": "localhost",
       "hardenedRuntime": true,
-      "signingIdentity": null
+      "signingIdentity": null,
+      "minimumSystemVersion": "12.0"
     }
   },
   "plugins": {
