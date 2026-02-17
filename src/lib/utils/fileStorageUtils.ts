@@ -37,7 +37,7 @@ class FileStorageManager {
   private readonly MAX_FILE_SIZE = MAX_FILE_SIZE;
   private readonly WARNING_FILE_SIZE = WARNING_FILE_SIZE;
   private readonly MAX_STORAGE_TIME = MAX_STORAGE_TIME;
-  
+
   // SessionStorage fallback limits
   private readonly SESSION_MAX_FILE_SIZE = SESSION_MAX_FILE_SIZE;
 
@@ -65,7 +65,7 @@ class FileStorageManager {
 
       request.onupgradeneeded = () => {
         const db = request.result;
-        
+
         // Create object store if it doesn't exist
         if (!db.objectStoreNames.contains(this.storeName)) {
           const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
@@ -148,19 +148,19 @@ class FileStorageManager {
     try {
       // Check if file can be stored
       const storageCheck = await this.canStoreFile(file.size);
-      
+
       if (!storageCheck.canStore) {
         // Use the errorCode from canStoreFile, fallback to FILE_TOO_LARGE if absent
         const errorCode = (storageCheck.errorCode as 'QUOTA_EXCEEDED' | 'FILE_TOO_LARGE') || 'FILE_TOO_LARGE';
-        
+
         const error = new FileStorageError(
           storageCheck.error || 'File cannot be stored',
           errorCode
         );
-        
+
         // Determine toast title based on error code
         const toastTitle = storageCheck.errorCode === 'QUOTA_EXCEEDED' ? 'Quota Exceeded' : 'File Too Large';
-        
+
         toastStore.error(toastTitle, storageCheck.error || 'File cannot be stored');
         return { success: false, error };
       }
@@ -183,7 +183,7 @@ class FileStorageManager {
         console.warn('IndexedDB unavailable, attempting sessionStorage fallback:', initError);
         return this.storeInSessionStorage(file, arrayBuffer, fileId);
       }
-      
+
       const fileData: StoredFileData = {
         id: fileId,
         name: file.name,
@@ -201,7 +201,7 @@ class FileStorageManager {
         'UNKNOWN',
         error as Error
       );
-      
+
       toastStore.error('Storage Error', 'An unexpected error occurred. Please try again.');
       return { success: false, error: storageError };
     }
@@ -211,8 +211,8 @@ class FileStorageManager {
    * Store file in sessionStorage as fallback when IndexedDB is unavailable
    */
   private storeInSessionStorage(
-    file: File, 
-    arrayBuffer: ArrayBuffer, 
+    file: File,
+    arrayBuffer: ArrayBuffer,
     fileId: string
   ): { success: boolean; id: string; error?: FileStorageError } {
     // Check if file fits within sessionStorage limits
@@ -221,7 +221,7 @@ class FileStorageManager {
         `File size (${this.formatBytes(file.size)}) exceeds sessionStorage limit of ${this.formatBytes(this.SESSION_MAX_FILE_SIZE)}`,
         'FILE_TOO_LARGE'
       );
-      
+
       toastStore.error('File Too Large', error.message);
       return { success: false, id: fileId, error };
     }
@@ -231,7 +231,7 @@ class FileStorageManager {
       const uint8Array = new Uint8Array(arrayBuffer);
       const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
       const base64Data = btoa(binaryString);
-      
+
       const sessionData = {
         id: fileId,
         name: file.name,
@@ -240,17 +240,17 @@ class FileStorageManager {
         data: base64Data,
         timestamp: Date.now()
       };
-      
+
       const sessionKey = `session_file_${fileId}`;
       sessionStorage.setItem(sessionKey, JSON.stringify(sessionData));
-      
+
       console.log(`Successfully stored file "${file.name}" (${this.formatBytes(file.size)}) in sessionStorage`);
-      
+
       toastStore.warning(
         'Limited Storage',
         `${file.name} stored temporarily. File will be lost when tab is closed.`
       );
-      
+
       return { success: true, id: fileId };
     } catch (error) {
       const storageError = new FileStorageError(
@@ -258,7 +258,7 @@ class FileStorageManager {
         'STORAGE_UNAVAILABLE',
         error as Error
       );
-      
+
       toastStore.error('Storage Failed', 'Could not store file temporarily. Please try again.');
       return { success: false, id: fileId, error: storageError };
     }
@@ -269,10 +269,10 @@ class FileStorageManager {
    * Includes handling for QuotaExceededError and retry logic
    */
   private async putFileWithQuotaHandling(
-    db: IDBDatabase, 
-    fileData: StoredFileData, 
-    file: File, 
-    fileId: string, 
+    db: IDBDatabase,
+    fileData: StoredFileData,
+    file: File,
+    fileId: string,
     isRetry: boolean = false
   ): Promise<{ success: boolean; id?: string; error?: FileStorageError }> {
     return new Promise((resolve) => {
@@ -296,12 +296,12 @@ class FileStorageManager {
         // Wait for transaction to complete before resolving
         transaction.oncomplete = () => {
           console.log(`Successfully stored file "${file.name}" (${this.formatBytes(file.size)}) in IndexedDB`);
-          
+
           toastStore.success(
             'File Uploaded',
             `${file.name} (${this.formatBytes(file.size)}) ready for processing`
           );
-          
+
           safeResolve({ success: true, id: fileId });
         };
       };
@@ -315,12 +315,12 @@ class FileStorageManager {
             'QUOTA_EXCEEDED',
             err as Error
           );
-          
+
           toastStore.error(
-            'Storage Full', 
+            'Storage Full',
             'Not enough storage space available. Please free up browser storage or use smaller files.'
           );
-          
+
           safeResolve({ success: false, error });
           return;
         }
@@ -336,7 +336,7 @@ class FileStorageManager {
         console.log('Storage quota exceeded. Attempting cleanup...');
         const cleanedCount = await this.cleanupOldFiles();
         console.log(`Cleaned up ${cleanedCount} old files`);
-        
+
         if (cleanedCount > 0) {
           // Retry the operation once with the isRetry flag set
           const retryResult = await this.putFileWithQuotaHandling(db, fileData, file, fileId, true);
@@ -348,12 +348,12 @@ class FileStorageManager {
             'QUOTA_EXCEEDED',
             err as Error
           );
-          
+
           toastStore.error(
-            'Storage Full', 
+            'Storage Full',
             'Not enough storage space available. Please free up browser storage or use smaller files.'
           );
-          
+
           safeResolve({ success: false, error });
         }
       };
@@ -361,10 +361,10 @@ class FileStorageManager {
       // Handle errors in the request
       request.onerror = () => {
         const err = request.error;
-        
+
         // Check for quota errors
         if (err && (
-          err.name === 'QuotaExceededError' || 
+          err.name === 'QuotaExceededError' ||
           (err instanceof DOMException && err.code === 22) || // QUOTA_EXCEEDED_ERR
           err.message?.includes('quota')
         )) {
@@ -377,7 +377,7 @@ class FileStorageManager {
             'UNKNOWN',
             err || undefined
           );
-          
+
           toastStore.error('Storage Failed', 'Could not store file. Please try again.');
           safeResolve({ success: false, error });
         }
@@ -386,10 +386,10 @@ class FileStorageManager {
       // Handle transaction errors
       transaction.onerror = () => {
         const err = transaction.error;
-        
+
         // Check for quota errors
         if (err && (
-          err.name === 'QuotaExceededError' || 
+          err.name === 'QuotaExceededError' ||
           (err instanceof DOMException && err.code === 22) || // QUOTA_EXCEEDED_ERR
           err.message?.includes('quota')
         )) {
@@ -400,7 +400,7 @@ class FileStorageManager {
             'UNKNOWN',
             err || undefined
           );
-          
+
           toastStore.error('Storage Failed', 'Database error occurred. Please try again.');
           safeResolve({ success: false, error });
         }
@@ -423,7 +423,7 @@ class FileStorageManager {
 
         request.onsuccess = () => {
           const result = request.result as StoredFileData | undefined;
-          
+
           if (!result) {
             // Not found in IndexedDB, try sessionStorage fallback
             const sessionResult = this.retrieveFromSessionStorage(id, autoDelete);
@@ -464,13 +464,13 @@ class FileStorageManager {
    * Retrieve file from sessionStorage as fallback
    */
   private retrieveFromSessionStorage(
-    id: string, 
+    id: string,
     autoDelete: boolean = true
   ): { success: boolean; file?: File; error?: FileStorageError } {
     try {
       const sessionKey = `session_file_${id}`;
       const sessionDataJson = sessionStorage.getItem(sessionKey);
-      
+
       if (!sessionDataJson) {
         const error = new FileStorageError(
           'File not found in storage',
@@ -478,26 +478,26 @@ class FileStorageManager {
         );
         return { success: false, error };
       }
-      
+
       const sessionData = JSON.parse(sessionDataJson);
-      
+
       // Convert base64 back to ArrayBuffer
       const binaryString = atob(sessionData.data);
       const uint8Array = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         uint8Array[i] = binaryString.charCodeAt(i);
       }
-      
+
       const file = new File([uint8Array], sessionData.name, {
         type: sessionData.type,
         lastModified: sessionData.timestamp
       });
-      
+
       // Auto-delete after retrieval if requested
       if (autoDelete) {
         sessionStorage.removeItem(sessionKey);
       }
-      
+
       console.log(`Retrieved file "${sessionData.name}" from sessionStorage`);
       return { success: true, file };
     } catch (error) {
@@ -506,7 +506,7 @@ class FileStorageManager {
         'UNKNOWN',
         error as Error
       );
-      
+
       return { success: false, error: storageError };
     }
   }
@@ -523,12 +523,12 @@ class FileStorageManager {
         const transaction = db.transaction([this.storeName], 'readwrite');
         const store = transaction.objectStore(this.storeName);
         const index = store.index('timestamp');
-        
+
         let deletedCount = 0;
-        
+
         // Get all files older than cutoff time
         const request = index.openCursor(IDBKeyRange.upperBound(cutoffTime));
-        
+
         request.onsuccess = () => {
           const cursor = request.result;
           if (cursor) {
@@ -619,11 +619,11 @@ class FileStorageManager {
    */
   private formatBytes(bytes: number): string {
     if (bytes === 0) return '0 B';
-    
+
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
+
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
@@ -657,8 +657,8 @@ export async function storeUploadedFile(file: File): Promise<{ success: boolean;
   return fileStorage.storeFile(file);
 }
 
-export async function retrieveUploadedFile(id: string): Promise<{ success: boolean; file?: File; error?: FileStorageError }> {
-  return fileStorage.retrieveFile(id);
+export async function retrieveUploadedFile(id: string, autoDelete: boolean = false): Promise<{ success: boolean; file?: File; error?: FileStorageError }> {
+  return fileStorage.retrieveFile(id, autoDelete);
 }
 
 export async function cleanupOldUploads(): Promise<number> {
