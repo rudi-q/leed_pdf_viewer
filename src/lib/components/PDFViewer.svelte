@@ -161,6 +161,19 @@
 		}
 	}
 
+	// Helper to check if title is valid/useful
+	function isValidTitle(title: string | null | undefined): boolean {
+		if (!title || !title.trim()) return false;
+		const lower = title.toLowerCase();
+		// Filter out common auto-generated/system titles
+		if (lower.startsWith('converted from')) return false;
+		if (lower.startsWith('microsoft word -')) return false;
+		if (lower === 'untitled') return false;
+		// Filter out paths
+		if (title.startsWith('/') || (title.length > 2 && title[1] === ':')) return false;
+		return true;
+	}
+
 	// Debug prop changes
 	$: console.log(
 		'PDFViewer prop pdfFile changed:',
@@ -419,31 +432,20 @@
 				const pdfTitle = (metadata.info as any)?.Title;
 				console.log('PDF Title from metadata:', pdfTitle);
 
-				// Helper to check if title is valid/useful
-				const isValidTitle = (title: string) => {
-					if (!title || !title.trim()) return false;
-					const lower = title.toLowerCase();
-					// Filter out common auto-generated/system titles
-					if (lower.startsWith('converted from')) return false;
-					if (lower.startsWith('microsoft word -')) return false;
-					if (lower === 'untitled') return false;
-					// Filter out paths
-					if (title.startsWith('/') || (title.length > 2 && title[1] === ':')) return false;
-					return true;
-				};
-
 				if (isValidTitle(pdfTitle)) {
 					pdfBaseTitle = pdfTitle.trim();
 				} else {
 					// Fallback to filename if available
 					if (pdfFile) {
 						pdfBaseTitle = getFallbackPdfTitle(pdfFile);
-						console.log(
-							isValidTitle(pdfTitle)
-								? '✅ No PDF title found, using filename:'
-								: '⚠️ Ignored generic/system PDF title ("' + pdfTitle + '"), using filename:',
-							pdfBaseTitle
-						);
+						if (!pdfTitle || !pdfTitle.trim()) {
+							console.log('✅ No PDF title found, using filename:', pdfBaseTitle);
+						} else {
+							console.log(
+								'⚠️ Ignored generic/system PDF title ("' + pdfTitle + '"), using filename:',
+								pdfBaseTitle
+							);
+						}
 					}
 				}
 			} catch (titleError) {

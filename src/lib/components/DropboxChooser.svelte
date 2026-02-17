@@ -16,6 +16,7 @@
 	export let linkType: 'preview' | 'direct' = 'direct'; // Use direct links for better CORS support
 	export let extensions = ['.pdf']; // Only allow PDFs by default
 	export let sizeLimit: number = MAX_FILE_SIZE; // Default to global MAX_FILE_SIZE
+	export let debug: boolean = false; // Enable debug logging
 
 	// State
 	let isDropboxSupported = false;
@@ -25,78 +26,91 @@
 	let pollTimer: number | undefined;
 	let scriptLoadListener: (() => void) | undefined;
 
-	// Check if Dropbox API is available and browser is supported
-	onMount(() => {
-		if (browser && typeof window !== 'undefined') {
-			// First check if Dropbox is already available
-			if (window.Dropbox && window.Dropbox.isBrowserSupported) {
-				isDropboxSupported = window.Dropbox.isBrowserSupported();
-				if (!isDropboxSupported) {
-					console.warn('Dropbox Chooser is not supported in this browser');
-				}
-				return;
-			}
+  // Check if Dropbox API is available and browser is supported
+  onMount(() => {
+    if (browser) {
+      // First check if Dropbox is already available
+      if (window.Dropbox && window.Dropbox.isBrowserSupported) {
+        isDropboxSupported = window.Dropbox.isBrowserSupported();
+        if (!isDropboxSupported) {
+          console.warn('Dropbox Chooser is not supported in this browser');
+        }
+        return;
+      }
+      
+      const clearListeners = () => {
+         if (pollTimer) {
+             clearTimeout(pollTimer);
+             pollTimer = undefined;
+         }
+         if (scriptLoadListener) {
+             const dbScript = document.getElementById('dropboxjs');
+             if (dbScript) dbScript.removeEventListener('load', scriptLoadListener);
+             scriptLoadListener = undefined;
+         }
+      };
 
-			// Find the Dropbox script tag and add load listener if it exists
-			const dropboxScript = document.getElementById('dropboxjs');
-			if (dropboxScript) {
-				scriptLoadListener = () => {
-					if (window.Dropbox && window.Dropbox.isBrowserSupported) {
-						isDropboxSupported = window.Dropbox.isBrowserSupported();
-						if (!isDropboxSupported) {
-							console.warn('Dropbox Chooser is not supported in this browser');
-						}
-					}
-				};
-				dropboxScript.addEventListener('load', scriptLoadListener);
-
-				// Also check if script already loaded but event missed
-				if (window.Dropbox) {
-					scriptLoadListener();
-				}
-			}
-
-			// Bounded fallback polling with timeout
-			let attempts = 0;
-			const maxAttempts = 50; // 5 seconds total (50 * 100ms)
-
-			const checkDropboxBounded = () => {
-				attempts++;
-
-				if (window.Dropbox && window.Dropbox.isBrowserSupported) {
-					isDropboxSupported = window.Dropbox.isBrowserSupported();
-					if (!isDropboxSupported) {
-						console.warn('Dropbox Chooser is not supported in this browser');
-					}
-				} else if (attempts < maxAttempts) {
-					pollTimer = window.setTimeout(checkDropboxBounded, 100);
-				} else {
-					console.warn('Dropbox API failed to load within timeout period');
-				}
-			};
-
-			// Start bounded polling as fallback
-			pollTimer = window.setTimeout(checkDropboxBounded, 100);
-		}
-	});
-
-	// Cleanup on component destroy
-	onDestroy(() => {
-		// Clear any pending timer
-		if (pollTimer) {
-			clearTimeout(pollTimer);
-			pollTimer = undefined;
-		}
-
-		// Remove script load listener
-		if (scriptLoadListener && browser) {
-			const dropboxScript = document.getElementById('dropboxjs');
-			if (dropboxScript) {
-				dropboxScript.removeEventListener('load', scriptLoadListener);
-			}
-			scriptLoadListener = undefined;
-		}
-	});
+      // Find the Dropbox script tag and add load listener if it exists
+      const dropboxScript = document.getElementById('dropboxjs');
+      if (dropboxScript) {
+        scriptLoadListener = () => {
+          if (window.Dropbox && window.Dropbox.isBrowserSupported) {
+            isDropboxSupported = window.Dropbox.isBrowserSupported();
+            if (!isDropboxSupported) {
+              console.warn('Dropbox Chooser is not supported in this browser');
+            }
+            clearListeners(); // Success - stop other checks
+          }
+        };
+        dropboxScript.addEventListener('load', scriptLoadListener);
+        
+        // Also check if script already loaded but event missed
+        if (window.Dropbox) {
+            if (scriptLoadListener) scriptLoadListener();
+        }
+      }
+      
+      // Bounded fallback polling with timeout
+      let attempts = 0;
+      const maxAttempts = 50; // 5 seconds total (50 * 100ms)
+      
+      const checkDropboxBounded = () => {
+        attempts++;
+        
+        if (window.Dropbox && window.Dropbox.isBrowserSupported) {
+          isDropboxSupported = window.Dropbox.isBrowserSupported();
+          if (!isDropboxSupported) {
+            console.warn('Dropbox Chooser is not supported in this browser');
+          }
+          clearListeners(); // Success - stop other checks
+        } else if (attempts < maxAttempts) {
+          pollTimer = window.setTimeout(checkDropboxBounded, 100);
+        } else {
+          console.warn('Dropbox API failed to load within timeout period');
+          clearListeners(); // Failed - cleanup
+        }
+      };
+      
+      // Start bounded polling as fallback
+      pollTimer = window.setTimeout(checkDropboxBounded, 100);
+    }
+  });
+  
+  // Cleanup on component destroy
+  onDestroy(() => {
+    if (pollTimer) {
+      clearTimeout(pollTimer);
+      pollTimer = undefined;
+    }
+    
+    if (scriptLoadListener && browser) {
+      const dropboxScript = document.getElementById('dropboxjs');
+      if (dropboxScript) {
+        dropboxScript.removeEventListener('load', scriptLoadListener);
+      }
+      scriptLoadListener = undefined;
+    }
+  });
 
 	// Main function to trigger Dropbox Chooser
 	export function openDropboxChooser() {
@@ -127,7 +141,7 @@
 		const options = {
 			// Required success callback
 			success: function (files: any[]) {
-				console.log('Dropbox files selected:', files);
+				if (debug) console.log('Dropbox files selected:', files);
 				isLoading = false;
 
 				if (files && files.length > 0) {
@@ -142,11 +156,13 @@
 						return;
 					}
 
-					console.log('Selected PDF from Dropbox:', {
-						name: file.name,
-						size: file.bytes,
-						link: file.link
-					});
+					if (debug) {
+                        console.log('Selected PDF from Dropbox:', {
+                            name: file.name,
+                            size: file.bytes,
+                            link: file.link
+                        });
+                    }
 
 					// Dispatch the file selection event with the direct link
 					dispatch('fileSelected', {
@@ -161,7 +177,7 @@
 
 			// Optional cancel callback
 			cancel: function () {
-				console.log('Dropbox Chooser cancelled by user');
+				if (debug) console.log('Dropbox Chooser cancelled by user');
 				isLoading = false;
 				dispatch('cancel');
 			},
@@ -223,15 +239,15 @@
 			<!-- Animated dots -->
 			<div class="flex space-x-1">
 				<div
-					class="w-2 h-2 bg-[#0061FF] rounded-full animate-bounce"
+					class="w-2 h-2 bg-[#0061FF] rounded-full dot-bounce"
 					style="animation-delay: 0ms"
 				></div>
 				<div
-					class="w-2 h-2 bg-[#0061FF] rounded-full animate-bounce"
+					class="w-2 h-2 bg-[#0061FF] rounded-full dot-bounce"
 					style="animation-delay: 150ms"
 				></div>
 				<div
-					class="w-2 h-2 bg-[#0061FF] rounded-full animate-bounce"
+					class="w-2 h-2 bg-[#0061FF] rounded-full dot-bounce"
 					style="animation-delay: 300ms"
 				></div>
 			</div>
@@ -246,6 +262,10 @@
 	}
 
 	/* Custom bounce animation for dots */
+    .dot-bounce {
+        animation: bounce 1.4s infinite ease-in-out both;
+    }
+
 	@keyframes bounce {
 		0%,
 		80%,

@@ -774,14 +774,24 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
 
     let width = match stream.dict.get(b"Width") {
         Ok(w) => match w.as_i64() {
-            Ok(v) => v as u32,
+            Ok(v) => {
+                if v <= 0 {
+                    return ImageCompressionResult::Failed;
+                }
+                v as u32
+            }
             Err(_) => return ImageCompressionResult::Failed,
         },
         Err(_) => return ImageCompressionResult::Failed,
     };
     let height = match stream.dict.get(b"Height") {
         Ok(h) => match h.as_i64() {
-            Ok(v) => v as u32,
+            Ok(v) => {
+                if v <= 0 {
+                    return ImageCompressionResult::Failed;
+                }
+                v as u32
+            }
             Err(_) => return ImageCompressionResult::Failed,
         },
         Err(_) => return ImageCompressionResult::Failed,
@@ -943,8 +953,17 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
         match image::load_from_memory_with_format(&stream.content, image::ImageFormat::Jpeg) {
             Ok(img) => {
                 // Convert to RGB8 or Luma8 depending on source
-                if is_cmyk || cs_bytes == b"DeviceRGB" || (cs_bytes == b"ICCBased") {
+                if is_cmyk || cs_bytes == b"DeviceRGB" {
                     img.to_rgb8().into_raw()
+                } else if cs_bytes == b"ICCBased" {
+                    // Inspect decoded image color type
+                    // ICCBased grayscale JPEGs are intentionally coerced to RGB if multi-channel,
+                    // otherwise kept as Luma8
+                    if img.color().channel_count() == 1 {
+                        img.to_luma8().into_raw()
+                    } else {
+                        img.to_rgb8().into_raw()
+                    }
                 } else {
                     img.to_luma8().into_raw()
                 }
@@ -1079,6 +1098,7 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
         if is_icc_based {
             // Remove stale ICCBased dictionary entries if present
             // The simple name setting above already handles the key update
+            // But we should ensure we're not leaving any other artifacts if we had complex dicts
         }
     }
 
