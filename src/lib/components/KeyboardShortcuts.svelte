@@ -60,6 +60,7 @@
       category: 'Actions',
       items: [
         { keys: ['U'], description: 'Choose PDF file' },
+        { keys: ['Ctrl', 'S'], description: 'Download/Export PDF' },
         { keys: ['Ctrl', 'Z'], description: 'Undo last action' },
         { keys: ['Ctrl', 'Y'], description: 'Redo action' },
         { keys: ['Ctrl', 'Shift', 'Z'], description: 'Redo action (alt)' },

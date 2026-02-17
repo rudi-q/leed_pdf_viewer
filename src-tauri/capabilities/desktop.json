@@ -11,9 +11,11 @@
   "permissions": [
     "core:default",
     "core:window:allow-create",
+    "core:window:allow-set-title",
     "fs:default",
     "dialog:default",
     "shell:default",
-    "deep-link:default"
+    "deep-link:default",
+    "updater:default"
   ]
 }

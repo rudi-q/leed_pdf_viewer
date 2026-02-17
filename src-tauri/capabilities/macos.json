@@ -10,6 +10,7 @@
   "permissions": [
     "core:default",
     "core:window:allow-create",
+    "core:window:allow-set-title",
     "dialog:allow-open",
     "dialog:allow-save",
     "dialog:allow-message",
