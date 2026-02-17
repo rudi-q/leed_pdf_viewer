@@ -337,6 +337,235 @@ fn read_file_content(file_path: String) -> Result<Vec<u8>, String> {
 }
 
 #[tauri::command]
+fn compress_pdf(content: Vec<u8>) -> Result<Vec<u8>, String> {
+    use lopdf::{Document, Object, ObjectId};
+
+    let mut doc = Document::load_mem(&content).map_err(|e| format!("Failed to load PDF: {}", e))?;
+
+    // Phase 1: Recompress images — the main source of file size in PDFs
+    let image_ids: Vec<ObjectId> = doc
+        .objects
+        .iter()
+        .filter_map(|(&id, obj)| {
+            if let Object::Stream(stream) = obj {
+                if is_recompressible_image(stream) {
+                    return Some(id);
+                }
+            }
+            None
+        })
+        .collect();
+
+    let mut images_processed = 0u32;
+    for id in image_ids {
+        if let Some(Object::Stream(ref mut stream)) = doc.objects.get_mut(&id) {
+            if recompress_image_stream(stream) {
+                images_processed += 1;
+            }
+        }
+    }
+
+    // Phase 2: Standard PDF optimization
+    doc.prune_objects();
+    doc.delete_zero_length_streams();
+    doc.compress();
+
+    let mut output = Vec::new();
+    doc.save_to(&mut output)
+        .map_err(|e| format!("Failed to save compressed PDF: {}", e))?;
+
+    let original_size = content.len();
+    let compressed_size = output.len();
+    let ratio = if original_size > 0 {
+        ((original_size as f64 - compressed_size as f64) / original_size as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    println!(
+        "PDF compression: {} -> {} bytes ({:.1}% reduction, {} images recompressed)",
+        original_size, compressed_size, ratio, images_processed
+    );
+
+    Ok(output)
+}
+
+/// Check if a PDF stream is an image that we can safely recompress.
+fn is_recompressible_image(stream: &lopdf::Stream) -> bool {
+    // Must be an Image XObject
+    match stream.dict.get(b"Subtype") {
+        Ok(obj) => match obj.as_name() {
+            Ok(name) if name == b"Image" => {}
+            _ => return false,
+        },
+        Err(_) => return false,
+    }
+
+    // Skip images with alpha/transparency masks (JPEG doesn't support alpha)
+    if stream.dict.get(b"SMask").is_ok() {
+        return false;
+    }
+
+    // Skip tiny images (icons, bullets, etc. — not worth recompressing)
+    if stream.content.len() < 10_000 {
+        return false;
+    }
+
+    // Only handle 8 bits per component
+    match stream.dict.get(b"BitsPerComponent") {
+        Ok(bpc) => match bpc.as_i64() {
+            Ok(8) => {}
+            _ => return false,
+        },
+        Err(_) => return false,
+    }
+
+    // Only handle simple color spaces we can reliably work with
+    match stream.dict.get(b"ColorSpace") {
+        Ok(cs) => match cs.as_name() {
+            Ok(name) if name == b"DeviceRGB" || name == b"DeviceGray" => {}
+            _ => return false,
+        },
+        Err(_) => return false,
+    }
+
+    // Only handle filters we know how to decode
+    match stream.dict.get(b"Filter") {
+        Ok(filter) => match filter.as_name() {
+            Ok(name) if name == b"FlateDecode" || name == b"DCTDecode" => {}
+            _ => return false,
+        },
+        // No filter means raw uncompressed data — we can handle that
+        Err(_) => {}
+    }
+
+    // Skip FlateDecode images with predictors (complex PNG-style encoding)
+    if let Ok(params) = stream.dict.get(b"DecodeParms") {
+        if let Ok(dict) = params.as_dict() {
+            if let Ok(predictor) = dict.get(b"Predictor") {
+                if let Ok(val) = predictor.as_i64() {
+                    if val > 1 {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+
+    true
+}
+
+/// Recompress an image stream as JPEG at 75% quality. Returns true if successful.
+fn recompress_image_stream(stream: &mut lopdf::Stream) -> bool {
+    use image::codecs::jpeg::JpegEncoder;
+    use image::ExtendedColorType;
+
+    let width = match stream.dict.get(b"Width") {
+        Ok(w) => match w.as_i64() {
+            Ok(v) => v as u32,
+            Err(_) => return false,
+        },
+        Err(_) => return false,
+    };
+    let height = match stream.dict.get(b"Height") {
+        Ok(h) => match h.as_i64() {
+            Ok(v) => v as u32,
+            Err(_) => return false,
+        },
+        Err(_) => return false,
+    };
+
+    let cs_bytes: Vec<u8> = match stream.dict.get(b"ColorSpace") {
+        Ok(cs) => match cs.as_name() {
+            Ok(name) => name.to_vec(),
+            Err(_) => return false,
+        },
+        Err(_) => return false,
+    };
+
+    let (channels, color_type) = if cs_bytes == b"DeviceRGB" {
+        (3u32, ExtendedColorType::Rgb8)
+    } else if cs_bytes == b"DeviceGray" {
+        (1u32, ExtendedColorType::L8)
+    } else {
+        return false;
+    };
+
+    let filter_bytes: Option<Vec<u8>> = stream
+        .dict
+        .get(b"Filter")
+        .ok()
+        .and_then(|f| f.as_name().ok())
+        .map(|name| name.to_vec());
+
+    let original_stream_size = stream.content.len();
+
+    // Get raw pixel data depending on current encoding
+    let raw_pixels: Vec<u8> = if filter_bytes.as_deref() == Some(b"FlateDecode") {
+        // Decompress zlib to get raw pixels
+        if stream.decompress().is_err() {
+            return false;
+        }
+        stream.content.clone()
+    } else if filter_bytes.as_deref() == Some(b"DCTDecode") {
+        // Already JPEG — decode it to raw pixels for re-encoding at lower quality
+        match image::load_from_memory_with_format(&stream.content, image::ImageFormat::Jpeg) {
+            Ok(img) => img.into_bytes(),
+            Err(_) => return false,
+        }
+    } else if filter_bytes.is_none() {
+        // Uncompressed raw data
+        stream.content.clone()
+    } else {
+        return false;
+    };
+
+    // Validate expected data size
+    let expected_size = (width * height * channels) as usize;
+    if raw_pixels.len() != expected_size {
+        return false;
+    }
+
+    // Encode as JPEG at 75% quality
+    let mut jpeg_data: Vec<u8> = Vec::new();
+    {
+        let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_data, 75);
+        if encoder
+            .encode(&raw_pixels, width, height, color_type)
+            .is_err()
+        {
+            return false;
+        }
+    }
+
+    // Only replace if JPEG is actually smaller than the original compressed data
+    if jpeg_data.len() >= original_stream_size {
+        return false;
+    }
+
+    let cs_display = String::from_utf8_lossy(&cs_bytes);
+    println!(
+        "  Image {}x{} {}: {} -> {} bytes (saved {})",
+        width,
+        height,
+        cs_display,
+        original_stream_size,
+        jpeg_data.len(),
+        original_stream_size - jpeg_data.len()
+    );
+
+    // Update stream with JPEG data
+    stream.set_content(jpeg_data);
+    stream
+        .dict
+        .set("Filter", lopdf::Object::Name(b"DCTDecode".to_vec()));
+    stream.dict.remove(b"DecodeParms");
+    stream.allows_compression = false;
+
+    true
+}
+
+#[tauri::command]
 fn export_file(
     _app_handle: tauri::AppHandle,
     content: Vec<u8>,
@@ -485,6 +714,7 @@ pub fn run() {
             get_system_fonts,
             frontend_ready,
             read_file_content,
+            compress_pdf,
             export_file,
             #[cfg(debug_assertions)]
             test_file_event,
