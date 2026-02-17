@@ -398,6 +398,10 @@
 	}
 
 	function handleExportCompressedPDF() {
+		if (!currentFile || !pdfViewer || sharedPDFData?.allowDownloading === false) {
+			toastStore.warning('Cannot Export', 'No PDF available or downloading is not allowed.');
+			return;
+		}
 		compressedPDFExport?.open();
 	}
 
@@ -521,13 +525,13 @@
 				onResetZoom={() => pdfViewer?.resetZoom()}
 				onFitToWidth={() => pdfViewer?.fitToWidth()}
 				onFitToHeight={() => pdfViewer?.fitToHeight()}
-			onExportPDF={handleExportPDF}
-			onExportLPDF={handleExportLPDF}
-			onExportDOCX={handleExportDOCX}
-			onExportCompressedPDF={sharedPDFData?.allowDownloading !== false ? handleExportCompressedPDF : undefined}
-			{showThumbnails}
-			onToggleThumbnails={handleToggleThumbnails}
-			isSharedView={true}
+				onExportPDF={handleExportPDF}
+				onExportLPDF={handleExportLPDF}
+				onExportDOCX={handleExportDOCX}
+				onExportCompressedPDF={sharedPDFData?.allowDownloading !== false ? handleExportCompressedPDF : undefined}
+				{showThumbnails}
+				onToggleThumbnails={handleToggleThumbnails}
+				isSharedView={true}
 				viewOnlyMode={sharedPDFData?.viewOnly || false}
 				allowDownloading={sharedPDFData?.allowDownloading !== false}
 				{presentationMode}

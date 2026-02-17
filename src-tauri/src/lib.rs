@@ -337,7 +337,13 @@ fn read_file_content(file_path: String) -> Result<Vec<u8>, String> {
 }
 
 #[tauri::command]
-fn compress_pdf(content: Vec<u8>, quality: Option<u8>) -> Result<Vec<u8>, String> {
+async fn compress_pdf(content: Vec<u8>, quality: Option<u8>) -> Result<Vec<u8>, String> {
+    tauri::async_runtime::spawn_blocking(move || compress_pdf_blocking(content, quality))
+        .await
+        .map_err(|e| format!("Compression task failed: {}", e))?
+}
+
+fn compress_pdf_blocking(content: Vec<u8>, quality: Option<u8>) -> Result<Vec<u8>, String> {
     use lopdf::{Document, Object, ObjectId};
 
     let jpeg_quality = quality.unwrap_or(75).clamp(10, 100);
@@ -634,7 +640,7 @@ fn is_recompressible_image(stream: &lopdf::Stream) -> Option<Result<(), SkipReas
         Ok(filter) => {
             // Try single filter name first
             if let Ok(name) = filter.as_name() {
-                if name == b"FlateDecode" || name == b"DCTDecode" || name == b"JPXDecode" {
+                if name == b"FlateDecode" || name == b"DCTDecode" {
                     // Supported filters
                 } else {
                     return Some(Err(SkipReason::UnsupportedFilter(name.to_vec())));
@@ -644,7 +650,7 @@ fn is_recompressible_image(stream: &lopdf::Stream) -> Option<Result<(), SkipReas
                 if arr.len() == 1 {
                     if let Some(first) = arr.first() {
                         if let Ok(name) = first.as_name() {
-                            if name == b"FlateDecode" || name == b"DCTDecode" || name == b"JPXDecode" {
+                            if name == b"FlateDecode" || name == b"DCTDecode" {
                                 // Single filter in array - supported
                             } else {
                                 return Some(Err(SkipReason::UnsupportedFilter(name.to_vec())));
@@ -679,6 +685,50 @@ fn is_recompressible_image(stream: &lopdf::Stream) -> Option<Result<(), SkipReas
     }
 
     Some(Ok(()))
+}
+
+/// Helper for ICCBased CMYK images that need CMYK→RGB conversion before JPEG encoding
+fn recompress_icc_cmyk(
+    stream: &mut lopdf::Stream,
+    rgb_data: &[u8],
+    width: u32,
+    height: u32,
+    quality: u8,
+    original_stream_size: usize,
+    _is_already_jpeg: bool,
+) -> ImageCompressionResult {
+    use image::codecs::jpeg::JpegEncoder;
+    use image::ExtendedColorType;
+
+    let mut jpeg_data: Vec<u8> = Vec::new();
+    {
+        let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_data, quality);
+        if encoder
+            .encode(rgb_data, width, height, ExtendedColorType::Rgb8)
+            .is_err()
+        {
+            return ImageCompressionResult::Failed;
+        }
+    }
+
+    if jpeg_data.len() >= original_stream_size {
+        return ImageCompressionResult::SkippedThreshold;
+    }
+
+    let cs_display = "ICCBased(CMYK→RGB)";
+    println!(
+        "  Image {}x{} {}: {} -> {} bytes (saved {})",
+        width, height, cs_display, original_stream_size, jpeg_data.len(),
+        original_stream_size - jpeg_data.len()
+    );
+
+    stream.set_content(jpeg_data);
+    stream.dict.set("Filter", lopdf::Object::Name(b"DCTDecode".to_vec()));
+    stream.dict.remove(b"DecodeParms");
+    stream.dict.set("ColorSpace", lopdf::Object::Name(b"DeviceRGB".to_vec()));
+    stream.allows_compression = false;
+
+    ImageCompressionResult::Recompressed
 }
 
 /// Recompress an image stream as JPEG at the given quality (1-100).
@@ -747,10 +797,10 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
                                 return ImageCompressionResult::Failed;
                             }
                         } else if name == b"ICCBased" {
-                            // ICCBased: [/ICCBased <stream>]
-                            // Treat as RGB for now (most common case)
-                            // TODO: Could inspect stream's /N parameter to determine if Gray/CMYK
-                            (b"DeviceRGB".to_vec(), false, false, None)
+                            // ICCBased: [/ICCBased <stream_ref>]
+                            // Infer channel count from the stream's data size after decompression
+                            // We mark it as ICCBased and resolve the actual channel count later
+                            (b"ICCBased".to_vec(), false, false, None)
                         } else if name == b"CalRGB" {
                             // CalRGB: treat as DeviceRGB
                             (b"DeviceRGB".to_vec(), false, false, None)
@@ -773,8 +823,11 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
         Err(_) => return ImageCompressionResult::Failed,
     };
 
+    let is_icc_based = cs_bytes == b"ICCBased";
+
     // Determine channels and color type for encoding
     // Note: CMYK and Indexed will be converted to RGB
+    // For ICCBased, we'll resolve channels after decompression
     let (_source_channels, color_type, target_channels) = if is_indexed {
         // Indexed: 1 byte per pixel (index), but will expand to RGB (3 bytes)
         (1u32, ExtendedColorType::Rgb8, 3u32)
@@ -785,6 +838,10 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
     } else if cs_bytes == b"DeviceCMYK" {
         // CMYK: 4 channels in source, but we'll convert to 3 (RGB) for JPEG
         (4u32, ExtendedColorType::Rgb8, 3u32)
+    } else if is_icc_based {
+        // ICCBased: placeholder — we'll infer the actual channel count from data size
+        // Default to RGB; will be corrected after decompression
+        (0u32, ExtendedColorType::Rgb8, 3u32)
     } else {
         return ImageCompressionResult::Failed;
     };
@@ -808,7 +865,6 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
     let original_stream_size = stream.content.len();
     let filter_name = filter_bytes.as_deref();
     let is_already_jpeg = filter_name == Some(b"DCTDecode");
-    let is_jpeg2000 = filter_name == Some(b"JPXDecode");
 
     // Get raw pixel data depending on current encoding
     // Note: We avoid mutating the stream until we're sure we'll succeed
@@ -853,10 +909,6 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
             }
             Err(_) => return ImageCompressionResult::Failed,
         }
-    } else if is_jpeg2000 {
-        // JPEG2000 support would require jpeg2000 feature + jpeg2k crate
-        // Skip for now
-        return ImageCompressionResult::Failed;
     } else if filter_name.is_none() {
         // Uncompressed raw data
         let raw_data = stream.content.clone();
@@ -880,6 +932,28 @@ fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> ImageComp
         }
     } else {
         return ImageCompressionResult::Failed;
+    };
+
+    // For ICCBased, infer the actual channels from decompressed data size
+    let (color_type, target_channels) = if is_icc_based && !is_already_jpeg {
+        let pixel_count = (width as usize) * (height as usize);
+        if pixel_count == 0 {
+            return ImageCompressionResult::Failed;
+        }
+        let inferred_channels = raw_pixels.len() / pixel_count;
+        match inferred_channels {
+            1 => (ExtendedColorType::L8, 1u32),
+            3 => (ExtendedColorType::Rgb8, 3u32),
+            4 => {
+                // ICCBased CMYK: convert to RGB
+                let rgb_data = cmyk_to_rgb(&raw_pixels);
+                // We need to replace raw_pixels but can't reassign; handled below
+                return recompress_icc_cmyk(stream, &rgb_data, width, height, quality, original_stream_size, is_already_jpeg);
+            }
+            _ => return ImageCompressionResult::Failed,
+        }
+    } else {
+        (color_type, target_channels)
     };
 
     // Validate expected data size (cast to usize before multiplying to prevent u32 overflow)

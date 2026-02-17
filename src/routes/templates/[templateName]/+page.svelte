@@ -590,6 +590,7 @@
 
 	function handleExportCompressedPDF() {
 		if (!currentFile || !pdfViewer) {
+			toastStore.warning('No PDF', 'No PDF to export');
 			return;
 		}
 		compressedPDFExport?.open();
