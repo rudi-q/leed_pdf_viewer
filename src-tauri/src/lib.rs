@@ -337,8 +337,10 @@ fn read_file_content(file_path: String) -> Result<Vec<u8>, String> {
 }
 
 #[tauri::command]
-fn compress_pdf(content: Vec<u8>) -> Result<Vec<u8>, String> {
+fn compress_pdf(content: Vec<u8>, quality: Option<u8>) -> Result<Vec<u8>, String> {
     use lopdf::{Document, Object, ObjectId};
+
+    let jpeg_quality = quality.unwrap_or(75).clamp(10, 100);
 
     let mut doc = Document::load_mem(&content).map_err(|e| format!("Failed to load PDF: {}", e))?;
 
@@ -359,7 +361,7 @@ fn compress_pdf(content: Vec<u8>) -> Result<Vec<u8>, String> {
     let mut images_processed = 0u32;
     for id in image_ids {
         if let Some(Object::Stream(ref mut stream)) = doc.objects.get_mut(&id) {
-            if recompress_image_stream(stream) {
+            if recompress_image_stream(stream, jpeg_quality) {
                 images_processed += 1;
             }
         }
@@ -455,8 +457,8 @@ fn is_recompressible_image(stream: &lopdf::Stream) -> bool {
     true
 }
 
-/// Recompress an image stream as JPEG at 75% quality. Returns true if successful.
-fn recompress_image_stream(stream: &mut lopdf::Stream) -> bool {
+/// Recompress an image stream as JPEG at the given quality (1-100). Returns true if successful.
+fn recompress_image_stream(stream: &mut lopdf::Stream, quality: u8) -> bool {
     use image::codecs::jpeg::JpegEncoder;
     use image::ExtendedColorType;
 
@@ -526,10 +528,10 @@ fn recompress_image_stream(stream: &mut lopdf::Stream) -> bool {
         return false;
     }
 
-    // Encode as JPEG at 75% quality
+    // Encode as JPEG at the user-chosen quality level
     let mut jpeg_data: Vec<u8> = Vec::new();
     {
-        let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_data, 75);
+        let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_data, quality);
         if encoder
             .encode(&raw_pixels, width, height, color_type)
             .is_err()

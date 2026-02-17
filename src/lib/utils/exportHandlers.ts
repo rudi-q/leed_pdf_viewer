@@ -76,15 +76,19 @@ export async function buildAnnotatedPdfExporter(
 
 /**
  * Compress PDF bytes using the best available method:
- * - In Tauri: lopdf Rust-side compression (deflate streams, object dedup)
+ * - In Tauri: lopdf Rust-side image recompression + stream compression
  * - In browser: pdf-lib's useObjectStreams for basic cross-ref compression
  * - Falls back to original bytes if all methods fail
+ *
+ * @param pdfBytes - The PDF file bytes to compress
+ * @param quality  - Image quality 1-100 (lower = smaller file, more lossy). Default 75.
  */
-export async function compressPdfBytes(pdfBytes: Uint8Array): Promise<Uint8Array> {
+export async function compressPdfBytes(pdfBytes: Uint8Array, quality = 75): Promise<Uint8Array> {
 	if (isTauri) {
 		try {
 			const compressed = (await invoke('compress_pdf', {
-				content: Array.from(pdfBytes)
+				content: Array.from(pdfBytes),
+				quality
 			})) as number[];
 			return new Uint8Array(compressed);
 		} catch (error) {
