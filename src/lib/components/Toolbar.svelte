@@ -947,7 +947,7 @@
 												}}
 											>
 												<Minimize2 size={16} class="text-sage" />
-												Export as Compressed PDF
+												Compress PDF & Export
 											</button>
 										{/if}
 									</div>
@@ -1142,7 +1142,7 @@
 												}}
 											>
 												<Minimize2 size={14} />
-												Export as Compressed PDF
+												Compress PDF & Export
 											</button>
 										{/if}
 									{/if}
