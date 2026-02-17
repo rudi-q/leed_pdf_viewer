@@ -32,7 +32,7 @@ machine-uid = "0.5"
 rfd = "0.15"
 font-kit = "0.14"
 lopdf = "0.37"
-image = { version = "0.25", default-features = false, features = ["jpeg"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 
 # Linux-specific: Use gtk3 instead of xdg-portal to avoid conflict
 [target.'cfg(target_os = "linux")'.dependencies]
