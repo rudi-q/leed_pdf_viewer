@@ -150,6 +150,17 @@
 		}
 	}
 
+	// Helper function to get fallback PDF title from file object or URL
+	function getFallbackPdfTitle(file: File | string): string {
+		try {
+			const filename = typeof file === 'string' ? extractFilenameFromUrl(file) : file.name;
+			return filename.replace(/\.pdf$/i, '');
+		} catch (error) {
+			console.error('Error generating fallback title:', error);
+			return 'document';
+		}
+	}
+
 	// Debug prop changes
 	$: console.log(
 		'PDFViewer prop pdfFile changed:',
@@ -192,7 +203,12 @@
 	}
 
 	// Update window title when page changes
-	$: if ($pdfState.currentPage && $pdfState.totalPages && pdfBaseTitle && typeof window !== 'undefined') {
+	$: if (
+		$pdfState.currentPage &&
+		$pdfState.totalPages &&
+		pdfBaseTitle &&
+		typeof window !== 'undefined'
+	) {
 		const newTitle = buildWindowTitle(pdfBaseTitle, $pdfState.currentPage, $pdfState.totalPages);
 		window.document.title = newTitle;
 		setWindowTitle(newTitle);
@@ -403,25 +419,41 @@
 				const pdfTitle = (metadata.info as any)?.Title;
 				console.log('PDF Title from metadata:', pdfTitle);
 
-				if (pdfTitle && pdfTitle.trim()) {
+				// Helper to check if title is valid/useful
+				const isValidTitle = (title: string) => {
+					if (!title || !title.trim()) return false;
+					const lower = title.toLowerCase();
+					// Filter out common auto-generated/system titles
+					if (lower.startsWith('converted from')) return false;
+					if (lower.startsWith('microsoft word -')) return false;
+					if (lower === 'untitled') return false;
+					// Filter out paths
+					if (title.startsWith('/') || (title.length > 2 && title[1] === ':')) return false;
+					return true;
+				};
+
+				if (isValidTitle(pdfTitle)) {
 					pdfBaseTitle = pdfTitle.trim();
 				} else {
 					// Fallback to filename if available
-					pdfBaseTitle =
-						typeof pdfFile === 'string'
-							? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
-							: pdfFile.name.replace(/\.pdf$/i, '');
-					console.log('✅ No PDF title found, using filename:', pdfBaseTitle);
+					if (pdfFile) {
+						pdfBaseTitle = getFallbackPdfTitle(pdfFile);
+						console.log(
+							isValidTitle(pdfTitle)
+								? '✅ No PDF title found, using filename:'
+								: '⚠️ Ignored generic/system PDF title ("' + pdfTitle + '"), using filename:',
+							pdfBaseTitle
+						);
+					}
 				}
 			} catch (titleError) {
 				console.error('❌ Could not extract PDF title:', titleError);
 				// Try fallback anyway
 				try {
-					pdfBaseTitle =
-						typeof pdfFile === 'string'
-							? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
-							: pdfFile.name.replace(/\.pdf$/i, '');
-					console.log('✅ Used fallback filename as title:', pdfBaseTitle);
+					if (pdfFile) {
+						pdfBaseTitle = getFallbackPdfTitle(pdfFile);
+						console.log('✅ Used fallback filename as title:', pdfBaseTitle);
+					}
 				} catch (fallbackError) {
 					console.error('❌ Even fallback title failed:', fallbackError);
 				}
