@@ -47,8 +47,11 @@ export async function getPdfBytesAndName(
 }
 
 /**
- * Build a PDFExporter with merged annotation canvases for all annotated pages.
+ * Build a PDFExporter with merged annotation canvases for annotated pages (or all pages).
  * Re-usable across all export flows that need annotated PDF output.
+ *
+ * @param options.captureAllPages - If true, captures canvases for all pages, not just annotated ones.
+ *                                   Useful for canvas-only exports. Defaults to false.
  */
 export async function buildAnnotatedPdfExporter(
 	pdfBytes: Uint8Array,
@@ -56,14 +59,17 @@ export async function buildAnnotatedPdfExporter(
 		pageHasAnnotations: (page: number) => Promise<boolean>;
 		getMergedCanvasForPage: (page: number) => Promise<HTMLCanvasElement | null>;
 	},
-	totalPages: number
+	totalPages: number,
+	options?: { captureAllPages?: boolean }
 ): Promise<PDFExporter> {
 	const exporter = new PDFExporter();
 	exporter.setOriginalPDF(pdfBytes);
 
+	const captureAllPages = options?.captureAllPages ?? false;
+
 	for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
 		const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
-		if (hasAnnotations) {
+		if (hasAnnotations || captureAllPages) {
 			const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
 			if (mergedCanvas) {
 				exporter.setPageCanvas(pageNumber, mergedCanvas);
