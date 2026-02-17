@@ -309,8 +309,8 @@ fn read_file_content(file_path: String) -> Result<Vec<u8>, String> {
         return Err("Path does not point to a regular file".to_string());
     }
 
-    // Security: Enforce file size limits (50MB max)
-    const MAX_FILE_SIZE: u64 = 50 * 1024 * 1024; // 50MB
+    // Security: Enforce file size limits (500MB max)
+    const MAX_FILE_SIZE: u64 = 500 * 1024 * 1024; // 500MB
     if metadata.len() > MAX_FILE_SIZE {
         return Err(format!(
             "File too large: {} bytes (max: {} bytes)",
@@ -347,6 +347,13 @@ fn compress_pdf_blocking(content: Vec<u8>, quality: Option<u8>) -> Result<Vec<u8
     use lopdf::{Document, Object, ObjectId};
 
     let jpeg_quality = quality.unwrap_or(75).clamp(10, 100);
+
+    // Security: Check file size limit (500MB)
+    const MAX_FILE_SIZE: usize = 500 * 1024 * 1024;
+    // content is a Vec<u8>
+    if content.len() > MAX_FILE_SIZE {
+        return Err("PDF too large".to_string());
+    }
 
     let mut doc = Document::load_mem(&content).map_err(|e| format!("Failed to load PDF: {}", e))?;
 
