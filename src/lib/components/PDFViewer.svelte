@@ -39,6 +39,14 @@
 	import { TOOLBAR_HEIGHT } from '$lib/constants';
 	import { setWindowTitle } from '$lib/utils/tauriUtils';
 
+	// Helper function to build window title with page info
+	function buildWindowTitle(baseTitle: string, currentPage: number, totalPages: number): string {
+		if (totalPages > 1) {
+			return `${baseTitle} (Page ${currentPage} of ${totalPages}) - LeedPDF`;
+		}
+		return `${baseTitle} - LeedPDF`;
+	}
+
 	// Helper function to convert SVG string to image
 	async function svgToImage(
 		svgString: string,
@@ -180,6 +188,14 @@
 	// Extract text when page changes if select tool is active
 	$: if ($pdfState.currentPage && $drawingState.tool === 'select' && $pdfState.document) {
 		extractTextFromCurrentPage();
+	}
+
+	// Update window title when page changes
+	$: if ($pdfState.currentPage && $pdfState.totalPages && typeof window !== 'undefined') {
+		const currentTitle = window.document.title.split(' (Page')[0].split(' - LeedPDF')[0];
+		const newTitle = buildWindowTitle(currentTitle, $pdfState.currentPage, $pdfState.totalPages);
+		window.document.title = newTitle;
+		setWindowTitle(newTitle);
 	}
 
 	async function extractTextFromCurrentPage() {
@@ -387,39 +403,42 @@
 				const pdfTitle = (metadata.info as any)?.Title;
 				console.log('PDF Title from metadata:', pdfTitle);
 
-				if (pdfTitle && pdfTitle.trim()) {
-					const cleanTitle = pdfTitle.trim();
-					window.document.title = `${cleanTitle} - LeedPDF`;
-					setWindowTitle(`${cleanTitle} - LeedPDF`);
-					console.log('✅ Updated webpage title to PDF title:', `${cleanTitle} - LeedPDF`);
-				} else {
-					// Fallback to filename if available
-					const fallbackTitle =
-						typeof pdfFile === 'string'
-							? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
-							: pdfFile.name.replace(/\.pdf$/i, '');
-					window.document.title = `${fallbackTitle} - LeedPDF`;
-					setWindowTitle(`${fallbackTitle} - LeedPDF`);
-					console.log(
-						'✅ No PDF title found, updated webpage title to filename:',
-						`${fallbackTitle} - LeedPDF`
-					);
-				}
-			} catch (titleError) {
-				console.error('❌ Could not extract PDF title:', titleError);
-				// Try fallback anyway
-				try {
-					const fallbackTitle =
-						typeof pdfFile === 'string'
-							? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
-							: pdfFile.name.replace(/\.pdf$/i, '');
-					window.document.title = `${fallbackTitle} - LeedPDF`;
-					setWindowTitle(`${fallbackTitle} - LeedPDF`);
-					console.log('✅ Used fallback filename as title:', `${fallbackTitle} - LeedPDF`);
-				} catch (fallbackError) {
-					console.error('❌ Even fallback title failed:', fallbackError);
-				}
+			if (pdfTitle && pdfTitle.trim()) {
+				const cleanTitle = pdfTitle.trim();
+				const title = buildWindowTitle(cleanTitle, document.numPages > 1 ? 1 : 1, document.numPages);
+				window.document.title = title;
+				setWindowTitle(title);
+				console.log('✅ Updated webpage title to PDF title:', title);
+			} else {
+				// Fallback to filename if available
+				const fallbackTitle =
+					typeof pdfFile === 'string'
+						? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
+						: pdfFile.name.replace(/\.pdf$/i, '');
+				const title = buildWindowTitle(fallbackTitle, 1, document.numPages);
+				window.document.title = title;
+				setWindowTitle(title);
+				console.log(
+					'✅ No PDF title found, updated webpage title to filename:',
+					title
+				);
 			}
+		} catch (titleError) {
+			console.error('❌ Could not extract PDF title:', titleError);
+			// Try fallback anyway
+			try {
+				const fallbackTitle =
+					typeof pdfFile === 'string'
+						? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
+						: pdfFile.name.replace(/\.pdf$/i, '');
+				const title = buildWindowTitle(fallbackTitle, 1, document.numPages);
+				window.document.title = title;
+				setWindowTitle(title);
+				console.log('✅ Used fallback filename as title:', title);
+			} catch (fallbackError) {
+				console.error('❌ Even fallback title failed:', fallbackError);
+			}
+		}
 
 			pdfState.update((state) => ({
 				...state,
