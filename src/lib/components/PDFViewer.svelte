@@ -102,6 +102,7 @@
 	let isCtrlPressed = false;
 	let cursorOverCanvas = false;
 	let isLoadingPdf = false; // Guard to prevent multiple simultaneous loads
+	let pdfBaseTitle = ''; // Stores the cleaned PDF title for reactive title updates
 
 	// Eraser gesture modifier: Alt for partial erase
 	let isAltEraseMode = false;
@@ -191,9 +192,8 @@
 	}
 
 	// Update window title when page changes
-	$: if ($pdfState.currentPage && $pdfState.totalPages && typeof window !== 'undefined') {
-		const currentTitle = window.document.title.split(' (Page')[0].split(' - LeedPDF')[0];
-		const newTitle = buildWindowTitle(currentTitle, $pdfState.currentPage, $pdfState.totalPages);
+	$: if ($pdfState.currentPage && $pdfState.totalPages && pdfBaseTitle && typeof window !== 'undefined') {
+		const newTitle = buildWindowTitle(pdfBaseTitle, $pdfState.currentPage, $pdfState.totalPages);
 		window.document.title = newTitle;
 		setWindowTitle(newTitle);
 	}
@@ -403,42 +403,37 @@
 				const pdfTitle = (metadata.info as any)?.Title;
 				console.log('PDF Title from metadata:', pdfTitle);
 
-			if (pdfTitle && pdfTitle.trim()) {
-				const cleanTitle = pdfTitle.trim();
-				const title = buildWindowTitle(cleanTitle, document.numPages > 1 ? 1 : 1, document.numPages);
-				window.document.title = title;
-				setWindowTitle(title);
-				console.log('✅ Updated webpage title to PDF title:', title);
-			} else {
-				// Fallback to filename if available
-				const fallbackTitle =
-					typeof pdfFile === 'string'
-						? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
-						: pdfFile.name.replace(/\.pdf$/i, '');
-				const title = buildWindowTitle(fallbackTitle, 1, document.numPages);
-				window.document.title = title;
-				setWindowTitle(title);
-				console.log(
-					'✅ No PDF title found, updated webpage title to filename:',
-					title
-				);
+				if (pdfTitle && pdfTitle.trim()) {
+					pdfBaseTitle = pdfTitle.trim();
+				} else {
+					// Fallback to filename if available
+					pdfBaseTitle =
+						typeof pdfFile === 'string'
+							? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
+							: pdfFile.name.replace(/\.pdf$/i, '');
+					console.log('✅ No PDF title found, using filename:', pdfBaseTitle);
+				}
+			} catch (titleError) {
+				console.error('❌ Could not extract PDF title:', titleError);
+				// Try fallback anyway
+				try {
+					pdfBaseTitle =
+						typeof pdfFile === 'string'
+							? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
+							: pdfFile.name.replace(/\.pdf$/i, '');
+					console.log('✅ Used fallback filename as title:', pdfBaseTitle);
+				} catch (fallbackError) {
+					console.error('❌ Even fallback title failed:', fallbackError);
+				}
 			}
-		} catch (titleError) {
-			console.error('❌ Could not extract PDF title:', titleError);
-			// Try fallback anyway
-			try {
-				const fallbackTitle =
-					typeof pdfFile === 'string'
-						? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
-						: pdfFile.name.replace(/\.pdf$/i, '');
-				const title = buildWindowTitle(fallbackTitle, 1, document.numPages);
+
+			// Set initial window title
+			if (pdfBaseTitle) {
+				const title = buildWindowTitle(pdfBaseTitle, 1, document.numPages);
 				window.document.title = title;
 				setWindowTitle(title);
-				console.log('✅ Used fallback filename as title:', title);
-			} catch (fallbackError) {
-				console.error('❌ Even fallback title failed:', fallbackError);
+				console.log('✅ Updated webpage title:', title);
 			}
-		}
 
 			pdfState.update((state) => ({
 				...state,

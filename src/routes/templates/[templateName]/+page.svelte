@@ -21,7 +21,7 @@
 	import { PDFExporter } from '$lib/utils/pdfExport';
 	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
-	import { buildAnnotatedPdfExporter } from '$lib/utils/exportHandlers';
+	import { buildAnnotatedPdfExporter, getPdfBytesAndName } from '$lib/utils/exportHandlers';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { getFormattedVersion } from '$lib/utils/version';
 	import { isTauri } from '$lib/utils/tauriUtils';
@@ -598,25 +598,10 @@
 
 	async function getAnnotatedPdfForCompression() {
 		forceSaveAllAnnotations();
-		let pdfBytes: Uint8Array;
-		let originalName: string;
-
-		if (typeof currentFile === 'string') {
-			const response = await fetch(currentFile);
-			if (!response.ok) {
-				throw new Error(`Failed to fetch template: ${response.statusText}`);
-			}
-			const arrayBuffer = await response.arrayBuffer();
-			pdfBytes = new Uint8Array(arrayBuffer);
-			originalName = data.templateName || 'template';
-		} else if (currentFile) {
-			const arrayBuffer = await currentFile.arrayBuffer();
-			pdfBytes = new Uint8Array(arrayBuffer);
-			originalName = currentFile.name.replace(/\.pdf$/i, '');
-		} else {
-			throw new Error('No PDF file available');
-		}
-
+		const { pdfBytes, originalName } = await getPdfBytesAndName(
+			currentFile!,
+			(url: string) => data.templateName || 'template'
+		);
 		const exporter = await buildAnnotatedPdfExporter(pdfBytes, pdfViewer, $pdfState.totalPages);
 		const bytes = await exporter.exportToPDF();
 		return { bytes, filename: originalName };

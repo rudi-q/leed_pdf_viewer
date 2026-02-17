@@ -26,7 +26,7 @@
 	import { PDFExporter } from '$lib/utils/pdfExport';
 	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
-	import { buildAnnotatedPdfExporter } from '$lib/utils/exportHandlers';
+	import { buildAnnotatedPdfExporter, getPdfBytesAndName } from '$lib/utils/exportHandlers';
 	import { MAX_FILE_SIZE } from '$lib/constants';
 	import { isTauri } from '$lib/utils/tauriUtils';
 	import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
@@ -770,7 +770,10 @@
 
 	async function getAnnotatedPdfForCompression() {
 		forceSaveAllAnnotations();
-		const { pdfBytes, originalName } = await getPdfBytesAndBaseName();
+		const { pdfBytes, originalName } = await getPdfBytesAndName(
+			currentFile!,
+			extractFilenameFromUrl
+		);
 		const exporter = await buildAnnotatedPdfExporter(pdfBytes, pdfViewer, $pdfState.totalPages);
 		const bytes = await exporter.exportToPDF();
 		return { bytes, filename: originalName };
@@ -857,23 +860,23 @@
 				onResetZoom={() => pdfViewer?.resetZoom()}
 				onFitToWidth={() => pdfViewer?.fitToWidth()}
 				onFitToHeight={() => pdfViewer?.fitToHeight()}
-			onExportPDF={handleExportPDF}
-			onExportLPDF={handleExportLPDF}
-			onExportDOCX={handleExportDOCX}
-			onExportCompressedPDF={handleExportCompressedPDF}
-			onSharePDF={handleSharePDF}
-			{showThumbnails}
-			onToggleThumbnails={handleToggleThumbnails}
-			{presentationMode}
-			onPresentationModeChange={(value) => {
-				presentationMode = value;
-				if (value) {
-					enterFullscreen();
-				} else if (document.fullscreenElement) {
-					exitFullscreen();
-				}
-			}}
-		/>
+				onExportPDF={handleExportPDF}
+				onExportLPDF={handleExportLPDF}
+				onExportDOCX={handleExportDOCX}
+				onExportCompressedPDF={handleExportCompressedPDF}
+				onSharePDF={handleSharePDF}
+				{showThumbnails}
+				onToggleThumbnails={handleToggleThumbnails}
+				{presentationMode}
+				onPresentationModeChange={(value) => {
+					presentationMode = value;
+					if (value) {
+						enterFullscreen();
+					} else if (document.fullscreenElement) {
+						exitFullscreen();
+					}
+				}}
+			/>
 	{/if}
 
 	<div class="w-full h-full" class:pt-12={!focusMode && !presentationMode}>
