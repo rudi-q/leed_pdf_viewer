@@ -22,6 +22,8 @@
 
 	let hoveredIndex: number = $state(-1);
 
+	const linkCursor = "url('/cursors/link-click.svg') 12 12, pointer";
+
 	function handleClick(link: Link) {
 		if (link.isInternal && link.destPage !== undefined && onGoToPage) {
 			onGoToPage(link.destPage);
@@ -46,6 +48,7 @@
 					top: {link.rect.top}px;
 					width: {link.rect.width}px;
 					height: {link.rect.height}px;
+					cursor: {linkCursor};
 				"
 				target="_blank"
 				rel="noopener noreferrer"
@@ -64,7 +67,6 @@
 
 <style>
 	.link-highlight {
-		cursor: pointer;
 		border-radius: 2px;
 		transition: background-color 0.15s ease;
 	}
