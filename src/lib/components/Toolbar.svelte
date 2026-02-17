@@ -45,6 +45,7 @@
 		Folder,
 		Highlighter,
 		Layout,
+		Minimize2,
 		Moon,
 		MoreHorizontal,
 		MousePointerClick,
@@ -95,6 +96,7 @@
 	export let onExportPDF: () => void;
 	export let onExportLPDF: () => void;
 	export let onExportDOCX: () => void;
+	export let onExportCompressedPDF: (() => void) | undefined = undefined;
 	export let onSharePDF: (() => void) | undefined = undefined;
 
 	// Thumbnail panel control
@@ -936,6 +938,18 @@
 											<FileText size={16} class="text-blue-600" />
 											Export as DOCX
 										</button>
+										{#if onExportCompressedPDF}
+											<button
+												class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
+												on:click={() => {
+													onExportCompressedPDF();
+													showExportMenu = false;
+												}}
+											>
+												<Minimize2 size={16} class="text-sage" />
+												Export as Compressed PDF
+											</button>
+										{/if}
 									</div>
 								</div>
 							{/if}
@@ -1117,6 +1131,20 @@
 											<FileText size={14} />
 											Export as DOCX
 										</button>
+										{#if onExportCompressedPDF}
+											<button
+												class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
+												class:opacity-50={!$pdfState.document}
+												disabled={!$pdfState.document}
+												on:click={() => {
+													onExportCompressedPDF();
+													showMoreMenu = false;
+												}}
+											>
+												<Minimize2 size={14} />
+												Export as Compressed PDF
+											</button>
+										{/if}
 									{/if}
 								</div>
 
