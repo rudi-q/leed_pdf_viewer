@@ -85,9 +85,7 @@
     },
     "deep-link": {
       "desktop": {
-        "schemes": [
-          "leedpdf"
-        ]
+        "schemes": ["leedpdf", "appwrite-callback-68c95a1d000e441c14d9"]
       }
     },
     "updater": {
