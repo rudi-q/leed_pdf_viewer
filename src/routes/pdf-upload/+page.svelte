@@ -27,6 +27,10 @@
 	import { PDFExporter } from '$lib/utils/pdfExport';
 	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
+	import {
+		getPdfBytesAndName,
+		buildAnnotatedPdfExporter
+	} from '$lib/utils/exportHandlers';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { retrieveUploadedFile } from '$lib/utils/fileStorageUtils';
 	import { MAX_FILE_SIZE } from '$lib/constants';
@@ -36,6 +40,7 @@
 	import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
 	import { trackFullscreenToggle, trackPdfExport } from '$lib/utils/analytics';
 	import SharePDFModal from '$lib/components/SharePDFModal.svelte';
+	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
 	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
 	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
 
@@ -50,6 +55,8 @@
 	let isLoading = true;
 	let showDebugPanel = false;
 	let showShareModal = false;
+
+	let compressedPDFExport: CompressedPDFExport;
 
 	// File loading variables
 	// (hasLoadedFromCommandLine removed - was unused dead code)
@@ -752,6 +759,25 @@
 		}
 	}
 
+	function handleExportCompressedPDF() {
+		if (!currentFile || !pdfViewer) {
+			toastStore.warning('No PDF', 'No PDF to export');
+			return;
+		}
+		compressedPDFExport?.open();
+	}
+
+	async function getAnnotatedPdfForCompression() {
+		forceSaveAllAnnotations();
+		const { pdfBytes, originalName } = await getPdfBytesAndName(
+			currentFile!,
+			extractFilenameFromUrl
+		);
+		const exporter = await buildAnnotatedPdfExporter(pdfBytes, pdfViewer, $pdfState.totalPages);
+		const bytes = await exporter.exportToPDF();
+		return { bytes, filename: originalName };
+	}
+
 	function handleToggleThumbnails(show: boolean) {
 		showThumbnails = show;
 	}
@@ -835,6 +861,7 @@
 				onExportPDF={handleExportPDF}
 				onExportLPDF={handleExportLPDF}
 				onExportDOCX={handleExportDOCX}
+				onExportCompressedPDF={handleExportCompressedPDF}
 				onSharePDF={handleSharePDF}
 				{showThumbnails}
 				onToggleThumbnails={handleToggleThumbnails}
@@ -848,16 +875,16 @@
 					}
 				}}
 			/>
-		{/if}
+	{/if}
 
-		<div class="w-full h-full" class:pt-12={!focusMode && !presentationMode}>
-			<div class="flex h-full">
-				{#if showThumbnails}
-					<PageThumbnails isVisible={showThumbnails} onPageSelect={handlePageSelect} />
-				{/if}
+	<div class="w-full h-full" class:pt-12={!focusMode && !presentationMode}>
+		<div class="flex h-full">
+			{#if showThumbnails}
+				<PageThumbnails isVisible={showThumbnails} onPageSelect={handlePageSelect} />
+			{/if}
 
-				<div class="flex-1">
-					<PDFViewer bind:this={pdfViewer} pdfFile={currentFile} {presentationMode} />
+			<div class="flex-1">
+				<PDFViewer bind:this={pdfViewer} pdfFile={currentFile} {presentationMode} />
 				</div>
 			</div>
 		</div>
@@ -895,6 +922,12 @@
 </main>
 
 <DragOverlay {dragOver} />
+
+<!-- Compressed PDF Export (modal + progress) -->
+<CompressedPDFExport
+	bind:this={compressedPDFExport}
+	getAnnotatedPdf={currentFile && pdfViewer ? getAnnotatedPdfForCompression : null}
+/>
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => (showShortcuts = false)} />
 <DebugPanel bind:isVisible={showDebugPanel} />
