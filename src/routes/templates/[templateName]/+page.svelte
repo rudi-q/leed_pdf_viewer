@@ -21,6 +21,7 @@
 	import { PDFExporter } from '$lib/utils/pdfExport';
 	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
+	import { buildAnnotatedPdfExporter, getPdfBytesAndName } from '$lib/utils/exportHandlers';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { getFormattedVersion } from '$lib/utils/version';
 	import { isTauri } from '$lib/utils/tauriUtils';
@@ -31,6 +32,7 @@
 	import DragOverlay from '$lib/components/DragOverlay.svelte';
 	import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 	import GlobalStyles from '$lib/components/GlobalStyles.svelte';
+	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
 	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
 	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
 
@@ -48,6 +50,8 @@
 	let isLoading = true;
 	let templateError = false;
 	let showShareModal = false;
+
+	let compressedPDFExport: CompressedPDFExport;
 
 	// Load template PDF if it exists
 	$: if (browser && data) {
@@ -584,6 +588,25 @@
 		}
 	}
 
+	function handleExportCompressedPDF() {
+		if (!currentFile || !pdfViewer) {
+			toastStore.warning('No PDF', 'No PDF to export');
+			return;
+		}
+		compressedPDFExport?.open();
+	}
+
+	async function getAnnotatedPdfForCompression() {
+		forceSaveAllAnnotations();
+		const { pdfBytes, originalName } = await getPdfBytesAndName(
+			currentFile!,
+			(url: string) => data.templateName || 'template'
+		);
+		const exporter = await buildAnnotatedPdfExporter(pdfBytes, pdfViewer, $pdfState.totalPages);
+		const bytes = await exporter.exportToPDF();
+		return { bytes, filename: originalName };
+	}
+
 	function handleToggleThumbnails(show: boolean) {
 		showThumbnails = show;
 	}
@@ -659,6 +682,7 @@
 			onExportPDF={handleExportPDF}
 			onExportLPDF={handleExportLPDF}
 			onExportDOCX={handleExportDOCX}
+			onExportCompressedPDF={handleExportCompressedPDF}
 			onSharePDF={handleSharePDF}
 			{showThumbnails}
 			onToggleThumbnails={handleToggleThumbnails}
@@ -735,6 +759,12 @@
 </main>
 
 <DragOverlay {dragOver} />
+
+<!-- Compressed PDF Export (modal + progress) -->
+<CompressedPDFExport
+	bind:this={compressedPDFExport}
+	getAnnotatedPdf={currentFile && pdfViewer ? getAnnotatedPdfForCompression : null}
+/>
 
 <!-- Keyboard shortcuts modal -->
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => (showShortcuts = false)} />

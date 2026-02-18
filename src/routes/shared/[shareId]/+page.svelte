@@ -16,6 +16,7 @@
 	import { PDFExporter } from '$lib/utils/pdfExport';
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
 	import { exportCurrentPDFAsLPDF } from '$lib/utils/lpdfExport';
+	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
 	import { Frown, Link, Lock } from 'lucide-svelte';
 
 	let isLoading = true;
@@ -30,6 +31,8 @@
 	let focusMode = false;
 	let presentationMode = false;
 	let isFullscreen = false;
+
+	let compressedPDFExport: CompressedPDFExport;
 
 	onMount(() => {
 		if (browser && $page.params.shareId) {
@@ -393,6 +396,24 @@
 			toastStore.error('Export Failed', 'LPDF export failed. Please try again.');
 		}
 	}
+
+	function handleExportCompressedPDF() {
+		if (!currentFile || !pdfViewer || sharedPDFData?.allowDownloading === false) {
+			toastStore.warning('Cannot Export', 'No PDF available or downloading is not allowed.');
+			return;
+		}
+		compressedPDFExport?.open();
+	}
+
+	async function getAnnotatedPdfForCompression() {
+		const prepared = await prepareExportForShare('Compressed PDF', true);
+		if (!prepared || !prepared.exporter) {
+			throw new Error('Could not prepare PDF for compression');
+		}
+		const { originalName, exporter } = prepared;
+		const bytes = await exporter.exportToPDF();
+		return { bytes, filename: originalName };
+	}
 </script>
 
 <svelte:window
@@ -507,6 +528,7 @@
 				onExportPDF={handleExportPDF}
 				onExportLPDF={handleExportLPDF}
 				onExportDOCX={handleExportDOCX}
+				onExportCompressedPDF={sharedPDFData?.allowDownloading !== false ? handleExportCompressedPDF : undefined}
 				{showThumbnails}
 				onToggleThumbnails={handleToggleThumbnails}
 				isSharedView={true}
@@ -578,6 +600,12 @@
 		/>
 	{/if}
 </main>
+
+<!-- Compressed PDF Export (modal + progress) -->
+<CompressedPDFExport
+	bind:this={compressedPDFExport}
+	getAnnotatedPdf={currentFile && pdfViewer ? getAnnotatedPdfForCompression : null}
+/>
 
 <!-- Help/Shortcuts Modal -->
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => (showShortcuts = false)} />

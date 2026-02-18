@@ -1,14 +1,5 @@
-import MarkdownIt from 'markdown-it';
 import jsPDF from 'jspdf';
 import { isValidMarkdownFile } from './pdfUtils';
-
-// Initialize markdown parser with sensible defaults
-const markdownParser = new MarkdownIt({
-	html: false, // Disable HTML tags for security (prevent XSS)
-	linkify: true, // Autoconvert URL-like text to links
-	typographer: true, // Enable quotes beautification
-	breaks: true // Convert '\n' to <br>
-});
 
 export interface MarkdownToPDFOptions {
 	pageSize?: 'Letter' | 'A4' | 'Legal';

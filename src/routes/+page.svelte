@@ -16,9 +16,17 @@
 	import GlobalStyles from '$lib/components/GlobalStyles.svelte';
 	import DragOverlay from '$lib/components/DragOverlay.svelte';
 	import BrowserExtensionPromotion from '$lib/components/BrowserExtensionPromotion.svelte';
+	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
 	import DesktopDownloadCard from '$lib/components/DesktopDownloadCard.svelte';
 	import DropboxChooser from '$lib/components/DropboxChooser.svelte';
-	import { pdfState, redo, setCurrentPDF, setTool, undo } from '$lib/stores/drawingStore';
+	import {
+		forceSaveAllAnnotations,
+		pdfState,
+		redo,
+		setCurrentPDF,
+		setTool,
+		undo
+	} from '$lib/stores/drawingStore';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { MAX_FILE_SIZE } from '$lib/constants';
 	import { handleSearchLinkClick } from '$lib/utils/navigationUtils';
@@ -28,6 +36,10 @@
 	import { PDFExporter } from '$lib/utils/pdfExport';
 	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
+	import {
+		getPdfBytesAndName,
+		buildAnnotatedPdfExporter
+	} from '$lib/utils/exportHandlers';
 	import {
 		createBlankPDF,
 		isValidLPDFFile,
@@ -56,6 +68,8 @@
 	let showDebugPanel = false;
 	let dropboxChooser: DropboxChooser;
 	let isDropboxLoading = false;
+
+	let compressedPDFExport: CompressedPDFExport;
 
 	// File loading variables
 	// (hasLoadedFromCommandLine removed - was unused dead code)
@@ -800,6 +814,25 @@
 		}
 	}
 
+	function handleExportCompressedPDF() {
+		if (!currentFile || !pdfViewer) {
+			toastStore.warning('No PDF', 'No PDF to export');
+			return;
+		}
+		compressedPDFExport?.open();
+	}
+
+	async function getAnnotatedPdfForCompression() {
+		forceSaveAllAnnotations();
+		const { pdfBytes, originalName } = await getPdfBytesAndName(
+			currentFile!,
+			extractFilenameFromUrl
+		);
+		const exporter = await buildAnnotatedPdfExporter(pdfBytes, pdfViewer, $pdfState.totalPages);
+		const bytes = await exporter.exportToPDF();
+		return { bytes, filename: originalName };
+	}
+
 	function handleToggleThumbnails(show: boolean) {
 		showThumbnails = show;
 	}
@@ -1043,6 +1076,7 @@
 			onExportPDF={handleExportPDF}
 			onExportLPDF={handleExportLPDF}
 			onExportDOCX={handleExportDOCX}
+			onExportCompressedPDF={handleExportCompressedPDF}
 			{showThumbnails}
 			onToggleThumbnails={handleToggleThumbnails}
 			{presentationMode}
@@ -1249,6 +1283,13 @@
 		on:helpClick={() => (showShortcuts = true)}
 	/>
 </main>
+
+<!-- Compressed PDF Export (modal + progress) - outside main to avoid fixed-position clipping -->
+<CompressedPDFExport
+	bind:this={compressedPDFExport}
+	getAnnotatedPdf={currentFile && pdfViewer ? getAnnotatedPdfForCompression : null}
+	onExportSuccess={(filename, size) => trackPdfExport('compressed_pdf', $pdfState.totalPages, size)}
+/>
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => (showShortcuts = false)} />
 <TemplatePicker bind:isOpen={showTemplatePicker} on:close={() => (showTemplatePicker = false)} />

@@ -39,6 +39,14 @@
 	import { TOOLBAR_HEIGHT } from '$lib/constants';
 	import { setWindowTitle } from '$lib/utils/tauriUtils';
 
+	// Helper function to build window title with page info
+	function buildWindowTitle(baseTitle: string, currentPage: number, totalPages: number): string {
+		if (totalPages > 1) {
+			return `${baseTitle} (Page ${currentPage} of ${totalPages}) - LeedPDF`;
+		}
+		return `${baseTitle} - LeedPDF`;
+	}
+
 	// Helper function to convert SVG string to image
 	async function svgToImage(
 		svgString: string,
@@ -94,6 +102,7 @@
 	let isCtrlPressed = false;
 	let cursorOverCanvas = false;
 	let isLoadingPdf = false; // Guard to prevent multiple simultaneous loads
+	let pdfBaseTitle = ''; // Stores the cleaned PDF title for reactive title updates
 
 	// Eraser gesture modifier: Alt for partial erase
 	let isAltEraseMode = false;
@@ -141,6 +150,30 @@
 		}
 	}
 
+	// Helper function to get fallback PDF title from file object or URL
+	function getFallbackPdfTitle(file: File | string): string {
+		try {
+			const filename = typeof file === 'string' ? extractFilenameFromUrl(file) : file.name;
+			return filename.replace(/\.pdf$/i, '');
+		} catch (error) {
+			console.error('Error generating fallback title:', error);
+			return 'document';
+		}
+	}
+
+	// Helper to check if title is valid/useful
+	function isValidTitle(title: string | null | undefined): boolean {
+		if (!title || !title.trim()) return false;
+		const lower = title.toLowerCase();
+		// Filter out common auto-generated/system titles
+		if (lower.startsWith('converted from')) return false;
+		if (lower.startsWith('microsoft word -')) return false;
+		if (lower === 'untitled') return false;
+		// Filter out paths
+		if (title.startsWith('/') || (title.length > 2 && title[1] === ':')) return false;
+		return true;
+	}
+
 	// Debug prop changes
 	$: console.log(
 		'PDFViewer prop pdfFile changed:',
@@ -180,6 +213,18 @@
 	// Extract text when page changes if select tool is active
 	$: if ($pdfState.currentPage && $drawingState.tool === 'select' && $pdfState.document) {
 		extractTextFromCurrentPage();
+	}
+
+	// Update window title when page changes
+	$: if (
+		$pdfState.currentPage &&
+		$pdfState.totalPages &&
+		pdfBaseTitle &&
+		typeof window !== 'undefined'
+	) {
+		const newTitle = buildWindowTitle(pdfBaseTitle, $pdfState.currentPage, $pdfState.totalPages);
+		window.document.title = newTitle;
+		setWindowTitle(newTitle);
 	}
 
 	async function extractTextFromCurrentPage() {
@@ -387,38 +432,41 @@
 				const pdfTitle = (metadata.info as any)?.Title;
 				console.log('PDF Title from metadata:', pdfTitle);
 
-				if (pdfTitle && pdfTitle.trim()) {
-					const cleanTitle = pdfTitle.trim();
-					window.document.title = `${cleanTitle} - LeedPDF`;
-					setWindowTitle(`${cleanTitle} - LeedPDF`);
-					console.log('✅ Updated webpage title to PDF title:', `${cleanTitle} - LeedPDF`);
+				if (isValidTitle(pdfTitle)) {
+					pdfBaseTitle = pdfTitle.trim();
 				} else {
 					// Fallback to filename if available
-					const fallbackTitle =
-						typeof pdfFile === 'string'
-							? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
-							: pdfFile.name.replace(/\.pdf$/i, '');
-					window.document.title = `${fallbackTitle} - LeedPDF`;
-					setWindowTitle(`${fallbackTitle} - LeedPDF`);
-					console.log(
-						'✅ No PDF title found, updated webpage title to filename:',
-						`${fallbackTitle} - LeedPDF`
-					);
+					if (pdfFile) {
+						pdfBaseTitle = getFallbackPdfTitle(pdfFile);
+						if (!pdfTitle || !pdfTitle.trim()) {
+							console.log('✅ No PDF title found, using filename:', pdfBaseTitle);
+						} else {
+							console.log(
+								'⚠️ Ignored generic/system PDF title ("' + pdfTitle + '"), using filename:',
+								pdfBaseTitle
+							);
+						}
+					}
 				}
 			} catch (titleError) {
 				console.error('❌ Could not extract PDF title:', titleError);
 				// Try fallback anyway
 				try {
-					const fallbackTitle =
-						typeof pdfFile === 'string'
-							? extractFilenameFromUrl(pdfFile).replace(/\.pdf$/i, '')
-							: pdfFile.name.replace(/\.pdf$/i, '');
-					window.document.title = `${fallbackTitle} - LeedPDF`;
-					setWindowTitle(`${fallbackTitle} - LeedPDF`);
-					console.log('✅ Used fallback filename as title:', `${fallbackTitle} - LeedPDF`);
+					if (pdfFile) {
+						pdfBaseTitle = getFallbackPdfTitle(pdfFile);
+						console.log('✅ Used fallback filename as title:', pdfBaseTitle);
+					}
 				} catch (fallbackError) {
 					console.error('❌ Even fallback title failed:', fallbackError);
 				}
+			}
+
+			// Set initial window title
+			if (pdfBaseTitle) {
+				const title = buildWindowTitle(pdfBaseTitle, 1, document.numPages);
+				window.document.title = title;
+				setWindowTitle(title);
+				console.log('✅ Updated webpage title:', title);
 			}
 
 			pdfState.update((state) => ({
