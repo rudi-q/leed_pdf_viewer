@@ -29,7 +29,7 @@ reqwest = { version = "0.11", features = ["json"] }
 urlencoding = "2.1"
 tokio = { version = "1.0", features = ["full"] }
 machine-uid = "0.5"
-rfd = "0.15"
+rfd = "0.16"
 font-kit = "0.14"
 lopdf = "0.37"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
