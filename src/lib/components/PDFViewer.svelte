@@ -484,25 +484,29 @@
 			panOffset = { x: 0, y: 0 };
 
 			// Calculate the proper scale BEFORE first render to avoid position jumps
-			// Auto-fit to height on first load for better initial view
+			// Auto-fit to page on first load for better initial view of both portrait and landscape
 			if (containerDiv) {
 				const page = await document.getPage(1);
 				const viewport = page.getViewport({ scale: 1 });
 				const containerHeight = containerDiv.clientHeight - TOOLBAR_HEIGHT; // Account for toolbar and page info
+				const containerWidth = containerDiv.clientWidth - 40; // Account for padding
+				
 				const fitHeightScale = containerHeight / viewport.height;
+				const fitWidthScale = containerWidth / viewport.width;
+				const fitPageScale = Math.min(fitHeightScale, fitWidthScale);
 
 				// Update scale without rendering yet
-				pdfState.update((state) => ({ ...state, scale: fitHeightScale }));
-				console.log('Initial scale set to fit height:', fitHeightScale);
+				pdfState.update((state) => ({ ...state, scale: fitPageScale }));
+				console.log('Initial scale set to fit page:', fitPageScale);
 
 				// Pre-calculate canvas dimensions at the new scale to avoid position jumps
-				const scaledViewport = page.getViewport({ scale: fitHeightScale });
+				const scaledViewport = page.getViewport({ scale: fitPageScale });
 				canvasDisplayWidth = scaledViewport.width;
 				canvasDisplayHeight = scaledViewport.height;
 				console.log('Initial canvas dimensions set:', {
 					width: canvasDisplayWidth,
 					height: canvasDisplayHeight,
-					scale: fitHeightScale
+					scale: fitPageScale
 				});
 			}
 
@@ -1191,6 +1195,29 @@
 		}
 	}
 
+	export async function fitToPage() {
+		if (!$pdfState.document || !containerDiv) return;
+
+		try {
+			const page = await $pdfState.document.getPage($pdfState.currentPage);
+			const viewport = page.getViewport({ scale: 1 });
+			
+			const containerHeight = containerDiv.clientHeight - (presentationMode ? 0 : TOOLBAR_HEIGHT); // Account for toolbar and page info
+			const containerWidth = containerDiv.clientWidth - (presentationMode ? 0 : 40); // Account for padding
+			
+			const heightScale = containerHeight / viewport.height;
+			const widthScale = containerWidth / viewport.width;
+			const newScale = Math.min(heightScale, widthScale);
+
+			panOffset = { x: 0, y: 0 };
+			// CRITICAL: Render FIRST, update state AFTER
+			await renderCurrentPage(newScale);
+			pdfState.update((state) => ({ ...state, scale: newScale }));
+		} catch (error) {
+			console.error('Error fitting to page:', error);
+		}
+	}
+
 	// Track previous presentation mode to detect actual changes
 	let previousPresentationMode = false;
 
@@ -1200,7 +1227,7 @@
 		// We use setTimeout to allow the browser to transition to fullscreen and layout to update
 		previousPresentationMode = true;
 		setTimeout(() => {
-			fitToHeight();
+			fitToPage();
 		}, 100);
 	} else if (!presentationMode && previousPresentationMode) {
 		// Track when exiting presentation mode
