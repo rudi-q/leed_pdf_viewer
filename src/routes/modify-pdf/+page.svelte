@@ -75,20 +75,18 @@
 			});
 
 			// Process results as they complete
-			const results = await Promise.allSettled(loadPromises);
+			const results = await Promise.all(loadPromises);
 
 			let successfulLoads = 0;
 			for (const result of results) {
-				if (result.status === 'fulfilled' && result.value) {
-					const { pdfInfo, newPages, file } = result.value;
+				if (result) {
+					const { pdfInfo, newPages, file } = result;
 					uploadedFiles = [...uploadedFiles, pdfInfo];
 					pages = [...pages, ...newPages];
 
 					// Generate thumbnails in background
 					generateThumbnailsForPages(newPages, file);
 					successfulLoads++;
-				} else if (result.status === 'rejected') {
-					console.error('Promise rejected:', result.reason);
 				}
 			}
 
@@ -175,6 +173,11 @@
 				console.log('Export was cancelled by user');
 			}
 		} catch (error) {
+			console.error(error);
+			toastStore.error(
+				'Export Error',
+				error instanceof Error ? error.message : 'An unexpected error occurred during export.'
+			);
 			// error already logged and toasted in getMergedPdfData
 		} finally {
 			isProcessing = false;
@@ -377,7 +380,7 @@
 							class="flex-shrink-0 w-6 h-6 bg-sage/20 text-sage rounded-full flex items-center justify-center text-xs font-bold"
 							>4</span
 						>
-						<span>Click "Merge & Download PDF" to download your customized PDF</span>
+						<span>Click "Merge & Export PDF" to download your customized PDF</span>
 					</li>
 				</ol>
 			</section>
