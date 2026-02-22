@@ -22,6 +22,8 @@
 	let isProcessing = false;
 	let processingMessage = '';
 
+	let compressedPDFExport: CompressedPDFExport;
+
 	// For display in upload zone
 	$: uploadedFilesDisplay = uploadedFiles.map((f) => ({
 		id: f.id,
@@ -317,8 +319,17 @@
 							<span>{processingMessage}</span>
 						{:else}
 							<Download size={20} />
-							<span>Merge & Download PDF</span>
+							<span>Merge & Export PDF</span>
 						{/if}
+					</button>
+
+					<button
+						on:click={handleCompressAndDownload}
+						disabled={isProcessing}
+						class="flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:bg-slate/30 text-charcoal dark:text-gray-200 font-semibold rounded-lg shadow-md hover:shadow-lg border-2 border-sage transition-all duration-200 disabled:cursor-not-allowed"
+					>
+						<Download size={20} />
+						<span>Compress & Export PDF</span>
 					</button>
 
 					<button
@@ -327,7 +338,7 @@
 						class="flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:bg-slate/30 text-charcoal dark:text-gray-200 font-semibold rounded-lg shadow-md hover:shadow-lg border-2 border-slate/20 dark:border-gray-600 transition-all duration-200 disabled:cursor-not-allowed"
 					>
 						<RotateCcw size={20} />
-						<span>Reset</span>
+						<span>Clear</span>
 					</button>
 				</section>
 			{/if}
