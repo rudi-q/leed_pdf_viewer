@@ -218,6 +218,16 @@
 				}
 			}
 
+			// Guard: converted file must also pass the size limit
+			if (fileToStore.size > MAX_FILE_SIZE) {
+				console.log('Converted PDF too large:', fileToStore.size);
+				toastStore.error(
+					'File Too Large',
+					`Converted PDF size (${(fileToStore.size / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum limit of ${MAX_FILE_SIZE / (1024 * 1024)}MB.`
+				);
+				return;
+			}
+
 			// Store the file (original PDF or converted from markdown) in IndexedDB/sessionStorage
 			const result = await storeUploadedFile(fileToStore);
 
@@ -1331,7 +1341,7 @@
 						: (currentFile?.name || 'document').replace(/\.pdf$/i, '')
 			})
 		: null}
-	onExportSuccess={(filename) => trackPdfExport('png', $pdfState.totalPages)}
+	onExportSuccess={(_filename) => trackPdfExport('png', $pdfState.totalPages)}
 />
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => (showShortcuts = false)} />
@@ -1349,7 +1359,7 @@
 <!-- Hidden file input -->
 <input
 	type="file"
-	accept=".pdf,.lpdf,.md,.markdown"
+	accept=".pdf,.lpdf,.md,.markdown,.png,.jpg,.jpeg,.webp"
 	multiple={false}
 	class="hidden"
 	on:change={(event) => {

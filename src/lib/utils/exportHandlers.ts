@@ -168,6 +168,8 @@ export async function exportAllPagesAsPngZip(
 	const JSZip = (await import('jszip')).default;
 	const zip = new JSZip();
 
+	let filesAdded = 0;
+
 	for (let page = 1; page <= totalPages; page++) {
 		const canvas = await pdfViewer.getMergedCanvasForPage(page);
 		if (!canvas) {
@@ -177,10 +179,15 @@ export async function exportAllPagesAsPngZip(
 		const blob = await canvasToPngBlob(canvas);
 		const arrayBuffer = await blob.arrayBuffer();
 		zip.file(`page${page}.png`, new Uint8Array(arrayBuffer));
+		filesAdded++;
 
 		if (onProgress) {
 			onProgress(Math.round((page / totalPages) * 80));
 		}
+	}
+
+	if (filesAdded === 0) {
+		throw new Error('No pages could be rendered — the ZIP would be empty.');
 	}
 
 	const zipBytes = await zip.generateAsync({

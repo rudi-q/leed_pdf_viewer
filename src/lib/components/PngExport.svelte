@@ -70,7 +70,6 @@
 				exportProgress = 100;
 				exportStatus = 'success';
 				exportOperation = 'Export Complete';
-				const ext = isSinglePage ? '.png' : '.zip';
 				const filename = isSinglePage
 					? `${ctx.baseName}_page${ctx.currentPage}.png`
 					: `${ctx.baseName}_pages.zip`;

@@ -985,7 +985,7 @@
 <!-- Hidden file input -->
 <input
 	type="file"
-	accept=".pdf,.lpdf,.md,.markdown"
+	accept=".pdf,.lpdf,.md,.markdown,.png,.jpg,.jpeg,.webp"
 	multiple={false}
 	class="hidden"
 	on:change={(event) => {

@@ -54,7 +54,7 @@ function inferMimeType(name: string): string {
 
 /** Convert WEBP bytes to PNG bytes using an offscreen canvas. */
 async function webpToPng(webpBytes: Uint8Array): Promise<Uint8Array> {
-    const blob = new Blob([webpBytes.buffer as ArrayBuffer], { type: 'image/webp' });
+    const blob = new Blob([webpBytes.slice().buffer as ArrayBuffer], { type: 'image/webp' });
     const url = URL.createObjectURL(blob);
 
     try {
