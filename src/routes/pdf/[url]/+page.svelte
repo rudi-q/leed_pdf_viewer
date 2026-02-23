@@ -32,6 +32,7 @@
 	import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
 	import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
+	import PngExport from '$lib/components/PngExport.svelte';
 	import { getFormattedVersion } from '$lib/utils/version';
 	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
 	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
@@ -58,6 +59,7 @@
 	let showShareModal = false;
 
 	let compressedPDFExport: CompressedPDFExport;
+	let pngExport: PngExport;
 
 	// Debug variables
 	let debugVisible = false;
@@ -768,6 +770,14 @@
 		compressedPDFExport?.open();
 	}
 
+	function handleExportPNG() {
+		if (!currentFile || !pdfViewer) {
+			toastStore.warning('No PDF', 'No PDF to export');
+			return;
+		}
+		pngExport?.open();
+	}
+
 	async function getAnnotatedPdfForCompression() {
 		forceSaveAllAnnotations();
 		const { pdfBytes, originalName } = await getPdfBytesAndName(
@@ -864,6 +874,7 @@
 				onExportLPDF={handleExportLPDF}
 				onExportDOCX={handleExportDOCX}
 				onExportCompressedPDF={handleExportCompressedPDF}
+				onExportPNG={handleExportPNG}
 				onSharePDF={handleSharePDF}
 				{showThumbnails}
 				onToggleThumbnails={handleToggleThumbnails}
@@ -877,16 +888,16 @@
 					}
 				}}
 			/>
-	{/if}
+		{/if}
 
-	<div class="w-full h-full" class:pt-12={!focusMode && !presentationMode}>
-		<div class="flex h-full">
-			{#if showThumbnails}
-				<PageThumbnails isVisible={showThumbnails} onPageSelect={handlePageSelect} />
-			{/if}
+		<div class="w-full h-full" class:pt-12={!focusMode && !presentationMode}>
+			<div class="flex h-full">
+				{#if showThumbnails}
+					<PageThumbnails isVisible={showThumbnails} onPageSelect={handlePageSelect} />
+				{/if}
 
-			<div class="flex-1">
-				<PDFViewer bind:this={pdfViewer} pdfFile={currentFile} {presentationMode} />
+				<div class="flex-1">
+					<PDFViewer bind:this={pdfViewer} pdfFile={currentFile} {presentationMode} />
 				</div>
 			</div>
 		</div>
@@ -927,6 +938,22 @@
 <CompressedPDFExport
 	bind:this={compressedPDFExport}
 	getAnnotatedPdf={currentFile && pdfViewer ? getAnnotatedPdfForCompression : null}
+/>
+
+<!-- PNG Export (progress card) -->
+<PngExport
+	bind:this={pngExport}
+	getExportContext={currentFile && pdfViewer
+		? () => ({
+				pdfViewer,
+				currentPage: $pdfState.currentPage,
+				totalPages: $pdfState.totalPages,
+				baseName:
+					typeof currentFile === 'string'
+						? extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '')
+						: (currentFile?.name || 'document').replace(/\.pdf$/i, '')
+			})
+		: null}
 />
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => (showShortcuts = false)} />

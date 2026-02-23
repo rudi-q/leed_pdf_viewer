@@ -44,6 +44,7 @@
 		FileText,
 		Folder,
 		Highlighter,
+		Image,
 		Layout,
 		Minimize2,
 		Moon,
@@ -97,6 +98,7 @@
 	export let onExportLPDF: () => void;
 	export let onExportDOCX: () => void;
 	export let onExportCompressedPDF: (() => void) | undefined = undefined;
+	export let onExportPNG: (() => void) | undefined = undefined;
 	export let onSharePDF: (() => void) | undefined = undefined;
 
 	// Thumbnail panel control
@@ -873,10 +875,10 @@
 						</Tooltip>
 					{/if}
 
-				<!-- Export Menu -->
-				{#if allowDownloading}
-					<div class="relative export-menu-container">
-						<Tooltip content="Export options (Ctrl+S)">
+					<!-- Export Menu -->
+					{#if allowDownloading}
+						<div class="relative export-menu-container">
+							<Tooltip content="Export options (Ctrl+S)">
 								<button
 									class="tool-button w-11 h-11 lg:w-8 lg:h-8 flex items-center justify-center text-sage hover:bg-sage/10"
 									class:opacity-50={!$pdfState.document}
@@ -938,6 +940,18 @@
 											<FileText size={16} class="text-blue-600" />
 											Export as DOCX
 										</button>
+										{#if onExportPNG}
+											<button
+												class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
+												on:click={() => {
+													onExportPNG();
+													showExportMenu = false;
+												}}
+											>
+												<Image size={16} class="text-sage" />
+												Export as PNG{$pdfState.totalPages > 1 ? 's' : ''}
+											</button>
+										{/if}
 										{#if onExportCompressedPDF}
 											<button
 												class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
@@ -1133,6 +1147,20 @@
 											<FileText size={14} />
 											Export as DOCX
 										</button>
+										{#if onExportPNG}
+											<button
+												class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
+												class:opacity-50={!$pdfState.document}
+												disabled={!$pdfState.document}
+												on:click={() => {
+													onExportPNG();
+													showMoreMenu = false;
+												}}
+											>
+												<Image size={14} class="text-sage" />
+												Export as PNG{$pdfState.totalPages > 1 ? 's' : ''}
+											</button>
+										{/if}
 										{#if onExportCompressedPDF}
 											<button
 												class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"

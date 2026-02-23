@@ -33,6 +33,7 @@
 	import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 	import GlobalStyles from '$lib/components/GlobalStyles.svelte';
 	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
+	import PngExport from '$lib/components/PngExport.svelte';
 	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
 	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
 
@@ -52,6 +53,7 @@
 	let showShareModal = false;
 
 	let compressedPDFExport: CompressedPDFExport;
+	let pngExport: PngExport;
 
 	// Load template PDF if it exists
 	$: if (browser && data) {
@@ -596,6 +598,14 @@
 		compressedPDFExport?.open();
 	}
 
+	function handleExportPNG() {
+		if (!currentFile || !pdfViewer) {
+			toastStore.warning('No PDF', 'No PDF to export');
+			return;
+		}
+		pngExport?.open();
+	}
+
 	async function getAnnotatedPdfForCompression() {
 		forceSaveAllAnnotations();
 		const { pdfBytes, originalName } = await getPdfBytesAndName(
@@ -683,6 +693,7 @@
 			onExportLPDF={handleExportLPDF}
 			onExportDOCX={handleExportDOCX}
 			onExportCompressedPDF={handleExportCompressedPDF}
+			onExportPNG={handleExportPNG}
 			onSharePDF={handleSharePDF}
 			{showThumbnails}
 			onToggleThumbnails={handleToggleThumbnails}
@@ -764,6 +775,22 @@
 <CompressedPDFExport
 	bind:this={compressedPDFExport}
 	getAnnotatedPdf={currentFile && pdfViewer ? getAnnotatedPdfForCompression : null}
+/>
+
+<!-- PNG Export (progress card) -->
+<PngExport
+	bind:this={pngExport}
+	getExportContext={currentFile && pdfViewer
+		? () => ({
+				pdfViewer,
+				currentPage: $pdfState.currentPage,
+				totalPages: $pdfState.totalPages,
+				baseName:
+					typeof currentFile === 'string'
+						? data.templateName || 'template'
+						: (currentFile?.name || 'document').replace(/\.pdf$/i, '')
+			})
+		: null}
 />
 
 <!-- Keyboard shortcuts modal -->

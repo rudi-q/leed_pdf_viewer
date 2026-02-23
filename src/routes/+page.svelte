@@ -17,6 +17,7 @@
 	import DragOverlay from '$lib/components/DragOverlay.svelte';
 	import BrowserExtensionPromotion from '$lib/components/BrowserExtensionPromotion.svelte';
 	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
+	import PngExport from '$lib/components/PngExport.svelte';
 	import DesktopDownloadCard from '$lib/components/DesktopDownloadCard.svelte';
 	import DropboxChooser from '$lib/components/DropboxChooser.svelte';
 	import {
@@ -36,10 +37,7 @@
 	import { PDFExporter } from '$lib/utils/pdfExport';
 	import { exportCurrentPDFAsLPDF, importLPDFFile } from '$lib/utils/lpdfExport';
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
-	import {
-		getPdfBytesAndName,
-		buildAnnotatedPdfExporter
-	} from '$lib/utils/exportHandlers';
+	import { getPdfBytesAndName, buildAnnotatedPdfExporter } from '$lib/utils/exportHandlers';
 	import {
 		createBlankPDF,
 		isValidLPDFFile,
@@ -70,6 +68,7 @@
 	let isDropboxLoading = false;
 
 	let compressedPDFExport: CompressedPDFExport;
+	let pngExport: PngExport;
 
 	// File loading variables
 	// (hasLoadedFromCommandLine removed - was unused dead code)
@@ -822,6 +821,14 @@
 		compressedPDFExport?.open();
 	}
 
+	function handleExportPNG() {
+		if (!currentFile || !pdfViewer) {
+			toastStore.warning('No PDF', 'No PDF to export');
+			return;
+		}
+		pngExport?.open();
+	}
+
 	async function getAnnotatedPdfForCompression() {
 		forceSaveAllAnnotations();
 		const { pdfBytes, originalName } = await getPdfBytesAndName(
@@ -1077,6 +1084,7 @@
 			onExportLPDF={handleExportLPDF}
 			onExportDOCX={handleExportDOCX}
 			onExportCompressedPDF={handleExportCompressedPDF}
+			onExportPNG={handleExportPNG}
 			{showThumbnails}
 			onToggleThumbnails={handleToggleThumbnails}
 			{presentationMode}
@@ -1289,6 +1297,23 @@
 	bind:this={compressedPDFExport}
 	getAnnotatedPdf={currentFile && pdfViewer ? getAnnotatedPdfForCompression : null}
 	onExportSuccess={(filename, size) => trackPdfExport('compressed_pdf', $pdfState.totalPages, size)}
+/>
+
+<!-- PNG Export (progress card) - outside main to avoid fixed-position clipping -->
+<PngExport
+	bind:this={pngExport}
+	getExportContext={currentFile && pdfViewer
+		? () => ({
+				pdfViewer,
+				currentPage: $pdfState.currentPage,
+				totalPages: $pdfState.totalPages,
+				baseName:
+					typeof currentFile === 'string'
+						? extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '')
+						: (currentFile?.name || 'document').replace(/\.pdf$/i, '')
+			})
+		: null}
+	onExportSuccess={(filename) => trackPdfExport('png', $pdfState.totalPages)}
 />
 
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => (showShortcuts = false)} />

@@ -112,3 +112,87 @@ export async function compressPdfBytes(pdfBytes: Uint8Array, quality = 75): Prom
 		return pdfBytes;
 	}
 }
+
+/**
+ * Convert a canvas to a PNG Blob.
+ * Shared helper used by single-page and multi-page PNG exports.
+ */
+async function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+	return new Promise<Blob>((resolve, reject) =>
+		canvas.toBlob(
+			(b) => (b ? resolve(b) : reject(new Error('Canvas toBlob failed'))),
+			'image/png'
+		)
+	);
+}
+
+/**
+ * Export a single PDF page as a PNG image.
+ *
+ * @param pdfViewer - Must expose getMergedCanvasForPage
+ * @param currentPage - 1-based page number to export
+ * @param baseName - Base filename without extension (e.g. "report")
+ * @returns true if the file was saved, false if user cancelled
+ */
+export async function exportCurrentPageAsPng(
+	pdfViewer: { getMergedCanvasForPage: (page: number) => Promise<HTMLCanvasElement | null> },
+	currentPage: number,
+	baseName: string
+): Promise<boolean> {
+	const canvas = await pdfViewer.getMergedCanvasForPage(currentPage);
+	if (!canvas) {
+		throw new Error(`Could not render page ${currentPage} to canvas`);
+	}
+	const blob = await canvasToPngBlob(canvas);
+	const filename = `${baseName}_page${currentPage}.png`;
+	return PDFExporter.exportFile(blob, filename, 'image/png');
+}
+
+/**
+ * Export all PDF pages as PNG images inside a ZIP archive.
+ * JSZip is dynamically imported (same pattern as lpdfExport.ts) so it
+ * doesn't increase the initial bundle size.
+ *
+ * @param pdfViewer - Must expose getMergedCanvasForPage
+ * @param totalPages - Total number of pages in the PDF
+ * @param baseName - Base filename without extension (e.g. "report")
+ * @param onProgress - Optional callback receiving progress 0-100
+ * @returns true if the file was saved, false if user cancelled
+ */
+export async function exportAllPagesAsPngZip(
+	pdfViewer: { getMergedCanvasForPage: (page: number) => Promise<HTMLCanvasElement | null> },
+	totalPages: number,
+	baseName: string,
+	onProgress?: (percent: number) => void
+): Promise<boolean> {
+	const JSZip = (await import('jszip')).default;
+	const zip = new JSZip();
+
+	for (let page = 1; page <= totalPages; page++) {
+		const canvas = await pdfViewer.getMergedCanvasForPage(page);
+		if (!canvas) {
+			console.warn(`Skipping page ${page}: could not render to canvas`);
+			continue;
+		}
+		const blob = await canvasToPngBlob(canvas);
+		const arrayBuffer = await blob.arrayBuffer();
+		zip.file(`page${page}.png`, new Uint8Array(arrayBuffer));
+
+		if (onProgress) {
+			onProgress(Math.round((page / totalPages) * 80));
+		}
+	}
+
+	const zipBytes = await zip.generateAsync({
+		type: 'uint8array',
+		compression: 'DEFLATE',
+		compressionOptions: { level: 6 }
+	});
+
+	if (onProgress) {
+		onProgress(95);
+	}
+
+	const filename = `${baseName}_pages.zip`;
+	return PDFExporter.exportFile(zipBytes, filename, 'application/zip');
+}

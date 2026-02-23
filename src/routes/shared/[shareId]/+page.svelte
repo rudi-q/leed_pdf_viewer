@@ -17,6 +17,7 @@
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
 	import { exportCurrentPDFAsLPDF } from '$lib/utils/lpdfExport';
 	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
+	import PngExport from '$lib/components/PngExport.svelte';
 	import { Frown, Link, Lock } from 'lucide-svelte';
 
 	let isLoading = true;
@@ -33,6 +34,7 @@
 	let isFullscreen = false;
 
 	let compressedPDFExport: CompressedPDFExport;
+	let pngExport: PngExport;
 
 	onMount(() => {
 		if (browser && $page.params.shareId) {
@@ -405,6 +407,14 @@
 		compressedPDFExport?.open();
 	}
 
+	function handleExportPNG() {
+		if (!currentFile || !pdfViewer || sharedPDFData?.allowDownloading === false) {
+			toastStore.warning('Cannot Export', 'No PDF available or downloading is not allowed.');
+			return;
+		}
+		pngExport?.open();
+	}
+
 	async function getAnnotatedPdfForCompression() {
 		const prepared = await prepareExportForShare('Compressed PDF', true);
 		if (!prepared || !prepared.exporter) {
@@ -528,7 +538,10 @@
 				onExportPDF={handleExportPDF}
 				onExportLPDF={handleExportLPDF}
 				onExportDOCX={handleExportDOCX}
-				onExportCompressedPDF={sharedPDFData?.allowDownloading !== false ? handleExportCompressedPDF : undefined}
+				onExportCompressedPDF={sharedPDFData?.allowDownloading !== false
+					? handleExportCompressedPDF
+					: undefined}
+				onExportPNG={sharedPDFData?.allowDownloading !== false ? handleExportPNG : undefined}
 				{showThumbnails}
 				onToggleThumbnails={handleToggleThumbnails}
 				isSharedView={true}
@@ -605,6 +618,19 @@
 <CompressedPDFExport
 	bind:this={compressedPDFExport}
 	getAnnotatedPdf={currentFile && pdfViewer ? getAnnotatedPdfForCompression : null}
+/>
+
+<!-- PNG Export (progress card) -->
+<PngExport
+	bind:this={pngExport}
+	getExportContext={currentFile && pdfViewer
+		? () => ({
+				pdfViewer,
+				currentPage: $pdfState.currentPage,
+				totalPages: $pdfState.totalPages,
+				baseName: sharedPDFData?.originalFileName?.replace(/\.pdf$/i, '') || 'shared-document'
+			})
+		: null}
 />
 
 <!-- Help/Shortcuts Modal -->
