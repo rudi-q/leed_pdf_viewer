@@ -38,6 +38,8 @@
 	import TextSelectionOverlay from './TextSelectionOverlay.svelte';
 	import { TOOLBAR_HEIGHT } from '$lib/constants';
 	import { setWindowTitle } from '$lib/utils/tauriUtils';
+	import { GestureTracker, PanInertia } from '$lib/utils/gestureUtils';
+	import GestureHint from './GestureHint.svelte';
 
 	// Helper function to build window title with page info
 	function buildWindowTitle(baseTitle: string, currentPage: number, totalPages: number): string {
@@ -103,6 +105,17 @@
 	let cursorOverCanvas = false;
 	let isLoadingPdf = false; // Guard to prevent multiple simultaneous loads
 	let pdfBaseTitle = ''; // Stores the cleaned PDF title for reactive title updates
+
+	// ── Touch / gesture state ──────────────────────────────────
+	let gestureTracker: GestureTracker;
+	let panInertia: PanInertia;
+	let pinchStartDistance = 0;
+	let pinchStartScale = 0;
+	let panStartRaw = { x: 0, y: 0 }; // raw down position for dead-zone check
+	let isPanConfirmed = false; // true once 5 px threshold exceeded
+	let isPinching = false;
+	const PAN_THRESHOLD = 5; // px dead zone before pan activates
+	const isTouchDevice = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
 
 	// Eraser gesture modifier: Alt for partial erase
 	let isAltEraseMode = false;
@@ -315,6 +328,8 @@
 
 			try {
 				drawingEngine = new DrawingEngine(drawingCanvas);
+				gestureTracker = new GestureTracker();
+				panInertia = new PanInertia();
 
 				setupDrawingEvents();
 				console.log('Drawing engines initialized successfully');
@@ -490,7 +505,7 @@
 				const viewport = page.getViewport({ scale: 1 });
 				const containerHeight = containerDiv.clientHeight - TOOLBAR_HEIGHT; // Account for toolbar and page info
 				const containerWidth = containerDiv.clientWidth - 40; // Account for padding
-				
+
 				const fitHeightScale = containerHeight / viewport.height;
 				const fitWidthScale = containerWidth / viewport.width;
 				const fitPageScale = Math.min(fitHeightScale, fitWidthScale);
@@ -712,6 +727,12 @@
 		if (event.ctrlKey) {
 			console.log('Ctrl pressed, letting container handle panning');
 			return; // Don't capture the event, let container handle it
+		}
+
+		// Two-finger touch: yield to container for pan/pinch (don't draw)
+		if (event.pointerType === 'touch' && gestureTracker && gestureTracker.count >= 1) {
+			console.log('Second touch finger on canvas, yielding to gesture handler');
+			return;
 		}
 
 		// Only handle freehand drawing tools (pencil, eraser, highlight) here
@@ -947,6 +968,13 @@
 	function updateCursor() {
 		if (!containerDiv) return;
 
+		// On touch devices, skip custom cursor logic to avoid iOS cursor flicker
+		if (isTouchDevice) {
+			containerDiv.style.cursor = '';
+			if (drawingCanvas) drawingCanvas.style.cursor = '';
+			return;
+		}
+
 		if (cursorOverCanvas) {
 			// Inside canvas (PDF area)
 			if (isCtrlPressed) {
@@ -985,30 +1013,90 @@
 	}
 
 	// Container panning handlers for infinite canvas
+	/** Is a freehand drawing tool currently selected? */
+	function hasActiveFreehandTool(): boolean {
+		return ['pencil', 'eraser', 'highlight'].includes($drawingState.tool);
+	}
+
 	function handleContainerPointerDown(event: PointerEvent) {
-		console.log(
-			'Container handleContainerPointerDown called:',
-			event.target,
-			'Ctrl pressed:',
-			event.ctrlKey
-		);
-		// Only handle panning when Ctrl is pressed
-		// Let drawing canvas handle its own events
-		if (event.ctrlKey) {
-			console.log('Container starting panning');
+		if (gestureTracker) gestureTracker.track(event);
+		if (panInertia) panInertia.cancel();
+
+		// ── Two-finger gesture starts (pinch / two-finger pan) ──
+		if (gestureTracker && gestureTracker.count === 2) {
+			// Cancel any single-finger pan that was in progress
+			isPanning = false;
+			isPanConfirmed = false;
+			isPinching = true;
+			pinchStartDistance = gestureTracker.getPinchDistance();
+			pinchStartScale = $pdfState.scale;
+			event.preventDefault();
+
+			// Also cancel any drawing that may have started from the first finger
+			if (isDrawing && drawingEngine) {
+				isDrawing = false;
+				drawingEngine.endDrawing();
+				currentDrawingPath = [];
+			}
+			return;
+		}
+
+		// ── Single-pointer pan eligibility ──
+		// Desktop: Ctrl+drag (unchanged)
+		// Touch, no freehand tool: single-finger pan
+		const isTouchPan = event.pointerType === 'touch' && !hasActiveFreehandTool();
+
+		if (event.ctrlKey || isTouchPan) {
 			event.preventDefault();
 			isPanning = true;
+			isPanConfirmed = !isTouchPan; // Desktop Ctrl: no dead zone needed
+			panStartRaw = { x: event.clientX, y: event.clientY };
 			panStart = { x: event.clientX - panOffset.x, y: event.clientY - panOffset.y };
 			containerDiv.setPointerCapture(event.pointerId);
-			containerDiv.style.cursor = 'grabbing';
+			if (!isTouchDevice) containerDiv.style.cursor = 'grabbing';
 		}
 	}
 
 	function handleContainerPointerMove(event: PointerEvent) {
+		if (gestureTracker) gestureTracker.track(event);
+
+		// ── Pinch-to-zoom (two-finger) ──
+		if (isPinching && gestureTracker && gestureTracker.count >= 2 && pinchStartDistance > 0) {
+			event.preventDefault();
+			const currentDist = gestureTracker.getPinchDistance();
+			const scaleRatio = currentDist / pinchStartDistance;
+			const newScale = Math.max(0.1, Math.min(10, pinchStartScale * scaleRatio));
+
+			// Use CSS transform for smooth visual feedback during the gesture
+			const cssScale = newScale / $pdfState.scale;
+			const contentWrapper = containerDiv.querySelector('.flex');
+			if (contentWrapper) {
+				(contentWrapper as HTMLElement).style.transform =
+					`translate(${panOffset.x}px, ${panOffset.y}px) scale(${cssScale})`;
+			}
+			return;
+		}
+
+		// ── Single-pointer pan ──
 		if (isPanning) {
 			event.preventDefault();
-			panOffset = { x: event.clientX - panStart.x, y: event.clientY - panStart.y };
-			// Apply the transform to the content wrapper
+
+			// Dead-zone check for touch pans to avoid mistaking taps for pans
+			if (!isPanConfirmed) {
+				const dx = event.clientX - panStartRaw.x;
+				const dy = event.clientY - panStartRaw.y;
+				if (Math.sqrt(dx * dx + dy * dy) < PAN_THRESHOLD) return;
+				isPanConfirmed = true;
+			}
+
+			const newOffset = { x: event.clientX - panStart.x, y: event.clientY - panStart.y };
+
+			// Feed velocity tracker for touch inertia
+			if (event.pointerType === 'touch' && panInertia) {
+				panInertia.addSample(newOffset.x - panOffset.x, newOffset.y - panOffset.y);
+			}
+
+			panOffset = newOffset;
 			const contentWrapper = containerDiv.querySelector('.flex');
 			if (contentWrapper) {
 				(contentWrapper as HTMLElement).style.transform =
@@ -1018,10 +1106,77 @@
 	}
 
 	function handleContainerPointerUp(event: PointerEvent) {
+		if (gestureTracker) gestureTracker.untrack(event);
+
+		// ── Pinch ended: commit the final scale ──
+		if (isPinching && gestureTracker && gestureTracker.count < 2) {
+			if (pinchStartDistance > 0) {
+				// Compute final scale and render once
+				const currentDist =
+					gestureTracker.count === 1
+						? 0 // last finger lifted — use last known ratio
+						: gestureTracker.getPinchDistance();
+				let finalScale = $pdfState.scale;
+				if (currentDist > 0) {
+					const scaleRatio = currentDist / pinchStartDistance;
+					finalScale = Math.max(0.1, Math.min(10, pinchStartScale * scaleRatio));
+				} else {
+					// Use CSS transform scale that was being applied
+					const contentWrapper = containerDiv.querySelector('.flex');
+					if (contentWrapper) {
+						const style = (contentWrapper as HTMLElement).style.transform;
+						const match = style.match(/scale\(([\d.]+)\)/);
+						if (match) {
+							finalScale = $pdfState.scale * parseFloat(match[1]);
+							finalScale = Math.max(0.1, Math.min(10, finalScale));
+						}
+					}
+				}
+
+				// Reset CSS transform scale (back to translate-only)
+				const contentWrapper = containerDiv.querySelector('.flex');
+				if (contentWrapper) {
+					(contentWrapper as HTMLElement).style.transform =
+						`translate(${panOffset.x}px, ${panOffset.y}px)`;
+				}
+
+				// Re-render at final scale
+				renderCurrentPage(finalScale);
+				pdfState.update((s) => ({ ...s, scale: finalScale }));
+			}
+
+			pinchStartDistance = 0;
+			pinchStartScale = 0;
+
+			if (gestureTracker.count === 0) {
+				isPinching = false;
+			}
+			return;
+		}
+
+		// ── Pan ended ──
 		if (isPanning) {
 			isPanning = false;
-			containerDiv.releasePointerCapture(event.pointerId);
-			updateCursor(); // Restore proper cursor after panning
+			isPanConfirmed = false;
+			try {
+				containerDiv.releasePointerCapture(event.pointerId);
+			} catch {
+				/* pointer may already be released */
+			}
+
+			// Start inertia for touch pans
+			if (event.pointerType === 'touch' && panInertia) {
+				panInertia.start((dx, dy) => {
+					panOffset = { x: panOffset.x + dx, y: panOffset.y + dy };
+					const contentWrapper = containerDiv.querySelector('.flex');
+					if (contentWrapper) {
+						(contentWrapper as HTMLElement).style.transform =
+							`translate(${panOffset.x}px, ${panOffset.y}px)`;
+					}
+				});
+			}
+
+			updateCursor();
 		}
 	}
 
@@ -1201,10 +1356,10 @@
 		try {
 			const page = await $pdfState.document.getPage($pdfState.currentPage);
 			const viewport = page.getViewport({ scale: 1 });
-			
+
 			const containerHeight = containerDiv.clientHeight - (presentationMode ? 0 : TOOLBAR_HEIGHT); // Account for toolbar and page info
 			const containerWidth = containerDiv.clientWidth - (presentationMode ? 0 : 40); // Account for padding
-			
+
 			const heightScale = containerHeight / viewport.height;
 			const widthScale = containerWidth / viewport.width;
 			const newScale = Math.min(heightScale, widthScale);
@@ -2307,6 +2462,9 @@
 			{/if}
 		</div>
 	</div>
+
+	<!-- Gesture hint for touch users -->
+	<GestureHint />
 
 	<!-- Text Selection Overlay - Shows when select tool is active -->
 	{#if $drawingState.tool === 'select' && $pdfState.document}
