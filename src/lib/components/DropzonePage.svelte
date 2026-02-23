@@ -74,13 +74,16 @@
 
 			const result = await storeUploadedFile(fileToStore);
 
-			if (result.success && result.id) {
-				goto(`/pdf-upload?fileId=${result.id}`);
-			} else {
-				toastStore.error(
-					'Storage Error',
-					result.error ? String(result.error) : 'Failed to store the file. Please try again.'
-				);
+			try {
+				if (result.success && result.id) {
+					await goto(`/pdf-upload?fileId=${result.id}`);
+				} else {
+					toastStore.error(
+						'Storage Error',
+						result.error ? String(result.error) : 'Failed to store the file. Please try again.'
+					);
+				}
+			} finally {
 				isProcessing = false;
 			}
 		} catch (error) {
