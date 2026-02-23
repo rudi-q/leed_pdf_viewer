@@ -1,11 +1,11 @@
 <script lang="ts">
-	// This page is redirected via +page.ts, so this component will not be rendered.
-	// We keep a minimal valid Svelte component here just to satisfy SvelteKit routing requirements.
+	import { DOWNLOAD_URL } from './constants';
 </script>
 
 <svelte:head>
 	<title>Redirecting to LeedPDF Downloads...</title>
-	<meta http-equiv="refresh" content="0;url=https://leedpdf.com/download" />
+	<meta http-equiv="refresh" content="0;url={DOWNLOAD_URL}" />
+	<link rel="canonical" href={DOWNLOAD_URL} />
 </svelte:head>
 
 <div class="min-h-screen flex items-center justify-center bg-sand">
