@@ -1156,6 +1156,7 @@
 												class:opacity-50={!$pdfState.document}
 												disabled={!$pdfState.document}
 												on:click={() => {
+													if (!$pdfState.document) return;
 													onExportPNG();
 													showMoreMenu = false;
 												}}

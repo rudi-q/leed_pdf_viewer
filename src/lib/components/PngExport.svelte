@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ExportProgressCard from './ExportProgressCard.svelte';
 	import { exportCurrentPageAsPng, exportAllPagesAsPngZip } from '$lib/utils/exportHandlers';
+	import { forceSaveAllAnnotations } from '$lib/stores/drawingStore';
 
 	/**
 	 * Callback the parent route provides.
@@ -31,6 +32,7 @@
 			console.warn('PngExport: no getExportContext callback provided');
 			return;
 		}
+		if (isExporting) return; // prevent concurrent exports on double-click
 		doExport();
 	}
 
@@ -43,6 +45,9 @@
 			isExporting = true;
 			exportStatus = 'processing';
 			exportProgress = 5;
+
+			// Flush any in-memory annotations to persistent storage before rendering
+			await forceSaveAllAnnotations();
 
 			const isSinglePage = ctx.totalPages === 1;
 			exportOperation = isSinglePage ? 'Exporting PNG' : 'Exporting PNGs';

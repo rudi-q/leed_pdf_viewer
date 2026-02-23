@@ -201,5 +201,11 @@ export async function exportAllPagesAsPngZip(
 	}
 
 	const filename = `${baseName}_pages.zip`;
-	return PDFExporter.exportFile(zipBytes, filename, 'application/zip');
+	const saved = await PDFExporter.exportFile(zipBytes, filename, 'application/zip');
+
+	if (saved && onProgress) {
+		onProgress(100);
+	}
+
+	return saved;
 }
