@@ -56,7 +56,8 @@
 			if (isMarkdown) {
 				toastStore.info('Converting...', 'Converting markdown to PDF, please wait...');
 				const markdownContent = await readMarkdownFile(file);
-				const pdfFilename = file.name.replace(/\.(md|markdown|mdown|mkd|mkdn)$/i, '.pdf');
+				let pdfFilename = file.name.replace(/\.(md|markdown|mdown|mkd|mkdn)$/i, '.pdf');
+				if (!/\.pdf$/i.test(pdfFilename)) pdfFilename += '.pdf'; // guard for extensionless filenames
 				fileToStore = await convertMarkdownToPDF(markdownContent, pdfFilename);
 			} else if (isImage) {
 				toastStore.info('Converting...', 'Converting image to PDF, please wait...');
@@ -138,6 +139,9 @@
 			class:hover:bg-white={!isProcessing}
 			class:opacity-50={isProcessing}
 			class:cursor-not-allowed={isProcessing}
+			aria-busy={isProcessing}
+			aria-disabled={isProcessing}
+			tabindex={isProcessing ? -1 : 0}
 			on:dragover={handleDragOver}
 			on:dragleave={handleDragLeave}
 			on:drop={handleDrop}

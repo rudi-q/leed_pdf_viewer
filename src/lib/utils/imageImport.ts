@@ -38,7 +38,7 @@ export async function convertImageToPDF(file: File): Promise<File> {
     let pdfFilename = file.name.replace(/\.(png|jpe?g|webp)$/i, '.pdf');
     if (!/\.pdf$/i.test(pdfFilename)) pdfFilename += '.pdf'; // guard for extensionless filenames
 
-    return new File([pdfBytes as any], pdfFilename, {
+    return new File([pdfBytes as unknown as BlobPart], pdfFilename, {
         type: 'application/pdf',
         lastModified: Date.now()
     });
