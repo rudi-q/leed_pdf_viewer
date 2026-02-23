@@ -38,7 +38,7 @@ export async function convertImageToPDF(file: File): Promise<File> {
     let pdfFilename = file.name.replace(/\.(png|jpe?g|webp)$/i, '.pdf');
     if (!/\.pdf$/i.test(pdfFilename)) pdfFilename += '.pdf'; // guard for extensionless filenames
 
-    return new File([new Uint8Array(pdfBytes)], pdfFilename, {
+    return new File([pdfBytes as any], pdfFilename, {
         type: 'application/pdf',
         lastModified: Date.now()
     });
@@ -53,8 +53,14 @@ function inferMimeType(name: string): string {
     return 'application/octet-stream';
 }
 
-/** Convert WEBP bytes to PNG bytes using an offscreen canvas. */
+/** 
+ * Convert WEBP bytes to PNG bytes using an offscreen canvas. 
+ * @note This is a browser-only function and must only be called from client-side code.
+ */
 async function webpToPng(webpBytes: Uint8Array): Promise<Uint8Array> {
+    if (typeof window === 'undefined' || typeof document === 'undefined' || typeof URL === 'undefined') {
+        throw new Error('webpToPng can only be executed in a browser environment. Please ensure it is called from UI event handlers or behind client-only checks.');
+    }
     const blob = new Blob([webpBytes.slice().buffer as ArrayBuffer], { type: 'image/webp' });
     const url = URL.createObjectURL(blob);
 

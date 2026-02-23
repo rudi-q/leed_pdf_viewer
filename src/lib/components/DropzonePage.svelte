@@ -127,6 +127,7 @@
 
 		<!-- Standalone dropzone strictly isolated from homepage -->
 		<button
+			type="button"
 			class="w-full h-80 border-4 border-dashed rounded-3xl flex flex-col items-center justify-center transition-all bg-white/50 backdrop-blur-sm group"
 			class:border-sage={dragOver}
 			class:bg-sage={dragOver}
