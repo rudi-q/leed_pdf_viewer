@@ -42,9 +42,11 @@
 		createBlankPDF,
 		isValidLPDFFile,
 		isValidMarkdownFile,
+		isValidImageFile,
 		isValidPDFFile
 	} from '$lib/utils/pdfUtils';
-	import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
+	import { readMarkdownFile, convertMarkdownToPDF } from '$lib/utils/markdownUtils';
+	import { convertImageToPDF } from '$lib/utils/imageImport';
 	import { trackFullscreenToggle, trackPdfExport } from '$lib/utils/analytics';
 	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
 	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
@@ -117,10 +119,11 @@
 		const isPDF = isValidPDFFile(file);
 		const isMarkdown = isValidMarkdownFile(file);
 		const isLPDF = isValidLPDFFile(file);
+		const isImage = isValidImageFile(file);
 
-		if (!isPDF && !isMarkdown && !isLPDF) {
+		if (!isPDF && !isMarkdown && !isLPDF && !isImage) {
 			console.log('Invalid file type');
-			toastStore.error('Invalid File', 'Please choose a valid PDF, Markdown, or LPDF file.');
+			toastStore.error('Invalid File', 'Please choose a valid PDF, Markdown, LPDF, or image file.');
 			return;
 		}
 
@@ -195,6 +198,21 @@
 					toastStore.error(
 						'Conversion Failed',
 						'Failed to convert markdown to PDF. Please check your file.'
+					);
+					return;
+				}
+			} else if (isImage) {
+				console.log('Converting image file to PDF...');
+				toastStore.info('Converting...', 'Converting image to PDF, please wait...');
+
+				try {
+					fileToStore = await convertImageToPDF(file);
+					console.log('Image converted to PDF successfully');
+				} catch (conversionError) {
+					console.error('Failed to convert image to PDF:', conversionError);
+					toastStore.error(
+						'Conversion Failed',
+						'Failed to convert image to PDF. Please check your file.'
 					);
 					return;
 				}

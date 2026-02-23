@@ -33,8 +33,14 @@
 	import { MAX_FILE_SIZE } from '$lib/constants';
 	import { isTauri } from '$lib/utils/tauriUtils';
 	import { getFormattedVersion } from '$lib/utils/version';
-	import { isValidLPDFFile, isValidMarkdownFile, isValidPDFFile } from '$lib/utils/pdfUtils';
+	import {
+		isValidLPDFFile,
+		isValidMarkdownFile,
+		isValidPDFFile,
+		isValidImageFile
+	} from '$lib/utils/pdfUtils';
 	import { convertMarkdownToPDF, readMarkdownFile } from '$lib/utils/markdownUtils';
+	import { convertImageToPDF } from '$lib/utils/imageImport';
 	import { trackFullscreenToggle, trackPdfExport } from '$lib/utils/analytics';
 	import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
@@ -228,10 +234,11 @@
 		const isPDF = isValidPDFFile(file);
 		const isMarkdown = isValidMarkdownFile(file);
 		const isLPDF = isValidLPDFFile(file);
+		const isImage = isValidImageFile(file);
 
-		if (!isPDF && !isMarkdown && !isLPDF) {
+		if (!isPDF && !isMarkdown && !isLPDF && !isImage) {
 			console.log('Invalid file type');
-			toastStore.error('Invalid File', 'Please choose a valid PDF, Markdown, or LPDF file.');
+			toastStore.error('Invalid File', 'Please choose a valid PDF, Markdown, LPDF, or image file.');
 			return;
 		}
 
@@ -282,6 +289,11 @@
 				const pdfFilename = file.name.replace(/\.(md|markdown|mdown|mkd|mkdn)$/i, '.pdf');
 				fileToUse = await convertMarkdownToPDF(markdownContent, pdfFilename);
 				console.log('Markdown converted to PDF successfully');
+			} else if (isImage) {
+				console.log('Converting image file to PDF...');
+				toastStore.info('Converting...', 'Converting image to PDF, please wait...');
+				fileToUse = await convertImageToPDF(file);
+				console.log('Image converted to PDF successfully');
 			}
 
 			console.log('Setting currentFile');

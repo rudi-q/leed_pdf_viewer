@@ -13,7 +13,7 @@
 	import HelpButton from '$lib/components/HelpButton.svelte';
 	import HomeButton from '$lib/components/HomeButton.svelte';
 	import Footer from '$lib/components/Footer.svelte';
-	import { isValidLPDFFile, isValidPDFFile } from '$lib/utils/pdfUtils';
+	import { isValidLPDFFile, isValidPDFFile, isValidImageFile } from '$lib/utils/pdfUtils';
 	import {
 		forceSaveAllAnnotations,
 		pdfState,
@@ -30,6 +30,7 @@
 	import { MAX_FILE_SIZE } from '$lib/constants';
 	import { isTauri } from '$lib/utils/tauriUtils';
 	import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
+	import { convertImageToPDF } from '$lib/utils/imageImport';
 	import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
 	import PngExport from '$lib/components/PngExport.svelte';
@@ -174,10 +175,11 @@
 
 		const isPDF = isValidPDFFile(file);
 		const isLPDF = isValidLPDFFile(file);
+		const isImage = isValidImageFile(file);
 
-		if (!isPDF && !isLPDF) {
+		if (!isPDF && !isLPDF && !isImage) {
 			console.log('Invalid file type');
-			toastStore.error('Invalid File', 'Please choose a valid PDF or LPDF file.');
+			toastStore.error('Invalid File', 'Please choose a valid PDF, LPDF, or image file.');
 			return;
 		}
 
@@ -235,8 +237,18 @@
 		console.log('Storing file and navigating to pdf-upload route');
 
 		try {
+			let fileToStore = file;
+
+			// If it's an image file, convert it to PDF first
+			if (isImage) {
+				console.log('Converting image file to PDF...');
+				toastStore.info('Converting...', 'Converting image to PDF, please wait...');
+				fileToStore = await convertImageToPDF(file);
+				console.log('Image converted to PDF successfully');
+			}
+
 			// Store file using IndexedDB (same as main route)
-			const storeResult = await storeUploadedFile(file);
+			const storeResult = await storeUploadedFile(fileToStore);
 
 			if (storeResult.success && storeResult.id) {
 				console.log('File stored successfully, navigating to pdf-upload with ID:', storeResult.id);

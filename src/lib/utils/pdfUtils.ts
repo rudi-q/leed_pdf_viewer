@@ -62,10 +62,10 @@ async function fetchWithCorsProxy(url: string, onRetry?: (attempt: number, total
 		!urlObj.hostname.includes('localhost') && !urlObj.hostname.includes('127.0.0.1');
 	const proxies = needsProxy
 		? [
-				'', // Try direct first
-				'https://corsproxy.io/?',
-				'https://api.allorigins.win/raw?url='
-			]
+			'', // Try direct first
+			'https://corsproxy.io/?',
+			'https://api.allorigins.win/raw?url='
+		]
 		: ['', 'https://corsproxy.io/?'];
 
 	for (let i = 0; i < proxies.length; i++) {
@@ -380,6 +380,19 @@ export function isValidLPDFFile(file: File): boolean {
 	// Check file extension (LPDF files should end with .lpdf)
 	const fileName = file.name.toLowerCase();
 	return fileName.endsWith('.lpdf');
+}
+
+// Utility function to validate image file (PNG, JPG, JPEG, WEBP)
+export function isValidImageFile(file: File): boolean {
+	const validTypes = ['image/png', 'image/jpeg', 'image/webp'];
+	const validExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
+
+	if (validTypes.includes(file.type)) {
+		return true;
+	}
+
+	const fileName = file.name.toLowerCase();
+	return validExtensions.some((ext) => fileName.endsWith(ext));
 }
 
 // Utility function to format file size

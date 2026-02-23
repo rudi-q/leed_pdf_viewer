@@ -250,7 +250,7 @@
 <input
 	bind:this={fileInput}
 	type="file"
-	accept=".pdf,.lpdf,.md,.markdown"
+	accept=".pdf,.lpdf,.md,.markdown,.png,.jpg,.jpeg,.webp"
 	on:change={handleFileChange}
 	class="hidden"
 	aria-hidden="true"
