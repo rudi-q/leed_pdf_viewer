@@ -245,6 +245,16 @@
 				toastStore.info('Converting...', 'Converting image to PDF, please wait...');
 				fileToStore = await convertImageToPDF(file);
 				console.log('Image converted to PDF successfully');
+
+				// Guard: converted PDF must also be within the size limit
+				if (fileToStore.size > MAX_FILE_SIZE) {
+					console.log('Converted PDF too large:', fileToStore.size);
+					toastStore.error(
+						'File Too Large',
+						`Converted PDF size (${(fileToStore.size / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum limit of ${MAX_FILE_SIZE / (1024 * 1024)}MB.`
+					);
+					return;
+				}
 			}
 
 			// Store file using IndexedDB (same as main route)
