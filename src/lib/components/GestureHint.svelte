@@ -15,6 +15,7 @@
 	}
 
 	function tryShow() {
+		if (visible) return; // already shown — don't stack another timer
 		try {
 			if (localStorage.getItem(STORAGE_KEY) === 'true') return;
 		} catch {

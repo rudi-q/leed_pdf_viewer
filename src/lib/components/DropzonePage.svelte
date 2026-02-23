@@ -17,6 +17,7 @@
 
 	let dragOver = false;
 	let isProcessing = false;
+	let fileInput: HTMLInputElement;
 
 	async function handleFileUpload(files: FileList) {
 		if (files.length === 0) return;
@@ -24,9 +25,16 @@
 		const file = files[0];
 		dragOver = false;
 
-		const isPDF = isValidPDFFile(file);
-		const isMarkdown = isValidMarkdownFile(file);
-		const isImage = isValidImageFile(file);
+		// Validate against the accept prop instead of running all validators unconditionally.
+		// This prevents, e.g., /png-to-pdf accepting Markdown files just because the shared
+		// handler also knows how to convert Markdown.
+		const acceptsImages = accept.includes('image') || /\.(png|jpe?g|webp)/i.test(accept);
+		const acceptsMarkdown = accept.includes('.md') || accept.includes('markdown');
+		const acceptsPDF = accept.includes('.pdf');
+
+		const isImage = acceptsImages && isValidImageFile(file);
+		const isMarkdown = acceptsMarkdown && isValidMarkdownFile(file);
+		const isPDF = acceptsPDF && isValidPDFFile(file);
 
 		if (!isPDF && !isMarkdown && !isImage) {
 			toastStore.error('Invalid File', `Please choose a valid file matching: ${accept}`);
@@ -69,6 +77,10 @@
 			if (result.success && result.id) {
 				goto(`/pdf-upload?fileId=${result.id}`);
 			} else {
+				toastStore.error(
+					'Storage Error',
+					result.error ? String(result.error) : 'Failed to store the file. Please try again.'
+				);
 				isProcessing = false;
 			}
 		} catch (error) {
@@ -126,10 +138,7 @@
 			on:dragleave={handleDragLeave}
 			on:drop={handleDrop}
 			on:click={() => {
-				if (!isProcessing) {
-					const input = document.getElementById('seo-file-upload') as HTMLInputElement;
-					if (input) input.click();
-				}
+				if (!isProcessing) fileInput.click();
 			}}
 		>
 			<div class="flex flex-col items-center space-y-4 pointer-events-none">
@@ -154,7 +163,7 @@
 		</button>
 
 		<input
-			id="seo-file-upload"
+			bind:this={fileInput}
 			type="file"
 			{accept}
 			multiple={false}

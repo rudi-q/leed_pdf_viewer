@@ -72,7 +72,7 @@ async function webpToPng(webpBytes: Uint8Array): Promise<Uint8Array> {
             canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas toBlob failed'))), 'image/png');
         });
 
-        return new Uint8Array(await pngBlob.arrayBuffer()) as Uint8Array;
+        return new Uint8Array(await pngBlob.arrayBuffer());
     } finally {
         URL.revokeObjectURL(url);
     }
