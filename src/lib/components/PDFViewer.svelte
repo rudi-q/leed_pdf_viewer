@@ -111,11 +111,12 @@
 	let panInertia: PanInertia;
 	let pinchStartDistance = 0;
 	let pinchStartScale = 0;
+	let lastPinchScale = 0; // updated every move; avoids regex-parsing CSS on pinch end
 	let panStartRaw = { x: 0, y: 0 }; // raw down position for dead-zone check
 	let isPanConfirmed = false; // true once 5 px threshold exceeded
 	let isPinching = false;
 	const PAN_THRESHOLD = 5; // px dead zone before pan activates
-	const isTouchDevice = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+	let isTouchDevice = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
 
 	// Eraser gesture modifier: Alt for partial erase
 	let isAltEraseMode = false;
@@ -1069,6 +1070,7 @@
 
 			// Use CSS transform for smooth visual feedback during the gesture
 			const cssScale = newScale / $pdfState.scale;
+			lastPinchScale = newScale; // record so pinch-end doesn't need to parse CSS
 			const contentWrapper = containerDiv.querySelector('.flex');
 			if (contentWrapper) {
 				(contentWrapper as HTMLElement).style.transform =
@@ -1120,17 +1122,9 @@
 				if (currentDist > 0) {
 					const scaleRatio = currentDist / pinchStartDistance;
 					finalScale = Math.max(0.1, Math.min(10, pinchStartScale * scaleRatio));
-				} else {
-					// Use CSS transform scale that was being applied
-					const contentWrapper = containerDiv.querySelector('.flex');
-					if (contentWrapper) {
-						const style = (contentWrapper as HTMLElement).style.transform;
-						const match = style.match(/scale\(([\d.]+)\)/);
-						if (match) {
-							finalScale = $pdfState.scale * parseFloat(match[1]);
-							finalScale = Math.max(0.1, Math.min(10, finalScale));
-						}
-					}
+				} else if (lastPinchScale > 0) {
+					// Use last recorded scale value — no CSS parsing needed
+					finalScale = Math.max(0.1, Math.min(10, lastPinchScale));
 				}
 
 				// Reset CSS transform scale (back to translate-only)
@@ -1147,6 +1141,7 @@
 
 			pinchStartDistance = 0;
 			pinchStartScale = 0;
+			lastPinchScale = 0; // reset so stale value isn't reused next gesture
 
 			if (gestureTracker.count === 0) {
 				isPinching = false;
