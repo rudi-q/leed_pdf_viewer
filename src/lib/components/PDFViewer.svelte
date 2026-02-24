@@ -112,6 +112,11 @@
 	let pinchStartDistance = 0;
 	let pinchStartScale = 0;
 	let lastPinchScale = 0; // updated every move; avoids regex-parsing CSS on pinch end
+	let pinchStartMidpoint = { x: 0, y: 0 }; // midpoint at gesture start for two-finger pan
+	let pinchStartPanOffset = { x: 0, y: 0 }; // panOffset snapshot at gesture start
+	let lastPinchPanX = 0; // visual-only pan X during pinch (committed on end)
+	let lastPinchPanY = 0; // visual-only pan Y during pinch (committed on end)
+	let pinchRafId: number | null = null; // rAF handle for batching two-finger updates
 	let panStartRaw = { x: 0, y: 0 }; // raw down position for dead-zone check
 	let isPanConfirmed = false; // true once 5 px threshold exceeded
 	let isPinching = false;
@@ -700,6 +705,7 @@
 		drawingCanvas.addEventListener('pointermove', handlePointerMove);
 		drawingCanvas.addEventListener('pointerup', handlePointerUp);
 		drawingCanvas.addEventListener('pointerleave', handlePointerUp);
+		drawingCanvas.addEventListener('pointercancel', handlePointerUp);
 
 		// Add canvas hover events for cursor tracking
 		drawingCanvas.addEventListener('pointerenter', handleCanvasEnter);
@@ -710,6 +716,7 @@
 		containerDiv.addEventListener('pointermove', handleContainerPointerMove);
 		containerDiv.addEventListener('pointerup', handleContainerPointerUp);
 		containerDiv.addEventListener('pointerleave', handleContainerPointerUp);
+		containerDiv.addEventListener('pointercancel', handleContainerPointerUp);
 
 		// Add keyboard events for Ctrl key tracking
 		document.addEventListener('keydown', handleKeyDown);
@@ -1031,6 +1038,10 @@
 			isPinching = true;
 			pinchStartDistance = gestureTracker.getPinchDistance();
 			pinchStartScale = $pdfState.scale;
+			pinchStartMidpoint = gestureTracker.getPinchMidpoint();
+			pinchStartPanOffset = { ...panOffset };
+			lastPinchPanX = panOffset.x;
+			lastPinchPanY = panOffset.y;
 			event.preventDefault();
 
 			// Also cancel any drawing that may have started from the first finger
@@ -1058,23 +1069,46 @@
 		}
 	}
 
+	/**
+	 * rAF callback: compute pinch scale + two-finger pan in one batched frame.
+	 * By the time this fires, both fingers' pointermove events have been
+	 * processed by gestureTracker, so midpoint & distance are stable.
+	 */
+	function applyPinchFrame() {
+		pinchRafId = null; // allow next frame to be scheduled
+		if (!gestureTracker || gestureTracker.count < 2 || pinchStartDistance <= 0) return;
+
+		// Scale
+		const currentDist = gestureTracker.getPinchDistance();
+		const scaleRatio = currentDist / pinchStartDistance;
+		const newScale = Math.max(0.1, Math.min(10, pinchStartScale * scaleRatio));
+
+		// Pan: simple midpoint delta from gesture start
+		const currentMidpoint = gestureTracker.getPinchMidpoint();
+		lastPinchPanX = pinchStartPanOffset.x + (currentMidpoint.x - pinchStartMidpoint.x);
+		lastPinchPanY = pinchStartPanOffset.y + (currentMidpoint.y - pinchStartMidpoint.y);
+
+		// Apply CSS transform for smooth visual feedback
+		const cssScale = newScale / $pdfState.scale;
+		lastPinchScale = newScale;
+		const contentWrapper = containerDiv.querySelector('.flex');
+		if (contentWrapper) {
+			(contentWrapper as HTMLElement).style.transform =
+				`translate(${lastPinchPanX}px, ${lastPinchPanY}px) scale(${cssScale})`;
+		}
+	}
+
 	function handleContainerPointerMove(event: PointerEvent) {
 		if (gestureTracker) gestureTracker.track(event);
 
-		// ── Pinch-to-zoom (two-finger) ──
+		// ── Pinch-to-zoom + two-finger pan ──
+		// We only mark the rAF as needed here; the actual computation is
+		// deferred to applyPinchFrame() so that BOTH fingers' pointermove
+		// events are processed before we compute midpoint & distance.
 		if (isPinching && gestureTracker && gestureTracker.count >= 2 && pinchStartDistance > 0) {
 			event.preventDefault();
-			const currentDist = gestureTracker.getPinchDistance();
-			const scaleRatio = currentDist / pinchStartDistance;
-			const newScale = Math.max(0.1, Math.min(10, pinchStartScale * scaleRatio));
-
-			// Use CSS transform for smooth visual feedback during the gesture
-			const cssScale = newScale / $pdfState.scale;
-			lastPinchScale = newScale; // record so pinch-end doesn't need to parse CSS
-			const contentWrapper = containerDiv.querySelector('.flex');
-			if (contentWrapper) {
-				(contentWrapper as HTMLElement).style.transform =
-					`translate(${panOffset.x}px, ${panOffset.y}px) scale(${cssScale})`;
+			if (pinchRafId === null) {
+				pinchRafId = requestAnimationFrame(applyPinchFrame);
 			}
 			return;
 		}
@@ -1110,8 +1144,14 @@
 	function handleContainerPointerUp(event: PointerEvent) {
 		if (gestureTracker) gestureTracker.untrack(event);
 
-		// ── Pinch ended: commit the final scale ──
+		// ── Pinch ended: commit the final scale + pan ──
 		if (isPinching && gestureTracker && gestureTracker.count < 2) {
+			// Cancel any pending rAF so it doesn't fire after we commit
+			if (pinchRafId !== null) {
+				cancelAnimationFrame(pinchRafId);
+				pinchRafId = null;
+			}
+
 			if (pinchStartDistance > 0) {
 				// Compute final scale and render once
 				const currentDist =
@@ -1126,6 +1166,9 @@
 					// Use last recorded scale value — no CSS parsing needed
 					finalScale = Math.max(0.1, Math.min(10, lastPinchScale));
 				}
+
+				// Commit the visual pan position accumulated during the gesture
+				panOffset = { x: lastPinchPanX, y: lastPinchPanY };
 
 				// Reset CSS transform scale (back to translate-only)
 				const contentWrapper = containerDiv.querySelector('.flex');
@@ -1142,9 +1185,14 @@
 			pinchStartDistance = 0;
 			pinchStartScale = 0;
 			lastPinchScale = 0; // reset so stale value isn't reused next gesture
+			pinchStartMidpoint = { x: 0, y: 0 };
+			pinchStartPanOffset = { x: 0, y: 0 };
+			lastPinchPanX = 0;
+			lastPinchPanY = 0;
 
 			if (gestureTracker.count === 0) {
 				isPinching = false;
+				gestureTracker.reset(); // failsafe: clear any ghost pointers
 			}
 			return;
 		}
@@ -2506,6 +2554,7 @@
 	.pdf-viewer {
 		background: linear-gradient(135deg, #fdf6e3 0%, #f7f3e9 100%);
 		position: relative;
+		touch-action: none;
 	}
 
 	:global(.dark) .pdf-viewer {
