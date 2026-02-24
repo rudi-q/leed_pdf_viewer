@@ -55,6 +55,14 @@ export class GestureTracker {
         };
     }
 
+    /** Return the position of the first (remaining) tracked pointer, or null. */
+    getFirstPointer(): Point2D | null {
+        for (const e of this.activePointers.values()) {
+            return { x: e.clientX, y: e.clientY };
+        }
+        return null;
+    }
+
     /** Clear all tracked pointers. */
     reset(): void {
         this.activePointers.clear();

@@ -818,10 +818,9 @@
 	function handlePointerMove(event: PointerEvent) {
 		if (isPanning) {
 			panOffset = { x: event.clientX - panStart.x, y: event.clientY - panStart.y };
-			// Apply the transform to the content wrapper
-			const contentWrapper = containerDiv.querySelector('.flex');
-			if (contentWrapper) {
-				(contentWrapper as HTMLElement).style.transform =
+			// Apply the transform to the cached content wrapper
+			if (contentWrapperDiv) {
+				contentWrapperDiv.style.transform =
 					`translate(${panOffset.x}px, ${panOffset.y}px)`;
 			}
 			return;
@@ -846,7 +845,11 @@
 		if (!isDrawing || !drawingEngine) return;
 
 		event.preventDefault();
-		drawingCanvas.releasePointerCapture(event.pointerId);
+		try {
+			drawingCanvas.releasePointerCapture(event.pointerId);
+		} catch {
+			/* pointer may already be released (e.g. pointercancel) */
+		}
 
 		isDrawing = false;
 		const finalPath = drawingEngine.endDrawing();
@@ -1144,7 +1147,12 @@
 		}
 	}
 
-	function handleContainerPointerUp(event: PointerEvent) {
+	async function handleContainerPointerUp(event: PointerEvent) {
+		// Snapshot midpoint BEFORE untracking so we can compute final pan position
+		let freshMid: { x: number; y: number } | null = null;
+		if (gestureTracker && gestureTracker.count >= 2) {
+			freshMid = gestureTracker.getPinchMidpoint();
+		}
 		if (gestureTracker) gestureTracker.untrack(event);
 
 		// ── Pinch ended: commit the final scale + pan ──
@@ -1170,11 +1178,9 @@
 					finalScale = Math.max(0.1, Math.min(10, lastPinchScale));
 				}
 
-				// If the rAF was cancelled, lastPinchPanX/Y may be stale;
-				// recompute from the latest gestureTracker state if 2 fingers
-				// are still tracked (i.e. we can still read the midpoint).
-				if (gestureTracker.count >= 2) {
-					const freshMid = gestureTracker.getPinchMidpoint();
+				// Use the midpoint snapshot (captured before untrack) to recompute
+				// pan position if the rAF was cancelled and values are stale
+				if (freshMid) {
 					lastPinchPanX = pinchStartPanOffset.x + (freshMid.x - pinchStartMidpoint.x);
 					lastPinchPanY = pinchStartPanOffset.y + (freshMid.y - pinchStartMidpoint.y);
 				}
@@ -1188,7 +1194,9 @@
 				}
 
 				// Re-render at final scale
-				renderCurrentPage(finalScale);
+				// CRITICAL: Render FIRST, update state AFTER so subscribers
+				// read the new scale only after the canvas is painted.
+				await renderCurrentPage(finalScale);
 				pdfState.update((s) => ({ ...s, scale: finalScale }));
 			}
 
@@ -1200,9 +1208,17 @@
 			lastPinchPanX = 0;
 			lastPinchPanY = 0;
 
+			isPinching = false;
 			if (gestureTracker.count === 0) {
-				isPinching = false;
 				gestureTracker.reset(); // failsafe: clear any ghost pointers
+			} else if (gestureTracker.count === 1 && !hasActiveFreehandTool()) {
+				// Remaining finger transitions into a single-finger pan
+				const remaining = gestureTracker.getFirstPointer();
+				if (remaining) {
+					isPanning = true;
+					isPanConfirmed = true; // no dead zone — already in gesture
+					panStart = { x: remaining.x - panOffset.x, y: remaining.y - panOffset.y };
+				}
 			}
 			return;
 		}
@@ -1221,9 +1237,8 @@
 			if (event.pointerType === 'touch' && panInertia) {
 				panInertia.start((dx, dy) => {
 					panOffset = { x: panOffset.x + dx, y: panOffset.y + dy };
-					const contentWrapper = containerDiv.querySelector('.flex');
-					if (contentWrapper) {
-						(contentWrapper as HTMLElement).style.transform =
+					if (contentWrapperDiv) {
+						contentWrapperDiv.style.transform =
 							`translate(${panOffset.x}px, ${panOffset.y}px)`;
 					}
 				});
