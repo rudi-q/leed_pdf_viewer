@@ -117,6 +117,7 @@
 	let lastPinchPanX = 0; // visual-only pan X during pinch (committed on end)
 	let lastPinchPanY = 0; // visual-only pan Y during pinch (committed on end)
 	let pinchRafId: number | null = null; // rAF handle for batching two-finger updates
+	let contentWrapperDiv: HTMLDivElement; // cached ref to the .flex wrapper (bound in template)
 	let panStartRaw = { x: 0, y: 0 }; // raw down position for dead-zone check
 	let isPanConfirmed = false; // true once 5 px threshold exceeded
 	let isPinching = false;
@@ -318,6 +319,12 @@
 	});
 
 	onDestroy(() => {
+		// Cancel any pending pinch rAF so it doesn't fire after teardown
+		if (pinchRafId !== null) {
+			cancelAnimationFrame(pinchRafId);
+			pinchRafId = null;
+		}
+
 		if (pdfManager) {
 			pdfManager.destroy();
 		}
@@ -1091,10 +1098,8 @@
 		// Apply CSS transform for smooth visual feedback
 		const cssScale = newScale / $pdfState.scale;
 		lastPinchScale = newScale;
-		const contentWrapper = containerDiv.querySelector('.flex');
-		if (contentWrapper) {
-			(contentWrapper as HTMLElement).style.transform =
-				`translate(${lastPinchPanX}px, ${lastPinchPanY}px) scale(${cssScale})`;
+		if (contentWrapperDiv) {
+			contentWrapperDiv.style.transform = `translate(${lastPinchPanX}px, ${lastPinchPanY}px) scale(${cssScale})`;
 		}
 	}
 
@@ -1133,10 +1138,8 @@
 			}
 
 			panOffset = newOffset;
-			const contentWrapper = containerDiv.querySelector('.flex');
-			if (contentWrapper) {
-				(contentWrapper as HTMLElement).style.transform =
-					`translate(${panOffset.x}px, ${panOffset.y}px)`;
+			if (contentWrapperDiv) {
+				contentWrapperDiv.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px)`;
 			}
 		}
 	}
@@ -1167,14 +1170,21 @@
 					finalScale = Math.max(0.1, Math.min(10, lastPinchScale));
 				}
 
+				// If the rAF was cancelled, lastPinchPanX/Y may be stale;
+				// recompute from the latest gestureTracker state if 2 fingers
+				// are still tracked (i.e. we can still read the midpoint).
+				if (gestureTracker.count >= 2) {
+					const freshMid = gestureTracker.getPinchMidpoint();
+					lastPinchPanX = pinchStartPanOffset.x + (freshMid.x - pinchStartMidpoint.x);
+					lastPinchPanY = pinchStartPanOffset.y + (freshMid.y - pinchStartMidpoint.y);
+				}
+
 				// Commit the visual pan position accumulated during the gesture
 				panOffset = { x: lastPinchPanX, y: lastPinchPanY };
 
 				// Reset CSS transform scale (back to translate-only)
-				const contentWrapper = containerDiv.querySelector('.flex');
-				if (contentWrapper) {
-					(contentWrapper as HTMLElement).style.transform =
-						`translate(${panOffset.x}px, ${panOffset.y}px)`;
+				if (contentWrapperDiv) {
+					contentWrapperDiv.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px)`;
 				}
 
 				// Re-render at final scale
@@ -2431,6 +2441,7 @@
 
 	<!-- Simple centered canvas -->
 	<div
+		bind:this={contentWrapperDiv}
 		class="flex items-center justify-center w-full h-full"
 		style="transform: translate({panOffset.x}px, {panOffset.y}px);"
 	>
