@@ -48,7 +48,7 @@
 	$: if (basePageWidth > 0 && basePageHeight > 0 && scale > 0) {
 		let baseX = stamp.x !== undefined ? stamp.x : stamp.relativeX * basePageWidth;
 		let baseY = stamp.y !== undefined ? stamp.y : stamp.relativeY * basePageHeight;
-		
+
 		// Transform from base (unrotated) coordinates to rotated coordinates
 		const rotatedPoint = transformPoint(
 			baseX,
@@ -57,7 +57,7 @@
 			basePageWidth,
 			basePageHeight
 		);
-		
+
 		// Apply scale to get final display position
 		actualX = rotatedPoint.x * scale;
 		actualY = rotatedPoint.y * scale;
@@ -236,7 +236,13 @@
 	// Scale stamps when canvas size changes
 	$: if (basePageWidth > 0 && basePageHeight > 0) {
 		const pos = getAbsolutePosition(stamp);
-		if (pos.x !== stamp.x || pos.y !== stamp.y || pos.size !== stamp.size) {
+		const epsilon = 0.01;
+
+		if (
+			Math.abs(pos.x - stamp.x) > epsilon ||
+			Math.abs(pos.y - stamp.y) > epsilon ||
+			Math.abs(pos.size - (stamp.size || 0)) > epsilon
+		) {
 			const updatedStamp: StampAnnotation = {
 				...stamp,
 				x: pos.x,

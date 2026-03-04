@@ -101,8 +101,8 @@
 	export let onExportCompressedPDF: (() => void) | undefined = undefined;
 	export let onExportPNG: (() => void) | undefined = undefined;
 	export let onSharePDF: (() => void) | undefined = undefined;
-	export let onRotateLeft: (() => void) | undefined = undefined;
-	export let onRotateRight: (() => void) | undefined = undefined;
+	export let onRotateLeft: (() => void | Promise<void>) | undefined = undefined;
+	export let onRotateRight: (() => void | Promise<void>) | undefined = undefined;
 
 	// Thumbnail panel control
 	export let showThumbnails = false;

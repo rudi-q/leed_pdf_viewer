@@ -34,6 +34,10 @@ export class PDFExporter {
 	}
 
 	setRotation(pageNumber: number, rotationDegrees: number) {
+		if (rotationDegrees % 90 !== 0) {
+			console.warn(`[PDFExport] non-orthogonal rotation ${rotationDegrees} passed; normalising to nearest 90.`);
+		}
+
 		// Normalize rotation to 0, 90, 180, or 270 degrees
 		const normalized = ((rotationDegrees % 360) + 360) % 360;
 		const roundedRotation = Math.round(normalized / 90) * 90;
@@ -51,10 +55,9 @@ export class PDFExporter {
 			const pages = pdfDoc.getPages();
 			for (let pageNumber = 1; pageNumber <= pages.length; pageNumber++) {
 				const page = pages[pageNumber - 1];
+				// Note: we fetch rotation but DO NOT apply it to the final page here,
+				// because embedCanvasInPage does size swapping which is safer for rendering.
 				const rotation = this.rotations.get(pageNumber);
-				if (rotation !== undefined) {
-					page.setRotation(degrees(rotation));
-				}
 
 				const canvas = this.canvasElements.get(pageNumber);
 				if (canvas) {

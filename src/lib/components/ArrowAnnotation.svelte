@@ -21,6 +21,7 @@
 	let isDraggingStart = false;
 	let isDraggingEnd = false;
 	let isDraggingArrow = false;
+	let currentOverlay: HTMLElement | null = null;
 	let dragStartX = 0;
 	let dragStartY = 0;
 	let initialDisplayX1 = 0;
@@ -106,7 +107,12 @@
 		event.stopPropagation();
 
 		isDraggingArrow = true;
-		const rect = (event.target as Element).closest('.arrow-overlay')?.getBoundingClientRect();
+
+		// Capture the actual overlay element where the drag started
+		const target = event.target as HTMLElement;
+		currentOverlay = target.closest('.arrow-overlay') as HTMLElement | null;
+
+		const rect = currentOverlay?.getBoundingClientRect();
 		if (rect) {
 			dragStartX = event.clientX - rect.left;
 			dragStartY = event.clientY - rect.top;
@@ -122,7 +128,7 @@
 
 	const handleMouseMove = (event: MouseEvent) => {
 		if (isDraggingStart) {
-			const rect = document.querySelector('.arrow-overlay')?.getBoundingClientRect();
+			const rect = currentOverlay?.getBoundingClientRect();
 			if (rect) {
 				const newDisplayX = event.clientX - rect.left - dragStartX;
 				const newDisplayY = event.clientY - rect.top - dragStartY;
@@ -152,7 +158,7 @@
 				dispatch('update', updatedArrow);
 			}
 		} else if (isDraggingEnd) {
-			const rect = document.querySelector('.arrow-overlay')?.getBoundingClientRect();
+			const rect = currentOverlay?.getBoundingClientRect();
 			if (rect) {
 				const newDisplayX = event.clientX - rect.left - dragStartX;
 				const newDisplayY = event.clientY - rect.top - dragStartY;
@@ -182,7 +188,7 @@
 				dispatch('update', updatedArrow);
 			}
 		} else if (isDraggingArrow) {
-			const rect = document.querySelector('.arrow-overlay')?.getBoundingClientRect();
+			const rect = currentOverlay?.getBoundingClientRect();
 			if (rect) {
 				const currentX = event.clientX - rect.left;
 				const currentY = event.clientY - rect.top;

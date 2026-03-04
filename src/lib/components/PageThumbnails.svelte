@@ -9,6 +9,7 @@
 	let thumbnails: Map<number, HTMLCanvasElement> = new Map();
 	let isGenerating = false;
 	let generatedPages = new Set<number>();
+	let schedulingLazySetup = false;
 
 	const THUMBNAIL_WIDTH = 120;
 	const THUMBNAIL_HEIGHT = 160;
@@ -17,7 +18,14 @@
 	let observer: IntersectionObserver | null = null;
 
 	// Set up lazy loading when panel becomes visible and DOM is ready
-	$: if (isVisible && thumbnailContainer && $pdfState.document && !observer) {
+	$: if (
+		isVisible &&
+		thumbnailContainer &&
+		$pdfState.document &&
+		!observer &&
+		!schedulingLazySetup
+	) {
+		schedulingLazySetup = true;
 		// Use tick() to ensure DOM is fully rendered
 		tick().then(() => setupLazyLoading());
 	}
@@ -33,7 +41,8 @@
 			observer = null;
 		}
 		// Only setup lazy loading if the panel is visible
-		if (isVisible) {
+		if (isVisible && !schedulingLazySetup) {
+			schedulingLazySetup = true;
 			tick().then(() => setupLazyLoading());
 		}
 	}
@@ -46,6 +55,7 @@
 	}
 
 	function setupLazyLoading() {
+		schedulingLazySetup = false; // Clear flag
 		if (typeof window === 'undefined') return;
 
 		console.log('Setting up lazy loading observer');
@@ -80,7 +90,8 @@
 	}
 
 	async function generateThumbnail(pageNumber: number): Promise<void> {
-		if (!$pdfState.document) return;
+		if (!$pdfState.document || generatedPages.has(pageNumber)) return;
+		generatedPages.add(pageNumber);
 
 		try {
 			const page = await $pdfState.document.getPage(pageNumber);
@@ -123,6 +134,8 @@
 			thumbnails = new Map(thumbnails);
 		} catch (error) {
 			console.error(`Error generating thumbnail for page ${pageNumber}:`, error);
+		} finally {
+			generatedPages.delete(pageNumber);
 		}
 	}
 

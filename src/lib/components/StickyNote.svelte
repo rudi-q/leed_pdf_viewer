@@ -87,17 +87,6 @@
 			//displayWidth = note.relativeWidth * containerWidth;
 			//displayHeight = note.relativeHeight * containerHeight;
 		}
-
-		// Debug log - gated for development only
-		if (false) {
-			console.log('StickyNote display calc:', {
-				containerDims: `${containerWidth}x${containerHeight}`,
-				scale,
-				stored: `pos(${note.x},${note.y}) size(${note.width}x${note.height})`,
-				relative: `pos(${note.relativeX},${note.relativeY}) size(${note.relativeWidth}x${note.relativeHeight})`,
-				display: `pos(${displayX.toFixed(2)},${displayY.toFixed(2)}) size(${displayWidth.toFixed(2)}x${displayHeight.toFixed(2)})`
-			});
-		}
 	}
 
 	// Auto-resize textarea to fit content
@@ -371,20 +360,11 @@
 
 	<!-- Resize handle -->
 	{#if !viewOnlyMode}
-		<!-- svelte-ignore a11y-no-static-element-interactions -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			class="resize-handle"
 			on:mousedown|stopPropagation={handleResizeMouseDown}
-			on:keydown={(e) => {
-				if (e.key === 'Enter' || e.key === ' ') {
-					e.preventDefault();
-					handleResizeMouseDown(e as any);
-				}
-			}}
 			title="Drag to resize"
-			role="button"
-			tabindex="0"
-			aria-label="Resize sticky note"
 		></div>
 	{/if}
 </div>

@@ -59,7 +59,7 @@
 		const basePoint = inverseTransformPoint(
 			rotatedBaseX,
 			rotatedBaseY,
-			rotation as RotationAngle,
+			rotation,
 			basePageWidth,
 			basePageHeight
 		);
@@ -91,44 +91,47 @@
 		addArrowAnnotation(newArrow);
 	};
 
+	// Shared helper for transforming mouse event to base scale coordinates
+	// and updating the arrow's end point.
+	const computeAndUpdateArrowEnd = (event: MouseEvent) => {
+		const targetArrow = $currentPageArrowAnnotations[$currentPageArrowAnnotations.length - 1];
+		if (targetArrow && overlayElement) {
+			const rect = overlayElement.getBoundingClientRect();
+			// Get mouse position in current scale
+			const scaledX = event.clientX - rect.left;
+			const scaledY = event.clientY - rect.top;
+
+			const safeScale = scale > 0 ? scale : 1;
+			const rotatedBaseX = scaledX / safeScale;
+			const rotatedBaseY = scaledY / safeScale;
+
+			const basePoint = inverseTransformPoint(
+				rotatedBaseX,
+				rotatedBaseY,
+				rotation,
+				basePageWidth,
+				basePageHeight
+			);
+			const currentX = basePoint.x;
+			const currentY = basePoint.y;
+
+			const updatedArrow = {
+				...targetArrow,
+				x2: Math.min(basePageWidth, Math.max(0, currentX)),
+				y2: Math.min(basePageHeight, Math.max(0, currentY)),
+				relativeX2:
+					basePageWidth > 0 ? Math.min(basePageWidth, Math.max(0, currentX)) / basePageWidth : 0,
+				relativeY2:
+					basePageHeight > 0 ? Math.min(basePageHeight, Math.max(0, currentY)) / basePageHeight : 0
+			};
+
+			updateArrowAnnotation(updatedArrow);
+		}
+	};
+
 	const handleContainerMouseMove = (event: MouseEvent) => {
 		if (!isCreatingArrow) return;
-
-		const rect = overlayElement.getBoundingClientRect();
-		// Get mouse position in current scale
-		const scaledX = event.clientX - rect.left;
-		const scaledY = event.clientY - rect.top;
-
-		const safeScale = scale > 0 ? scale : 1;
-		const rotatedBaseX = scaledX / safeScale;
-		const rotatedBaseY = scaledY / safeScale;
-
-		const basePoint = inverseTransformPoint(
-			rotatedBaseX,
-			rotatedBaseY,
-			rotation as RotationAngle,
-			basePageWidth,
-			basePageHeight
-		);
-		const currentX = basePoint.x;
-		const currentY = basePoint.y;
-
-		// Update last created arrow with new end coordinates
-		const arrows = $currentPageArrowAnnotations;
-		const arrow = arrows[arrows.length - 1];
-		if (!arrow) return;
-
-		const updatedArrow = {
-			...arrow,
-			x2: Math.min(basePageWidth, Math.max(0, currentX)), // Store at base scale
-			y2: Math.min(basePageHeight, Math.max(0, currentY)), // Store at base scale
-			relativeX2:
-				basePageWidth > 0 ? Math.min(basePageWidth, Math.max(0, currentX)) / basePageWidth : 0,
-			relativeY2:
-				basePageHeight > 0 ? Math.min(basePageHeight, Math.max(0, currentY)) / basePageHeight : 0
-		};
-
-		updateArrowAnnotation(updatedArrow);
+		computeAndUpdateArrowEnd(event);
 	};
 
 	const handleContainerMouseUp = (event: MouseEvent) => {
@@ -143,42 +146,7 @@
 	// Document-level mouse handlers for better tracking during arrow creation
 	const handleDocumentMouseMove = (event: MouseEvent) => {
 		if (!isCreatingArrow || !overlayElement) return;
-
-		const rect = overlayElement.getBoundingClientRect();
-		// Get mouse position in current scale
-		const scaledX = event.clientX - rect.left;
-		const scaledY = event.clientY - rect.top;
-
-		const safeScale = scale > 0 ? scale : 1;
-		const rotatedBaseX = scaledX / safeScale;
-		const rotatedBaseY = scaledY / safeScale;
-
-		const basePoint = inverseTransformPoint(
-			rotatedBaseX,
-			rotatedBaseY,
-			rotation as RotationAngle,
-			basePageWidth,
-			basePageHeight
-		);
-		const currentX = basePoint.x;
-		const currentY = basePoint.y;
-
-		// Update last created arrow with new end coordinates
-		const arrows = $currentPageArrowAnnotations;
-		const arrow = arrows[arrows.length - 1];
-		if (!arrow) return;
-
-		const updatedArrow = {
-			...arrow,
-			x2: Math.min(basePageWidth, Math.max(0, currentX)), // Store at base scale
-			y2: Math.min(basePageHeight, Math.max(0, currentY)), // Store at base scale
-			relativeX2:
-				basePageWidth > 0 ? Math.min(basePageWidth, Math.max(0, currentX)) / basePageWidth : 0,
-			relativeY2:
-				basePageHeight > 0 ? Math.min(basePageHeight, Math.max(0, currentY)) / basePageHeight : 0
-		};
-
-		updateArrowAnnotation(updatedArrow);
+		computeAndUpdateArrowEnd(event);
 	};
 
 	const handleDocumentMouseUp = (event: MouseEvent) => {
@@ -231,7 +199,7 @@
 <div
 	bind:this={overlayElement}
 	class="arrow-overlay absolute top-0 left-0 {pointerEventsClass}"
-	style="width: {containerWidth * scale}px; height: {containerHeight * scale}px; z-index: 3;"
+	style="width: {containerWidth}px; height: {containerHeight}px; z-index: 3;"
 	on:mousedown={handleContainerMouseDown}
 	on:mousemove={handleContainerMouseMove}
 	on:mouseup={handleContainerMouseUp}

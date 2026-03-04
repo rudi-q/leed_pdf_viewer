@@ -154,8 +154,8 @@
 	bind:this={overlayElement}
 	class="stamp-overlay"
 	class:stamp-tool-active={isStampTool}
-	style:width="{containerWidth * scale}px"
-	style:height="{containerHeight * scale}px"
+	style:width="{containerWidth}px"
+	style:height="{containerHeight}px"
 	on:click={handleContainerClick}
 	role="application"
 	aria-label="Stamps area - click to create new stamp when stamp tool is active"
