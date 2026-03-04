@@ -19,7 +19,7 @@
 	export let containerHeight: number = 0; // Actual displayed canvas height
 	export let scale: number = 1; // Current zoom scale
 	export let viewOnlyMode = false; // If true, disable all editing interactions
-	export let rotation: number = 0;
+	export let rotation: RotationAngle = 0;
 	export let basePageWidth: number = 0;
 	export let basePageHeight: number = 0;
 

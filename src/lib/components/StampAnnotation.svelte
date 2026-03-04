@@ -9,14 +9,14 @@
 	} from '../utils/rotationUtils';
 
 	export let stamp: StampAnnotation;
-	export const scale: number = 1; // For future scaling features
+	export let scale: number = 1; // Current PDF zoom scale
 
 	// Get the stamp definition to display SVG
 	// Handle backward compatibility: stamps might have either stampId OR stamp (SVG string)
 	$: stampDefinition = stamp.stampId ? getStampById(stamp.stampId) : null;
 	$: stampSvg = stampDefinition?.svg || (stamp as any).stamp || '';
 
-	export let rotation: number = 0;
+	export let rotation: RotationAngle = 0;
 	export let basePageWidth: number = 0;
 	export let basePageHeight: number = 0;
 
