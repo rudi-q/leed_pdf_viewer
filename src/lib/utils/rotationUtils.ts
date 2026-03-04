@@ -49,6 +49,15 @@ export function transformPoint(
 			return { x: pageW - x, y: pageH - y };
 		case 270:
 			return { x: y, y: pageW - x };
+		default:
+			console.warn('Unexpected rotation in transformPoint, falling back to no-op:', {
+				rotation,
+				x,
+				y,
+				pageW,
+				pageH
+			});
+			return { x, y };
 	}
 }
 
@@ -82,6 +91,15 @@ export function inverseTransformPoint(
 		case 270:
 			// Inverse of (y, pageW - x) => (pageW - y, x)
 			return { x: pageW - y, y: x };
+		default:
+			console.warn('Unexpected rotation in inverseTransformPoint, falling back to no-op:', {
+				rotation,
+				x,
+				y,
+				pageW,
+				pageH
+			});
+			return { x, y };
 	}
 }
 

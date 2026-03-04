@@ -24,7 +24,7 @@
 
 	// Regenerate thumbnails when rotation changes
 	let lastRotation: number | undefined = undefined;
-	$: if ($pdfState.rotation !== lastRotation && lastRotation !== undefined && isVisible) {
+	$: if ($pdfState.rotation !== lastRotation && lastRotation !== undefined) {
 		// Rotation changed — clear cached thumbnails and regenerate
 		thumbnails = new Map();
 		generatedPages = new Set();
@@ -177,8 +177,20 @@
 				<div
 					class="thumbnail-item"
 					class:active={pageNumber === $pdfState.currentPage}
-					on:click={() => handleThumbnailClick(pageNumber)}
-					on:keydown={(e) => e.key === 'Enter' && handleThumbnailClick(pageNumber)}
+					on:click={() => {
+						if (!thumbnail) {
+							generateThumbnail(pageNumber);
+						}
+						handleThumbnailClick(pageNumber);
+					}}
+					on:keydown={(e) => {
+						if (e.key === 'Enter') {
+							if (!thumbnail) {
+								generateThumbnail(pageNumber);
+							}
+							handleThumbnailClick(pageNumber);
+						}
+					}}
 					role="button"
 					tabindex="0"
 				>
@@ -191,20 +203,10 @@
 							></canvas>
 						</div>
 					{:else}
-						<button
-							class="thumbnail-placeholder"
-							data-page={pageNumber}
-							on:click={() => {
-								// Generate thumbnail when clicked if not already generated
-								if (!thumbnail) {
-									generateThumbnail(pageNumber);
-								}
-								handleThumbnailClick(pageNumber);
-							}}
-						>
+						<div class="thumbnail-placeholder" data-page={pageNumber}>
 							<div class="text-xs text-slate dark:text-gray-400 mb-2">Loading...</div>
 							<div class="loading-spinner"></div>
-						</button>
+						</div>
 					{/if}
 					<div class="thumbnail-label">
 						{pageNumber}

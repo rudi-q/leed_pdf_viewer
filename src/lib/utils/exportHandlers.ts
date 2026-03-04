@@ -70,18 +70,18 @@ export async function buildAnnotatedPdfExporter(
 	const captureAllPages = options?.captureAllPages ?? false;
 
 	for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+		if (pdfViewer.getPageRotation) {
+			const rotation = pdfViewer.getPageRotation(pageNumber);
+			if (rotation !== 0) {
+				exporter.setRotation(pageNumber, rotation);
+			}
+		}
+
 		const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
 		if (hasAnnotations || captureAllPages) {
 			const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
 			if (mergedCanvas) {
 				exporter.setPageCanvas(pageNumber, mergedCanvas);
-
-				if (pdfViewer.getPageRotation) {
-					const rotation = pdfViewer.getPageRotation(pageNumber);
-					if (rotation !== 0) {
-						exporter.setRotation(pageNumber, rotation);
-					}
-				}
 			}
 		}
 	}

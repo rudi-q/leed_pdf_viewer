@@ -708,8 +708,11 @@
 					exporter.setPageCanvas(pageNum, mergedCanvas);
 
 					// Apply rotation to the exported PDF page
-					if ($pdfState.rotation !== 0) {
-						exporter.setRotation(pageNum, $pdfState.rotation);
+					const pageRotation = pdfViewer.getPageRotation
+						? pdfViewer.getPageRotation(pageNum)
+						: ($pdfState.rotation || 0);
+					if (pageRotation !== 0) {
+						exporter.setRotation(pageNum, pageRotation);
 					}
 
 					console.log(`Added merged canvas for page ${pageNum}`);
@@ -823,8 +826,11 @@
 					exporter.setPageCanvas(pageNum, mergedCanvas);
 
 					// Apply rotation to the exported PDF page
-					if ($pdfState.rotation !== 0) {
-						exporter.setRotation(pageNum, $pdfState.rotation);
+					const pageRotation = pdfViewer.getPageRotation
+						? pdfViewer.getPageRotation(pageNum)
+						: ($pdfState.rotation || 0);
+					if (pageRotation !== 0) {
+						exporter.setRotation(pageNum, pageRotation);
 					}
 
 					console.log(`Added merged canvas for page ${pageNum} to DOCX export`);

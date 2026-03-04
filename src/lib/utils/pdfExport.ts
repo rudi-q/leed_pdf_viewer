@@ -11,7 +11,7 @@ export interface ExportOptions {
 export class PDFExporter {
 	private originalPdfBytes: Uint8Array | null = null;
 	private canvasElements: Map<number, HTMLCanvasElement> = new Map();
-	private pageRotations: Map<number, any> = new Map();
+	private rotations: Map<number, number> = new Map();
 
 	/**
 	 * Convert CSS pixels to PDF points (1/72 inch)
@@ -30,18 +30,11 @@ export class PDFExporter {
 	}
 
 	setPageRotation(pageNumber: number, rotation: number) {
-		// pdf-lib expects a 'degrees' object which is just a number wrapped in a helper function
-		// We'll import degrees dynamically to avoid issues, or use the type but cast
-		// actually pdf-lib.degrees is a function that returns an angle, but we can also use setRotation(degrees(x))
-		// We can just store the number here and apply it later
-		// To avoid importing degrees at the top level, we'll store as number
+		this.setRotation(pageNumber, rotation);
 	}
 
-	// We'll store rotation as number directly
-	private _pageRotations: Map<number, number> = new Map();
-
 	setRotation(pageNumber: number, rotationDegrees: number) {
-		this._pageRotations.set(pageNumber, rotationDegrees);
+		this.rotations.set(pageNumber, rotationDegrees);
 	}
 
 	async exportToPDF(): Promise<Uint8Array> {
@@ -55,7 +48,7 @@ export class PDFExporter {
 			const pages = pdfDoc.getPages();
 			for (let pageNumber = 1; pageNumber <= pages.length; pageNumber++) {
 				const page = pages[pageNumber - 1];
-				const rotation = this._pageRotations.get(pageNumber);
+				const rotation = this.rotations.get(pageNumber);
 				if (rotation !== undefined) {
 					page.setRotation(degrees(rotation));
 				}
@@ -100,12 +93,14 @@ export class PDFExporter {
 						PDFExporter.pixelsToPoints(canvas.height)
 					]);
 
-					const rotation = this._pageRotations.get(pageNum);
+					const rotation = this.rotations.get(pageNum);
 					if (rotation !== undefined) {
 						page.setRotation(degrees(rotation));
 					}
 
-					await this.embedCanvasInPage(newDoc, page, canvas, rotation || 0);
+					// Fallback pages are already created at canvas dimensions.
+					// Passing neutral rotation prevents a second width/height swap.
+					await this.embedCanvasInPage(newDoc, page, canvas, 0);
 				}
 				return await newDoc.save();
 			} catch (fallbackError) {

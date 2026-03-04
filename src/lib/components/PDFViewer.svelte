@@ -220,8 +220,27 @@
 	}
 
 	// Re-render drawing paths when they change
-	$: if (drawingEngine && $currentPagePaths && canvasesReady) {
-		drawingEngine.renderPaths($currentPagePaths, $pdfState.scale);
+	$: if (
+		drawingEngine &&
+		$currentPagePaths &&
+		canvasesReady &&
+		basePageWidth > 0 &&
+		basePageHeight > 0
+	) {
+		const transformedPaths = $currentPagePaths.map((path) => ({
+			...path,
+			points: path.points.map((pt) => {
+				const transformed = transformPoint(
+					pt.x,
+					pt.y,
+					$pdfState.rotation as RotationAngle,
+					basePageWidth,
+					basePageHeight
+				);
+				return { ...pt, x: transformed.x, y: transformed.y };
+			})
+		}));
+		drawingEngine.renderPaths(transformedPaths, $pdfState.scale);
 	}
 
 	// Update cursor and tool when drawing state changes
@@ -651,6 +670,11 @@
 				drawingCanvas.style.width = `${viewport.width}px`;
 				drawingCanvas.style.height = `${viewport.height}px`;
 
+				// Update base page dimensions (unrotated) for coordinate transforms
+				const baseViewport = page.getViewport({ scale: 1, rotation: 0 });
+				basePageWidth = baseViewport.width;
+				basePageHeight = baseViewport.height;
+
 				// Re-render drawing paths for current page with rotation transform
 				if (drawingEngine) {
 					// Transform paths from rotation-0 storage space to current rotation display space
@@ -674,11 +698,6 @@
 			// Update canvas display dimensions for overlays
 			canvasDisplayWidth = viewport.width;
 			canvasDisplayHeight = viewport.height;
-
-			// Update base page dimensions (unrotated) for coordinate transforms
-			const baseViewport = page.getViewport({ scale: 1, rotation: 0 });
-			basePageWidth = baseViewport.width;
-			basePageHeight = baseViewport.height;
 
 			// Extract PDF link annotations for this page
 			try {
@@ -1597,7 +1616,16 @@
 
 	// Function to get rotation for a specific page
 	export function getPageRotation(pageNumber: number): number {
-		// Currently the app applies rotation globally to all pages
+		const pages = ($pdfState as any).pages;
+		const perPageRotation =
+			pages?.[pageNumber]?.rotation ??
+			pages?.[pageNumber - 1]?.rotation ??
+			pages?.[String(pageNumber)]?.rotation;
+
+		if (typeof perPageRotation === 'number') {
+			return perPageRotation;
+		}
+
 		return $pdfState.rotation || 0;
 	}
 
@@ -2052,16 +2080,16 @@
 					const img = await svgToImage(svgString, stampWidth, stampHeight);
 
 					console.log(
-						`Drawing stamp "${stampName}" at (${x}, ${y}) size ${stampWidth}x${stampHeight}, rotation: ${currentRotation}`
+						`Drawing stamp "${stampName}" at (${x}, ${y}) size ${stampWidth}x${stampHeight}, pageRotation: ${currentRotation}, stampRotation: ${stampAnnotation.rotation}`
 					);
 					
 					ctx.save();
-					// Rotate around stamp center
-					const centerX = x + stampWidth / 2;
-					const centerY = y + stampHeight / 2;
-					ctx.translate(centerX, centerY);
-					ctx.rotate((currentRotation * Math.PI) / 180);
-					ctx.translate(-centerX, -centerY);
+					// Rotate around stamp's top-left corner (matching viewer's transform-origin: top left)
+					// Apply both page rotation and stamp's own rotation
+					ctx.translate(x, y);
+					const totalRotation = currentRotation + (stampAnnotation.rotation || 0);
+					ctx.rotate((totalRotation * Math.PI) / 180);
+					ctx.translate(-x, -y);
 					
 					ctx.drawImage(img, x, y, stampWidth, stampHeight);
 					ctx.restore();
@@ -2072,11 +2100,10 @@
 
 					// Draw fallback rectangle
 					ctx.save();
-					const centerX = x + stampWidth / 2;
-					const centerY = y + stampHeight / 2;
-					ctx.translate(centerX, centerY);
-					ctx.rotate((currentRotation * Math.PI) / 180);
-					ctx.translate(-centerX, -centerY);
+					ctx.translate(x, y);
+					const totalRotation = currentRotation + (stampAnnotation.rotation || 0);
+					ctx.rotate((totalRotation * Math.PI) / 180);
+					ctx.translate(-x, -y);
 					
 					ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
 					ctx.fillRect(x, y, stampWidth, stampHeight);
@@ -2300,16 +2327,28 @@
 							ctx.globalAlpha = 1.0;
 						}
 
-						// SIMPLIFIED: Drawing paths are now stored at base viewport coordinates (scale 1.0)
-						// We need to scale them for current viewer scale
+						// Paths are stored in unrotated base coordinates: rotate + scale to current viewer space
 						const viewerScale = $pdfState.scale;
+						const currentRotation = $pdfState.rotation as RotationAngle;
+						const transformedPoints = path.points.map((point: Point) => {
+							const rotated = transformPoint(
+								point.x,
+								point.y,
+								currentRotation,
+								basePageWidth,
+								basePageHeight
+							);
+							return {
+								x: rotated.x * viewerScale,
+								y: rotated.y * viewerScale
+							};
+						});
 
 						ctx.beginPath();
-						// Scale from base viewport to current canvas size
-						ctx.moveTo(path.points[0].x * viewerScale, path.points[0].y * viewerScale);
+						ctx.moveTo(transformedPoints[0].x, transformedPoints[0].y);
 
-						for (let i = 1; i < path.points.length; i++) {
-							ctx.lineTo(path.points[i].x * viewerScale, path.points[i].y * viewerScale);
+						for (let i = 1; i < transformedPoints.length; i++) {
+							ctx.lineTo(transformedPoints[i].x, transformedPoints[i].y);
 						}
 
 						ctx.stroke();
@@ -2337,6 +2376,8 @@
 			if (currentTextAnnotations.length > 0) {
 				ctx.save();
 				ctx.scale(scaleX, scaleY);
+				const viewerScale = $pdfState.scale;
+				const currentRotation = $pdfState.rotation as RotationAngle;
 
 				currentTextAnnotations.forEach((annotation) => {
 					const baseX =
@@ -2347,22 +2388,30 @@
 					const pt = transformPoint(
 						baseX,
 						baseY,
-						$pdfState.rotation as RotationAngle,
+						currentRotation,
 						basePageWidth,
 						basePageHeight
 					);
-					const x = pt.x;
-					const y = pt.y;
+					const x = pt.x * viewerScale;
+					const y = pt.y * viewerScale;
+					const scaledFontSize = annotation.fontSize * viewerScale;
 
-					ctx.font = `${annotation.fontSize}px ${annotation.fontFamily}`;
+					ctx.save();
+					ctx.translate(x, y);
+					ctx.rotate((currentRotation * Math.PI) / 180);
+					ctx.translate(-x, -y);
+
+					ctx.font = `${scaledFontSize}px ${annotation.fontFamily}`;
 					ctx.fillStyle = annotation.color;
 					ctx.textBaseline = 'top';
 
 					// Handle multi-line text
 					const lines = annotation.text.split('\n');
 					lines.forEach((line: string, index: number) => {
-						ctx.fillText(line, x, y + index * annotation.fontSize * 1.2);
+						ctx.fillText(line, x, y + index * scaledFontSize * 1.2);
 					});
+
+					ctx.restore();
 				});
 
 				ctx.restore();
@@ -2452,6 +2501,8 @@
 				);
 				ctx.save();
 				ctx.scale(scaleX, scaleY);
+				const viewerScale = $pdfState.scale;
+				const currentRotation = $pdfState.rotation as RotationAngle;
 
 				// Load all stamp images in parallel and wait for them
 				const stampPromises = currentStampAnnotations.map(async (stampAnnotation) => {
@@ -2490,12 +2541,12 @@
 					const pt = transformPoint(
 						baseX,
 						baseY,
-						$pdfState.rotation as RotationAngle,
+						currentRotation,
 						basePageWidth,
 						basePageHeight
 					);
-					const x = pt.x;
-					const y = pt.y;
+					const x = pt.x * viewerScale;
+					const y = pt.y * viewerScale;
 
 					// Calculate stamp size the same way as StampAnnotation component
 					const MIN_SIZE = 16;
@@ -2509,8 +2560,8 @@
 								: stampAnnotation.relativeSize * Math.min(basePageWidth, basePageHeight)
 						)
 					);
-					const stampWidth = calculatedSize;
-					const stampHeight = calculatedSize;
+					const stampWidth = calculatedSize * viewerScale;
+					const stampHeight = calculatedSize * viewerScale;
 
 					try {
 						// Convert SVG string to image
@@ -2519,7 +2570,13 @@
 						console.log(
 							`Drawing current page stamp "${stampName}" at (${x}, ${y}) size ${stampWidth}x${stampHeight}`
 						);
+						ctx.save();
+						ctx.translate(x, y);
+						const totalRotation = currentRotation + (stampAnnotation.rotation || 0);
+						ctx.rotate((totalRotation * Math.PI) / 180);
+						ctx.translate(-x, -y);
 						ctx.drawImage(img, x, y, stampWidth, stampHeight);
+						ctx.restore();
 
 						return { success: true, stamp: stampName };
 					} catch (error) {
@@ -2530,11 +2587,18 @@
 						);
 
 						// Draw fallback rectangle
+						ctx.save();
+						ctx.translate(x, y);
+						const totalRotation = currentRotation + (stampAnnotation.rotation || 0);
+						ctx.rotate((totalRotation * Math.PI) / 180);
+						ctx.translate(-x, -y);
+
 						ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
 						ctx.fillRect(x, y, stampWidth, stampHeight);
 						ctx.fillStyle = '#000';
 						ctx.font = '12px Arial';
 						ctx.fillText(stampName, x + 5, y + 20);
+						ctx.restore();
 
 						return { success: false, stamp: stampName, error };
 					}

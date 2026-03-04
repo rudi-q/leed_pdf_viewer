@@ -392,29 +392,33 @@
 
 					{#if onRotateLeft || onRotateRight}
 						<div class="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-1"></div>
-						<Tooltip content="Rotate left 90°">
-							<button
-								class="tool-button w-8 h-8 flex items-center justify-center"
-								class:opacity-50={!$pdfState.document}
-								disabled={!$pdfState.document}
-								on:click={onRotateLeft}
-								aria-label="Rotate page left 90 degrees"
-							>
-								<RotateCcw size={14} />
-							</button>
-						</Tooltip>
+						{#if onRotateLeft}
+							<Tooltip content="Rotate left 90°">
+								<button
+									class="tool-button w-8 h-8 flex items-center justify-center"
+									class:opacity-50={!$pdfState.document}
+									disabled={!$pdfState.document}
+									on:click={onRotateLeft}
+									aria-label="Rotate page left 90 degrees"
+								>
+									<RotateCcw size={14} />
+								</button>
+							</Tooltip>
+						{/if}
 
-						<Tooltip content="Rotate right 90°">
-							<button
-								class="tool-button w-8 h-8 flex items-center justify-center"
-								class:opacity-50={!$pdfState.document}
-								disabled={!$pdfState.document}
-								on:click={onRotateRight}
-								aria-label="Rotate page right 90 degrees"
-							>
-								<RotateCw size={14} />
-							</button>
-						</Tooltip>
+						{#if onRotateRight}
+							<Tooltip content="Rotate right 90°">
+								<button
+									class="tool-button w-8 h-8 flex items-center justify-center"
+									class:opacity-50={!$pdfState.document}
+									disabled={!$pdfState.document}
+									on:click={onRotateRight}
+									aria-label="Rotate page right 90 degrees"
+								>
+									<RotateCw size={14} />
+								</button>
+							</Tooltip>
+						{/if}
 					{/if}
 				</div>
 			</div>

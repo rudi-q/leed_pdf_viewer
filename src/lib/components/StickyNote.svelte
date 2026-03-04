@@ -49,21 +49,27 @@
 	// The container dimensions should already be scaled (viewport.width at current scale)
 	// Notes are stored at base scale (scale 1.0), need to scale up for display
 	$: if (containerWidth > 0 && containerHeight > 0 && scale > 0) {
+		const hasValidBaseDimensions = basePageWidth > 0 && basePageHeight > 0;
 		// Since containerWidth/Height are the actual displayed dimensions (already at current scale),
 		// we need to be careful about how we calculate positions
 
 		// Method 1: If we have absolute coordinates, use them directly
 		if (note.x !== undefined && note.y !== undefined) {
 			// These are stored at base scale, 0-rotation. Transform to current rotation.
-			const rotatedPoint = transformPoint(
-				note.x,
-				note.y,
-				rotation as RotationAngle,
-				basePageWidth,
-				basePageHeight
-			);
-			displayX = rotatedPoint.x * scale;
-			displayY = rotatedPoint.y * scale;
+			if (hasValidBaseDimensions) {
+				const rotatedPoint = transformPoint(
+					note.x,
+					note.y,
+					rotation as RotationAngle,
+					basePageWidth,
+					basePageHeight
+				);
+				displayX = rotatedPoint.x * scale;
+				displayY = rotatedPoint.y * scale;
+			} else {
+				displayX = note.x * scale;
+				displayY = note.y * scale;
+			}
 		} else {
 			// Method 2: Use relative coordinates
 			// Container dimensions are already scaled, so use them directly
@@ -300,8 +306,7 @@
 	style:top="{displayY}px"
 	style:width="{displayWidth}px"
 	style:height="{displayHeight}px"
-	style:transform="rotate({rotation}deg)"
-	style:transform-origin="top left"
+	style="--rotation: {rotation}deg; --state-transform: translateY(0px);"
 	style:background-color={note.backgroundColor}
 	style:font-size="{note.fontSize * scale}px"
 	class:editing={isEditing}
@@ -380,13 +385,15 @@
 		line-height: 1.4;
 		z-index: 100;
 		background: linear-gradient(135deg, var(--bg-color) 0%, var(--bg-color) 100%);
+		transform-origin: top left;
+		transform: rotate(var(--rotation, 0deg)) var(--state-transform, translateY(0px));
 	}
 
 	.sticky-note:hover {
 		box-shadow:
 			0 4px 8px rgba(0, 0, 0, 0.15),
 			0 8px 16px rgba(0, 0, 0, 0.1);
-		transform: translateY(-1px);
+		--state-transform: translateY(-1px);
 	}
 
 	.sticky-note.editing {
@@ -399,7 +406,7 @@
 
 	.sticky-note.dragging {
 		cursor: grabbing;
-		transform: rotate(2deg) scale(1.02);
+		--state-transform: rotate(2deg) scale(1.02);
 		z-index: 101;
 	}
 

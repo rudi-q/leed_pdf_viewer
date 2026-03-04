@@ -466,17 +466,18 @@
 
 			for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
 				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
+				const pageRotation = pdfViewer.getPageRotation
+					? pdfViewer.getPageRotation(pageNumber)
+					: ($pdfState.rotation || 0);
+				if (pageRotation !== 0) {
+					exporter.setRotation(pageNumber, pageRotation);
+				}
 
 				if (hasAnnotations) {
 					console.log(`📄 Page ${pageNumber} has annotations - creating merged canvas`);
 					const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
 					if (mergedCanvas) {
 						exporter.setPageCanvas(pageNumber, mergedCanvas);
-
-						// Apply rotation to the exported PDF page
-						if ($pdfState.rotation !== 0) {
-							exporter.setRotation(pageNumber, $pdfState.rotation);
-						}
 
 						pagesWithAnnotations++;
 						console.log(`✅ Added merged canvas for page ${pageNumber}`);
@@ -591,17 +592,18 @@
 
 				// Check if this page has any annotations
 				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
+				const pageRotation = pdfViewer.getPageRotation
+					? pdfViewer.getPageRotation(pageNumber)
+					: ($pdfState.rotation || 0);
+				if (pageRotation !== 0) {
+					exporter.setRotation(pageNumber, pageRotation);
+				}
 
 				if (hasAnnotations) {
 					console.log(`📝 Page ${pageNumber} has annotations - creating merged canvas`);
 					const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
 					if (mergedCanvas) {
 						exporter.setPageCanvas(pageNumber, mergedCanvas);
-
-						// Apply rotation to the exported PDF page
-						if ($pdfState.rotation !== 0) {
-							exporter.setRotation(pageNumber, $pdfState.rotation);
-						}
 
 						pagesWithAnnotations++;
 						console.log(`✅ Added merged canvas for page ${pageNumber} to DOCX export`);
