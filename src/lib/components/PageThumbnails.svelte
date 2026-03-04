@@ -187,7 +187,8 @@
 						handleThumbnailClick(pageNumber);
 					}}
 					on:keydown={(e) => {
-						if (e.key === 'Enter') {
+						if (e.key === 'Enter' || e.key === ' ') {
+							e.preventDefault();
 							if (!thumbnail) {
 								generateThumbnail(pageNumber);
 							}

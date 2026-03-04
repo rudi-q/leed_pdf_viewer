@@ -12,7 +12,7 @@
 	export let containerWidth: number = 0; // Actual displayed canvas width
 	export let containerHeight: number = 0; // Actual displayed canvas height
 	export let viewOnlyMode = false; // If true, disable all editing interactions
-	export let rotation: number = 0;
+	export let rotation: RotationAngle = 0;
 	export let basePageWidth: number = 0;
 	export let basePageHeight: number = 0;
 
@@ -88,14 +88,16 @@
 			//displayHeight = note.relativeHeight * containerHeight;
 		}
 
-		// Debug log
-		console.log('StickyNote display calc:', {
-			containerDims: `${containerWidth}x${containerHeight}`,
-			scale,
-			stored: `pos(${note.x},${note.y}) size(${note.width}x${note.height})`,
-			relative: `pos(${note.relativeX},${note.relativeY}) size(${note.relativeWidth}x${note.relativeHeight})`,
-			display: `pos(${displayX.toFixed(2)},${displayY.toFixed(2)}) size(${displayWidth.toFixed(2)}x${displayHeight.toFixed(2)})`
-		});
+		// Debug log - gated for development only
+		if (false) {
+			console.log('StickyNote display calc:', {
+				containerDims: `${containerWidth}x${containerHeight}`,
+				scale,
+				stored: `pos(${note.x},${note.y}) size(${note.width}x${note.height})`,
+				relative: `pos(${note.relativeX},${note.relativeY}) size(${note.relativeWidth}x${note.relativeHeight})`,
+				display: `pos(${displayX.toFixed(2)},${displayY.toFixed(2)}) size(${displayWidth.toFixed(2)}x${displayHeight.toFixed(2)})`
+			});
+		}
 	}
 
 	// Auto-resize textarea to fit content
@@ -280,8 +282,11 @@
 	// Handle right-click context menu
 	const handleContextMenu = (event: MouseEvent) => {
 		event.preventDefault();
-		// Could add a context menu here in the future
-		handleDelete();
+		if (viewOnlyMode) return;
+		// Show confirmation before deleting
+		if (confirm('Delete this sticky note?')) {
+			handleDelete();
+		}
 	};
 
 	onMount(() => {
@@ -315,6 +320,17 @@
 	on:mousedown={handleMouseDown}
 	on:dblclick={handleDoubleClick}
 	on:contextmenu={handleContextMenu}
+	on:keydown={(e) => {
+		if (viewOnlyMode) return;
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			handleDoubleClick();
+		} else if (e.key === 'Delete' || e.key === 'Backspace') {
+			e.preventDefault();
+			e.stopPropagation();
+			handleDelete();
+		}
+	}}
 	role="button"
 	tabindex="0"
 	aria-label="Sticky note: {note.text || 'Empty note'}"
@@ -359,6 +375,12 @@
 		<div
 			class="resize-handle"
 			on:mousedown|stopPropagation={handleResizeMouseDown}
+			on:keydown={(e) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					handleResizeMouseDown(e as any);
+				}
+			}}
 			title="Drag to resize"
 			role="button"
 			tabindex="0"

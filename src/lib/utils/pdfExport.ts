@@ -34,7 +34,10 @@ export class PDFExporter {
 	}
 
 	setRotation(pageNumber: number, rotationDegrees: number) {
-		this.rotations.set(pageNumber, rotationDegrees);
+		// Normalize rotation to 0, 90, 180, or 270 degrees
+		const normalized = ((rotationDegrees % 360) + 360) % 360;
+		const roundedRotation = Math.round(normalized / 90) * 90;
+		this.rotations.set(pageNumber, roundedRotation);
 	}
 
 	async exportToPDF(): Promise<Uint8Array> {
@@ -93,7 +96,9 @@ export class PDFExporter {
 						PDFExporter.pixelsToPoints(canvas.height)
 					]);
 
-					await this.embedCanvasInPage(newDoc, page, canvas, 0);
+					// Preserve original page rotation as fallback
+					const pageRotation = this.rotations.get(pageNum) || 0;
+					await this.embedCanvasInPage(newDoc, page, canvas, pageRotation);
 				}
 				return await newDoc.save();
 			} catch (fallbackError) {

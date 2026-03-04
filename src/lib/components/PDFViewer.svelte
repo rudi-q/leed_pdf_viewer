@@ -1806,8 +1806,8 @@
 				const baseViewport = page.getViewport({ scale: 1.0, rotation: 0 });
 				basePageWidth = baseViewport.width;
 				basePageHeight = baseViewport.height;
-				// PDF page natively might have rotation, but we care about our app rotation
-				currentRotation = ($pdfState.rotation || 0) as RotationAngle;
+				// Use per-page rotation instead of global rotation
+				currentRotation = (getPageRotation(pageNumber) || 0) as RotationAngle;
 			} catch (e) {
 				console.error('Failed to get base viewport for export', e);
 			}
@@ -2436,6 +2436,8 @@
 			if (currentArrowAnnotations.length > 0) {
 				ctx.save();
 				ctx.scale(scaleX, scaleY);
+				const viewerScale = $pdfState.scale;
+				const currentRotation = $pdfState.rotation as RotationAngle;
 
 				currentArrowAnnotations.forEach((arrow) => {
 					const baseX1 = arrow.x1 !== undefined ? arrow.x1 : arrow.relativeX1 * basePageWidth;
@@ -2446,22 +2448,22 @@
 					const pt1 = transformPoint(
 						baseX1,
 						baseY1,
-						$pdfState.rotation as RotationAngle,
+						currentRotation,
 						basePageWidth,
 						basePageHeight
 					);
 					const pt2 = transformPoint(
 						baseX2,
 						baseY2,
-						$pdfState.rotation as RotationAngle,
+						currentRotation,
 						basePageWidth,
 						basePageHeight
 					);
 
-					const x1 = pt1.x;
-					const y1 = pt1.y;
-					const x2 = pt2.x;
-					const y2 = pt2.y;
+					const x1 = pt1.x * viewerScale;
+					const y1 = pt1.y * viewerScale;
+					const x2 = pt2.x * viewerScale;
+					const y2 = pt2.y * viewerScale;
 
 					// Draw arrow line
 					ctx.strokeStyle = arrow.stroke;
@@ -2580,10 +2582,14 @@
 							`Drawing current page stamp "${stampName}" at (${x}, ${y}) size ${stampWidth}x${stampHeight}`
 						);
 						ctx.save();
-						ctx.translate(x, y);
-						const totalRotation = currentRotation + (stampAnnotation.rotation || 0);
-						ctx.rotate((totalRotation * Math.PI) / 180);
-						ctx.translate(-x, -y);
+						// Apply only stamp's own rotation around center, not combined with page rotation
+						if (stampAnnotation.rotation && stampAnnotation.rotation !== 0) {
+							const centerX = x + stampWidth / 2;
+							const centerY = y + stampHeight / 2;
+							ctx.translate(centerX, centerY);
+							ctx.rotate((stampAnnotation.rotation * Math.PI) / 180);
+							ctx.translate(-centerX, -centerY);
+						}
 						ctx.drawImage(img, x, y, stampWidth, stampHeight);
 						ctx.restore();
 
@@ -2597,10 +2603,13 @@
 
 						// Draw fallback rectangle
 						ctx.save();
-						ctx.translate(x, y);
-						const totalRotation = currentRotation + (stampAnnotation.rotation || 0);
-						ctx.rotate((totalRotation * Math.PI) / 180);
-						ctx.translate(-x, -y);
+						if (stampAnnotation.rotation && stampAnnotation.rotation !== 0) {
+							const centerX = x + stampWidth / 2;
+							const centerY = y + stampHeight / 2;
+							ctx.translate(centerX, centerY);
+							ctx.rotate((stampAnnotation.rotation * Math.PI) / 180);
+							ctx.translate(-centerX, -centerY);
+						}
 
 						ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
 						ctx.fillRect(x, y, stampWidth, stampHeight);
@@ -2630,6 +2639,8 @@
 			if (currentStickyNotes.length > 0) {
 				ctx.save();
 				ctx.scale(scaleX, scaleY);
+				const viewerScale = $pdfState.scale;
+				const currentRotation = $pdfState.rotation as RotationAngle;
 
 				currentStickyNotes.forEach((note) => {
 					const baseX = note.x !== undefined ? note.x : note.relativeX * basePageWidth;
@@ -2638,12 +2649,12 @@
 					const pt = transformPoint(
 						baseX,
 						baseY,
-						$pdfState.rotation as RotationAngle,
+						currentRotation,
 						basePageWidth,
 						basePageHeight
 					);
-					const x = pt.x;
-					const y = pt.y;
+					const x = pt.x * viewerScale;
+					const y = pt.y * viewerScale;
 
 					const width = note.width || 200;
 					const height = note.height || 150;
