@@ -2059,6 +2059,7 @@
 						: stampAnnotation.relativeY * basePageHeight;
 
 				const pt = transformPoint(baseX, baseY, currentRotation, basePageWidth, basePageHeight);
+				// Use base coordinates directly - the canvas context is already scaled by outputScale
 				const x = pt.x;
 				const y = pt.y;
 
@@ -2086,12 +2087,16 @@
 					);
 					
 					ctx.save();
-					// Rotate around stamp's top-left corner (matching viewer's transform-origin: top left)
-					// Apply both page rotation and stamp's own rotation
-					ctx.translate(x, y);
-					const totalRotation = currentRotation + (stampAnnotation.rotation || 0);
-					ctx.rotate((totalRotation * Math.PI) / 180);
-					ctx.translate(-x, -y);
+					// The viewer applies page rotation to position (already done via transformPoint)
+					// and stamp rotation to the content around its center
+					// We need to apply only the stamp's own rotation around the center of the stamp
+					if (stampAnnotation.rotation && stampAnnotation.rotation !== 0) {
+						const centerX = x + stampWidth / 2;
+						const centerY = y + stampHeight / 2;
+						ctx.translate(centerX, centerY);
+						ctx.rotate((stampAnnotation.rotation * Math.PI) / 180);
+						ctx.translate(-centerX, -centerY);
+					}
 					
 					ctx.drawImage(img, x, y, stampWidth, stampHeight);
 					ctx.restore();
@@ -2102,10 +2107,13 @@
 
 					// Draw fallback rectangle
 					ctx.save();
-					ctx.translate(x, y);
-					const totalRotation = currentRotation + (stampAnnotation.rotation || 0);
-					ctx.rotate((totalRotation * Math.PI) / 180);
-					ctx.translate(-x, -y);
+					if (stampAnnotation.rotation && stampAnnotation.rotation !== 0) {
+						const centerX = x + stampWidth / 2;
+						const centerY = y + stampHeight / 2;
+						ctx.translate(centerX, centerY);
+						ctx.rotate((stampAnnotation.rotation * Math.PI) / 180);
+						ctx.translate(-centerX, -centerY);
+					}
 					
 					ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
 					ctx.fillRect(x, y, stampWidth, stampHeight);
