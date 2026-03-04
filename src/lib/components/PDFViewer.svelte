@@ -1595,6 +1595,12 @@
 		return hasAnyAnnotations;
 	}
 
+	// Function to get rotation for a specific page
+	export function getPageRotation(pageNumber: number): number {
+		// Currently the app applies rotation globally to all pages
+		return $pdfState.rotation || 0;
+	}
+
 	// Function to get merged canvas for a specific page
 	export async function getMergedCanvasForPage(
 		pageNumber: number
@@ -1822,13 +1828,17 @@
 						ctx.globalAlpha = 1.0;
 					}
 
-					// SIMPLIFIED: Drawing paths are now stored at base viewport coordinates (scale 1.0)
-					// No transformation needed - just draw at the stored coordinates
-					ctx.beginPath();
-					ctx.moveTo(path.points[0].x, path.points[0].y);
+					// Transform drawing path points for rotation (same as other annotations)
+					// Drawing paths are stored at base viewport coordinates (scale 1.0)
+					const transformedPoints = path.points.map((point: Point) =>
+						transformPoint(point.x, point.y, currentRotation, basePageWidth, basePageHeight)
+					);
 
-					for (let i = 1; i < path.points.length; i++) {
-						ctx.lineTo(path.points[i].x, path.points[i].y);
+					ctx.beginPath();
+					ctx.moveTo(transformedPoints[0].x, transformedPoints[0].y);
+
+					for (let i = 1; i < transformedPoints.length; i++) {
+						ctx.lineTo(transformedPoints[i].x, transformedPoints[i].y);
 					}
 
 					ctx.stroke();
@@ -1884,25 +1894,33 @@
 
 		// Draw text annotations - Apply outputScale to match the scaled canvas
 		if (pageTextAnnotations.length > 0) {
-			console.log('Drawing text annotations with passed canvas dimensions:', {
-				canvasSize: [canvasWidth, canvasHeight]
+			console.log('Drawing text annotations with base dimensions:', {
+				baseDimensions: [basePageWidth, basePageHeight],
+				canvasDimensions: [canvasWidth, canvasHeight],
+				rotation: currentRotation
 			});
 			ctx.save();
 			ctx.scale(outputScale, outputScale);
 
 			pageTextAnnotations.forEach((annotation) => {
-				// Use the stored relative coordinates which are relative to the BASE page dimensions
+				// Annotations are stored in unrotated (base) coordinates
+				// Transform them to the rotated coordinate space for rendering on the rotated PDF
 				let baseX =
 					annotation.x !== undefined ? annotation.x : annotation.relativeX * basePageWidth;
 				let baseY =
 					annotation.y !== undefined ? annotation.y : annotation.relativeY * basePageHeight;
 
-				// Transform point to the currently rotated page space
 				const pt = transformPoint(baseX, baseY, currentRotation, basePageWidth, basePageHeight);
 				const x = pt.x;
 				const y = pt.y;
 
-				console.log(`Text annotation base: (${baseX}, ${baseY}) -> rotated: (${x}, ${y})`);
+				console.log(`Text annotation base: (${baseX}, ${baseY}) -> rotated: (${x}, ${y}), rotation: ${currentRotation}`);
+
+				ctx.save();
+				// Translate to text position and rotate
+				ctx.translate(x, y);
+				ctx.rotate((currentRotation * Math.PI) / 180);
+				ctx.translate(-x, -y);
 
 				ctx.font = `${annotation.fontSize}px ${annotation.fontFamily}`;
 				ctx.fillStyle = annotation.color;
@@ -1912,6 +1930,7 @@
 				lines.forEach((line: string, index: number) => {
 					ctx.fillText(line, x, y + index * annotation.fontSize * 1.2);
 				});
+				ctx.restore();
 			});
 
 			ctx.restore();
@@ -1923,6 +1942,7 @@
 			ctx.scale(outputScale, outputScale);
 
 			pageArrowAnnotations.forEach((arrow) => {
+				// Annotations are stored in unrotated (base) coordinates
 				const baseX1 = arrow.x1 !== undefined ? arrow.x1 : arrow.relativeX1 * basePageWidth;
 				const baseY1 = arrow.y1 !== undefined ? arrow.y1 : arrow.relativeY1 * basePageHeight;
 				const baseX2 = arrow.x2 !== undefined ? arrow.x2 : arrow.relativeX2 * basePageWidth;
@@ -2011,6 +2031,7 @@
 				const pt = transformPoint(baseX, baseY, currentRotation, basePageWidth, basePageHeight);
 				const x = pt.x;
 				const y = pt.y;
+
 				// Calculate stamp size the same way as StampAnnotation component
 				const MIN_SIZE = 16;
 				const MAX_SIZE = 120;
@@ -2031,20 +2052,38 @@
 					const img = await svgToImage(svgString, stampWidth, stampHeight);
 
 					console.log(
-						`Drawing stamp "${stampName}" at (${x}, ${y}) size ${stampWidth}x${stampHeight}`
+						`Drawing stamp "${stampName}" at (${x}, ${y}) size ${stampWidth}x${stampHeight}, rotation: ${currentRotation}`
 					);
+					
+					ctx.save();
+					// Rotate around stamp center
+					const centerX = x + stampWidth / 2;
+					const centerY = y + stampHeight / 2;
+					ctx.translate(centerX, centerY);
+					ctx.rotate((currentRotation * Math.PI) / 180);
+					ctx.translate(-centerX, -centerY);
+					
 					ctx.drawImage(img, x, y, stampWidth, stampHeight);
+					ctx.restore();
 
 					return { success: true, stamp: stampName };
 				} catch (error) {
 					console.warn('Failed to convert SVG to image for export:', stampName, error);
 
 					// Draw fallback rectangle
+					ctx.save();
+					const centerX = x + stampWidth / 2;
+					const centerY = y + stampHeight / 2;
+					ctx.translate(centerX, centerY);
+					ctx.rotate((currentRotation * Math.PI) / 180);
+					ctx.translate(-centerX, -centerY);
+					
 					ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
 					ctx.fillRect(x, y, stampWidth, stampHeight);
 					ctx.fillStyle = '#000';
 					ctx.font = '12px Arial';
 					ctx.fillText(stampName, x + 5, y + 20);
+					ctx.restore();
 
 					return { success: false, stamp: stampName, error };
 				}

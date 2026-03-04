@@ -1,4 +1,4 @@
-import { PDFDocument, PDFPage } from 'pdf-lib';
+import { PDFDocument, PDFPage, degrees } from 'pdf-lib';
 import { invoke } from '@tauri-apps/api/core';
 import { isTauri } from './tauriUtils';
 
@@ -11,6 +11,7 @@ export interface ExportOptions {
 export class PDFExporter {
 	private originalPdfBytes: Uint8Array | null = null;
 	private canvasElements: Map<number, HTMLCanvasElement> = new Map();
+	private pageRotations: Map<number, any> = new Map();
 
 	/**
 	 * Convert CSS pixels to PDF points (1/72 inch)
@@ -28,6 +29,21 @@ export class PDFExporter {
 		this.canvasElements.set(pageNumber, canvas);
 	}
 
+	setPageRotation(pageNumber: number, rotation: number) {
+		// pdf-lib expects a 'degrees' object which is just a number wrapped in a helper function
+		// We'll import degrees dynamically to avoid issues, or use the type but cast
+		// actually pdf-lib.degrees is a function that returns an angle, but we can also use setRotation(degrees(x))
+		// We can just store the number here and apply it later
+		// To avoid importing degrees at the top level, we'll store as number
+	}
+
+	// We'll store rotation as number directly
+	private _pageRotations: Map<number, number> = new Map();
+
+	setRotation(pageNumber: number, rotationDegrees: number) {
+		this._pageRotations.set(pageNumber, rotationDegrees);
+	}
+
 	async exportToPDF(): Promise<Uint8Array> {
 		if (!this.originalPdfBytes) {
 			throw new Error('No original PDF loaded');
@@ -38,9 +54,15 @@ export class PDFExporter {
 			const pdfDoc = await PDFDocument.load(this.originalPdfBytes, { ignoreEncryption: true });
 			const pages = pdfDoc.getPages();
 			for (let pageNumber = 1; pageNumber <= pages.length; pageNumber++) {
+				const page = pages[pageNumber - 1];
+				const rotation = this._pageRotations.get(pageNumber);
+				if (rotation !== undefined) {
+					page.setRotation(degrees(rotation));
+				}
+
 				const canvas = this.canvasElements.get(pageNumber);
 				if (canvas) {
-					await this.embedCanvasInPage(pdfDoc, pages[pageNumber - 1], canvas);
+					await this.embedCanvasInPage(pdfDoc, page, canvas, rotation || 0);
 				}
 			}
 			return await pdfDoc.save();
@@ -77,7 +99,13 @@ export class PDFExporter {
 						PDFExporter.pixelsToPoints(canvas.width),
 						PDFExporter.pixelsToPoints(canvas.height)
 					]);
-					await this.embedCanvasInPage(newDoc, page, canvas);
+
+					const rotation = this._pageRotations.get(pageNum);
+					if (rotation !== undefined) {
+						page.setRotation(degrees(rotation));
+					}
+
+					await this.embedCanvasInPage(newDoc, page, canvas, rotation || 0);
 				}
 				return await newDoc.save();
 			} catch (fallbackError) {
@@ -97,28 +125,51 @@ export class PDFExporter {
 		}
 	}
 
-	private async embedCanvasInPage(pdfDoc: PDFDocument, page: PDFPage, canvas: HTMLCanvasElement) {
-		// Convert canvas to PNG using Blob to avoid base64 memory spikes and tainted-canvas issues
-		const blob: Blob = await new Promise((resolve, reject) => {
-			canvas.toBlob(
-				(b) => (b ? resolve(b) : reject(new Error('Canvas toBlob failed'))),
-				'image/png'
-			);
+	async embedCanvasInPage(
+		pdfDoc: PDFDocument,
+		page: PDFPage,
+		canvas: HTMLCanvasElement,
+		rotationDegrees: number
+	) {
+		const pngBytes = await new Promise<Uint8Array>((resolve, reject) => {
+			canvas.toBlob((blob) => {
+				if (!blob) {
+					reject(new Error('Canvas toBlob failed'));
+					return;
+				}
+				const reader = new FileReader();
+				reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
+				reader.onerror = reject;
+				reader.readAsArrayBuffer(blob);
+			}, 'image/png');
 		});
-		const imageBytes = new Uint8Array(await blob.arrayBuffer());
 
-		// Embed the image in the PDF
-		const image = await pdfDoc.embedPng(imageBytes);
+		const image = await pdfDoc.embedPng(pngBytes);
 
-		// Get page dimensions
+		// PDF pages can have a rotation attribute.
+		// Instead of drawing rotated content, we set the page size to the visual dimensions
+		// and draw the image to fill it. This is more robust for export.
 		const { width, height } = page.getSize();
+
+		// If the visual rotation is 90 or 270 degrees, swap dimensions
+		const isRotated90or270 = (rotationDegrees / 90) % 2 !== 0;
+		const targetWidth = isRotated90or270 ? height : width;
+		const targetHeight = isRotated90or270 ? width : height;
+
+		// Update page size to match visual orientation
+		page.setSize(targetWidth, targetHeight);
+
+		// Reset rotation attribute since we've already oriented the page via Size
+		// Actually, some users might expect the rotation attribute.
+		// But for a merged canvas, Size swap is usually cleaner.
+		page.setRotation(degrees(0));
 
 		// Draw the image over the existing page content
 		page.drawImage(image, {
 			x: 0,
 			y: 0,
-			width: width,
-			height: height
+			width: targetWidth,
+			height: targetHeight
 		});
 	}
 

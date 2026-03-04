@@ -169,7 +169,7 @@ describe('PDFUtils', () => {
 				await pdfManager.renderPage(1, options);
 
 				expect(mockPDF.getPage).toHaveBeenCalledWith(1);
-				expect(mockPage.getViewport).toHaveBeenCalledWith({ scale: 1.5 });
+				expect(mockPage.getViewport).toHaveBeenCalledWith({ scale: 1.5, rotation: 0 });
 				expect(mockPage.render).toHaveBeenCalled();
 				expect(canvas.width).toBe(612);
 				expect(canvas.height).toBe(792);
@@ -235,7 +235,7 @@ describe('PDFUtils', () => {
 				const dimensions = await pdfManager.getPageDimensions(1, 1.5);
 
 				expect(dimensions).toEqual({ width: 612, height: 792 });
-				expect(mockPage.getViewport).toHaveBeenCalledWith({ scale: 1.5 });
+				expect(mockPage.getViewport).toHaveBeenCalledWith({ scale: 1.5, rotation: 0 });
 			});
 
 			it('should handle errors when getting dimensions', async () => {

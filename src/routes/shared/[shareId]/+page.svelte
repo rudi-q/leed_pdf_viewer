@@ -313,6 +313,12 @@
 				const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
 				if (mergedCanvas) {
 					exporter.setPageCanvas(pageNumber, mergedCanvas);
+
+					// Apply rotation to the exported PDF page
+					if ($pdfState.rotation !== 0) {
+						exporter.setRotation(pageNumber, $pdfState.rotation);
+					}
+
 					console.log(`✅ Added merged canvas for page ${pageNumber}`);
 				} else {
 					console.log(`❌ Failed to create merged canvas for page ${pageNumber}`);
