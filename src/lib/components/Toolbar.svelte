@@ -393,7 +393,7 @@
 					{#if onRotateLeft || onRotateRight}
 						<div class="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-1"></div>
 						{#if onRotateLeft}
-							<Tooltip content="Rotate left 90°">
+							<Tooltip content="Rotate left 90° (Shift+R)">
 								<button
 									class="tool-button w-8 h-8 flex items-center justify-center"
 									class:opacity-50={!$pdfState.document}
@@ -407,7 +407,7 @@
 						{/if}
 
 						{#if onRotateRight}
-							<Tooltip content="Rotate right 90°">
+							<Tooltip content="Rotate right 90° (R)">
 								<button
 									class="tool-button w-8 h-8 flex items-center justify-center"
 									class:opacity-50={!$pdfState.document}
