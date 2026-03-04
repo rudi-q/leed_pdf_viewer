@@ -2087,16 +2087,13 @@
 					);
 					
 					ctx.save();
-					// The viewer applies page rotation to position (already done via transformPoint)
-					// and stamp rotation to the content around its center
-					// We need to apply only the stamp's own rotation around the center of the stamp
-					if (stampAnnotation.rotation && stampAnnotation.rotation !== 0) {
-						const centerX = x + stampWidth / 2;
-						const centerY = y + stampHeight / 2;
-						ctx.translate(centerX, centerY);
-						ctx.rotate((stampAnnotation.rotation * Math.PI) / 180);
-						ctx.translate(-centerX, -centerY);
-					}
+					// Apply both page rotation and stamp's own rotation around top-left corner
+					// This matches the viewer: outer div rotates by page rotation (transform-origin: top left)
+					// and inner content adds stamp's own rotation
+					ctx.translate(x, y);
+					const totalRotation = currentRotation + (stampAnnotation.rotation || 0);
+					ctx.rotate((totalRotation * Math.PI) / 180);
+					ctx.translate(-x, -y);
 					
 					ctx.drawImage(img, x, y, stampWidth, stampHeight);
 					ctx.restore();
@@ -2107,13 +2104,10 @@
 
 					// Draw fallback rectangle
 					ctx.save();
-					if (stampAnnotation.rotation && stampAnnotation.rotation !== 0) {
-						const centerX = x + stampWidth / 2;
-						const centerY = y + stampHeight / 2;
-						ctx.translate(centerX, centerY);
-						ctx.rotate((stampAnnotation.rotation * Math.PI) / 180);
-						ctx.translate(-centerX, -centerY);
-					}
+					ctx.translate(x, y);
+					const totalFallbackRotation = currentRotation + (stampAnnotation.rotation || 0);
+					ctx.rotate((totalFallbackRotation * Math.PI) / 180);
+					ctx.translate(-x, -y);
 					
 					ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
 					ctx.fillRect(x, y, stampWidth, stampHeight);
