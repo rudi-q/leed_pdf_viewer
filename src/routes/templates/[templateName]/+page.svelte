@@ -466,12 +466,19 @@
 
 			for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
 				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
+				const pageRotation = pdfViewer.getPageRotation
+					? pdfViewer.getPageRotation(pageNumber)
+					: ($pdfState.rotation || 0);
+				if (pageRotation !== 0) {
+					exporter.setRotation(pageNumber, pageRotation);
+				}
 
 				if (hasAnnotations) {
 					console.log(`📄 Page ${pageNumber} has annotations - creating merged canvas`);
 					const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
 					if (mergedCanvas) {
 						exporter.setPageCanvas(pageNumber, mergedCanvas);
+
 						pagesWithAnnotations++;
 						console.log(`✅ Added merged canvas for page ${pageNumber}`);
 					} else {
@@ -585,12 +592,19 @@
 
 				// Check if this page has any annotations
 				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
+				const pageRotation = pdfViewer.getPageRotation
+					? pdfViewer.getPageRotation(pageNumber)
+					: ($pdfState.rotation || 0);
+				if (pageRotation !== 0) {
+					exporter.setRotation(pageNumber, pageRotation);
+				}
 
 				if (hasAnnotations) {
 					console.log(`📝 Page ${pageNumber} has annotations - creating merged canvas`);
 					const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
 					if (mergedCanvas) {
 						exporter.setPageCanvas(pageNumber, mergedCanvas);
+
 						pagesWithAnnotations++;
 						console.log(`✅ Added merged canvas for page ${pageNumber} to DOCX export`);
 					} else {
@@ -721,6 +735,8 @@
 			onResetZoom={() => pdfViewer?.resetZoom()}
 			onFitToWidth={() => pdfViewer?.fitToWidth()}
 			onFitToHeight={() => pdfViewer?.fitToHeight()}
+			onRotateLeft={() => pdfViewer?.rotateLeft()}
+			onRotateRight={() => pdfViewer?.rotateRight()}
 			onExportPDF={handleExportPDF}
 			onExportLPDF={handleExportLPDF}
 			onExportDOCX={handleExportDOCX}

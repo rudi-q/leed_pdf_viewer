@@ -40,6 +40,7 @@ if (typeof window !== 'undefined' && !import.meta.env?.TEST) {
 export interface RenderOptions {
 	scale: number;
 	canvas: HTMLCanvasElement;
+	rotation?: 0 | 90 | 180 | 270;
 }
 
 // Custom error class to track retry information
@@ -243,8 +244,8 @@ export class PDFManager {
 			// Get the page
 			this.currentPageProxy = await this.document.getPage(pageNumber);
 
-			// Get viewport with desired scale
-			const viewport = this.currentPageProxy.getViewport({ scale: options.scale });
+			// Get viewport with desired scale and rotation
+			const viewport = this.currentPageProxy.getViewport({ scale: options.scale, rotation: options.rotation || 0 });
 
 			// Set canvas dimensions
 			const canvas = options.canvas;
@@ -282,7 +283,7 @@ export class PDFManager {
 
 		try {
 			// Get viewport with scale 1 as the context scaling is already handled externally
-			const viewport = pageProxy.getViewport({ scale: 1 });
+			const viewport = pageProxy.getViewport({ scale: 1, rotation: options.rotation || 0 });
 
 			// Set canvas dimensions
 			const canvas = options.canvas;
@@ -322,7 +323,8 @@ export class PDFManager {
 
 	async getPageDimensions(
 		pageNumber: number,
-		scale: number = 1
+		scale: number = 1,
+		rotation: 0 | 90 | 180 | 270 = 0
 	): Promise<{ width: number; height: number }> {
 		if (!this.document) {
 			throw new Error('No PDF document loaded');
@@ -330,7 +332,7 @@ export class PDFManager {
 
 		try {
 			const page = await this.document.getPage(pageNumber);
-			const viewport = page.getViewport({ scale });
+			const viewport = page.getViewport({ scale, rotation });
 			return {
 				width: viewport.width,
 				height: viewport.height

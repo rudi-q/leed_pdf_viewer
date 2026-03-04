@@ -54,6 +54,7 @@
 		Presentation,
 		Redo2,
 		RotateCcw,
+		RotateCw,
 		Search,
 		Share,
 		Square,
@@ -100,6 +101,8 @@
 	export let onExportCompressedPDF: (() => void) | undefined = undefined;
 	export let onExportPNG: (() => void) | undefined = undefined;
 	export let onSharePDF: (() => void) | undefined = undefined;
+	export let onRotateLeft: (() => void | Promise<void>) | undefined = undefined;
+	export let onRotateRight: (() => void | Promise<void>) | undefined = undefined;
 
 	// Thumbnail panel control
 	export let showThumbnails = false;
@@ -386,6 +389,37 @@
 							<span class="font-medium text-xs">Fit H</span>
 						</button>
 					</Tooltip>
+
+					{#if onRotateLeft || onRotateRight}
+						<div class="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-1"></div>
+						{#if onRotateLeft}
+							<Tooltip content="Rotate left 90° (Shift+R)">
+								<button
+									class="tool-button w-8 h-8 flex items-center justify-center"
+									class:opacity-50={!$pdfState.document}
+									disabled={!$pdfState.document}
+									on:click={onRotateLeft}
+									aria-label="Rotate page left 90 degrees"
+								>
+									<RotateCcw size={14} />
+								</button>
+							</Tooltip>
+						{/if}
+
+						{#if onRotateRight}
+							<Tooltip content="Rotate right 90° (R)">
+								<button
+									class="tool-button w-8 h-8 flex items-center justify-center"
+									class:opacity-50={!$pdfState.document}
+									disabled={!$pdfState.document}
+									on:click={onRotateRight}
+									aria-label="Rotate page right 90 degrees"
+								>
+									<RotateCw size={14} />
+								</button>
+							</Tooltip>
+						{/if}
+					{/if}
 				</div>
 			</div>
 

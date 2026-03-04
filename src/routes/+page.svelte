@@ -699,6 +699,14 @@
 				// Check if this page has any annotations
 				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNum);
 
+				// Apply rotation to the exported PDF page regardless of annotations
+				const pageRotation = pdfViewer.getPageRotation
+					? pdfViewer.getPageRotation(pageNum)
+					: ($pdfState.rotation || 0);
+				if (pageRotation !== 0) {
+					exporter.setRotation(pageNum, pageRotation);
+				}
+
 				// Always try to create merged canvas for all pages to debug the issue
 				console.log(
 					`Page ${pageNum} has annotations: ${hasAnnotations}. Creating merged canvas anyway...`
@@ -807,6 +815,14 @@
 
 				// Check if this page has any annotations
 				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNum);
+
+				// Apply rotation to the exported PDF page regardless of annotations
+				const pageRotation = pdfViewer.getPageRotation
+					? pdfViewer.getPageRotation(pageNum)
+					: ($pdfState.rotation || 0);
+				if (pageRotation !== 0) {
+					exporter.setRotation(pageNum, pageRotation);
+				}
 
 				// Create merged canvas for all pages (including annotations if present)
 				console.log(
@@ -1108,6 +1124,8 @@
 			onResetZoom={() => pdfViewer?.resetZoom()}
 			onFitToWidth={() => pdfViewer?.fitToWidth()}
 			onFitToHeight={() => pdfViewer?.fitToHeight()}
+			onRotateLeft={() => pdfViewer?.rotateLeft()}
+			onRotateRight={() => pdfViewer?.rotateRight()}
 			onExportPDF={handleExportPDF}
 			onExportLPDF={handleExportLPDF}
 			onExportDOCX={handleExportDOCX}

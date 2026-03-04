@@ -11,11 +11,15 @@
 	} from '$lib/stores/drawingStore';
 	import { trackFirstAnnotation } from '$lib/utils/analytics';
 	import ArrowAnnotationComponent from './ArrowAnnotation.svelte';
+	import { inverseTransformPoint, type RotationAngle } from '../utils/rotationUtils';
 
-	export let containerWidth: number = 0; // Base viewport width at scale 1.0
-	export let containerHeight: number = 0; // Base viewport height at scale 1.0
+	export let containerWidth: number = 0; // Actual displayed canvas width
+	export let containerHeight: number = 0; // Actual displayed canvas height
 	export let scale: number = 1; // Current zoom scale
 	export let viewOnlyMode = false; // If true, disable all editing interactions
+	export let rotation: RotationAngle = 0;
+	export let basePageWidth: number = 0;
+	export let basePageHeight: number = 0;
 
 	let overlayElement: HTMLDivElement;
 
@@ -33,7 +37,7 @@
 
 		// Don't create new arrows if clicking on existing arrow elements
 		const target = event.target as Element;
-		if (target.closest('.arrow-annotation, .delete-btn, .handle, .arrow-line')) {
+		if (target.closest('.delete-btn, .handle, .arrow-line')) {
 			return;
 		}
 
@@ -47,12 +51,24 @@
 		// Get click position in current scale
 		const scaledX = event.clientX - rect.left;
 		const scaledY = event.clientY - rect.top;
-		
-		// Convert to base viewport coordinates
-		startX = scaledX / scale;
-		startY = scaledY / scale;
+
+		const safeScale = scale > 0 ? scale : 1;
+		const rotatedBaseX = scaledX / safeScale;
+		const rotatedBaseY = scaledY / safeScale;
+
+		const basePoint = inverseTransformPoint(
+			rotatedBaseX,
+			rotatedBaseY,
+			rotation,
+			basePageWidth,
+			basePageHeight
+		);
+		startX = basePoint.x;
+		startY = basePoint.y;
 
 		isCreatingArrow = true;
+		document.addEventListener('mousemove', handleDocumentMouseMove);
+		document.addEventListener('mouseup', handleDocumentMouseUp);
 
 		// Create new arrow immediately (storing at base scale)
 		const newArrow: ArrowAnnotation = {
@@ -62,10 +78,10 @@
 			y1: startY, // Store at base scale
 			x2: startX + 50, // Default length at base scale
 			y2: startY + 50,
-			relativeX1: startX / containerWidth,
-			relativeY1: startY / containerHeight,
-			relativeX2: (startX + 50) / containerWidth,
-			relativeY2: (startY + 50) / containerHeight,
+			relativeX1: basePageWidth > 0 ? startX / basePageWidth : 0,
+			relativeY1: basePageHeight > 0 ? startY / basePageHeight : 0,
+			relativeX2: basePageWidth > 0 ? (startX + 50) / basePageWidth : 0,
+			relativeY2: basePageHeight > 0 ? (startY + 50) / basePageHeight : 0,
 			stroke: $drawingState.color || '#2D3748',
 			strokeWidth: $drawingState.lineWidth || 3,
 			arrowHead: true
@@ -77,32 +93,47 @@
 		addArrowAnnotation(newArrow);
 	};
 
+	// Shared helper for transforming mouse event to base scale coordinates
+	// and updating the arrow's end point.
+	const computeAndUpdateArrowEnd = (event: MouseEvent) => {
+		const targetArrow = $currentPageArrowAnnotations[$currentPageArrowAnnotations.length - 1];
+		if (targetArrow && overlayElement) {
+			const rect = overlayElement.getBoundingClientRect();
+			// Get mouse position in current scale
+			const scaledX = event.clientX - rect.left;
+			const scaledY = event.clientY - rect.top;
+
+			const safeScale = scale > 0 ? scale : 1;
+			const rotatedBaseX = scaledX / safeScale;
+			const rotatedBaseY = scaledY / safeScale;
+
+			const basePoint = inverseTransformPoint(
+				rotatedBaseX,
+				rotatedBaseY,
+				rotation,
+				basePageWidth,
+				basePageHeight
+			);
+			const currentX = basePoint.x;
+			const currentY = basePoint.y;
+
+			const updatedArrow = {
+				...targetArrow,
+				x2: Math.min(basePageWidth, Math.max(0, currentX)),
+				y2: Math.min(basePageHeight, Math.max(0, currentY)),
+				relativeX2:
+					basePageWidth > 0 ? Math.min(basePageWidth, Math.max(0, currentX)) / basePageWidth : 0,
+				relativeY2:
+					basePageHeight > 0 ? Math.min(basePageHeight, Math.max(0, currentY)) / basePageHeight : 0
+			};
+
+			updateArrowAnnotation(updatedArrow);
+		}
+	};
+
 	const handleContainerMouseMove = (event: MouseEvent) => {
 		if (!isCreatingArrow) return;
-
-		const rect = overlayElement.getBoundingClientRect();
-		// Get mouse position in current scale
-		const scaledX = event.clientX - rect.left;
-		const scaledY = event.clientY - rect.top;
-		
-		// Convert to base viewport coordinates
-		const currentX = scaledX / scale;
-		const currentY = scaledY / scale;
-
-		// Update last created arrow with new end coordinates
-		const arrows = $currentPageArrowAnnotations;
-		const arrow = arrows[arrows.length - 1];
-		if (!arrow) return;
-
-		const updatedArrow = {
-			...arrow,
-			x2: Math.min(containerWidth, Math.max(0, currentX)), // Store at base scale
-			y2: Math.min(containerHeight, Math.max(0, currentY)), // Store at base scale
-			relativeX2: Math.min(containerWidth, Math.max(0, currentX)) / containerWidth,
-			relativeY2: Math.min(containerHeight, Math.max(0, currentY)) / containerHeight
-		};
-
-		updateArrowAnnotation(updatedArrow);
+		computeAndUpdateArrowEnd(event);
 	};
 
 	const handleContainerMouseUp = (event: MouseEvent) => {
@@ -117,30 +148,7 @@
 	// Document-level mouse handlers for better tracking during arrow creation
 	const handleDocumentMouseMove = (event: MouseEvent) => {
 		if (!isCreatingArrow || !overlayElement) return;
-
-		const rect = overlayElement.getBoundingClientRect();
-		// Get mouse position in current scale
-		const scaledX = event.clientX - rect.left;
-		const scaledY = event.clientY - rect.top;
-		
-		// Convert to base viewport coordinates
-		const currentX = scaledX / scale;
-		const currentY = scaledY / scale;
-
-		// Update last created arrow with new end coordinates
-		const arrows = $currentPageArrowAnnotations;
-		const arrow = arrows[arrows.length - 1];
-		if (!arrow) return;
-
-		const updatedArrow = {
-			...arrow,
-			x2: Math.min(containerWidth, Math.max(0, currentX)), // Store at base scale
-			y2: Math.min(containerHeight, Math.max(0, currentY)), // Store at base scale
-			relativeX2: Math.min(containerWidth, Math.max(0, currentX)) / containerWidth,
-			relativeY2: Math.min(containerHeight, Math.max(0, currentY)) / containerHeight
-		};
-
-		updateArrowAnnotation(updatedArrow);
+		computeAndUpdateArrowEnd(event);
 	};
 
 	const handleDocumentMouseUp = (event: MouseEvent) => {
@@ -190,10 +198,10 @@
 </script>
 
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-<div 
+<div
 	bind:this={overlayElement}
 	class="arrow-overlay absolute top-0 left-0 {pointerEventsClass}"
-	style="width: {containerWidth * scale}px; height: {containerHeight * scale}px; z-index: 3;"
+	style="width: {containerWidth}px; height: {containerHeight}px; z-index: 3;"
 	on:mousedown={handleContainerMouseDown}
 	on:mousemove={handleContainerMouseMove}
 	on:mouseup={handleContainerMouseUp}
@@ -207,6 +215,9 @@
 			{scale}
 			{containerWidth}
 			{containerHeight}
+			{rotation}
+			{basePageWidth}
+			{basePageHeight}
 			on:update={handleArrowUpdate}
 			on:delete={handleArrowDelete}
 		/>
