@@ -37,7 +37,7 @@
 
 		// Don't create new arrows if clicking on existing arrow elements
 		const target = event.target as Element;
-		if (target.closest('.arrow-annotation, .delete-btn, .handle, .arrow-line')) {
+		if (target.closest('.delete-btn, .handle, .arrow-line')) {
 			return;
 		}
 
