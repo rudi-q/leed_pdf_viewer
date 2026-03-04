@@ -9,10 +9,10 @@
 	} from '../utils/rotationUtils';
 
 	export let arrow: ArrowAnnotation;
-	export const scale: number = 1; // For future scaling features
+	export let scale: number = 1; // Current PDF zoom scale
 	export let containerWidth: number = 0;
 	export let containerHeight: number = 0;
-	export let rotation: number = 0;
+	export let rotation: RotationAngle = 0;
 	export let basePageWidth: number = 0;
 	export let basePageHeight: number = 0;
 
