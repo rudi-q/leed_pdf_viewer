@@ -58,14 +58,11 @@
 		schedulingLazySetup = false; // Clear flag
 		if (typeof window === 'undefined') return;
 
-		console.log('Setting up lazy loading observer');
-
 		observer = new IntersectionObserver(
 			(entries) => {
 				entries.forEach((entry) => {
 					if (entry.isIntersecting) {
 						const pageNumber = parseInt(entry.target.getAttribute('data-page') || '0');
-						console.log('Page', pageNumber, 'came into view, generating thumbnail');
 						if (pageNumber && !thumbnails.has(pageNumber)) {
 							generateThumbnail(pageNumber);
 						}
@@ -83,7 +80,6 @@
 
 		// Observe all placeholder elements
 		const placeholders = thumbnailContainer?.querySelectorAll('.thumbnail-placeholder');
-		console.log('Found', placeholders?.length, 'placeholders to observe');
 		placeholders?.forEach((placeholder) => {
 			observer?.observe(placeholder);
 		});
@@ -147,7 +143,6 @@
 	let lastDocument: any = null;
 	$: if ($pdfState.document && $pdfState.document !== lastDocument) {
 		lastDocument = $pdfState.document;
-		thumbnails.clear();
 		generatedPages.clear();
 		thumbnails = new Map();
 		// Reset observer when document changes

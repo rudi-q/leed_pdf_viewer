@@ -300,7 +300,7 @@
 	style:top="{displayY}px"
 	style:width="{displayWidth}px"
 	style:height="{displayHeight}px"
-	style="--rotation: {rotation}deg; --state-transform: translateY(0px);"
+	style="--rotation: {rotation}deg;"
 	style:background-color={note.backgroundColor}
 	style:font-size="{note.fontSize * scale}px"
 	class:editing={isEditing}
@@ -310,7 +310,7 @@
 	on:dblclick={handleDoubleClick}
 	on:contextmenu={handleContextMenu}
 	on:keydown={(e) => {
-		if (viewOnlyMode) return;
+		if (viewOnlyMode || isEditing) return;
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();
 			handleDoubleClick();

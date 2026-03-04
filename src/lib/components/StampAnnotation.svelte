@@ -88,8 +88,9 @@
 			const newX = event.clientX - dragStartX;
 			const newY = event.clientY - dragStartY;
 
-			const rotatedBaseX = newX / scale;
-			const rotatedBaseY = newY / scale;
+			const safeScale = scale > 0 ? scale : 1;
+			const rotatedBaseX = newX / safeScale;
+			const rotatedBaseY = newY / safeScale;
 
 			const basePoint = inverseTransformPoint(
 				rotatedBaseX,
@@ -132,8 +133,9 @@
 			}
 
 			const delta = Math.max(deltaX, deltaY); // Use the larger delta
-			const baseDelta = delta / scale;
-			const baseStartSize = resizeStartSize / scale;
+			const safeScale = scale > 0 ? scale : 1;
+			const baseDelta = delta / safeScale;
+			const baseStartSize = resizeStartSize / safeScale;
 
 			const newSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, baseStartSize + baseDelta));
 
@@ -237,11 +239,15 @@
 	$: if (basePageWidth > 0 && basePageHeight > 0) {
 		const pos = getAbsolutePosition(stamp);
 		const epsilon = 0.01;
+		const stampX = typeof stamp.x === 'number' && isFinite(stamp.x) ? stamp.x : pos.x;
+		const stampY = typeof stamp.y === 'number' && isFinite(stamp.y) ? stamp.y : pos.y;
+		const stampSize =
+			typeof stamp.size === 'number' && isFinite(stamp.size) ? stamp.size : pos.size;
 
 		if (
-			Math.abs(pos.x - stamp.x) > epsilon ||
-			Math.abs(pos.y - stamp.y) > epsilon ||
-			Math.abs(pos.size - (stamp.size || 0)) > epsilon
+			Math.abs(pos.x - stampX) > epsilon ||
+			Math.abs(pos.y - stampY) > epsilon ||
+			Math.abs(pos.size - stampSize) > epsilon
 		) {
 			const updatedStamp: StampAnnotation = {
 				...stamp,

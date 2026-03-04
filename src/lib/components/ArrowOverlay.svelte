@@ -67,6 +67,8 @@
 		startY = basePoint.y;
 
 		isCreatingArrow = true;
+		document.addEventListener('mousemove', handleDocumentMouseMove);
+		document.addEventListener('mouseup', handleDocumentMouseUp);
 
 		// Create new arrow immediately (storing at base scale)
 		const newArrow: ArrowAnnotation = {

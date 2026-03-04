@@ -40,6 +40,8 @@
 		const target = event.target as HTMLElement;
 		if (target.closest('.stamp-annotation')) return;
 
+		if (!basePageWidth || !basePageHeight) return;
+
 		// Calculate click position relative to the container
 		// Get click position in current scale
 		const rect = overlayElement.getBoundingClientRect();

@@ -77,7 +77,9 @@
 		event.stopPropagation();
 
 		isDraggingStart = true;
-		const rect = (event.target as Element).closest('.arrow-overlay')?.getBoundingClientRect();
+		const target = event.target as HTMLElement;
+		currentOverlay = target.closest('.arrow-overlay') as HTMLElement | null;
+		const rect = currentOverlay?.getBoundingClientRect();
 		if (rect) {
 			dragStartX = event.clientX - rect.left - displayX1;
 			dragStartY = event.clientY - rect.top - displayY1;
@@ -92,7 +94,9 @@
 		event.stopPropagation();
 
 		isDraggingEnd = true;
-		const rect = (event.target as Element).closest('.arrow-overlay')?.getBoundingClientRect();
+		const target = event.target as HTMLElement;
+		currentOverlay = target.closest('.arrow-overlay') as HTMLElement | null;
+		const rect = currentOverlay?.getBoundingClientRect();
 		if (rect) {
 			dragStartX = event.clientX - rect.left - displayX2;
 			dragStartY = event.clientY - rect.top - displayY2;
