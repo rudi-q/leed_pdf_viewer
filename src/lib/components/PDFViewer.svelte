@@ -22,6 +22,11 @@
 	} from '../stores/drawingStore';
 	import { PDFManager, PDFLoadError } from '../utils/pdfUtils';
 	import { DrawingEngine, splitPathByEraser } from '../utils/drawingUtils';
+	import {
+		transformPoint,
+		inverseTransformPoint,
+		type RotationAngle
+	} from '../utils/rotationUtils';
 	import { toastStore } from '../stores/toastStore';
 	import { openExternalUrl } from '../utils/navigationUtils';
 	import {
@@ -130,6 +135,10 @@
 	// Canvas dimensions for overlays - will be updated manually
 	let canvasDisplayWidth = 0;
 	let canvasDisplayHeight = 0;
+
+	// Base page dimensions at scale 1, rotation 0 — used for coordinate transforms
+	let basePageWidth = 0;
+	let basePageHeight = 0;
 
 	// Text extraction state
 	let extractedPageText = '';
@@ -502,7 +511,8 @@
 				document,
 				totalPages: document.numPages,
 				currentPage: 1,
-				isLoading: false
+				isLoading: false,
+				rotation: 0
 			}));
 
 			// Mark this file as loaded
@@ -515,7 +525,7 @@
 			// Auto-fit to page on first load for better initial view of both portrait and landscape
 			if (containerDiv) {
 				const page = await document.getPage(1);
-				const viewport = page.getViewport({ scale: 1 });
+				const viewport = page.getViewport({ scale: 1, rotation: $pdfState.rotation });
 				const containerHeight = containerDiv.clientHeight - TOOLBAR_HEIGHT; // Account for toolbar and page info
 				const containerWidth = containerDiv.clientWidth - 40; // Account for padding
 
@@ -528,7 +538,15 @@
 				console.log('Initial scale set to fit page:', fitPageScale);
 
 				// Pre-calculate canvas dimensions at the new scale to avoid position jumps
-				const scaledViewport = page.getViewport({ scale: fitPageScale });
+				const scaledViewport = page.getViewport({
+					scale: fitPageScale,
+					rotation: $pdfState.rotation
+				});
+
+				// Track unrotated base dimensions for coordinate transforms
+				const baseViewport = page.getViewport({ scale: 1, rotation: 0 });
+				basePageWidth = baseViewport.width;
+				basePageHeight = baseViewport.height;
 				canvasDisplayWidth = scaledViewport.width;
 				canvasDisplayHeight = scaledViewport.height;
 				console.log('Initial canvas dimensions set:', {
@@ -605,7 +623,7 @@
 			const scaleToRender = newScale !== undefined ? newScale : $pdfState.scale;
 
 			const page = await $pdfState.document.getPage($pdfState.currentPage);
-			const viewport = page.getViewport({ scale: scaleToRender });
+			const viewport = page.getViewport({ scale: scaleToRender, rotation: $pdfState.rotation });
 			const outputScale = window.devicePixelRatio || 1;
 
 			// Set canvas dimensions to match the scaled viewport and device pixel ratio for crisp rendering
@@ -622,7 +640,8 @@
 
 			await pdfManager.renderPage($pdfState.currentPage, {
 				scale: scaleToRender * outputScale,
-				canvas: pdfCanvas
+				canvas: pdfCanvas,
+				rotation: $pdfState.rotation
 			});
 
 			// Sync drawing canvas sizes with PDF canvas
@@ -632,15 +651,34 @@
 				drawingCanvas.style.width = `${viewport.width}px`;
 				drawingCanvas.style.height = `${viewport.height}px`;
 
-				// Re-render drawing paths for current page
+				// Re-render drawing paths for current page with rotation transform
 				if (drawingEngine) {
-					drawingEngine.renderPaths($currentPagePaths, scaleToRender);
+					// Transform paths from rotation-0 storage space to current rotation display space
+					const transformedPaths = $currentPagePaths.map((path) => ({
+						...path,
+						points: path.points.map((pt) => {
+							const transformed = transformPoint(
+								pt.x,
+								pt.y,
+								$pdfState.rotation as RotationAngle,
+								basePageWidth,
+								basePageHeight
+							);
+							return { ...pt, x: transformed.x, y: transformed.y };
+						})
+					}));
+					drawingEngine.renderPaths(transformedPaths, scaleToRender);
 				}
 			}
 
 			// Update canvas display dimensions for overlays
 			canvasDisplayWidth = viewport.width;
 			canvasDisplayHeight = viewport.height;
+
+			// Update base page dimensions (unrotated) for coordinate transforms
+			const baseViewport = page.getViewport({ scale: 1, rotation: 0 });
+			basePageWidth = baseViewport.width;
+			basePageHeight = baseViewport.height;
 
 			// Extract PDF link annotations for this page
 			try {
@@ -795,9 +833,18 @@
 
 		// Get point and convert to base viewport coordinates (scale 1.0)
 		const canvasPoint = drawingEngine.getPointFromEvent(event);
+		// Convert canvas point to base viewport coords (scale 1.0), then inverse-rotate to rotation-0 space
+		const scaledPoint = { x: canvasPoint.x / $pdfState.scale, y: canvasPoint.y / $pdfState.scale };
+		const rotatedBase = inverseTransformPoint(
+			scaledPoint.x,
+			scaledPoint.y,
+			$pdfState.rotation as RotationAngle,
+			basePageWidth,
+			basePageHeight
+		);
 		const basePoint = {
-			x: canvasPoint.x / $pdfState.scale,
-			y: canvasPoint.y / $pdfState.scale,
+			x: rotatedBase.x,
+			y: rotatedBase.y,
 			pressure: canvasPoint.pressure
 		};
 
@@ -820,8 +867,7 @@
 			panOffset = { x: event.clientX - panStart.x, y: event.clientY - panStart.y };
 			// Apply the transform to the cached content wrapper
 			if (contentWrapperDiv) {
-				contentWrapperDiv.style.transform =
-					`translate(${panOffset.x}px, ${panOffset.y}px)`;
+				contentWrapperDiv.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px)`;
 			}
 			return;
 		}
@@ -831,9 +877,18 @@
 		event.preventDefault();
 		// Get point and convert to base viewport coordinates (scale 1.0)
 		const canvasPoint = drawingEngine.getPointFromEvent(event);
+		// Convert to rotation-0 base viewport coordinates for storage
+		const scaledPoint = { x: canvasPoint.x / $pdfState.scale, y: canvasPoint.y / $pdfState.scale };
+		const rotatedBase = inverseTransformPoint(
+			scaledPoint.x,
+			scaledPoint.y,
+			$pdfState.rotation as RotationAngle,
+			basePageWidth,
+			basePageHeight
+		);
 		const basePoint = {
-			x: canvasPoint.x / $pdfState.scale,
-			y: canvasPoint.y / $pdfState.scale,
+			x: rotatedBase.x,
+			y: rotatedBase.y,
 			pressure: canvasPoint.pressure
 		};
 
@@ -905,11 +960,17 @@
 				const color =
 					$drawingState.tool === 'highlight' ? $drawingState.highlightColor : $drawingState.color;
 				// Convert final path points to base viewport coordinates
-				const basePathPoints = finalPath.map((point) => ({
-					x: point.x / $pdfState.scale,
-					y: point.y / $pdfState.scale,
-					pressure: point.pressure
-				}));
+				const basePathPoints = finalPath.map((point) => {
+					const scaled = { x: point.x / $pdfState.scale, y: point.y / $pdfState.scale };
+					const base = inverseTransformPoint(
+						scaled.x,
+						scaled.y,
+						$pdfState.rotation as RotationAngle,
+						basePageWidth,
+						basePageHeight
+					);
+					return { x: base.x, y: base.y, pressure: point.pressure };
+				});
 				const drawingPath: DrawingPath = {
 					tool: $drawingState.tool,
 					color: color,
@@ -1238,8 +1299,7 @@
 				panInertia.start((dx, dy) => {
 					panOffset = { x: panOffset.x + dx, y: panOffset.y + dy };
 					if (contentWrapperDiv) {
-						contentWrapperDiv.style.transform =
-							`translate(${panOffset.x}px, ${panOffset.y}px)`;
+						contentWrapperDiv.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px)`;
 					}
 				});
 			}
@@ -1387,7 +1447,7 @@
 
 		try {
 			const page = await $pdfState.document.getPage($pdfState.currentPage);
-			const viewport = page.getViewport({ scale: 1 });
+			const viewport = page.getViewport({ scale: 1, rotation: $pdfState.rotation });
 			const containerWidth = containerDiv.clientWidth - (presentationMode ? 0 : 40); // Account for padding
 			const newScale = containerWidth / viewport.width;
 
@@ -1405,7 +1465,7 @@
 
 		try {
 			const page = await $pdfState.document.getPage($pdfState.currentPage);
-			const viewport = page.getViewport({ scale: 1 });
+			const viewport = page.getViewport({ scale: 1, rotation: $pdfState.rotation });
 			const containerHeight = containerDiv.clientHeight - (presentationMode ? 0 : TOOLBAR_HEIGHT); // Account for toolbar and page info
 			const newScale = containerHeight / viewport.height;
 
@@ -1423,7 +1483,7 @@
 
 		try {
 			const page = await $pdfState.document.getPage($pdfState.currentPage);
-			const viewport = page.getViewport({ scale: 1 });
+			const viewport = page.getViewport({ scale: 1, rotation: $pdfState.rotation });
 
 			const containerHeight = containerDiv.clientHeight - (presentationMode ? 0 : TOOLBAR_HEIGHT); // Account for toolbar and page info
 			const containerWidth = containerDiv.clientWidth - (presentationMode ? 0 : 40); // Account for padding
@@ -1439,6 +1499,23 @@
 		} catch (error) {
 			console.error('Error fitting to page:', error);
 		}
+	}
+
+	// ── Rotation functions ──────────────────────────────────
+	export async function rotateLeft() {
+		const current = $pdfState.rotation as number;
+		const newRotation = ((current - 90 + 360) % 360) as 0 | 90 | 180 | 270;
+		pdfState.update((state) => ({ ...state, rotation: newRotation }));
+		panOffset = { x: 0, y: 0 };
+		await renderCurrentPage();
+	}
+
+	export async function rotateRight() {
+		const current = $pdfState.rotation as number;
+		const newRotation = ((current + 90) % 360) as 0 | 90 | 180 | 270;
+		pdfState.update((state) => ({ ...state, rotation: newRotation }));
+		panOffset = { x: 0, y: 0 };
+		await renderCurrentPage();
 	}
 
 	// Track previous presentation mode to detect actual changes
@@ -1533,7 +1610,7 @@
 			const tempDrawingCanvas = document.createElement('canvas');
 
 			const page = await $pdfState.document.getPage(pageNumber);
-			const viewport = page.getViewport({ scale: 1.0 }); // Use scale 1 for consistent export
+			const viewport = page.getViewport({ scale: 1.0, rotation: $pdfState.rotation }); // Use scale 1 with current rotation for export
 			const outputScale = 2; // Higher resolution for export
 
 			// Set BOTH canvases to the same scaled dimensions for consistency
@@ -1553,7 +1630,8 @@
 
 				await pdfManager.renderPageToCanvas(page, {
 					scale: 1, // Base scale since scaling is handled by context transform
-					canvas: tempPdfCanvas
+					canvas: tempPdfCanvas,
+					rotation: $pdfState.rotation
 				});
 			}
 
@@ -1682,6 +1760,23 @@
 			return null;
 		}
 
+		// Get unrotated base dimensions for coordinate transformation
+		let basePageWidth = canvasWidth;
+		let basePageHeight = canvasHeight;
+		let currentRotation: RotationAngle = 0;
+		if ($pdfState.document) {
+			try {
+				const page = await $pdfState.document.getPage(pageNumber);
+				const baseViewport = page.getViewport({ scale: 1.0, rotation: 0 });
+				basePageWidth = baseViewport.width;
+				basePageHeight = baseViewport.height;
+				// PDF page natively might have rotation, but we care about our app rotation
+				currentRotation = ($pdfState.rotation || 0) as RotationAngle;
+			} catch (e) {
+				console.error('Failed to get base viewport for export', e);
+			}
+		}
+
 		// Set canvas size to match PDF canvas
 		mergedCanvas.width = pdfCanvas.width;
 		mergedCanvas.height = pdfCanvas.height;
@@ -1796,22 +1891,18 @@
 			ctx.scale(outputScale, outputScale);
 
 			pageTextAnnotations.forEach((annotation) => {
-				// FIXED: Use the stored absolute coordinates when they exist instead of computing from relative
-				// This ensures annotations appear exactly where they were placed originally
-				let x, y;
-				if (annotation.x !== undefined && annotation.y !== undefined) {
-					// Use absolute coordinates directly - these were stored at annotation creation time
-					x = annotation.x;
-					y = annotation.y;
-					console.log(`Text annotation: Using absolute coordinates x=${x}, y=${y}`);
-				} else {
-					// Fallback to relative coordinates if absolute ones aren't available
-					x = annotation.relativeX * canvasWidth;
-					y = annotation.relativeY * canvasHeight;
-					console.log(
-						`Text annotation: Using computed relative coordinates - relativeX=${annotation.relativeX}, relativeY=${annotation.relativeY}, computed x=${x}, y=${y}`
-					);
-				}
+				// Use the stored relative coordinates which are relative to the BASE page dimensions
+				let baseX =
+					annotation.x !== undefined ? annotation.x : annotation.relativeX * basePageWidth;
+				let baseY =
+					annotation.y !== undefined ? annotation.y : annotation.relativeY * basePageHeight;
+
+				// Transform point to the currently rotated page space
+				const pt = transformPoint(baseX, baseY, currentRotation, basePageWidth, basePageHeight);
+				const x = pt.x;
+				const y = pt.y;
+
+				console.log(`Text annotation base: (${baseX}, ${baseY}) -> rotated: (${x}, ${y})`);
 
 				ctx.font = `${annotation.fontSize}px ${annotation.fontFamily}`;
 				ctx.fillStyle = annotation.color;
@@ -1832,10 +1923,18 @@
 			ctx.scale(outputScale, outputScale);
 
 			pageArrowAnnotations.forEach((arrow) => {
-				const x1 = arrow.relativeX1 * canvasWidth;
-				const y1 = arrow.relativeY1 * canvasHeight;
-				const x2 = arrow.relativeX2 * canvasWidth;
-				const y2 = arrow.relativeY2 * canvasHeight;
+				const baseX1 = arrow.x1 !== undefined ? arrow.x1 : arrow.relativeX1 * basePageWidth;
+				const baseY1 = arrow.y1 !== undefined ? arrow.y1 : arrow.relativeY1 * basePageHeight;
+				const baseX2 = arrow.x2 !== undefined ? arrow.x2 : arrow.relativeX2 * basePageWidth;
+				const baseY2 = arrow.y2 !== undefined ? arrow.y2 : arrow.relativeY2 * basePageHeight;
+
+				const pt1 = transformPoint(baseX1, baseY1, currentRotation, basePageWidth, basePageHeight);
+				const pt2 = transformPoint(baseX2, baseY2, currentRotation, basePageWidth, basePageHeight);
+
+				const x1 = pt1.x;
+				const y1 = pt1.y;
+				const x2 = pt2.x;
+				const y2 = pt2.y;
 
 				ctx.strokeStyle = arrow.stroke;
 				ctx.lineWidth = arrow.strokeWidth;
@@ -1900,14 +1999,29 @@
 					}
 				}
 
-				const x = stampAnnotation.relativeX * canvasWidth;
-				const y = stampAnnotation.relativeY * canvasHeight;
+				const baseX =
+					stampAnnotation.x !== undefined
+						? stampAnnotation.x
+						: stampAnnotation.relativeX * basePageWidth;
+				const baseY =
+					stampAnnotation.y !== undefined
+						? stampAnnotation.y
+						: stampAnnotation.relativeY * basePageHeight;
+
+				const pt = transformPoint(baseX, baseY, currentRotation, basePageWidth, basePageHeight);
+				const x = pt.x;
+				const y = pt.y;
 				// Calculate stamp size the same way as StampAnnotation component
 				const MIN_SIZE = 16;
 				const MAX_SIZE = 120;
 				const calculatedSize = Math.max(
 					MIN_SIZE,
-					Math.min(MAX_SIZE, stampAnnotation.relativeSize * Math.min(canvasWidth, canvasHeight))
+					Math.min(
+						MAX_SIZE,
+						stampAnnotation.size !== undefined
+							? stampAnnotation.size
+							: stampAnnotation.relativeSize * Math.min(basePageWidth, basePageHeight)
+					)
 				);
 				const stampWidth = calculatedSize;
 				const stampHeight = calculatedSize;
@@ -1949,8 +2063,13 @@
 			ctx.scale(outputScale, outputScale);
 
 			pageStickyNotes.forEach((note) => {
-				const x = note.relativeX * canvasWidth;
-				const y = note.relativeY * canvasHeight;
+				const baseX = note.x !== undefined ? note.x : note.relativeX * basePageWidth;
+				const baseY = note.y !== undefined ? note.y : note.relativeY * basePageHeight;
+
+				const pt = transformPoint(baseX, baseY, currentRotation, basePageWidth, basePageHeight);
+				const x = pt.x;
+				const y = pt.y;
+
 				const width = note.width || 200;
 				const height = note.height || 150;
 				const borderRadius = 8; // Match the border-radius from StickyNote.svelte
@@ -2181,8 +2300,20 @@
 				ctx.scale(scaleX, scaleY);
 
 				currentTextAnnotations.forEach((annotation) => {
-					const x = annotation.relativeX * canvasWidth;
-					const y = annotation.relativeY * canvasHeight;
+					const baseX =
+						annotation.x !== undefined ? annotation.x : annotation.relativeX * basePageWidth;
+					const baseY =
+						annotation.y !== undefined ? annotation.y : annotation.relativeY * basePageHeight;
+
+					const pt = transformPoint(
+						baseX,
+						baseY,
+						$pdfState.rotation as RotationAngle,
+						basePageWidth,
+						basePageHeight
+					);
+					const x = pt.x;
+					const y = pt.y;
 
 					ctx.font = `${annotation.fontSize}px ${annotation.fontFamily}`;
 					ctx.fillStyle = annotation.color;
@@ -2210,10 +2341,30 @@
 				ctx.scale(scaleX, scaleY);
 
 				currentArrowAnnotations.forEach((arrow) => {
-					const x1 = arrow.relativeX1 * canvasWidth;
-					const y1 = arrow.relativeY1 * canvasHeight;
-					const x2 = arrow.relativeX2 * canvasWidth;
-					const y2 = arrow.relativeY2 * canvasHeight;
+					const baseX1 = arrow.x1 !== undefined ? arrow.x1 : arrow.relativeX1 * basePageWidth;
+					const baseY1 = arrow.y1 !== undefined ? arrow.y1 : arrow.relativeY1 * basePageHeight;
+					const baseX2 = arrow.x2 !== undefined ? arrow.x2 : arrow.relativeX2 * basePageWidth;
+					const baseY2 = arrow.y2 !== undefined ? arrow.y2 : arrow.relativeY2 * basePageHeight;
+
+					const pt1 = transformPoint(
+						baseX1,
+						baseY1,
+						$pdfState.rotation as RotationAngle,
+						basePageWidth,
+						basePageHeight
+					);
+					const pt2 = transformPoint(
+						baseX2,
+						baseY2,
+						$pdfState.rotation as RotationAngle,
+						basePageWidth,
+						basePageHeight
+					);
+
+					const x1 = pt1.x;
+					const y1 = pt1.y;
+					const x2 = pt2.x;
+					const y2 = pt2.y;
 
 					// Draw arrow line
 					ctx.strokeStyle = arrow.stroke;
@@ -2288,14 +2439,36 @@
 						}
 					}
 
-					const x = stampAnnotation.relativeX * canvasWidth;
-					const y = stampAnnotation.relativeY * canvasHeight;
+					const baseX =
+						stampAnnotation.x !== undefined
+							? stampAnnotation.x
+							: stampAnnotation.relativeX * basePageWidth;
+					const baseY =
+						stampAnnotation.y !== undefined
+							? stampAnnotation.y
+							: stampAnnotation.relativeY * basePageHeight;
+
+					const pt = transformPoint(
+						baseX,
+						baseY,
+						$pdfState.rotation as RotationAngle,
+						basePageWidth,
+						basePageHeight
+					);
+					const x = pt.x;
+					const y = pt.y;
+
 					// Calculate stamp size the same way as StampAnnotation component
 					const MIN_SIZE = 16;
 					const MAX_SIZE = 120;
 					const calculatedSize = Math.max(
 						MIN_SIZE,
-						Math.min(MAX_SIZE, stampAnnotation.relativeSize * Math.min(canvasWidth, canvasHeight))
+						Math.min(
+							MAX_SIZE,
+							stampAnnotation.size !== undefined
+								? stampAnnotation.size
+								: stampAnnotation.relativeSize * Math.min(basePageWidth, basePageHeight)
+						)
 					);
 					const stampWidth = calculatedSize;
 					const stampHeight = calculatedSize;
@@ -2347,8 +2520,19 @@
 				ctx.scale(scaleX, scaleY);
 
 				currentStickyNotes.forEach((note) => {
-					const x = note.relativeX * canvasWidth;
-					const y = note.relativeY * canvasHeight;
+					const baseX = note.x !== undefined ? note.x : note.relativeX * basePageWidth;
+					const baseY = note.y !== undefined ? note.y : note.relativeY * basePageHeight;
+
+					const pt = transformPoint(
+						baseX,
+						baseY,
+						$pdfState.rotation as RotationAngle,
+						basePageWidth,
+						basePageHeight
+					);
+					const x = pt.x;
+					const y = pt.y;
+
 					const width = note.width || 200;
 					const height = note.height || 150;
 					const borderRadius = 8; // Match the border-radius from StickyNote.svelte
@@ -2487,6 +2671,9 @@
 					canvasHeight={canvasDisplayHeight}
 					currentScale={$pdfState.scale}
 					{viewOnlyMode}
+					rotation={$pdfState.rotation}
+					{basePageWidth}
+					{basePageHeight}
 				/>
 			{/if}
 
@@ -2497,6 +2684,9 @@
 					containerHeight={canvasDisplayHeight}
 					scale={$pdfState.scale}
 					{viewOnlyMode}
+					rotation={$pdfState.rotation}
+					{basePageWidth}
+					{basePageHeight}
 				/>
 			{/if}
 
@@ -2507,6 +2697,9 @@
 					containerHeight={canvasDisplayHeight}
 					scale={$pdfState.scale}
 					{viewOnlyMode}
+					rotation={$pdfState.rotation}
+					{basePageWidth}
+					{basePageHeight}
 				/>
 			{/if}
 
@@ -2517,6 +2710,9 @@
 					containerHeight={canvasDisplayHeight}
 					scale={$pdfState.scale}
 					{viewOnlyMode}
+					rotation={$pdfState.rotation}
+					{basePageWidth}
+					{basePageHeight}
 				/>
 			{/if}
 

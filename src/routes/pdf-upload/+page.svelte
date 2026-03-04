@@ -877,6 +877,8 @@
 				onResetZoom={() => pdfViewer?.resetZoom()}
 				onFitToWidth={() => pdfViewer?.fitToWidth()}
 				onFitToHeight={() => pdfViewer?.fitToHeight()}
+				onRotateLeft={() => pdfViewer?.rotateLeft()}
+				onRotateRight={() => pdfViewer?.rotateRight()}
 				onExportPDF={handleExportPDF}
 				onExportLPDF={handleExportLPDF}
 				onExportDOCX={handleExportDOCX}

@@ -11,11 +11,15 @@
 		updateStickyNoteAnnotation
 	} from '$lib/stores/drawingStore';
 	import { trackFirstAnnotation } from '$lib/utils/analytics';
+	import { inverseTransformPoint, type RotationAngle } from '$lib/utils/rotationUtils';
 
 	export let containerWidth: number = 0; // Actual displayed canvas width
 	export let containerHeight: number = 0; // Actual displayed canvas height
 	export let scale: number = 1; // Current PDF scale
 	export let viewOnlyMode = false; // If true, disable all editing interactions
+	export let rotation: number = 0;
+	export let basePageWidth: number = 0;
+	export let basePageHeight: number = 0;
 
 	let overlayElement: HTMLDivElement;
 	let isCreatingNote = false;
@@ -35,20 +39,28 @@
 		const rect = overlayElement.getBoundingClientRect();
 		const x = event.clientX - rect.left;
 		const y = event.clientY - rect.top;
-		
 		// Convert to base scale for storage
-		const baseX = x / scale;
-		const baseY = y / scale;
+		const safeScale = scale > 0 ? scale : 1;
+		const rotatedBaseX = x / safeScale;
+		const rotatedBaseY = y / safeScale;
+
+		const basePoint = inverseTransformPoint(
+			rotatedBaseX,
+			rotatedBaseY,
+			rotation as RotationAngle,
+			basePageWidth,
+			basePageHeight
+		);
+		const baseX = basePoint.x;
+		const baseY = basePoint.y;
 
 		// Default dimensions at base scale
 		const defaultWidth = 150;
 		const defaultHeight = 100;
 
 		// Ensure the note fits within the container (at base scale)
-		const baseContainerWidth = containerWidth / scale;
-		const baseContainerHeight = containerHeight / scale;
-		const constrainedX = Math.max(0, Math.min(baseContainerWidth - defaultWidth, baseX));
-		const constrainedY = Math.max(0, Math.min(baseContainerHeight - defaultHeight, baseY));
+		const constrainedX = Math.max(0, Math.min(basePageWidth - defaultWidth, baseX));
+		const constrainedY = Math.max(0, Math.min(basePageHeight - defaultHeight, baseY));
 
 		// Calculate font size with intelligent constraints (base scale)
 		// Use width-based scaling but cap it to ensure it fits within height
@@ -57,31 +69,31 @@
 		const maxFontSize = 32; // Absolute maximum font size
 		const relativeFontSize = Math.max(10, Math.min(widthBasedSize, heightConstraint, maxFontSize));
 
-	// Create new sticky note
-	const newNote: StickyNoteAnnotation = {
-		id: `sticky-note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-		pageNumber: $pdfState.currentPage,
-		x: constrainedX,
-		y: constrainedY,
-		text: '',
-		fontSize: relativeFontSize,
-		fontFamily: 'ReenieBeanie, cursive',
-		backgroundColor: $drawingState.noteColor,
-		width: defaultWidth,
-		height: defaultHeight,
-		relativeX: constrainedX / baseContainerWidth,
-		relativeY: constrainedY / baseContainerHeight,
-		relativeWidth: defaultWidth / baseContainerWidth,
-		relativeHeight: defaultHeight / baseContainerHeight,
-	};
+		// Create new sticky note
+		const newNote: StickyNoteAnnotation = {
+			id: `sticky-note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+			pageNumber: $pdfState.currentPage,
+			x: constrainedX,
+			y: constrainedY,
+			text: '',
+			fontSize: relativeFontSize,
+			fontFamily: 'ReenieBeanie, cursive',
+			backgroundColor: $drawingState.noteColor,
+			width: defaultWidth,
+			height: defaultHeight,
+			relativeX: basePageWidth > 0 ? constrainedX / basePageWidth : 0,
+			relativeY: basePageHeight > 0 ? constrainedY / basePageHeight : 0,
+			relativeWidth: basePageWidth > 0 ? defaultWidth / basePageWidth : 0,
+			relativeHeight: basePageHeight > 0 ? defaultHeight / basePageHeight : 0
+		};
 
-	isCreatingNote = true;
-	
-	// Track first annotation creation
-	trackFirstAnnotation('note');
-	
-	addStickyNoteAnnotation(newNote);
-		
+		isCreatingNote = true;
+
+		// Track first annotation creation
+		trackFirstAnnotation('note');
+
+		addStickyNoteAnnotation(newNote);
+
 		// Reset creating state after a short delay
 		setTimeout(() => {
 			isCreatingNote = false;
@@ -113,7 +125,7 @@
 		};
 
 		updateCursor();
-		
+
 		// Watch for tool changes
 		const unsubscribe = drawingState.subscribe(() => {
 			updateCursor();
@@ -125,18 +137,18 @@
 	});
 </script>
 
-	<!-- svelte-ignore a11y-click-events-have-key-events -->
-	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-	<div
-		bind:this={overlayElement}
-		class="sticky-note-overlay"
-		class:note-tool-active={isNoteTool}
+<!-- svelte-ignore a11y-click-events-have-key-events -->
+<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+<div
+	bind:this={overlayElement}
+	class="sticky-note-overlay"
+	class:note-tool-active={isNoteTool}
 	style:width="{containerWidth}px"
 	style:height="{containerHeight}px"
-		on:click={handleContainerClick}
-		role="application"
-		aria-label="Sticky notes area - click to create new note when note tool is active"
-	>
+	on:click={handleContainerClick}
+	role="application"
+	aria-label="Sticky notes area - click to create new note when note tool is active"
+>
 	{#each $currentPageStickyNotes as note (note.id)}
 		<StickyNote
 			{note}
@@ -144,6 +156,9 @@
 			{containerWidth}
 			{containerHeight}
 			{viewOnlyMode}
+			{rotation}
+			{basePageWidth}
+			{basePageHeight}
 			on:update={handleNoteUpdate}
 			on:delete={handleNoteDelete}
 		/>
@@ -224,7 +239,6 @@
 		}
 	}
 
-
 	/* Prevent text selection when in note tool mode */
 	.sticky-note-overlay.note-tool-active * {
 		user-select: none;
@@ -238,8 +252,11 @@
 		left: 0;
 		right: 0;
 		bottom: 0;
-		background-image: 
-			radial-gradient(circle at 1px 1px, rgba(59, 130, 246, 0.1) 1px, transparent 0);
+		background-image: radial-gradient(
+			circle at 1px 1px,
+			rgba(59, 130, 246, 0.1) 1px,
+			transparent 0
+		);
 		background-size: 20px 20px;
 		pointer-events: none;
 		opacity: 0;
@@ -247,8 +264,12 @@
 	}
 
 	@keyframes fadeInGrid {
-		0% { opacity: 0; }
-		100% { opacity: 1; }
+		0% {
+			opacity: 0;
+		}
+		100% {
+			opacity: 1;
+		}
 	}
 
 	/* Responsive adjustments */
@@ -257,7 +278,7 @@
 			font-size: 12px;
 			padding: 8px 16px;
 		}
-		
+
 		.hint-icon {
 			font-size: 20px;
 		}

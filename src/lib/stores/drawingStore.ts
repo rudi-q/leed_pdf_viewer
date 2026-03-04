@@ -22,6 +22,7 @@ export interface PDFState {
 	currentPage: number;
 	totalPages: number;
 	scale: number;
+	rotation: 0 | 90 | 180 | 270;
 	isLoading: boolean;
 }
 
@@ -251,6 +252,7 @@ export const pdfState = writable<PDFState>({
 	currentPage: 1,
 	totalPages: 0,
 	scale: 1.2,
+	rotation: 0,
 	isLoading: false
 });
 
@@ -715,6 +717,10 @@ export const setNoteColor = (noteColor: string) => {
 
 export const setIsDrawing = (isDrawing: boolean) => {
 	drawingState.update((state) => ({ ...state, isDrawing }));
+};
+
+export const setRotation = (rotation: 0 | 90 | 180 | 270) => {
+	pdfState.update((state) => ({ ...state, rotation }));
 };
 
 export const setStampId = (stampId: string) => {
