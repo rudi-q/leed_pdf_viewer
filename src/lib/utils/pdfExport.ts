@@ -93,13 +93,6 @@ export class PDFExporter {
 						PDFExporter.pixelsToPoints(canvas.height)
 					]);
 
-					const rotation = this.rotations.get(pageNum);
-					if (rotation !== undefined) {
-						page.setRotation(degrees(rotation));
-					}
-
-					// Fallback pages are already created at canvas dimensions.
-					// Passing neutral rotation prevents a second width/height swap.
 					await this.embedCanvasInPage(newDoc, page, canvas, 0);
 				}
 				return await newDoc.save();

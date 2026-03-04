@@ -699,6 +699,14 @@
 				// Check if this page has any annotations
 				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNum);
 
+				// Apply rotation to the exported PDF page regardless of annotations
+				const pageRotation = pdfViewer.getPageRotation
+					? pdfViewer.getPageRotation(pageNum)
+					: ($pdfState.rotation || 0);
+				if (pageRotation !== 0) {
+					exporter.setRotation(pageNum, pageRotation);
+				}
+
 				// Always try to create merged canvas for all pages to debug the issue
 				console.log(
 					`Page ${pageNum} has annotations: ${hasAnnotations}. Creating merged canvas anyway...`
@@ -706,15 +714,6 @@
 				const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNum);
 				if (mergedCanvas) {
 					exporter.setPageCanvas(pageNum, mergedCanvas);
-
-					// Apply rotation to the exported PDF page
-					const pageRotation = pdfViewer.getPageRotation
-						? pdfViewer.getPageRotation(pageNum)
-						: ($pdfState.rotation || 0);
-					if (pageRotation !== 0) {
-						exporter.setRotation(pageNum, pageRotation);
-					}
-
 					console.log(`Added merged canvas for page ${pageNum}`);
 				} else {
 					console.log(`Failed to create merged canvas for page ${pageNum}`);
@@ -817,6 +816,14 @@
 				// Check if this page has any annotations
 				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNum);
 
+				// Apply rotation to the exported PDF page regardless of annotations
+				const pageRotation = pdfViewer.getPageRotation
+					? pdfViewer.getPageRotation(pageNum)
+					: ($pdfState.rotation || 0);
+				if (pageRotation !== 0) {
+					exporter.setRotation(pageNum, pageRotation);
+				}
+
 				// Create merged canvas for all pages (including annotations if present)
 				console.log(
 					`Page ${pageNum} has annotations: ${hasAnnotations}. Creating merged canvas...`
@@ -824,15 +831,6 @@
 				const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNum);
 				if (mergedCanvas) {
 					exporter.setPageCanvas(pageNum, mergedCanvas);
-
-					// Apply rotation to the exported PDF page
-					const pageRotation = pdfViewer.getPageRotation
-						? pdfViewer.getPageRotation(pageNum)
-						: ($pdfState.rotation || 0);
-					if (pageRotation !== 0) {
-						exporter.setRotation(pageNum, pageRotation);
-					}
-
 					console.log(`Added merged canvas for page ${pageNum} to DOCX export`);
 				} else {
 					console.log(`Failed to create merged canvas for page ${pageNum}`);

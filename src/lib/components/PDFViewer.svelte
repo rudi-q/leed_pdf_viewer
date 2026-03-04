@@ -1644,7 +1644,9 @@
 			const tempDrawingCanvas = document.createElement('canvas');
 
 			const page = await $pdfState.document.getPage(pageNumber);
-			const viewport = page.getViewport({ scale: 1.0, rotation: $pdfState.rotation }); // Use scale 1 with current rotation for export
+			// Use page-specific rotation instead of global rotation
+			const targetRotation = (getPageRotation(pageNumber) || 0) as RotationAngle;
+			const viewport = page.getViewport({ scale: 1.0, rotation: targetRotation }); // Use scale 1 with page-specific rotation for export
 			const outputScale = 2; // Higher resolution for export
 
 			// Set BOTH canvases to the same scaled dimensions for consistency
@@ -1665,7 +1667,7 @@
 				await pdfManager.renderPageToCanvas(page, {
 					scale: 1, // Base scale since scaling is handled by context transform
 					canvas: tempPdfCanvas,
-					rotation: $pdfState.rotation
+					rotation: targetRotation
 				});
 			}
 
@@ -2140,8 +2142,11 @@
 				const height = note.height || 150;
 				const borderRadius = 8; // Match the border-radius from StickyNote.svelte
 
-				// Save context for shadow
+				// Apply rotation transform to sticky note
 				ctx.save();
+				ctx.translate(x, y);
+				ctx.rotate((currentRotation * Math.PI) / 180);
+				ctx.translate(-x, -y);
 
 				// Apply shadow (matching StickyNote.svelte box-shadow)
 				ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
@@ -2177,11 +2182,7 @@
 				ctx.lineWidth = 1;
 				ctx.stroke();
 
-				// Restore context after shadow
-				ctx.restore();
-
 				// Set clipping region for text to stay within rounded rectangle
-				ctx.save();
 				ctx.clip();
 
 				ctx.fillStyle = '#000';
@@ -2212,7 +2213,7 @@
 					ctx.fillText(line.trim(), x + 8, y + 32 + index * lineHeight);
 				});
 
-				// Restore clipping
+				// Restore context and clipping
 				ctx.restore();
 			});
 

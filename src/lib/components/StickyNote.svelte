@@ -225,9 +225,9 @@
 			const baseDeltaX = deltaX / scale;
 			const baseDeltaY = deltaY / scale;
 
-			// Ensure minimum size at base scale
-			const newWidth = Math.max(50, baseStartWidth + baseDeltaX);
-			const newHeight = Math.max(40, baseStartHeight + baseDeltaY);
+			// Ensure minimum and maximum size at base scale
+			const newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, baseStartWidth + baseDeltaX));
+			const newHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, baseStartHeight + baseDeltaY));
 
 			// Calculate new font size with intelligent constraints
 			const widthBasedSize = newWidth * 0.16;

@@ -32,7 +32,10 @@
 			observer.disconnect();
 			observer = null;
 		}
-		tick().then(() => setupLazyLoading());
+		// Only setup lazy loading if the panel is visible
+		if (isVisible) {
+			tick().then(() => setupLazyLoading());
+		}
 	}
 	$: lastRotation = $pdfState.rotation;
 
