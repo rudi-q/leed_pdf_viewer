@@ -1797,8 +1797,8 @@
 		}
 
 		// Get unrotated base dimensions for coordinate transformation
-		let basePageWidth = canvasWidth;
-		let basePageHeight = canvasHeight;
+		let basePageWidth = 0;
+		let basePageHeight = 0;
 		let currentRotation: RotationAngle = 0;
 		if ($pdfState.document) {
 			try {
@@ -1810,6 +1810,16 @@
 				currentRotation = (getPageRotation(pageNumber) || 0) as RotationAngle;
 			} catch (e) {
 				console.error('Failed to get base viewport for export', e);
+				// Fallback: compute unrotated dimensions from rotated canvasWidth/canvasHeight
+				// If rotation is 90 or 270, dimensions are swapped
+				const pageRotation = (getPageRotation(pageNumber) || 0) as RotationAngle;
+				if (pageRotation === 90 || pageRotation === 270) {
+					basePageWidth = canvasHeight;
+					basePageHeight = canvasWidth;
+				} else {
+					basePageWidth = canvasWidth;
+					basePageHeight = canvasHeight;
+				}
 			}
 		}
 
