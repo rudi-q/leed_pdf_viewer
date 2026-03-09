@@ -806,9 +806,36 @@ export const updatePagePathsWithUndo = (
 export const clearCurrentPageDrawings = () => {
 	pdfState.subscribe((state) => {
 		if (state.currentPage > 0) {
+			const currentPage = state.currentPage;
+			
+			// Clear drawing paths
 			drawingPaths.update((paths) => {
-				paths.delete(state.currentPage);
+				paths.delete(currentPage);
 				return new Map(paths);
+			});
+			
+			// Clear text annotations
+			textAnnotations.update((annotations) => {
+				annotations.delete(currentPage);
+				return new Map(annotations);
+			});
+			
+			// Clear arrow annotations
+			arrowAnnotations.update((annotations) => {
+				annotations.delete(currentPage);
+				return new Map(annotations);
+			});
+			
+			// Clear stamp annotations
+			stampAnnotations.update((annotations) => {
+				annotations.delete(currentPage);
+				return new Map(annotations);
+			});
+			
+			// Clear sticky note annotations
+			stickyNoteAnnotations.update((annotations) => {
+				annotations.delete(currentPage);
+				return new Map(annotations);
 			});
 		}
 	})();
