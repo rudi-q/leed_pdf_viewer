@@ -84,7 +84,8 @@
 			relativeX: basePageWidth > 0 ? constrainedX / basePageWidth : 0,
 			relativeY: basePageHeight > 0 ? constrainedY / basePageHeight : 0,
 			relativeWidth: basePageWidth > 0 ? defaultWidth / basePageWidth : 0,
-			relativeHeight: basePageHeight > 0 ? defaultHeight / basePageHeight : 0
+			relativeHeight: basePageHeight > 0 ? defaultHeight / basePageHeight : 0,
+			rotation: -rotation // Store negative page rotation to keep note straight
 		};
 
 		isCreatingNote = true;

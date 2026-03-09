@@ -300,7 +300,7 @@
 	style:top="{displayY}px"
 	style:width="{displayWidth}px"
 	style:height="{displayHeight}px"
-	style="--rotation: {rotation}deg;"
+	style="--rotation: {rotation + (note.rotation || 0)}deg;"
 	style:background-color={note.backgroundColor}
 	style:font-size="{note.fontSize * scale}px"
 	class:editing={isEditing}

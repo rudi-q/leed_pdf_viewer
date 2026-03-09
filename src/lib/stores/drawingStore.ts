@@ -80,6 +80,7 @@ export interface StickyNoteAnnotation {
 	relativeY: number; // 0-1 range for scaling
 	relativeWidth: number; // 0-1 range for scaling
 	relativeHeight: number; // 0-1 range for scaling
+	rotation?: number; // Rotation offset to keep note straight at creation time
 }
 
 // Stamp annotation interface (custom solution)

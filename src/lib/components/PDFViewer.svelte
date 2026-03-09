@@ -2155,8 +2155,14 @@
 				const height = note.height || 150;
 				const borderRadius = 8; // Match the border-radius from StickyNote.svelte
 
-				// Save context for shadow (transformPoint already handles rotation)
+				// Save context for shadow and combined rotation
 				ctx.save();
+
+				// Apply combined rotation (page rotation + note's rotation offset) around top-left corner
+				ctx.translate(x, y);
+				const combinedRotation = currentRotation + (note.rotation || 0);
+				ctx.rotate((combinedRotation * Math.PI) / 180);
+				ctx.translate(-x, -y);
 
 				// Apply shadow (matching StickyNote.svelte box-shadow)
 				ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
@@ -2660,8 +2666,14 @@
 					const height = (note.height || 150) * viewerScale;
 					const borderRadius = 8 * viewerScale; // Match the border-radius from StickyNote.svelte
 
-					// Save context for shadow (transformPoint already handles rotation)
+					// Save context for shadow and combined rotation
 					ctx.save();
+
+					// Apply combined rotation (page rotation + note's rotation offset) around top-left corner
+					ctx.translate(x, y);
+					const combinedRotation = currentRotation + (note.rotation || 0);
+					ctx.rotate((combinedRotation * Math.PI) / 180);
+					ctx.translate(-x, -y);
 
 					// Apply shadow (matching StickyNote.svelte box-shadow)
 					ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';

@@ -93,7 +93,7 @@
 			width: defaultSize, // Store at base scale
 			height: defaultSize, // Store at base scale
 			size: defaultSize, // Store at base scale
-			rotation: 0,
+			rotation: -rotation, // Store negative page rotation to keep stamp straight
 			relativeX: basePageWidth > 0 ? constrainedX / basePageWidth : 0,
 			relativeY: basePageHeight > 0 ? constrainedY / basePageHeight : 0,
 			relativeSize:
