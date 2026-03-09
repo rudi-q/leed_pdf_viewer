@@ -122,3 +122,32 @@ export function getRotatedDimensions(
 	}
 	return [pageW, pageH];
 }
+
+/**
+ * Transform screen delta (mouse movement) into local coordinate space based on rotation.
+ * Used for resizing and dragging operations that need to account for page rotation.
+ *
+ * @param screenDeltaX - Change in X from mouse movement (screen space)
+ * @param screenDeltaY - Change in Y from mouse movement (screen space)
+ * @param rotation - Current rotation angle (0, 90, 180, 270)
+ * @returns {dx, dy} in the rotated local coordinate space
+ */
+export function rotateDelta(
+	screenDeltaX: number,
+	screenDeltaY: number,
+	rotation: RotationAngle
+): { dx: number; dy: number } {
+	switch (rotation) {
+		case 0:
+			return { dx: screenDeltaX, dy: screenDeltaY };
+		case 90:
+			return { dx: screenDeltaY, dy: -screenDeltaX };
+		case 180:
+			return { dx: -screenDeltaX, dy: -screenDeltaY };
+		case 270:
+			return { dx: -screenDeltaY, dy: screenDeltaX };
+		default:
+			console.warn('Unexpected rotation in rotateDelta, falling back to no-op:', rotation);
+			return { dx: screenDeltaX, dy: screenDeltaY };
+	}
+}

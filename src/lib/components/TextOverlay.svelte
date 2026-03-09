@@ -17,6 +17,7 @@
 	import {
 		transformPoint,
 		inverseTransformPoint,
+		rotateDelta,
 		type RotationAngle
 	} from '../utils/rotationUtils';
 
@@ -304,18 +305,7 @@
 			const screenDeltaY = event.clientY - resizeStartY;
 
 			// Rotate delta into local coordinate space
-			let deltaX = screenDeltaX;
-			let deltaY = screenDeltaY;
-			if (rotation === 90) {
-				deltaX = screenDeltaY;
-				deltaY = -screenDeltaX;
-			} else if (rotation === 180) {
-				deltaX = -screenDeltaX;
-				deltaY = -screenDeltaY;
-			} else if (rotation === 270) {
-				deltaX = -screenDeltaY;
-				deltaY = screenDeltaX;
-			}
+			const { dx: deltaX, dy: deltaY } = rotateDelta(screenDeltaX, screenDeltaY, rotation as RotationAngle);
 
 			// Calculate new dimensions at base scale
 			const safeScale = getSafeScale();

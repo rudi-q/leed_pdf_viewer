@@ -106,6 +106,7 @@
 	let panOffset = { x: 0, y: 0 };
 	let viewportTransform = { x: 0, y: 0, scale: 1 };
 	let isRendering = false;
+	let pendingRotation: 0 | 90 | 180 | 270 | null = null; // Queue rotation changes during render
 	let isCtrlPressed = false;
 	let cursorOverCanvas = false;
 	let isLoadingPdf = false; // Guard to prevent multiple simultaneous loads
@@ -758,6 +759,15 @@
 			console.error('Error rendering page:', error);
 		} finally {
 			isRendering = false;
+			
+			// If rotation was queued during rendering, apply it now
+			if (pendingRotation !== null) {
+				const queuedRotation = pendingRotation;
+				pendingRotation = null;
+				pdfState.update((state) => ({ ...state, rotation: queuedRotation }));
+				panOffset = { x: 0, y: 0 };
+				await renderCurrentPage();
+			}
 		}
 	}
 
@@ -1524,6 +1534,13 @@
 	export async function rotateLeft() {
 		const current = $pdfState.rotation as number;
 		const newRotation = ((current - 90 + 360) % 360) as 0 | 90 | 180 | 270;
+		
+		// If rendering, queue the rotation for later; otherwise apply immediately
+		if (isRendering) {
+			pendingRotation = newRotation;
+			return;
+		}
+		
 		pdfState.update((state) => ({ ...state, rotation: newRotation }));
 		panOffset = { x: 0, y: 0 };
 		await renderCurrentPage();
@@ -1532,6 +1549,13 @@
 	export async function rotateRight() {
 		const current = $pdfState.rotation as number;
 		const newRotation = ((current + 90) % 360) as 0 | 90 | 180 | 270;
+		
+		// If rendering, queue the rotation for later; otherwise apply immediately
+		if (isRendering) {
+			pendingRotation = newRotation;
+			return;
+		}
+		
 		pdfState.update((state) => ({ ...state, rotation: newRotation }));
 		panOffset = { x: 0, y: 0 };
 		await renderCurrentPage();

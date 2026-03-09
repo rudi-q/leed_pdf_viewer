@@ -35,6 +35,15 @@
 		const target = event.target as HTMLElement;
 		if (target.closest('.sticky-note')) return;
 
+		// Guard against invalid base dimensions
+		if (basePageWidth === 0 || basePageHeight === 0) {
+			console.warn('Cannot create sticky note: invalid base page dimensions', {
+				basePageWidth,
+				basePageHeight
+			});
+			return;
+		}
+
 		// Calculate click position relative to the container
 		const rect = overlayElement.getBoundingClientRect();
 		const x = event.clientX - rect.left;
@@ -85,7 +94,9 @@
 			relativeY: basePageHeight > 0 ? constrainedY / basePageHeight : 0,
 			relativeWidth: basePageWidth > 0 ? defaultWidth / basePageWidth : 0,
 			relativeHeight: basePageHeight > 0 ? defaultHeight / basePageHeight : 0,
-			rotation: -rotation // Store negative page rotation to keep note straight
+			// Store negative page rotation offset so notes appear visually upright when page is rotated.
+			// Combined with page rotation in viewer (rotation + note.rotation), this keeps notes straight.
+			rotation: -rotation
 		};
 
 		isCreatingNote = true;

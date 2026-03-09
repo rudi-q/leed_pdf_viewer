@@ -808,6 +808,17 @@ export const clearCurrentPageDrawings = () => {
 		if (state.currentPage > 0) {
 			const currentPage = state.currentPage;
 			
+			// Save current state for undo before clearing all annotations
+			let currentDrawingPaths: DrawingPath[] = [];
+			drawingPaths.subscribe((paths) => {
+				currentDrawingPaths = paths.get(currentPage) || [];
+			})();
+			
+			// Save undo state for drawing paths
+			if (currentDrawingPaths.length > 0) {
+				saveUndoState(currentPage, currentDrawingPaths);
+			}
+			
 			// Clear drawing paths
 			drawingPaths.update((paths) => {
 				paths.delete(currentPage);
