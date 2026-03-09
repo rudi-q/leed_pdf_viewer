@@ -1,4 +1,4 @@
-<script lang="ts">
+﻿<script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import {
 		addTextAnnotation,
@@ -119,7 +119,8 @@
 			relativeX,
 			relativeY,
 			relativeWidth: basePageWidth > 0 ? initialWidth / basePageWidth : 0,
-			relativeHeight: basePageHeight > 0 ? initialHeight / basePageHeight : 0
+			relativeHeight: basePageHeight > 0 ? initialHeight / basePageHeight : 0,
+			rotation: -(rotation as number)
 		};
 
 		// Track first annotation creation
@@ -468,7 +469,7 @@
 		{#if editingAnnotation && editingAnnotation.id === annotation.id}
 			<div
 				class="text-box-container text-box-edit"
-				style="left: {pos.x}px; top: {pos.y}px; width: {displayWidth}px; height: {displayHeight}px; transform: rotate({rotation}deg); transform-origin: top left;"
+				style="left: {pos.x}px; top: {pos.y}px; width: {displayWidth}px; height: {displayHeight}px; transform: rotate({rotation + (annotation.rotation || 0)}deg); transform-origin: top left;"
 			>
 				<textarea
 					bind:this={editInput}
@@ -488,7 +489,7 @@
 				class:text-box-display={true}
 				class:text-box-active={$drawingState.tool === 'text'}
 				class:text-box-selected={$selectedTextAnnotationId === annotation.id}
-				style="left: {pos.x}px; top: {pos.y}px; width: {displayWidth}px; height: {displayHeight}px; transform: rotate({rotation}deg); transform-origin: top left;"
+				style="left: {pos.x}px; top: {pos.y}px; width: {displayWidth}px; height: {displayHeight}px; transform: rotate({rotation + (annotation.rotation || 0)}deg); transform-origin: top left;"
 				on:dblclick={() => handleAnnotationDoubleClick(annotation)}
 				on:mousedown={(e) => handleMouseDown(e, annotation)}
 				role="button"

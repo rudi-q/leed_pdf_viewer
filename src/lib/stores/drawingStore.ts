@@ -61,6 +61,7 @@ export interface TextAnnotation {
 	relativeY: number; // 0-1 range for scaling
 	relativeWidth?: number; // 0-1 range for scaling
 	relativeHeight?: number; // 0-1 range for scaling
+	rotation?: number; // Rotation offset to keep text straight at creation time
 }
 
 // Sticky Note annotation interface (custom solution)

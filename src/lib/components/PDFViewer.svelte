@@ -1,4 +1,4 @@
-<script lang="ts">
+﻿<script lang="ts">
 	import { onDestroy, onMount, tick } from 'svelte';
 	import {
 		addDrawingPath,
@@ -1947,9 +1947,10 @@
 				console.log(`Text annotation base: (${baseX}, ${baseY}) -> rotated: (${x}, ${y}), rotation: ${currentRotation}`);
 
 				ctx.save();
-				// Translate to text position and rotate
+				// Translate to text position and apply combined rotation (page + text offset)
 				ctx.translate(x, y);
-				ctx.rotate((currentRotation * Math.PI) / 180);
+				const textRotation = currentRotation + (annotation.rotation || 0);
+				ctx.rotate((textRotation * Math.PI) / 180);
 				ctx.translate(-x, -y);
 
 				ctx.font = `${annotation.fontSize}px ${annotation.fontFamily}`;
@@ -2401,7 +2402,8 @@
 
 					ctx.save();
 					ctx.translate(x, y);
-					ctx.rotate((currentRotation * Math.PI) / 180);
+					const textRotation = currentRotation + (annotation.rotation || 0);
+					ctx.rotate((textRotation * Math.PI) / 180);
 					ctx.translate(-x, -y);
 
 					ctx.font = `${scaledFontSize}px ${annotation.fontFamily}`;
