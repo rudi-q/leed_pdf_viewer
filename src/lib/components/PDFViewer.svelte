@@ -2171,7 +2171,7 @@
 				ctx.closePath();
 
 				// Fill with shadow
-				ctx.fillStyle = note.color || '#FFF59D';
+				ctx.fillStyle = note.backgroundColor || '#FFF59D';
 				ctx.fill();
 
 				// Reset shadow for border
@@ -2578,14 +2578,11 @@
 							`Drawing current page stamp "${stampName}" at (${x}, ${y}) size ${stampWidth}x${stampHeight}`
 						);
 						ctx.save();
-						// Apply only stamp's own rotation around center, not combined with page rotation
-						if (stampAnnotation.rotation && stampAnnotation.rotation !== 0) {
-							const centerX = x + stampWidth / 2;
-							const centerY = y + stampHeight / 2;
-							ctx.translate(centerX, centerY);
-							ctx.rotate((stampAnnotation.rotation * Math.PI) / 180);
-							ctx.translate(-centerX, -centerY);
-						}
+						// Apply both page rotation and stamp's own rotation around top-left corner
+						ctx.translate(x, y);
+						const totalRotation = currentRotation + (stampAnnotation.rotation || 0);
+						ctx.rotate((totalRotation * Math.PI) / 180);
+						ctx.translate(-x, -y);
 						ctx.drawImage(img, x, y, stampWidth, stampHeight);
 						ctx.restore();
 
@@ -2652,12 +2649,17 @@
 					const x = pt.x * viewerScale;
 					const y = pt.y * viewerScale;
 
-					const width = note.width || 200;
-					const height = note.height || 150;
-					const borderRadius = 8; // Match the border-radius from StickyNote.svelte
+					const width = (note.width || 200) * viewerScale;
+					const height = (note.height || 150) * viewerScale;
+					const borderRadius = 8 * viewerScale; // Match the border-radius from StickyNote.svelte
 
-					// Save context for shadow
+					// Save context for shadow and rotation
 					ctx.save();
+
+					// Apply rotation transform around the note anchor
+					ctx.translate(x, y);
+					ctx.rotate((currentRotation * Math.PI) / 180);
+					ctx.translate(-x, -y);
 
 					// Apply shadow (matching StickyNote.svelte box-shadow)
 					ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
@@ -2679,7 +2681,7 @@
 					ctx.closePath();
 
 					// Fill with shadow
-					ctx.fillStyle = note.color || '#FFF59D';
+					ctx.fillStyle = note.backgroundColor || '#FFF59D';
 					ctx.fill();
 
 					// Reset shadow for border
