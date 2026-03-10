@@ -1465,7 +1465,7 @@
 	export async function resetZoom() {
 		// Reset both zoom and pan position to center the PDF
 		panOffset = { x: 0, y: 0 };
-		const newScale = 1.2;
+		const newScale = 1.0;
 		// CRITICAL: Render FIRST, update state AFTER
 		await renderCurrentPage(newScale);
 		pdfState.update((state) => ({ ...state, scale: newScale }));
