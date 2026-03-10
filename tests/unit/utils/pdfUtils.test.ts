@@ -169,10 +169,28 @@ describe('PDFUtils', () => {
 				await pdfManager.renderPage(1, options);
 
 				expect(mockPDF.getPage).toHaveBeenCalledWith(1);
-				expect(mockPage.getViewport).toHaveBeenCalledWith({ scale: 1.5 });
+				expect(mockPage.getViewport).toHaveBeenCalledWith({ scale: 1.5, rotation: 0 });
 				expect(mockPage.render).toHaveBeenCalled();
 				expect(canvas.width).toBe(612);
 				expect(canvas.height).toBe(792);
+			});
+
+			it('should forward non-zero rotation to viewport options', async () => {
+				const mockPDF = (globalThis as any).testHelpers.createMockPDF(3);
+				const mockPage = {
+					getViewport: vi.fn(() => ({ width: 792, height: 612 })),
+					render: vi.fn(() => ({ promise: Promise.resolve() }))
+				};
+				mockPDF.getPage.mockResolvedValue(mockPage);
+
+				(pdfManager as any).document = mockPDF;
+
+				const canvas = document.createElement('canvas');
+				const options = { scale: 1.5, rotation: 90 as const, canvas };
+
+				await pdfManager.renderPage(1, options);
+
+				expect(mockPage.getViewport).toHaveBeenCalledWith({ scale: 1.5, rotation: 90 });
 			});
 
 			it('should throw error when no document is loaded', async () => {
@@ -235,7 +253,21 @@ describe('PDFUtils', () => {
 				const dimensions = await pdfManager.getPageDimensions(1, 1.5);
 
 				expect(dimensions).toEqual({ width: 612, height: 792 });
-				expect(mockPage.getViewport).toHaveBeenCalledWith({ scale: 1.5 });
+				expect(mockPage.getViewport).toHaveBeenCalledWith({ scale: 1.5, rotation: 0 });
+			});
+
+			it('should forward non-zero rotation when getting dimensions', async () => {
+				const mockPDF = (globalThis as any).testHelpers.createMockPDF(3);
+				const mockPage = {
+					getViewport: vi.fn(() => ({ width: 792, height: 612 }))
+				};
+				mockPDF.getPage.mockResolvedValue(mockPage);
+				(pdfManager as any).document = mockPDF;
+
+				const dimensions = await pdfManager.getPageDimensions(1, 1.5, 90);
+
+				expect(dimensions).toEqual({ width: 792, height: 612 });
+				expect(mockPage.getViewport).toHaveBeenCalledWith({ scale: 1.5, rotation: 90 });
 			});
 
 			it('should handle errors when getting dimensions', async () => {

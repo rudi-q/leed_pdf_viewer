@@ -2,16 +2,24 @@
 	import { createEventDispatcher, onMount } from 'svelte';
 	import type { StampAnnotation } from '../stores/drawingStore';
 	import { getStampById } from '../stores/drawingStore';
+	import {
+		transformPoint,
+		inverseTransformPoint,
+		rotateDelta,
+		type RotationAngle
+	} from '../utils/rotationUtils';
 
 	export let stamp: StampAnnotation;
-	export const scale: number = 1; // For future scaling features
+	export let scale: number = 1; // Current PDF zoom scale
 
 	// Get the stamp definition to display SVG
 	// Handle backward compatibility: stamps might have either stampId OR stamp (SVG string)
 	$: stampDefinition = stamp.stampId ? getStampById(stamp.stampId) : null;
 	$: stampSvg = stampDefinition?.svg || (stamp as any).stamp || '';
-	export let containerWidth: number = 0;
-	export let containerHeight: number = 0;
+
+	export let rotation: RotationAngle = 0;
+	export let basePageWidth: number = 0;
+	export let basePageHeight: number = 0;
 
 	const dispatch = createEventDispatcher<{
 		update: StampAnnotation;
@@ -31,10 +39,36 @@
 	const MIN_SIZE = 16;
 	const MAX_SIZE = 120;
 
+	let actualX = 0;
+	let actualY = 0;
+	let actualSize = 0;
+
 	// Calculate actual position and size based on scale and relative coordinates
-	$: actualX = stamp.relativeX * containerWidth;
-	$: actualY = stamp.relativeY * containerHeight;
-	$: actualSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, stamp.relativeSize * Math.min(containerWidth, containerHeight)));
+	// The stamp is stored in unrotated (base) coordinates, but we need to display it
+	// in the rotated canvas space. We use transformPoint to convert from base to rotated space.
+	$: if (basePageWidth > 0 && basePageHeight > 0 && scale > 0) {
+		let baseX = stamp.x !== undefined ? stamp.x : stamp.relativeX * basePageWidth;
+		let baseY = stamp.y !== undefined ? stamp.y : stamp.relativeY * basePageHeight;
+
+		// Transform from base (unrotated) coordinates to rotated coordinates
+		const rotatedPoint = transformPoint(
+			baseX,
+			baseY,
+			rotation as RotationAngle,
+			basePageWidth,
+			basePageHeight
+		);
+
+		// Apply scale to get final display position
+		actualX = rotatedPoint.x * scale;
+		actualY = rotatedPoint.y * scale;
+
+		let baseSize =
+			stamp.size !== undefined
+				? stamp.size
+				: stamp.relativeSize * Math.min(basePageWidth, basePageHeight);
+		actualSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, baseSize)) * scale;
+	}
 
 	// Handle mouse down for dragging
 	const handleMouseDown = (event: MouseEvent) => {
@@ -55,29 +89,53 @@
 			const newX = event.clientX - dragStartX;
 			const newY = event.clientY - dragStartY;
 
+			const safeScale = scale > 0 ? scale : 1;
+			const rotatedBaseX = newX / safeScale;
+			const rotatedBaseY = newY / safeScale;
+
+			const basePoint = inverseTransformPoint(
+				rotatedBaseX,
+				rotatedBaseY,
+				rotation as RotationAngle,
+				basePageWidth,
+				basePageHeight
+			);
+
+			const baseSize = stamp.size || stamp.relativeSize * Math.min(basePageWidth, basePageHeight);
+
 			// Constrain to container bounds
-			const constrainedX = Math.max(0, Math.min(containerWidth - actualSize, newX));
-			const constrainedY = Math.max(0, Math.min(containerHeight - actualSize, newY));
+			const constrainedX = Math.max(0, Math.min(basePageWidth - baseSize, basePoint.x));
+			const constrainedY = Math.max(0, Math.min(basePageHeight - baseSize, basePoint.y));
 
 			const updatedStamp: StampAnnotation = {
 				...stamp,
 				x: constrainedX,
 				y: constrainedY,
-				relativeX: constrainedX / containerWidth,
-				relativeY: constrainedY / containerHeight,
+				relativeX: basePageWidth > 0 ? constrainedX / basePageWidth : 0,
+				relativeY: basePageHeight > 0 ? constrainedY / basePageHeight : 0
 			};
 			dispatch('update', updatedStamp);
 		} else if (isResizing) {
-			const deltaX = event.clientX - resizeStartX;
-			const deltaY = event.clientY - resizeStartY;
-			const delta = Math.max(deltaX, deltaY); // Use the larger delta for proportional resizing
+			const screenDeltaX = event.clientX - resizeStartX;
+			const screenDeltaY = event.clientY - resizeStartY;
 
-			const newSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, resizeStartSize + delta));
+			// Rotate delta into local coordinate space
+			const { dx: deltaX, dy: deltaY } = rotateDelta(screenDeltaX, screenDeltaY, rotation);
+
+			const delta = Math.max(deltaX, deltaY); // Use the larger delta
+			const safeScale = scale > 0 ? scale : 1;
+			const baseDelta = delta / safeScale;
+			const baseStartSize = resizeStartSize / safeScale;
+
+			const newSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, baseStartSize + baseDelta));
 
 			const updatedStamp: StampAnnotation = {
 				...stamp,
 				size: newSize,
-				relativeSize: newSize / Math.min(containerWidth, containerHeight),
+				relativeSize:
+					basePageWidth > 0 && basePageHeight > 0
+						? newSize / Math.min(basePageWidth, basePageHeight)
+						: 0
 			};
 			dispatch('update', updatedStamp);
 		}
@@ -116,7 +174,7 @@
 
 		const updatedStamp: StampAnnotation = {
 			...stamp,
-			rotation: newRotation,
+			rotation: newRotation
 		};
 		dispatch('update', updatedStamp);
 	};
@@ -142,9 +200,9 @@
 
 	// Update relative position when stamp is moved
 	function updateRelativePosition(stamp: StampAnnotation, newX: number, newY: number) {
-		const relativeX = containerWidth > 0 ? newX / containerWidth : stamp.relativeX;
-		const relativeY = containerHeight > 0 ? newY / containerHeight : stamp.relativeY;
-		
+		const relativeX = basePageWidth > 0 ? newX / basePageWidth : stamp.relativeX;
+		const relativeY = basePageHeight > 0 ? newY / basePageHeight : stamp.relativeY;
+
 		const updatedStamp: StampAnnotation = {
 			...stamp,
 			x: newX,
@@ -158,16 +216,29 @@
 	// Calculate absolute position from relative position (for scaling)
 	function getAbsolutePosition(stamp: StampAnnotation) {
 		return {
-			x: stamp.relativeX * containerWidth,
-			y: stamp.relativeY * containerHeight,
-			size: stamp.relativeSize * Math.min(containerWidth, containerHeight)
+			x: stamp.x !== undefined ? stamp.x : stamp.relativeX * basePageWidth,
+			y: stamp.y !== undefined ? stamp.y : stamp.relativeY * basePageHeight,
+			size:
+				stamp.size !== undefined
+					? stamp.size
+					: stamp.relativeSize * Math.min(basePageWidth, basePageHeight)
 		};
 	}
 
 	// Scale stamps when canvas size changes
-	$: if (containerWidth > 0 && containerHeight > 0) {
+	$: if (basePageWidth > 0 && basePageHeight > 0) {
 		const pos = getAbsolutePosition(stamp);
-		if (pos.x !== stamp.x || pos.y !== stamp.y || pos.size !== stamp.size) {
+		const epsilon = 0.01;
+		const stampX = typeof stamp.x === 'number' && isFinite(stamp.x) ? stamp.x : pos.x;
+		const stampY = typeof stamp.y === 'number' && isFinite(stamp.y) ? stamp.y : pos.y;
+		const stampSize =
+			typeof stamp.size === 'number' && isFinite(stamp.size) ? stamp.size : pos.size;
+
+		if (
+			Math.abs(pos.x - stampX) > epsilon ||
+			Math.abs(pos.y - stampY) > epsilon ||
+			Math.abs(pos.size - stampSize) > epsilon
+		) {
 			const updatedStamp: StampAnnotation = {
 				...stamp,
 				x: pos.x,
@@ -188,7 +259,7 @@
 	style:top="{actualY}px"
 	style:width="{actualSize}px"
 	style:height="{actualSize}px"
-	style:transform="rotate({stamp.rotation}deg)"
+	style="--rotation: {rotation}deg; transform: rotate(var(--rotation)); transform-origin: top left;"
 	style:font-size="{actualSize * 0.8}px"
 	class:dragging={isDragging}
 	class:resizing={isResizing}
@@ -211,7 +282,10 @@
 	</button>
 
 	<!-- Stamp content -->
-	<div class="stamp-content">
+	<div
+		class="stamp-content"
+		style="transform: rotate({stamp.rotation}deg); transform-origin: center;"
+	>
 		{@html stampSvg}
 	</div>
 
@@ -247,12 +321,12 @@
 		background: rgba(255, 255, 255, 0.05);
 		border-color: rgba(139, 69, 19, 0.2);
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-		transform: scale(1.05) rotate(var(--rotation, 0deg));
+		transform: scale(1.05) rotate(var(--rotation, 0deg)) !important;
 	}
 
 	.stamp-annotation.dragging {
 		cursor: grabbing;
-		transform: scale(1.1) rotate(var(--rotation, 0deg));
+		transform: scale(1.1) rotate(var(--rotation, 0deg)) !important;
 		z-index: 101;
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 	}
@@ -277,7 +351,9 @@
 		font-weight: bold;
 		line-height: 1;
 		opacity: 0;
-		transition: opacity 0.2s ease, transform 0.2s ease;
+		transition:
+			opacity 0.2s ease,
+			transform 0.2s ease;
 		z-index: 1;
 		display: flex;
 		align-items: center;

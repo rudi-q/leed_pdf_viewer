@@ -59,7 +59,8 @@ describe('DrawingStore', () => {
 				currentPage: 1,
 				totalPages: 0,
 				scale: 1.2,
-				isLoading: false
+				isLoading: false,
+				rotation: 0
 			});
 		});
 

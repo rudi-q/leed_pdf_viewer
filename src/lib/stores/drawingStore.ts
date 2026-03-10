@@ -22,6 +22,7 @@ export interface PDFState {
 	currentPage: number;
 	totalPages: number;
 	scale: number;
+	rotation: 0 | 90 | 180 | 270;
 	isLoading: boolean;
 }
 
@@ -60,6 +61,7 @@ export interface TextAnnotation {
 	relativeY: number; // 0-1 range for scaling
 	relativeWidth?: number; // 0-1 range for scaling
 	relativeHeight?: number; // 0-1 range for scaling
+	rotation?: number; // Rotation offset to keep text straight at creation time
 }
 
 // Sticky Note annotation interface (custom solution)
@@ -78,6 +80,7 @@ export interface StickyNoteAnnotation {
 	relativeY: number; // 0-1 range for scaling
 	relativeWidth: number; // 0-1 range for scaling
 	relativeHeight: number; // 0-1 range for scaling
+	rotation?: number; // Rotation offset to keep note straight at creation time
 }
 
 // Stamp annotation interface (custom solution)
@@ -251,6 +254,7 @@ export const pdfState = writable<PDFState>({
 	currentPage: 1,
 	totalPages: 0,
 	scale: 1.2,
+	rotation: 0,
 	isLoading: false
 });
 
@@ -717,6 +721,10 @@ export const setIsDrawing = (isDrawing: boolean) => {
 	drawingState.update((state) => ({ ...state, isDrawing }));
 };
 
+export const setRotation = (rotation: 0 | 90 | 180 | 270) => {
+	pdfState.update((state) => ({ ...state, rotation }));
+};
+
 export const setStampId = (stampId: string) => {
 	drawingState.update((state) => ({ ...state, stampId }));
 };
@@ -795,12 +803,42 @@ export const updatePagePathsWithUndo = (
 	});
 };
 
+// Clear all annotations on current page - this operation is NOT undoable
+// (undo/redo system only tracks drawing paths, not all annotation types)
+// Users should be aware that clearing all changes cannot be undone
 export const clearCurrentPageDrawings = () => {
 	pdfState.subscribe((state) => {
 		if (state.currentPage > 0) {
+			const currentPage = state.currentPage;
+			
+			// Clear drawing paths
 			drawingPaths.update((paths) => {
-				paths.delete(state.currentPage);
+				paths.delete(currentPage);
 				return new Map(paths);
+			});
+			
+			// Clear text annotations
+			textAnnotations.update((annotations) => {
+				annotations.delete(currentPage);
+				return new Map(annotations);
+			});
+			
+			// Clear arrow annotations
+			arrowAnnotations.update((annotations) => {
+				annotations.delete(currentPage);
+				return new Map(annotations);
+			});
+			
+			// Clear stamp annotations
+			stampAnnotations.update((annotations) => {
+				annotations.delete(currentPage);
+				return new Map(annotations);
+			});
+			
+			// Clear sticky note annotations
+			stickyNoteAnnotations.update((annotations) => {
+				annotations.delete(currentPage);
+				return new Map(annotations);
 			});
 		}
 	})();

@@ -46,6 +46,7 @@
 		Highlighter,
 		Image,
 		Layout,
+		Maximize2,
 		Minimize2,
 		Moon,
 		MoreHorizontal,
@@ -54,6 +55,7 @@
 		Presentation,
 		Redo2,
 		RotateCcw,
+		RotateCw,
 		Search,
 		Share,
 		Square,
@@ -100,6 +102,8 @@
 	export let onExportCompressedPDF: (() => void) | undefined = undefined;
 	export let onExportPNG: (() => void) | undefined = undefined;
 	export let onSharePDF: (() => void) | undefined = undefined;
+	export let onRotateLeft: (() => void | Promise<void>) | undefined = undefined;
+	export let onRotateRight: (() => void | Promise<void>) | undefined = undefined;
 
 	// Thumbnail panel control
 	export let showThumbnails = false;
@@ -122,6 +126,7 @@
 	let fontSearchQuery = '';
 	let showMoreMenu = false;
 	let showExportMenu = false;
+	let showViewMenu = false;
 	let toolbarScrollContainer: HTMLDivElement;
 	let showLeftFade = false;
 	let showRightFade = true;
@@ -334,58 +339,110 @@
 
 				<!-- Desktop: Zoom Controls -->
 				<div class="hidden lg:flex items-center space-x-2">
-					<Tooltip content="Zoom out (Ctrl+-)">
-						<button
-							class="tool-button w-8 h-8 flex items-center justify-center"
-							on:click={onZoomOut}
-							aria-label="Zoom out"
-						>
-							<ZoomOut size={14} />
-						</button>
-					</Tooltip>
-
 					<Tooltip content="Zoom in (Ctrl++)">
 						<button
-							class="tool-button w-8 h-8 flex items-center justify-center"
+							class="tool-button h-8 w-8 flex items-center justify-center"
 							on:click={onZoomIn}
 							aria-label="Zoom in"
 						>
-							<ZoomIn size={14} />
+							<ZoomIn size={18} />
 						</button>
 					</Tooltip>
+
+					<Tooltip content="Zoom out (Ctrl+-)">
+						<button
+							class="tool-button h-8 w-8 flex items-center justify-center"
+							on:click={onZoomOut}
+							aria-label="Zoom out"
+						>
+							<ZoomOut size={18} />
+						</button>
+					</Tooltip>
+
+					<!-- View dropdown menu -->
+					<div class="relative">
+						<Tooltip content="View options (Reset, Fit)">
+							<button
+								class="tool-button h-8 w-8 flex items-center justify-center"
+								on:click={() => (showViewMenu = !showViewMenu)}
+								aria-label="View options"
+								aria-expanded={showViewMenu}
+							>
+								<Maximize2 size={18} />
+							</button>
+						</Tooltip>
+
+						{#if showViewMenu}
+							<div class="absolute top-full mt-1 left-0 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 min-w-max">
+								<button
+									class="w-full text-left p-3 rounded-t-lg hover:bg-sage/10 dark:hover:bg-sage/20 transition-colors text-sm flex items-center gap-2"
+									on:click={() => {
+										onResetZoom();
+										showViewMenu = false;
+									}}
+								>
+									<Minimize2 size={16} />
+									<span>Reset Zoom (Ctrl+0)</span>
+								</button>
+
+								<button
+									class="w-full text-left p-3 hover:bg-sage/10 dark:hover:bg-sage/20 transition-colors text-sm flex items-center gap-2"
+									on:click={() => {
+										onFitToWidth();
+										showViewMenu = false;
+									}}
+								>
+									<ArrowLeftRight size={16} />
+									<span>Fit Width (W)</span>
+								</button>
+
+								<button
+									class="w-full text-left p-3 rounded-b-lg hover:bg-sage/10 dark:hover:bg-sage/20 transition-colors text-sm flex items-center gap-2"
+									on:click={() => {
+										onFitToHeight();
+										showViewMenu = false;
+									}}
+								>
+									<ArrowUpDown size={16} />
+									<span>Fit Height (H)</span>
+								</button>
+							</div>
+						{/if}
+					</div>
 				</div>
 
 				<!-- Desktop: Reset and Fit Controls -->
 				<div class="hidden lg:flex items-center space-x-2">
-					<Tooltip content="Reset zoom to 120% (Ctrl+0)">
-						<button
-							class="tool-button w-8 h-8 flex items-center justify-center text-xs px-1"
-							on:click={onResetZoom}
-							aria-label="Reset zoom to 120%"
-						>
-							<span class="font-medium text-xs">Reset</span>
-						</button>
-					</Tooltip>
+					{#if onRotateLeft || onRotateRight}
+						<div class="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-1"></div>
+						{#if onRotateLeft}
+							<Tooltip content="Rotate left 90° (Shift+R)">
+								<button
+									class="tool-button w-8 h-8 flex items-center justify-center"
+									class:opacity-50={!$pdfState.document}
+									disabled={!$pdfState.document}
+									on:click={onRotateLeft}
+									aria-label="Rotate page left 90 degrees"
+								>
+									<RotateCcw size={14} />
+								</button>
+							</Tooltip>
+						{/if}
 
-					<Tooltip content="Fit to width (W)">
-						<button
-							class="tool-button h-8 w-auto flex items-center justify-center text-xs px-2"
-							on:click={onFitToWidth}
-							aria-label="Fit to width"
-						>
-							<span class="font-medium text-xs">Fit W</span>
-						</button>
-					</Tooltip>
-
-					<Tooltip content="Fit to height (H)">
-						<button
-							class="tool-button h-8 w-auto flex items-center justify-center text-xs px-2"
-							on:click={onFitToHeight}
-							aria-label="Fit to height"
-						>
-							<span class="font-medium text-xs">Fit H</span>
-						</button>
-					</Tooltip>
+						{#if onRotateRight}
+							<Tooltip content="Rotate right 90° (R)">
+								<button
+									class="tool-button w-8 h-8 flex items-center justify-center"
+									class:opacity-50={!$pdfState.document}
+									disabled={!$pdfState.document}
+									on:click={onRotateRight}
+									aria-label="Rotate page right 90 degrees"
+								>
+									<RotateCw size={14} />
+								</button>
+							</Tooltip>
+						{/if}
+					{/if}
 				</div>
 			</div>
 
