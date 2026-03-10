@@ -803,21 +803,13 @@ export const updatePagePathsWithUndo = (
 	});
 };
 
+// Clear all annotations on current page - this operation is NOT undoable
+// (undo/redo system only tracks drawing paths, not all annotation types)
+// Users should be aware that clearing all changes cannot be undone
 export const clearCurrentPageDrawings = () => {
 	pdfState.subscribe((state) => {
 		if (state.currentPage > 0) {
 			const currentPage = state.currentPage;
-			
-			// Save current state for undo before clearing all annotations
-			let currentDrawingPaths: DrawingPath[] = [];
-			drawingPaths.subscribe((paths) => {
-				currentDrawingPaths = paths.get(currentPage) || [];
-			})();
-			
-			// Save undo state for drawing paths
-			if (currentDrawingPaths.length > 0) {
-				saveUndoState(currentPage, currentDrawingPaths);
-			}
 			
 			// Clear drawing paths
 			drawingPaths.update((paths) => {

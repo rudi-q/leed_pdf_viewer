@@ -207,6 +207,24 @@
 		}
 	}
 
+	// Handle keyboard events for text annotation element (when focused)
+	function handleAnnotationKeyDown(event: KeyboardEvent, annotation: TextAnnotation) {
+		if (viewOnlyMode) return;
+		
+		// Enter or Space to activate editing
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			event.stopPropagation();
+			handleAnnotationDoubleClick(annotation);
+		}
+		// Delete or Backspace to remove annotation
+		else if (event.key === 'Delete' || event.key === 'Backspace') {
+			event.preventDefault();
+			event.stopPropagation();
+			handleDelete(annotation);
+		}
+	}
+
 	// Calculate display position from stored coordinates
 	function getDisplayPosition(annotation: TextAnnotation) {
 		// Annotations are stored at base scale, 0-rotation space
@@ -471,6 +489,17 @@
 					on:keydown={handleKeyDown}
 					placeholder="Enter text..."
 				></textarea>
+
+				{#if !viewOnlyMode}
+					<button
+						class="text-box-delete-btn"
+						on:click|stopPropagation={() => handleDelete(annotation)}
+						title="Delete text annotation"
+						aria-label="Delete text annotation"
+					>
+						×
+					</button>
+				{/if}
 			</div>
 		{:else}
 			<!-- Display mode -->
@@ -482,10 +511,11 @@
 				style="left: {pos.x}px; top: {pos.y}px; width: {displayWidth}px; height: {displayHeight}px; transform: rotate({rotation + (annotation.rotation || 0)}deg); transform-origin: top left;"
 				on:dblclick={() => handleAnnotationDoubleClick(annotation)}
 				on:mousedown={(e) => handleMouseDown(e, annotation)}
+				on:keydown={(e) => handleAnnotationKeyDown(e, annotation)}
 				role="button"
 				tabindex="0"
 				aria-label="Text annotation: {annotation.text}"
-				title="Double-click to edit, drag to move"
+				title="Double-click to edit, drag to move, or press Enter to edit"
 			>
 				<!-- Delete button -->
 				{#if !viewOnlyMode}

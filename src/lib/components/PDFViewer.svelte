@@ -1532,7 +1532,8 @@
 
 	// ── Rotation functions ──────────────────────────────────
 	export async function rotateLeft() {
-		const current = $pdfState.rotation as number;
+		// Use pendingRotation if set (queued during render), otherwise use current pdfState rotation
+		const current = (pendingRotation ?? $pdfState.rotation) as number;
 		const newRotation = ((current - 90 + 360) % 360) as 0 | 90 | 180 | 270;
 		
 		// If rendering, queue the rotation for later; otherwise apply immediately
@@ -1547,7 +1548,8 @@
 	}
 
 	export async function rotateRight() {
-		const current = $pdfState.rotation as number;
+		// Use pendingRotation if set (queued during render), otherwise use current pdfState rotation
+		const current = (pendingRotation ?? $pdfState.rotation) as number;
 		const newRotation = ((current + 90) % 360) as 0 | 90 | 180 | 270;
 		
 		// If rendering, queue the rotation for later; otherwise apply immediately
@@ -2733,16 +2735,12 @@
 					ctx.lineWidth = 1;
 					ctx.stroke();
 
-					// Restore context after shadow
-					ctx.restore();
-
-					// Set clipping region for text to stay within rounded rectangle
-					ctx.save();
+					// Set clipping region for text to stay within rounded rectangle (before restore)
 					ctx.clip();
 
-					// Draw sticky note text
+					// Draw sticky note text (inside transformed context with rotation and scale)
 					ctx.fillStyle = '#000';
-					ctx.font = `${note.fontSize || 14}px ${note.fontFamily || 'ReenieBeanie, cursive'}`;
+					ctx.font = `${note.fontSize * viewerScale || 14}px ${note.fontFamily || 'ReenieBeanie, cursive'}`;
 
 					// Handle multi-line text with word wrapping
 					const words = note.text.split(' ');
@@ -2764,14 +2762,14 @@
 					lines.push(currentLine);
 
 					// Draw lines with proper spacing
-					const lineHeight = (note.fontSize || 14) * 1.2;
+					const lineHeight = (note.fontSize * viewerScale || 14) * 1.2;
 					lines.forEach((line, index) => {
 						// Container has 8px padding on all sides, so text starts at (8, 8) from container edge
 						// But we need to match the visual appearance, so let's add more top padding
 						ctx.fillText(line.trim(), x + 8, y + 32 + index * lineHeight);
 					});
 
-					// Restore clipping
+					// Restore context (includes clipping and rotation transforms)
 					ctx.restore();
 				});
 
