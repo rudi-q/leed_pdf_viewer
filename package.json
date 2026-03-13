@@ -64,6 +64,7 @@
 		]
 	},
 	"dependencies": {
+		"@pdf-lib/fontkit": "^1.1.1",
 		"@tailwindcss/typography": "^0.5.19",
 		"@tauri-apps/plugin-deep-link": "^2.4.7",
 		"@tauri-apps/plugin-dialog": "^2.6.0",

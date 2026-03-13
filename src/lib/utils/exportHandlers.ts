@@ -59,6 +59,7 @@ export async function buildAnnotatedPdfExporter(
 	pdfViewer: {
 		pageHasAnnotations: (page: number) => Promise<boolean>;
 		getMergedCanvasForPage: (page: number) => Promise<HTMLCanvasElement | null>;
+		getPageAnnotations?: (page: number) => import('./pdfExport').PageAnnotations | null;
 		getPageRotation?: (page: number) => number;
 	},
 	totalPages: number,
@@ -79,6 +80,13 @@ export async function buildAnnotatedPdfExporter(
 
 		const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
 		if (hasAnnotations || captureAllPages) {
+			if (pdfViewer.getPageAnnotations) {
+				const annotations = pdfViewer.getPageAnnotations(pageNumber);
+				if (annotations) {
+					exporter.setPageAnnotations(pageNumber, annotations);
+				}
+			}
+			
 			const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
 			if (mergedCanvas) {
 				exporter.setPageCanvas(pageNumber, mergedCanvas);

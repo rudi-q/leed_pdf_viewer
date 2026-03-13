@@ -1,6 +1,25 @@
-import { PDFDocument, PDFPage, degrees } from 'pdf-lib';
+import { PDFDocument, PDFPage, degrees, rgb, StandardFonts } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
 import { invoke } from '@tauri-apps/api/core';
 import { isTauri } from './tauriUtils';
+import type { 
+	DrawingPath, 
+	TextAnnotation, 
+	ArrowAnnotation, 
+	StickyNoteAnnotation, 
+	StampAnnotation,
+	availableStamps
+} from '../stores/drawingStore';
+import { getStampById } from '../stores/drawingStore';
+import { transformPoint } from './rotationUtils';
+
+export interface PageAnnotations {
+	drawingPaths: DrawingPath[];
+	textAnnotations: TextAnnotation[];
+	stickyNotes: StickyNoteAnnotation[];
+	stampAnnotations: StampAnnotation[];
+	arrowAnnotations: ArrowAnnotation[];
+}
 
 export interface ExportOptions {
 	includeOriginalPDF: boolean;
@@ -11,6 +30,7 @@ export interface ExportOptions {
 export class PDFExporter {
 	private originalPdfBytes: Uint8Array | null = null;
 	private canvasElements: Map<number, HTMLCanvasElement> = new Map();
+	private pageAnnotations: Map<number, PageAnnotations> = new Map();
 	private rotations: Map<number, number> = new Map();
 
 	/**
@@ -27,6 +47,10 @@ export class PDFExporter {
 
 	setPageCanvas(pageNumber: number, canvas: HTMLCanvasElement) {
 		this.canvasElements.set(pageNumber, canvas);
+	}
+
+	setPageAnnotations(pageNumber: number, annotations: PageAnnotations) {
+		this.pageAnnotations.set(pageNumber, annotations);
 	}
 
 	setPageRotation(pageNumber: number, rotation: number) {
@@ -49,74 +73,245 @@ export class PDFExporter {
 			throw new Error('No original PDF loaded');
 		}
 
-		// Primary path: load original PDF and overlay canvases
+		// Primary path: load original PDF and overlay canvases / vectors
 		try {
 			const pdfDoc = await PDFDocument.load(this.originalPdfBytes, { ignoreEncryption: true });
+			pdfDoc.registerFontkit(fontkit);
+			
 			const pages = pdfDoc.getPages();
 			for (let pageNumber = 1; pageNumber <= pages.length; pageNumber++) {
 				const page = pages[pageNumber - 1];
-				// Note: we fetch rotation but DO NOT apply it to the final page here,
-				// because embedCanvasInPage does size swapping which is safer for rendering.
-				const rotation = this.rotations.get(pageNumber);
+				const rotation = this.rotations.get(pageNumber) || 0;
 
-				const canvas = this.canvasElements.get(pageNumber);
-				if (canvas) {
-					await this.embedCanvasInPage(pdfDoc, page, canvas, rotation || 0);
+				const annotations = this.pageAnnotations.get(pageNumber);
+				if (annotations) {
+					// Draw annotations using native vector graphics
+					await this.drawAnnotationsNatively(pdfDoc, page, annotations, rotation);
+				} else {
+					// Fallback to canvas embedding if annotations weren't provided natively
+					// This maintains backwards compatibility for exportHandlers
+					const canvas = this.canvasElements.get(pageNumber);
+					if (canvas) {
+						await this.embedCanvasInPage(pdfDoc, page, canvas, rotation);
+					}
 				}
 			}
 			return await pdfDoc.save();
 		} catch (primaryError) {
+			console.error('PDF native export failed. Falling back to canvas merge.', primaryError);
 			// Fallback path: build a brand-new PDF composed from merged canvases
-			try {
-				const newDoc = await PDFDocument.create();
-				const pageNumbers = Array.from(this.canvasElements.keys()).sort((a, b) => a - b);
-				if (pageNumbers.length === 0) {
-					throw new Error('No rendered pages available for export');
-				}
-				for (const pageNum of pageNumbers) {
-					// Safely retrieve and validate canvas
-					if (!this.canvasElements.has(pageNum)) {
-						throw new Error(`Canvas for page ${pageNum} not found in export buffer`);
-					}
-					const canvas = this.canvasElements.get(pageNum);
-					if (!canvas) {
-						throw new Error(`Canvas for page ${pageNum} is null`);
-					}
-					// Validate canvas dimensions
-					if (
-						!Number.isFinite(canvas.width) ||
-						!Number.isFinite(canvas.height) ||
-						canvas.width <= 0 ||
-						canvas.height <= 0
-					) {
-						throw new Error(
-							`Invalid canvas dimensions for page ${pageNum}: width=${canvas.width}, height=${canvas.height}`
-						);
-					}
-					// Convert pixel dimensions to PDF points (72 DPI)
-					const page = newDoc.addPage([
-						PDFExporter.pixelsToPoints(canvas.width),
-						PDFExporter.pixelsToPoints(canvas.height)
-					]);
+			return this.fallbackCanvasExport();
+		}
+	}
 
-					// Preserve original page rotation as fallback
-					const pageRotation = this.rotations.get(pageNum) || 0;
-					await this.embedCanvasInPage(newDoc, page, canvas, pageRotation);
+	private async fallbackCanvasExport(): Promise<Uint8Array> {
+		try {
+			const newDoc = await PDFDocument.create();
+			const pageNumbers = Array.from(this.canvasElements.keys()).sort((a, b) => a - b);
+			if (pageNumbers.length === 0) {
+				throw new Error('No rendered pages available for export');
+			}
+			for (const pageNum of pageNumbers) {
+				const canvas = this.canvasElements.get(pageNum);
+				if (!canvas) throw new Error(`Canvas for page ${pageNum} is null`);
+				if (!Number.isFinite(canvas.width) || canvas.width <= 0) {
+					throw new Error(`Invalid canvas dimensions`);
 				}
-				return await newDoc.save();
-			} catch (fallbackError) {
-				const primaryMsg =
-					primaryError instanceof Error
-						? `${primaryError.message}${primaryError.stack ? '\n' + primaryError.stack : ''}`
-						: String(primaryError);
-				const fallbackMsg =
-					fallbackError instanceof Error
-						? `${fallbackError.message}${fallbackError.stack ? '\n' + fallbackError.stack : ''}`
-						: String(fallbackError);
-				console.error('PDF export failed. Primary:', primaryMsg, '| Fallback:', fallbackMsg);
-				throw new Error(
-					`Failed to export annotated PDF: Primary load error: ${primaryMsg}. Fallback error: ${fallbackMsg}`
-				);
+
+				const page = newDoc.addPage([
+					PDFExporter.pixelsToPoints(canvas.width),
+					PDFExporter.pixelsToPoints(canvas.height)
+				]);
+
+				const pageRotation = this.rotations.get(pageNum) || 0;
+				await this.embedCanvasInPage(newDoc, page, canvas, pageRotation);
+			}
+			return await newDoc.save();
+		} catch (fallbackError) {
+			throw new Error(`Failed to export fallback PDF: ${fallbackError}`);
+		}
+	}
+	
+	private parseSvgPathToPdfCommands(svgPathStr: string): string {
+		// Just returns the path string unmodified for now, since pdf-lib drawSvgPath
+		// uses standard SVG path strings (M, L, C, Z, etc) directly.
+		return svgPathStr;
+	}
+
+	private extractPathFromStamp(svgString: string): { pathData: string, fill: string, stroke: string } | null {
+		// Extremely simple regex-based SVG extractor to pull out the first significant path for PDF-lib compatibility
+		// This skips drop shadows/filters since pdf-lib doesn't support them natively 
+		const pathRegex = /<path d="([^"]+)" fill="([^"]+)" stroke="([^"]+)"/g;
+		let match;
+		let bestPath = null;
+		
+		// Find the actual colored element, usually the second path or the one not filled "none" or "white"
+		while ((match = pathRegex.exec(svgString)) !== null) {
+			if (match[2] !== 'none' && match[2] !== 'white') {
+				bestPath = { pathData: match[1], fill: match[2], stroke: match[3] };
+			}
+		}
+		
+		return bestPath;
+	}
+
+	private async loadCustomFont(pdfDoc: PDFDocument, fontFamily: string) {
+		// Provide fallback mapping
+		if (fontFamily.includes('sans-serif')) return pdfDoc.embedStandardFont(StandardFonts.Helvetica);
+		if (fontFamily.includes('serif') && !fontFamily.includes('sans-serif')) return pdfDoc.embedStandardFont(StandardFonts.TimesRoman);
+		if (fontFamily.includes('monospace')) return pdfDoc.embedStandardFont(StandardFonts.Courier);
+		
+		// Map known font families to static assets
+		let fontPath = '';
+		if (fontFamily.includes('ReenieBeanie')) fontPath = '/fonts/ReenieBeanie.ttf';
+		else if (fontFamily.includes('Inter')) fontPath = '/fonts/inter-v20-latin-regular.woff2';
+		else if (fontFamily.includes('Lora')) fontPath = '/fonts/additional-fonts/Lora-VariableFont_wght.woff2';
+		else if (fontFamily.includes('Urbanist')) fontPath = '/fonts/additional-fonts/Urbanist-Regular.woff2';
+		else if (fontFamily.includes('Dancing Script')) fontPath = '/fonts/dancing-script-v29-latin-600.woff2';
+		else return pdfDoc.embedStandardFont(StandardFonts.Helvetica); // Ultimate fallback
+
+		try {
+			const fontBytes = await fetch(fontPath).then((res) => res.arrayBuffer());
+			return await pdfDoc.embedFont(fontBytes);
+		} catch (e) {
+			console.warn(`Failed to heavily embed ${fontFamily}, falling back to Helvetica`, e);
+			return pdfDoc.embedStandardFont(StandardFonts.Helvetica);
+		}
+	}
+
+	private async drawAnnotationsNatively(
+		pdfDoc: PDFDocument,
+		page: PDFPage,
+		annotations: PageAnnotations,
+		rotationDegrees: number
+	) {
+		const { width, height } = page.getSize();
+		// pdf-lib origin (0,0) is bottom-left. We must flip Y.
+		const flipY = (y: number) => height - y;
+
+		// 1. Draw Paths (Freehand / Highlighters)
+		for (const path of annotations.drawingPaths) {
+			if (!path.points || path.points.length < 2) continue;
+			
+			const rgbColor = this.hexToRgb(path.highlightColor || path.color);
+			const pdfColor = rgb(rgbColor.r, rgbColor.g, rgbColor.b);
+			const opacity = path.highlightOpacity || (path.tool === 'highlight' ? 0.4 : 1);
+			
+			// Group points into a single SVG path
+			let pathData = `M ${path.points[0].x} ${flipY(path.points[0].y)}`;
+			for (let i = 1; i < path.points.length; i++) {
+				pathData += ` L ${path.points[i].x} ${flipY(path.points[i].y)}`;
+			}
+
+			page.drawSvgPath(pathData, {
+				borderColor: pdfColor,
+				borderWidth: path.lineWidth,
+				borderOpacity: opacity,
+			});
+		}
+
+		// 2. Draw Text Annotations
+		for (const textMod of annotations.textAnnotations) {
+			const font = await this.loadCustomFont(pdfDoc, textMod.fontFamily);
+			const rgbColor = this.hexToRgb(textMod.color);
+			
+			// Calculate position - convert top-left to bottom-left
+			// Text position needs adjustment because pdf-lib text origin is bottom-left of the first line
+			const yPos = flipY(textMod.y) - textMod.fontSize;
+
+			page.drawText(textMod.text, {
+				x: textMod.x,
+				y: yPos,
+				size: textMod.fontSize,
+				font: font,
+				color: rgb(rgbColor.r, rgbColor.g, rgbColor.b)
+			});
+		}
+
+		// 3. Draw Sticky Notes
+		for (const note of annotations.stickyNotes) {
+			const font = await this.loadCustomFont(pdfDoc, note.fontFamily);
+			const bgRgb = this.hexToRgb(note.backgroundColor);
+			
+			const rectY = flipY(note.y) - note.height;
+			
+			// Draw sticky note background
+			page.drawRectangle({
+				x: note.x,
+				y: rectY,
+				width: note.width,
+				height: note.height,
+				color: rgb(bgRgb.r, bgRgb.g, bgRgb.b),
+				opacity: 0.9
+			});
+
+			// Draw sticky note text (simplified, real text wrapping might be necessary)
+			const textYPos = flipY(note.y) - note.fontSize - 10; // offset from top
+			page.drawText(note.text, {
+				x: note.x + 10,
+				y: textYPos,
+				size: note.fontSize,
+				font: font,
+				color: rgb(0, 0, 0)
+			});
+		}
+
+		// 4. Draw Arrows
+		for (const arrow of annotations.arrowAnnotations) {
+			const rgbColor = this.hexToRgb(arrow.stroke);
+			const pdfColor = rgb(rgbColor.r, rgbColor.g, rgbColor.b);
+			
+			// Draw line
+			page.drawLine({
+				start: { x: arrow.x1, y: flipY(arrow.y1) },
+				end: { x: arrow.x2, y: flipY(arrow.y2) },
+				thickness: arrow.strokeWidth,
+				color: pdfColor
+			});
+
+			// Draw arrowhead if needed
+			if (arrow.arrowHead) {
+				const angle = Math.atan2(flipY(arrow.y2) - flipY(arrow.y1), arrow.x2 - arrow.x1);
+				const arrowLength = arrow.strokeWidth * 3;
+				
+				const x3 = arrow.x2 - arrowLength * Math.cos(angle - Math.PI / 6);
+				const y3 = flipY(arrow.y2) - arrowLength * Math.sin(angle - Math.PI / 6);
+				
+				const x4 = arrow.x2 - arrowLength * Math.cos(angle + Math.PI / 6);
+				const y4 = flipY(arrow.y2) - arrowLength * Math.sin(angle + Math.PI / 6);
+				
+				const arrowFill = `M ${arrow.x2} ${flipY(arrow.y2)} L ${x3} ${y3} L ${x4} ${y4} Z`;
+				page.drawSvgPath(arrowFill, {
+					color: pdfColor,
+					borderWidth: 0
+				});
+			}
+		}
+
+		// 5. Draw Stamps
+		for (const stamp of annotations.stampAnnotations) {
+			const stampDef = getStampById(stamp.stampId);
+			if (!stampDef) continue;
+			
+			const parsedSvg = this.extractPathFromStamp(stampDef.svg);
+			if (parsedSvg) {
+				const rgbFill = this.hexToRgb(parsedSvg.fill);
+				const rgbStroke = this.hexToRgb(parsedSvg.stroke);
+				
+				// Calculate dimensions. SVGs have internal viewBoxes, usually 100x100
+				const scaleFactor = stamp.size / 100;
+				
+				// Some path data requires vertical flipping because PDF coordinates are reversed compared to SVG
+				// The easiest fix without matrix math is simply rendering it. Note: SVG paths in general
+				// assume top-left origin, so we might need a coordinate matrix specifically for stamps.
+				page.drawSvgPath(parsedSvg.pathData, {
+					x: stamp.x,
+					y: flipY(stamp.y) - stamp.size,
+					scale: scaleFactor,
+					color: rgb(rgbFill.r, rgbFill.g, rgbFill.b),
+					borderColor: rgb(rgbStroke.r, rgbStroke.g, rgbStroke.b),
+					borderWidth: 1.5
+				});
 			}
 		}
 	}
@@ -181,6 +376,7 @@ export class PDFExporter {
 			b: parseInt(result[3], 16) / 255
 		};
 	}
+
 
 	async exportAsImages(canvases: HTMLCanvasElement[]): Promise<Blob[]> {
 		const images: Blob[] = [];
