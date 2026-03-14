@@ -264,14 +264,20 @@ export class PDFExporter {
 			const bgRgb = this.hexToRgb(note.backgroundColor);
 			
 			const pos = transformAnnotationPoint(note.x, note.y);
-			const rectY = pos.y - note.height;
+			
+			// Apply rotated dimensions: swap width/height for 90° and 270° rotations
+			const isRotated90or270 = (rotationDegrees / 90) % 2 !== 0;
+			const noteWidth = isRotated90or270 ? note.height : note.width;
+			const noteHeight = isRotated90or270 ? note.width : note.height;
+			
+			const rectY = pos.y - noteHeight;
 			
 			// Draw sticky note background
 			page.drawRectangle({
 				x: pos.x,
 				y: rectY,
-				width: note.width,
-				height: note.height,
+				width: noteWidth,
+				height: noteHeight,
 				color: rgb(bgRgb.r, bgRgb.g, bgRgb.b),
 				opacity: 0.9
 			});
@@ -279,8 +285,8 @@ export class PDFExporter {
 			// Draw sticky note text with wrapping
 			const padding = 10;
 			const lineHeight = note.fontSize * 1.2;
-			const maxWidth = note.width - (padding * 2);
-			const maxHeight = note.height - (padding * 2);
+			const maxWidth = noteWidth - (padding * 2);
+			const maxHeight = noteHeight - (padding * 2);
 			
 			const lines = note.text.split('\n');
 			const wrappedLines: string[] = [];
@@ -451,17 +457,29 @@ export class PDFExporter {
 			return namedColors[lowerHex];
 		}
 		
-		const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+		// Support both 3-digit (#RGB) and 6-digit (#RRGGBB) hex colors
+		const result = /^#?([a-f\d]{3}|[a-f\d]{6})$/i.exec(hex);
 		if (!result) {
 			console.warn(`Invalid hex color: "${hex}", defaulting to black`);
 			return { r: 0, g: 0, b: 0 }; // Default to black
 		}
 
-		return {
-			r: parseInt(result[1], 16) / 255,
-			g: parseInt(result[2], 16) / 255,
-			b: parseInt(result[3], 16) / 255
-		};
+		const hexValue = result[1];
+		let r, g, b;
+		
+		if (hexValue.length === 3) {
+			// Expand 3-digit hex to 6-digit by repeating each character
+			r = parseInt(hexValue[0] + hexValue[0], 16) / 255;
+			g = parseInt(hexValue[1] + hexValue[1], 16) / 255;
+			b = parseInt(hexValue[2] + hexValue[2], 16) / 255;
+		} else {
+			// Parse 6-digit hex
+			r = parseInt(hexValue.substring(0, 2), 16) / 255;
+			g = parseInt(hexValue.substring(2, 4), 16) / 255;
+			b = parseInt(hexValue.substring(4, 6), 16) / 255;
+		}
+
+		return { r, g, b };
 	}
 
 
