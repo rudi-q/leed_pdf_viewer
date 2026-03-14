@@ -7,8 +7,7 @@ import type {
 	TextAnnotation, 
 	ArrowAnnotation, 
 	StickyNoteAnnotation, 
-	StampAnnotation,
-	availableStamps
+	StampAnnotation
 } from '../stores/drawingStore';
 import { getStampById } from '../stores/drawingStore';
 import { transformPoint } from './rotationUtils';
@@ -26,6 +25,15 @@ export interface ExportOptions {
 	format: 'pdf' | 'png' | 'jpeg';
 	quality?: number;
 }
+
+// Font family to asset path mapping
+const FONT_ASSETS: { [key: string]: string } = {
+	'ReenieBeanie': '/fonts/ReenieBeanie.ttf',
+	'Inter': '/fonts/inter-v20-latin-regular.woff2',
+	'Lora': '/fonts/additional-fonts/Lora-VariableFont_wght.woff2',
+	'Urbanist': '/fonts/additional-fonts/Urbanist-Regular.woff2',
+	'Dancing Script': '/fonts/dancing-script-v29-latin-600.woff2'
+};
 
 export class PDFExporter {
 	private originalPdfBytes: Uint8Array | null = null;
@@ -128,27 +136,30 @@ export class PDFExporter {
 			}
 			return await newDoc.save();
 		} catch (fallbackError) {
-			throw new Error(`Failed to export fallback PDF: ${fallbackError}`);
+			throw new Error(`Failed to export fallback PDF: ${fallbackError}`, { cause: fallbackError });
 		}
 	}
 	
-	private parseSvgPathToPdfCommands(svgPathStr: string): string {
-		// Just returns the path string unmodified for now, since pdf-lib drawSvgPath
-		// uses standard SVG path strings (M, L, C, Z, etc) directly.
-		return svgPathStr;
-	}
-
 	private extractPathFromStamp(svgString: string): { pathData: string, fill: string, stroke: string } | null {
-		// Extremely simple regex-based SVG extractor to pull out the first significant path for PDF-lib compatibility
-		// This skips drop shadows/filters since pdf-lib doesn't support them natively 
-		const pathRegex = /<path d="([^"]+)" fill="([^"]+)" stroke="([^"]+)"/g;
+		// Extract path elements and parse attributes regardless of order
+		const pathTagRegex = /<path[^>]*>/g;
 		let match;
 		let bestPath = null;
 		
-		// Find the actual colored element, usually the second path or the one not filled "none" or "white"
-		while ((match = pathRegex.exec(svgString)) !== null) {
-			if (match[2] !== 'none' && match[2] !== 'white') {
-				bestPath = { pathData: match[1], fill: match[2], stroke: match[3] };
+		while ((match = pathTagRegex.exec(svgString)) !== null) {
+			const pathTag = match[0];
+			
+			// Extract attributes by name
+			const dMatch = /d="([^"]+)"/.exec(pathTag);
+			const fillMatch = /fill="([^"]+)"/.exec(pathTag);
+			const strokeMatch = /stroke="([^"]+)"/.exec(pathTag);
+			
+			if (dMatch && fillMatch && strokeMatch) {
+				const fill = fillMatch[1];
+				// Find the actual colored element, not filled "none" or "white"
+				if (fill !== 'none' && fill !== 'white') {
+					bestPath = { pathData: dMatch[1], fill: fill, stroke: strokeMatch[1] };
+				}
 			}
 		}
 		
@@ -156,25 +167,30 @@ export class PDFExporter {
 	}
 
 	private async loadCustomFont(pdfDoc: PDFDocument, fontFamily: string) {
-		// Provide fallback mapping
+		// Provide fallback mapping for generic families
 		if (fontFamily.includes('sans-serif')) return pdfDoc.embedStandardFont(StandardFonts.Helvetica);
 		if (fontFamily.includes('serif') && !fontFamily.includes('sans-serif')) return pdfDoc.embedStandardFont(StandardFonts.TimesRoman);
 		if (fontFamily.includes('monospace')) return pdfDoc.embedStandardFont(StandardFonts.Courier);
 		
-		// Map known font families to static assets
+		// Look up font path from mapping
 		let fontPath = '';
-		if (fontFamily.includes('ReenieBeanie')) fontPath = '/fonts/ReenieBeanie.ttf';
-		else if (fontFamily.includes('Inter')) fontPath = '/fonts/inter-v20-latin-regular.woff2';
-		else if (fontFamily.includes('Lora')) fontPath = '/fonts/additional-fonts/Lora-VariableFont_wght.woff2';
-		else if (fontFamily.includes('Urbanist')) fontPath = '/fonts/additional-fonts/Urbanist-Regular.woff2';
-		else if (fontFamily.includes('Dancing Script')) fontPath = '/fonts/dancing-script-v29-latin-600.woff2';
-		else return pdfDoc.embedStandardFont(StandardFonts.Helvetica); // Ultimate fallback
+		for (const [fontName, path] of Object.entries(FONT_ASSETS)) {
+			if (fontFamily.includes(fontName)) {
+				fontPath = path;
+				break;
+			}
+		}
+		
+		// If no match found, use standard font
+		if (!fontPath) {
+			return pdfDoc.embedStandardFont(StandardFonts.Helvetica);
+		}
 
 		try {
 			const fontBytes = await fetch(fontPath).then((res) => res.arrayBuffer());
 			return await pdfDoc.embedFont(fontBytes);
 		} catch (e) {
-			console.warn(`Failed to heavily embed ${fontFamily}, falling back to Helvetica`, e);
+			console.warn(`Failed to embed ${fontFamily}, falling back to Helvetica`, e);
 			return pdfDoc.embedStandardFont(StandardFonts.Helvetica);
 		}
 	}
@@ -188,6 +204,18 @@ export class PDFExporter {
 		const { width, height } = page.getSize();
 		// pdf-lib origin (0,0) is bottom-left. We must flip Y.
 		const flipY = (y: number) => height - y;
+		
+		// Transform point based on rotation (annotations are stored in rotation-0 coordinates)
+		const transformAnnotationPoint = (x: number, y: number) => {
+			const transformed = transformPoint(
+				x,
+				y,
+				rotationDegrees as 0 | 90 | 180 | 270,
+				width,
+				height
+			);
+			return { x: transformed.x, y: flipY(transformed.y) };
+		};
 
 		// 1. Draw Paths (Freehand / Highlighters)
 		for (const path of annotations.drawingPaths) {
@@ -197,10 +225,12 @@ export class PDFExporter {
 			const pdfColor = rgb(rgbColor.r, rgbColor.g, rgbColor.b);
 			const opacity = path.highlightOpacity || (path.tool === 'highlight' ? 0.4 : 1);
 			
-			// Group points into a single SVG path
-			let pathData = `M ${path.points[0].x} ${flipY(path.points[0].y)}`;
+			// Transform and group points into a single SVG path
+			const firstPt = transformAnnotationPoint(path.points[0].x, path.points[0].y);
+			let pathData = `M ${firstPt.x} ${firstPt.y}`;
 			for (let i = 1; i < path.points.length; i++) {
-				pathData += ` L ${path.points[i].x} ${flipY(path.points[i].y)}`;
+				const pt = transformAnnotationPoint(path.points[i].x, path.points[i].y);
+				pathData += ` L ${pt.x} ${pt.y}`;
 			}
 
 			page.drawSvgPath(pathData, {
@@ -215,12 +245,12 @@ export class PDFExporter {
 			const font = await this.loadCustomFont(pdfDoc, textMod.fontFamily);
 			const rgbColor = this.hexToRgb(textMod.color);
 			
-			// Calculate position - convert top-left to bottom-left
-			// Text position needs adjustment because pdf-lib text origin is bottom-left of the first line
-			const yPos = flipY(textMod.y) - textMod.fontSize;
+			// Transform position and adjust for text baseline
+			const pos = transformAnnotationPoint(textMod.x, textMod.y);
+			const yPos = pos.y - textMod.fontSize;
 
 			page.drawText(textMod.text, {
-				x: textMod.x,
+				x: pos.x,
 				y: yPos,
 				size: textMod.fontSize,
 				font: font,
@@ -233,11 +263,12 @@ export class PDFExporter {
 			const font = await this.loadCustomFont(pdfDoc, note.fontFamily);
 			const bgRgb = this.hexToRgb(note.backgroundColor);
 			
-			const rectY = flipY(note.y) - note.height;
+			const pos = transformAnnotationPoint(note.x, note.y);
+			const rectY = pos.y - note.height;
 			
 			// Draw sticky note background
 			page.drawRectangle({
-				x: note.x,
+				x: pos.x,
 				y: rectY,
 				width: note.width,
 				height: note.height,
@@ -245,15 +276,49 @@ export class PDFExporter {
 				opacity: 0.9
 			});
 
-			// Draw sticky note text (simplified, real text wrapping might be necessary)
-			const textYPos = flipY(note.y) - note.fontSize - 10; // offset from top
-			page.drawText(note.text, {
-				x: note.x + 10,
-				y: textYPos,
-				size: note.fontSize,
-				font: font,
-				color: rgb(0, 0, 0)
-			});
+			// Draw sticky note text with wrapping
+			const padding = 10;
+			const lineHeight = note.fontSize * 1.2;
+			const maxWidth = note.width - (padding * 2);
+			const maxHeight = note.height - (padding * 2);
+			
+			const lines = note.text.split('\n');
+			const wrappedLines: string[] = [];
+			
+			// Word wrap each line
+			for (const line of lines) {
+				const words = line.split(' ');
+				let currentLine = '';
+				
+				for (const word of words) {
+					const testLine = currentLine ? `${currentLine} ${word}` : word;
+					const testWidth = font.widthOfTextAtSize(testLine, note.fontSize);
+					
+					if (testWidth > maxWidth && currentLine) {
+						wrappedLines.push(currentLine);
+						currentLine = word;
+					} else {
+						currentLine = testLine;
+					}
+				}
+				if (currentLine) wrappedLines.push(currentLine);
+			}
+			
+			// Draw each line, respecting height bounds
+			let currentY = pos.y - note.fontSize - padding;
+			for (let i = 0; i < wrappedLines.length; i++) {
+				if (currentY < rectY) break; // Stop if exceeds bottom
+				
+				page.drawText(wrappedLines[i], {
+					x: pos.x + padding,
+					y: currentY,
+					size: note.fontSize,
+					font: font,
+					color: rgb(0, 0, 0)
+				});
+				
+				currentY -= lineHeight;
+			}
 		}
 
 		// 4. Draw Arrows
@@ -261,26 +326,30 @@ export class PDFExporter {
 			const rgbColor = this.hexToRgb(arrow.stroke);
 			const pdfColor = rgb(rgbColor.r, rgbColor.g, rgbColor.b);
 			
+			// Transform arrow endpoints
+			const start = transformAnnotationPoint(arrow.x1, arrow.y1);
+			const end = transformAnnotationPoint(arrow.x2, arrow.y2);
+			
 			// Draw line
 			page.drawLine({
-				start: { x: arrow.x1, y: flipY(arrow.y1) },
-				end: { x: arrow.x2, y: flipY(arrow.y2) },
+				start: { x: start.x, y: start.y },
+				end: { x: end.x, y: end.y },
 				thickness: arrow.strokeWidth,
 				color: pdfColor
 			});
 
 			// Draw arrowhead if needed
 			if (arrow.arrowHead) {
-				const angle = Math.atan2(flipY(arrow.y2) - flipY(arrow.y1), arrow.x2 - arrow.x1);
+				const angle = Math.atan2(end.y - start.y, end.x - start.x);
 				const arrowLength = arrow.strokeWidth * 3;
 				
-				const x3 = arrow.x2 - arrowLength * Math.cos(angle - Math.PI / 6);
-				const y3 = flipY(arrow.y2) - arrowLength * Math.sin(angle - Math.PI / 6);
+				const x3 = end.x - arrowLength * Math.cos(angle - Math.PI / 6);
+				const y3 = end.y - arrowLength * Math.sin(angle - Math.PI / 6);
 				
-				const x4 = arrow.x2 - arrowLength * Math.cos(angle + Math.PI / 6);
-				const y4 = flipY(arrow.y2) - arrowLength * Math.sin(angle + Math.PI / 6);
+				const x4 = end.x - arrowLength * Math.cos(angle + Math.PI / 6);
+				const y4 = end.y - arrowLength * Math.sin(angle + Math.PI / 6);
 				
-				const arrowFill = `M ${arrow.x2} ${flipY(arrow.y2)} L ${x3} ${y3} L ${x4} ${y4} Z`;
+				const arrowFill = `M ${end.x} ${end.y} L ${x3} ${y3} L ${x4} ${y4} Z`;
 				page.drawSvgPath(arrowFill, {
 					color: pdfColor,
 					borderWidth: 0
@@ -298,15 +367,15 @@ export class PDFExporter {
 				const rgbFill = this.hexToRgb(parsedSvg.fill);
 				const rgbStroke = this.hexToRgb(parsedSvg.stroke);
 				
+				// Transform stamp position
+				const pos = transformAnnotationPoint(stamp.x, stamp.y);
+				
 				// Calculate dimensions. SVGs have internal viewBoxes, usually 100x100
 				const scaleFactor = stamp.size / 100;
 				
-				// Some path data requires vertical flipping because PDF coordinates are reversed compared to SVG
-				// The easiest fix without matrix math is simply rendering it. Note: SVG paths in general
-				// assume top-left origin, so we might need a coordinate matrix specifically for stamps.
 				page.drawSvgPath(parsedSvg.pathData, {
-					x: stamp.x,
-					y: flipY(stamp.y) - stamp.size,
+					x: pos.x,
+					y: pos.y - stamp.size,
 					scale: scaleFactor,
 					color: rgb(rgbFill.r, rgbFill.g, rgbFill.b),
 					borderColor: rgb(rgbStroke.r, rgbStroke.g, rgbStroke.b),
@@ -365,8 +434,26 @@ export class PDFExporter {
 	}
 
 	private hexToRgb(hex: string): { r: number; g: number; b: number } {
+		// Common named colors lookup
+		const namedColors: { [key: string]: { r: number; g: number; b: number } } = {
+			'red': { r: 1, g: 0, b: 0 },
+			'green': { r: 0, g: 0.5, b: 0 },
+			'blue': { r: 0, g: 0, b: 1 },
+			'yellow': { r: 1, g: 1, b: 0 },
+			'gold': { r: 1, g: 0.843, b: 0 },
+			'white': { r: 1, g: 1, b: 1 },
+			'black': { r: 0, g: 0, b: 0 }
+		};
+		
+		// Check for named color
+		const lowerHex = hex.toLowerCase();
+		if (namedColors[lowerHex]) {
+			return namedColors[lowerHex];
+		}
+		
 		const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
 		if (!result) {
+			console.warn(`Invalid hex color: "${hex}", defaulting to black`);
 			return { r: 0, g: 0, b: 0 }; // Default to black
 		}
 
