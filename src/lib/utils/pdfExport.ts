@@ -115,24 +115,47 @@ export class PDFExporter {
 	private async fallbackCanvasExport(): Promise<Uint8Array> {
 		try {
 			const newDoc = await PDFDocument.create();
-			const pageNumbers = Array.from(this.canvasElements.keys()).sort((a, b) => a - b);
-			if (pageNumbers.length === 0) {
+			
+			// Determine page count from original PDF or canvas elements
+			let pageCount = this.canvasElements.size;
+			if (this.originalPdfBytes) {
+				try {
+					const originalDoc = await PDFDocument.load(this.originalPdfBytes, { ignoreEncryption: true });
+					pageCount = Math.max(pageCount, originalDoc.getPageCount());
+				} catch (e) {
+					console.warn('Could not load original PDF for page count', e);
+				}
+			}
+			
+			if (pageCount === 0) {
 				throw new Error('No rendered pages available for export');
 			}
-			for (const pageNum of pageNumbers) {
+			
+			// Create pages for all pages in the document
+			for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
 				const canvas = this.canvasElements.get(pageNum);
-				if (!canvas) throw new Error(`Canvas for page ${pageNum} is null`);
-				if (!Number.isFinite(canvas.width) || canvas.width <= 0) {
-					throw new Error(`Invalid canvas dimensions`);
+				
+				if (canvas) {
+					// Validate canvas dimensions
+					if (!Number.isFinite(canvas.width) || canvas.width <= 0 || !Number.isFinite(canvas.height) || canvas.height <= 0) {
+						console.warn(`Invalid canvas dimensions for page ${pageNum}: ${canvas.width}x${canvas.height}`);
+						// Create blank page instead of failing
+						newDoc.addPage([612, 792]); // Standard letter size
+						continue;
+					}
+
+					const page = newDoc.addPage([
+						PDFExporter.pixelsToPoints(canvas.width),
+						PDFExporter.pixelsToPoints(canvas.height)
+					]);
+
+					const pageRotation = this.rotations.get(pageNum) || 0;
+					await this.embedCanvasInPage(newDoc, page, canvas, pageRotation);
+				} else {
+					// Create blank page for missing canvas
+					console.warn(`No canvas found for page ${pageNum}, creating blank page`);
+					newDoc.addPage([612, 792]); // Standard letter size
 				}
-
-				const page = newDoc.addPage([
-					PDFExporter.pixelsToPoints(canvas.width),
-					PDFExporter.pixelsToPoints(canvas.height)
-				]);
-
-				const pageRotation = this.rotations.get(pageNum) || 0;
-				await this.embedCanvasInPage(newDoc, page, canvas, pageRotation);
 			}
 			return await newDoc.save();
 		} catch (fallbackError) {
@@ -144,7 +167,6 @@ export class PDFExporter {
 		// Extract path elements and parse attributes regardless of order
 		const pathTagRegex = /<path[^>]*>/g;
 		let match;
-		let bestPath = null;
 		
 		while ((match = pathTagRegex.exec(svgString)) !== null) {
 			const pathTag = match[0];
@@ -156,14 +178,14 @@ export class PDFExporter {
 			
 			if (dMatch && fillMatch && strokeMatch) {
 				const fill = fillMatch[1];
-				// Find the actual colored element, not filled "none" or "white"
+				// Return the first colored element (not filled "none" or "white")
 				if (fill !== 'none' && fill !== 'white') {
-					bestPath = { pathData: dMatch[1], fill: fill, stroke: strokeMatch[1] };
+					return { pathData: dMatch[1], fill: fill, stroke: strokeMatch[1] };
 				}
 			}
 		}
 		
-		return bestPath;
+		return null;
 	}
 
 	private async loadCustomFont(pdfDoc: PDFDocument, fontFamily: string) {
