@@ -209,7 +209,11 @@ export class PDFExporter {
 		}
 
 		try {
-			const fontBytes = await fetch(fontPath).then((res) => res.arrayBuffer());
+			const response = await fetch(fontPath);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch font: HTTP ${response.status} for ${fontPath}`);
+			}
+			const fontBytes = await response.arrayBuffer();
 			return await pdfDoc.embedFont(fontBytes);
 		} catch (e) {
 			console.warn(`Failed to embed ${fontFamily}, falling back to Helvetica`, e);
@@ -245,7 +249,7 @@ export class PDFExporter {
 			
 			const rgbColor = this.hexToRgb(path.highlightColor || path.color);
 			const pdfColor = rgb(rgbColor.r, rgbColor.g, rgbColor.b);
-			const opacity = path.highlightOpacity || (path.tool === 'highlight' ? 0.4 : 1);
+			const opacity = path.highlightOpacity ?? (path.tool === 'highlight' ? 0.4 : 1);
 			
 			// Transform and group points into a single SVG path
 			const firstPt = transformAnnotationPoint(path.points[0].x, path.points[0].y);
@@ -405,6 +409,7 @@ export class PDFExporter {
 					x: pos.x,
 					y: pos.y - stamp.size,
 					scale: scaleFactor,
+					rotate: degrees(stamp.rotation),
 					color: rgb(rgbFill.r, rgbFill.g, rgbFill.b),
 					borderColor: rgb(rgbStroke.r, rgbStroke.g, rgbStroke.b),
 					borderWidth: 1.5
