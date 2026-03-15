@@ -81,12 +81,20 @@ export class PDFExporter {
 			throw new Error('No original PDF loaded');
 		}
 
+		console.log('[PDFExport] Starting native vector export...');
+		console.log(`[PDFExport] Pages with annotations: ${this.pageAnnotations.size}`);
+		console.log(`[PDFExport] Pages with canvas fallback: ${this.canvasElements.size}`);
+
 		// Primary path: load original PDF and overlay canvases / vectors
 		try {
 			const pdfDoc = await PDFDocument.load(this.originalPdfBytes, { ignoreEncryption: true });
 			pdfDoc.registerFontkit(fontkit);
+			console.log('[PDFExport] ✓ Loaded original PDF and registered fontkit');
 			
 			const pages = pdfDoc.getPages();
+			let nativeAnnotationCount = 0;
+			let canvasFallbackCount = 0;
+			
 			for (let pageNumber = 1; pageNumber <= pages.length; pageNumber++) {
 				const page = pages[pageNumber - 1];
 				const rotation = this.rotations.get(pageNumber) || 0;
@@ -94,25 +102,35 @@ export class PDFExporter {
 				const annotations = this.pageAnnotations.get(pageNumber);
 				if (annotations) {
 					// Draw annotations using native vector graphics
+					console.log(`[PDFExport] Page ${pageNumber}: Rendering ${annotations.drawingPaths.length} paths, ${annotations.textAnnotations.length} text, ${annotations.stickyNotes.length} sticky notes, ${annotations.stampAnnotations.length} stamps, ${annotations.arrowAnnotations.length} arrows (VECTOR)`);
 					await this.drawAnnotationsNatively(pdfDoc, page, annotations, rotation);
+					nativeAnnotationCount++;
 				} else {
 					// Fallback to canvas embedding if annotations weren't provided natively
 					// This maintains backwards compatibility for exportHandlers
 					const canvas = this.canvasElements.get(pageNumber);
 					if (canvas) {
+						console.log(`[PDFExport] Page ${pageNumber}: Using canvas fallback (RASTER)`);
 						await this.embedCanvasInPage(pdfDoc, page, canvas, rotation);
+						canvasFallbackCount++;
 					}
 				}
 			}
-			return await pdfDoc.save();
+			
+			console.log(`[PDFExport] ✓ Native export successful: ${nativeAnnotationCount} pages with vector annotations, ${canvasFallbackCount} pages with raster canvas`);
+			const pdfBytes = await pdfDoc.save();
+			console.log(`[PDFExport] ✓ PDF saved successfully (${(pdfBytes.length / 1024).toFixed(2)} KB)`);
+			return pdfBytes;
 		} catch (primaryError) {
-			console.error('PDF native export failed. Falling back to canvas merge.', primaryError);
+			console.error('[PDFExport] ✗ Native export failed. Falling back to canvas-only merge.', primaryError);
+			console.log(`[PDFExport] Fallback reason: ${primaryError instanceof Error ? primaryError.message : String(primaryError)}`);
 			// Fallback path: build a brand-new PDF composed from merged canvases
 			return this.fallbackCanvasExport();
 		}
 	}
 
 	private async fallbackCanvasExport(): Promise<Uint8Array> {
+		console.log('[PDFExport:Fallback] Starting canvas-only export (RASTER MODE)...');
 		try {
 			const newDoc = await PDFDocument.create();
 			
@@ -122,8 +140,9 @@ export class PDFExporter {
 				try {
 					const originalDoc = await PDFDocument.load(this.originalPdfBytes, { ignoreEncryption: true });
 					pageCount = Math.max(pageCount, originalDoc.getPageCount());
+					console.log(`[PDFExport:Fallback] Original PDF has ${originalDoc.getPageCount()} pages`);
 				} catch (e) {
-					console.warn('Could not load original PDF for page count', e);
+					console.warn('[PDFExport:Fallback] Could not load original PDF for page count', e);
 				}
 			}
 			
@@ -131,19 +150,26 @@ export class PDFExporter {
 				throw new Error('No rendered pages available for export');
 			}
 			
+			console.log(`[PDFExport:Fallback] Creating ${pageCount} pages from canvas elements`);
+			
 			// Create pages for all pages in the document
+			let pagesEmbedded = 0;
+			let blankPagesCreated = 0;
+			
 			for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
 				const canvas = this.canvasElements.get(pageNum);
 				
 				if (canvas) {
 					// Validate canvas dimensions
 					if (!Number.isFinite(canvas.width) || canvas.width <= 0 || !Number.isFinite(canvas.height) || canvas.height <= 0) {
-						console.warn(`Invalid canvas dimensions for page ${pageNum}: ${canvas.width}x${canvas.height}`);
+						console.warn(`[PDFExport:Fallback] Invalid canvas dimensions for page ${pageNum}: ${canvas.width}x${canvas.height}, creating blank page`);
 						// Create blank page instead of failing
 						newDoc.addPage([612, 792]); // Standard letter size
+						blankPagesCreated++;
 						continue;
 					}
 
+					console.log(`[PDFExport:Fallback] Page ${pageNum}: Embedding canvas (${canvas.width}x${canvas.height}px)`);
 					const page = newDoc.addPage([
 						PDFExporter.pixelsToPoints(canvas.width),
 						PDFExporter.pixelsToPoints(canvas.height)
@@ -151,14 +177,21 @@ export class PDFExporter {
 
 					const pageRotation = this.rotations.get(pageNum) || 0;
 					await this.embedCanvasInPage(newDoc, page, canvas, pageRotation);
+					pagesEmbedded++;
 				} else {
 					// Create blank page for missing canvas
-					console.warn(`No canvas found for page ${pageNum}, creating blank page`);
+					console.warn(`[PDFExport:Fallback] No canvas found for page ${pageNum}, creating blank page`);
 					newDoc.addPage([612, 792]); // Standard letter size
+					blankPagesCreated++;
 				}
 			}
-			return await newDoc.save();
+			
+			console.log(`[PDFExport:Fallback] ✓ Fallback export complete: ${pagesEmbedded} pages with canvas, ${blankPagesCreated} blank pages`);
+			const pdfBytes = await newDoc.save();
+			console.log(`[PDFExport:Fallback] ✓ Fallback PDF saved (${(pdfBytes.length / 1024).toFixed(2)} KB) - NOTE: This is RASTER, not vector!`);
+			return pdfBytes;
 		} catch (fallbackError) {
+			console.error('[PDFExport:Fallback] ✗ Fallback export failed', fallbackError);
 			throw new Error(`Failed to export fallback PDF: ${fallbackError}`, { cause: fallbackError });
 		}
 	}
@@ -190,9 +223,18 @@ export class PDFExporter {
 
 	private async loadCustomFont(pdfDoc: PDFDocument, fontFamily: string) {
 		// Provide fallback mapping for generic families
-		if (fontFamily.includes('sans-serif')) return pdfDoc.embedStandardFont(StandardFonts.Helvetica);
-		if (fontFamily.includes('serif') && !fontFamily.includes('sans-serif')) return pdfDoc.embedStandardFont(StandardFonts.TimesRoman);
-		if (fontFamily.includes('monospace')) return pdfDoc.embedStandardFont(StandardFonts.Courier);
+		if (fontFamily.includes('sans-serif')) {
+			console.log(`[PDFExport:Font] ${fontFamily} → Helvetica (generic sans-serif)`);
+			return pdfDoc.embedStandardFont(StandardFonts.Helvetica);
+		}
+		if (fontFamily.includes('serif') && !fontFamily.includes('sans-serif')) {
+			console.log(`[PDFExport:Font] ${fontFamily} → Times Roman (generic serif)`);
+			return pdfDoc.embedStandardFont(StandardFonts.TimesRoman);
+		}
+		if (fontFamily.includes('monospace')) {
+			console.log(`[PDFExport:Font] ${fontFamily} → Courier (generic monospace)`);
+			return pdfDoc.embedStandardFont(StandardFonts.Courier);
+		}
 		
 		// Look up font path from mapping
 		let fontPath = '';
@@ -205,18 +247,22 @@ export class PDFExporter {
 		
 		// If no match found, use standard font
 		if (!fontPath) {
+			console.log(`[PDFExport:Font] ${fontFamily} → Helvetica (no custom font found)`);
 			return pdfDoc.embedStandardFont(StandardFonts.Helvetica);
 		}
 
 		try {
+			console.log(`[PDFExport:Font] Fetching custom font: ${fontFamily} from ${fontPath}`);
 			const response = await fetch(fontPath);
 			if (!response.ok) {
 				throw new Error(`Failed to fetch font: HTTP ${response.status} for ${fontPath}`);
 			}
 			const fontBytes = await response.arrayBuffer();
-			return await pdfDoc.embedFont(fontBytes);
+			const embeddedFont = await pdfDoc.embedFont(fontBytes);
+			console.log(`[PDFExport:Font] ✓ Successfully embedded custom font: ${fontFamily} (${(fontBytes.byteLength / 1024).toFixed(2)} KB)`);
+			return embeddedFont;
 		} catch (e) {
-			console.warn(`Failed to embed ${fontFamily}, falling back to Helvetica`, e);
+			console.warn(`[PDFExport:Font] ✗ Failed to embed ${fontFamily}, falling back to Helvetica:`, e instanceof Error ? e.message : String(e));
 			return pdfDoc.embedStandardFont(StandardFonts.Helvetica);
 		}
 	}
@@ -228,6 +274,7 @@ export class PDFExporter {
 		rotationDegrees: number
 	) {
 		const { width, height } = page.getSize();
+		console.log(`[PDFExport:Native] Drawing annotations natively on page (${width}x${height}pt, rotation: ${rotationDegrees}°)`);
 		// pdf-lib origin (0,0) is bottom-left. We must flip Y.
 		const flipY = (y: number) => height - y;
 		
@@ -243,13 +290,14 @@ export class PDFExporter {
 			return { x: transformed.x, y: flipY(transformed.y) };
 		};
 
-		// 1. Draw Paths (Freehand / Highlighters)
+		// 1. Draw Paths (Freehand / Highlighters - VECTOR)
 		for (const path of annotations.drawingPaths) {
 			if (!path.points || path.points.length < 2) continue;
 			
 			const rgbColor = this.hexToRgb(path.highlightColor || path.color);
 			const pdfColor = rgb(rgbColor.r, rgbColor.g, rgbColor.b);
 			const opacity = path.highlightOpacity ?? (path.tool === 'highlight' ? 0.4 : 1);
+			console.log(`[PDFExport:Native] Path: ${path.tool} with ${path.points.length} points, width ${path.lineWidth}px, opacity ${opacity} (VECTOR)`);
 			
 			// Transform and group points into a single SVG path
 			const firstPt = transformAnnotationPoint(path.points[0].x, path.points[0].y);
@@ -266,7 +314,7 @@ export class PDFExporter {
 			});
 		}
 
-		// 2. Draw Text Annotations
+		// 2. Draw Text Annotations (VECTOR - uses embedded fonts)
 		for (const textMod of annotations.textAnnotations) {
 			const font = await this.loadCustomFont(pdfDoc, textMod.fontFamily);
 			const rgbColor = this.hexToRgb(textMod.color);
@@ -275,6 +323,7 @@ export class PDFExporter {
 			const pos = transformAnnotationPoint(textMod.x, textMod.y);
 			const yPos = pos.y - textMod.fontSize;
 
+			console.log(`[PDFExport:Native] Text: "${textMod.text.substring(0, 30)}..." at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}) size ${textMod.fontSize}pt (VECTOR)`);
 			page.drawText(textMod.text, {
 				x: pos.x,
 				y: yPos,
@@ -284,10 +333,11 @@ export class PDFExporter {
 			});
 		}
 
-		// 3. Draw Sticky Notes
+		// 3. Draw Sticky Notes (VECTOR - shapes + text)
 		for (const note of annotations.stickyNotes) {
 			const font = await this.loadCustomFont(pdfDoc, note.fontFamily);
 			const bgRgb = this.hexToRgb(note.backgroundColor);
+			console.log(`[PDFExport:Native] Sticky Note: ${note.width}x${note.height}pt, text: "${note.text.substring(0, 20)}..." (VECTOR)`);
 			
 			const pos = transformAnnotationPoint(note.x, note.y);
 			
@@ -353,10 +403,11 @@ export class PDFExporter {
 			}
 		}
 
-		// 4. Draw Arrows
+		// 4. Draw Arrows (VECTOR - lines + paths)
 		for (const arrow of annotations.arrowAnnotations) {
 			const rgbColor = this.hexToRgb(arrow.stroke);
 			const pdfColor = rgb(rgbColor.r, rgbColor.g, rgbColor.b);
+			console.log(`[PDFExport:Native] Arrow: from (${arrow.x1}, ${arrow.y1}) to (${arrow.x2}, ${arrow.y2}), width ${arrow.strokeWidth}px (VECTOR)`);
 			
 			// Transform arrow endpoints
 			const start = transformAnnotationPoint(arrow.x1, arrow.y1);
@@ -389,13 +440,18 @@ export class PDFExporter {
 			}
 		}
 
-		// 5. Draw Stamps
+		// 5. Draw Stamps (VECTOR - SVG paths)
 		for (const stamp of annotations.stampAnnotations) {
 			const stampDef = getStampById(stamp.stampId);
-			if (!stampDef) continue;
+			if (!stampDef) {
+				console.warn(`[PDFExport:Native] Stamp ID ${stamp.stampId} not found`);
+				continue;
+			}
+			console.log(`[PDFExport:Native] Stamp: ${stamp.stampId} at (${stamp.x}, ${stamp.y}), size ${stamp.size}pt, rotation ${stamp.rotation}° (VECTOR)`);
 			
 			const parsedSvg = this.extractPathFromStamp(stampDef.svg);
 			if (parsedSvg) {
+				console.log(`[PDFExport:Native] Stamp SVG path extracted successfully`);
 				const rgbFill = this.hexToRgb(parsedSvg.fill);
 				const rgbStroke = this.hexToRgb(parsedSvg.stroke);
 				
