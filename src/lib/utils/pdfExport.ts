@@ -300,7 +300,23 @@ export class PDFExporter {
 		annotations: PageAnnotations,
 		rotationDegrees: number
 	) {
-		const { width, height } = page.getSize();
+		const originalSize = page.getSize();
+		let { width, height } = originalSize;
+		
+		// Handle page rotation: swap dimensions and reset rotation attribute
+		// This matches the behavior of embedCanvasInPage for consistency
+		const isRotated90or270 = (rotationDegrees / 90) % 2 !== 0;
+		if (isRotated90or270) {
+			// Swap dimensions for 90° or 270° rotation
+			const targetWidth = height;
+			const targetHeight = width;
+			page.setSize(targetWidth, targetHeight);
+			width = targetWidth;
+			height = targetHeight;
+		}
+		// Reset rotation attribute since we handle rotation via coordinate transforms
+		page.setRotation(degrees(0));
+		
 		console.log(`[PDFExport:Native] Drawing annotations natively on page (${width}x${height}pt, rotation: ${rotationDegrees}°)`);
 		
 		// pdf-lib origin (0,0) is bottom-left. We must flip Y.
@@ -337,26 +353,8 @@ export class PDFExporter {
 			const lineWidthPt = path.lineWidth;
 			
 			console.log(`[PDFExport:Native] Path: ${path.tool} with ${path.points.length} points, width ${lineWidthPt.toFixed(1)}pt, opacity ${opacity} (VECTOR)`);
-			console.log(`[PDFExport:Native] First point raw: (${path.points[0].x}, ${path.points[0].y})`);
 			
-			// Points are already in PDF points - just apply rotation transform and Y-flip
-			const firstPt = path.points[0];
-			const firstTransformed = transformAnnotationPoint(firstPt.x, firstPt.y);
-			let pathData = `M ${firstTransformed.x} ${firstTransformed.y}`;
-			
-			console.log(`[PDFExport:Native] First point transformed: (${firstTransformed.x.toFixed(1)}, ${firstTransformed.y.toFixed(1)})`);
-			
-			for (let i = 1; i < path.points.length; i++) {
-				const pt = path.points[i];
-				const transformed = transformAnnotationPoint(pt.x, pt.y);
-				pathData += ` L ${transformed.x} ${transformed.y}`;
-			}
-
-			console.log(`[PDFExport:Native] Path data (first 200 chars): ${pathData.substring(0, 200)}...`);
-			console.log(`[PDFExport:Native] Drawing with color: rgb(${rgbColor.r}, ${rgbColor.g}, ${rgbColor.b})`);
-
-			// Use drawLine for each segment instead of drawSvgPath
-			// pdf-lib's drawSvgPath may not render stroke-only paths correctly
+			// Use drawLine for each segment - pdf-lib's drawSvgPath doesn't handle stroke-only paths well
 			for (let i = 1; i < path.points.length; i++) {
 				const prevPt = path.points[i - 1];
 				const currPt = path.points[i];
