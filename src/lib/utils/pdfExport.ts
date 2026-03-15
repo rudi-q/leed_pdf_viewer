@@ -134,11 +134,13 @@ export class PDFExporter {
 		try {
 			const newDoc = await PDFDocument.create();
 			
-			// Determine page count from original PDF or canvas elements
+			// Try to load original PDF for copying pages when canvas is missing
+			let originalDoc: PDFDocument | null = null;
 			let pageCount = this.canvasElements.size;
+			
 			if (this.originalPdfBytes) {
 				try {
-					const originalDoc = await PDFDocument.load(this.originalPdfBytes, { ignoreEncryption: true });
+					originalDoc = await PDFDocument.load(this.originalPdfBytes, { ignoreEncryption: true });
 					pageCount = Math.max(pageCount, originalDoc.getPageCount());
 					console.log(`[PDFExport:Fallback] Original PDF has ${originalDoc.getPageCount()} pages`);
 				} catch (e) {
@@ -154,6 +156,7 @@ export class PDFExporter {
 			
 			// Create pages for all pages in the document
 			let pagesEmbedded = 0;
+			let pagesCopied = 0;
 			let blankPagesCreated = 0;
 			
 			for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
@@ -162,9 +165,21 @@ export class PDFExporter {
 				if (canvas) {
 					// Validate canvas dimensions
 					if (!Number.isFinite(canvas.width) || canvas.width <= 0 || !Number.isFinite(canvas.height) || canvas.height <= 0) {
-						console.warn(`[PDFExport:Fallback] Invalid canvas dimensions for page ${pageNum}: ${canvas.width}x${canvas.height}, creating blank page`);
-						// Create blank page instead of failing
-						newDoc.addPage([612, 792]); // Standard letter size
+						console.warn(`[PDFExport:Fallback] Invalid canvas dimensions for page ${pageNum}: ${canvas.width}x${canvas.height}`);
+						// Try to copy original page instead of creating blank
+						if (originalDoc && pageNum <= originalDoc.getPageCount()) {
+							try {
+								const [copiedPage] = await newDoc.copyPages(originalDoc, [pageNum - 1]);
+								newDoc.addPage(copiedPage);
+								pagesCopied++;
+								console.log(`[PDFExport:Fallback] Page ${pageNum}: Copied from original PDF (invalid canvas)`);
+								continue;
+							} catch (copyError) {
+								console.warn(`[PDFExport:Fallback] Failed to copy page ${pageNum} from original:`, copyError);
+							}
+						}
+						// Fall back to blank page only if copy fails
+						newDoc.addPage([612, 792]);
 						blankPagesCreated++;
 						continue;
 					}
@@ -179,14 +194,26 @@ export class PDFExporter {
 					await this.embedCanvasInPage(newDoc, page, canvas, pageRotation);
 					pagesEmbedded++;
 				} else {
-					// Create blank page for missing canvas
+					// Try to copy original page instead of creating blank
+					if (originalDoc && pageNum <= originalDoc.getPageCount()) {
+						try {
+							const [copiedPage] = await newDoc.copyPages(originalDoc, [pageNum - 1]);
+							newDoc.addPage(copiedPage);
+							pagesCopied++;
+							console.log(`[PDFExport:Fallback] Page ${pageNum}: Copied from original PDF (no canvas)`);
+							continue;
+						} catch (copyError) {
+							console.warn(`[PDFExport:Fallback] Failed to copy page ${pageNum} from original:`, copyError);
+						}
+					}
+					// Fall back to blank page only if copy fails
 					console.warn(`[PDFExport:Fallback] No canvas found for page ${pageNum}, creating blank page`);
-					newDoc.addPage([612, 792]); // Standard letter size
+					newDoc.addPage([612, 792]);
 					blankPagesCreated++;
 				}
 			}
 			
-			console.log(`[PDFExport:Fallback] ✓ Fallback export complete: ${pagesEmbedded} pages with canvas, ${blankPagesCreated} blank pages`);
+			console.log(`[PDFExport:Fallback] ✓ Fallback export complete: ${pagesEmbedded} canvas pages, ${pagesCopied} copied pages, ${blankPagesCreated} blank pages`);
 			const pdfBytes = await newDoc.save();
 			console.log(`[PDFExport:Fallback] ✓ Fallback PDF saved (${(pdfBytes.length / 1024).toFixed(2)} KB) - NOTE: This is RASTER, not vector!`);
 			return pdfBytes;
@@ -275,8 +302,15 @@ export class PDFExporter {
 	) {
 		const { width, height } = page.getSize();
 		console.log(`[PDFExport:Native] Drawing annotations natively on page (${width}x${height}pt, rotation: ${rotationDegrees}°)`);
+		
 		// pdf-lib origin (0,0) is bottom-left. We must flip Y.
 		const flipY = (y: number) => height - y;
+		
+		// Convert relative coordinates (0-1 range) to PDF page coordinates (points)
+		// This is the key fix: annotations store relativeX/relativeY which are 0-1 normalized
+		const relativeToPageCoords = (relX: number, relY: number) => {
+			return { x: relX * width, y: relY * height };
+		};
 		
 		// Transform point based on rotation (annotations are stored in rotation-0 coordinates)
 		const transformAnnotationPoint = (x: number, y: number) => {
@@ -297,21 +331,46 @@ export class PDFExporter {
 			const rgbColor = this.hexToRgb(path.highlightColor || path.color);
 			const pdfColor = rgb(rgbColor.r, rgbColor.g, rgbColor.b);
 			const opacity = path.highlightOpacity ?? (path.tool === 'highlight' ? 0.4 : 1);
-			console.log(`[PDFExport:Native] Path: ${path.tool} with ${path.points.length} points, width ${path.lineWidth}px, opacity ${opacity} (VECTOR)`);
 			
-			// Transform and group points into a single SVG path
-			const firstPt = transformAnnotationPoint(path.points[0].x, path.points[0].y);
-			let pathData = `M ${firstPt.x} ${firstPt.y}`;
+			// Drawing paths are stored in base viewport coordinates (PDF points at scale 1.0, rotation 0)
+			// These coordinates are already in PDF page space, just need rotation transform and Y-flip
+			const lineWidthPt = path.lineWidth;
+			
+			console.log(`[PDFExport:Native] Path: ${path.tool} with ${path.points.length} points, width ${lineWidthPt.toFixed(1)}pt, opacity ${opacity} (VECTOR)`);
+			console.log(`[PDFExport:Native] First point raw: (${path.points[0].x}, ${path.points[0].y})`);
+			
+			// Points are already in PDF points - just apply rotation transform and Y-flip
+			const firstPt = path.points[0];
+			const firstTransformed = transformAnnotationPoint(firstPt.x, firstPt.y);
+			let pathData = `M ${firstTransformed.x} ${firstTransformed.y}`;
+			
+			console.log(`[PDFExport:Native] First point transformed: (${firstTransformed.x.toFixed(1)}, ${firstTransformed.y.toFixed(1)})`);
+			
 			for (let i = 1; i < path.points.length; i++) {
-				const pt = transformAnnotationPoint(path.points[i].x, path.points[i].y);
-				pathData += ` L ${pt.x} ${pt.y}`;
+				const pt = path.points[i];
+				const transformed = transformAnnotationPoint(pt.x, pt.y);
+				pathData += ` L ${transformed.x} ${transformed.y}`;
 			}
 
-			page.drawSvgPath(pathData, {
-				borderColor: pdfColor,
-				borderWidth: path.lineWidth,
-				borderOpacity: opacity,
-			});
+			console.log(`[PDFExport:Native] Path data (first 200 chars): ${pathData.substring(0, 200)}...`);
+			console.log(`[PDFExport:Native] Drawing with color: rgb(${rgbColor.r}, ${rgbColor.g}, ${rgbColor.b})`);
+
+			// Use drawLine for each segment instead of drawSvgPath
+			// pdf-lib's drawSvgPath may not render stroke-only paths correctly
+			for (let i = 1; i < path.points.length; i++) {
+				const prevPt = path.points[i - 1];
+				const currPt = path.points[i];
+				const prevTransformed = transformAnnotationPoint(prevPt.x, prevPt.y);
+				const currTransformed = transformAnnotationPoint(currPt.x, currPt.y);
+				
+				page.drawLine({
+					start: { x: prevTransformed.x, y: prevTransformed.y },
+					end: { x: currTransformed.x, y: currTransformed.y },
+					thickness: lineWidthPt,
+					color: pdfColor,
+					opacity: opacity,
+				});
+			}
 		}
 
 		// 2. Draw Text Annotations (VECTOR - uses embedded fonts)
@@ -319,8 +378,9 @@ export class PDFExporter {
 			const font = await this.loadCustomFont(pdfDoc, textMod.fontFamily);
 			const rgbColor = this.hexToRgb(textMod.color);
 			
-			// Transform position and adjust for text baseline
-			const pos = transformAnnotationPoint(textMod.x, textMod.y);
+			// Use relative coordinates to get page-space position
+			const pageCoords = relativeToPageCoords(textMod.relativeX, textMod.relativeY);
+			const pos = transformAnnotationPoint(pageCoords.x, pageCoords.y);
 			const yPos = pos.y - textMod.fontSize;
 
 			console.log(`[PDFExport:Native] Text: "${textMod.text.substring(0, 30)}..." at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}) size ${textMod.fontSize}pt (VECTOR)`);
@@ -337,23 +397,30 @@ export class PDFExporter {
 		for (const note of annotations.stickyNotes) {
 			const font = await this.loadCustomFont(pdfDoc, note.fontFamily);
 			const bgRgb = this.hexToRgb(note.backgroundColor);
-			console.log(`[PDFExport:Native] Sticky Note: ${note.width}x${note.height}pt, text: "${note.text.substring(0, 20)}..." (VECTOR)`);
 			
-			const pos = transformAnnotationPoint(note.x, note.y);
+			// Use relative coordinates to get page-space position and dimensions
+			const pageCoords = relativeToPageCoords(note.relativeX, note.relativeY);
+			const pos = transformAnnotationPoint(pageCoords.x, pageCoords.y);
+			
+			// Convert relative width/height to page points
+			const noteWidth = note.relativeWidth * width;
+			const noteHeight = note.relativeHeight * height;
+			
+			console.log(`[PDFExport:Native] Sticky Note: ${noteWidth.toFixed(1)}x${noteHeight.toFixed(1)}pt, text: "${note.text.substring(0, 20)}..." (VECTOR)`);
 			
 			// Apply rotated dimensions: swap width/height for 90° and 270° rotations
 			const isRotated90or270 = (rotationDegrees / 90) % 2 !== 0;
-			const noteWidth = isRotated90or270 ? note.height : note.width;
-			const noteHeight = isRotated90or270 ? note.width : note.height;
+			const finalWidth = isRotated90or270 ? noteHeight : noteWidth;
+			const finalHeight = isRotated90or270 ? noteWidth : noteHeight;
 			
-			const rectY = pos.y - noteHeight;
+			const rectY = pos.y - finalHeight;
 			
 			// Draw sticky note background
 			page.drawRectangle({
 				x: pos.x,
 				y: rectY,
-				width: noteWidth,
-				height: noteHeight,
+				width: finalWidth,
+				height: finalHeight,
 				color: rgb(bgRgb.r, bgRgb.g, bgRgb.b),
 				opacity: 0.9
 			});
@@ -361,8 +428,7 @@ export class PDFExporter {
 			// Draw sticky note text with wrapping
 			const padding = 10;
 			const lineHeight = note.fontSize * 1.2;
-			const maxWidth = noteWidth - (padding * 2);
-			const maxHeight = noteHeight - (padding * 2);
+			const maxWidth = finalWidth - (padding * 2);
 			
 			const lines = note.text.split('\n');
 			const wrappedLines: string[] = [];
@@ -407,11 +473,15 @@ export class PDFExporter {
 		for (const arrow of annotations.arrowAnnotations) {
 			const rgbColor = this.hexToRgb(arrow.stroke);
 			const pdfColor = rgb(rgbColor.r, rgbColor.g, rgbColor.b);
-			console.log(`[PDFExport:Native] Arrow: from (${arrow.x1}, ${arrow.y1}) to (${arrow.x2}, ${arrow.y2}), width ${arrow.strokeWidth}px (VECTOR)`);
 			
-			// Transform arrow endpoints
-			const start = transformAnnotationPoint(arrow.x1, arrow.y1);
-			const end = transformAnnotationPoint(arrow.x2, arrow.y2);
+			// Use relative coordinates to get page-space positions
+			const startCoords = relativeToPageCoords(arrow.relativeX1, arrow.relativeY1);
+			const endCoords = relativeToPageCoords(arrow.relativeX2, arrow.relativeY2);
+			
+			const start = transformAnnotationPoint(startCoords.x, startCoords.y);
+			const end = transformAnnotationPoint(endCoords.x, endCoords.y);
+			
+			console.log(`[PDFExport:Native] Arrow: from (${start.x.toFixed(1)}, ${start.y.toFixed(1)}) to (${end.x.toFixed(1)}, ${end.y.toFixed(1)}), width ${arrow.strokeWidth}px (VECTOR)`);
 			
 			// Draw line
 			page.drawLine({
@@ -447,7 +517,15 @@ export class PDFExporter {
 				console.warn(`[PDFExport:Native] Stamp ID ${stamp.stampId} not found`);
 				continue;
 			}
-			console.log(`[PDFExport:Native] Stamp: ${stamp.stampId} at (${stamp.x}, ${stamp.y}), size ${stamp.size}pt, rotation ${stamp.rotation}° (VECTOR)`);
+			
+			// Use relative coordinates to get page-space position
+			const pageCoords = relativeToPageCoords(stamp.relativeX, stamp.relativeY);
+			const pos = transformAnnotationPoint(pageCoords.x, pageCoords.y);
+			
+			// Convert relative size to page points
+			const stampSize = stamp.relativeSize * Math.min(width, height);
+			
+			console.log(`[PDFExport:Native] Stamp: ${stamp.stampId} at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}), size ${stampSize.toFixed(1)}pt, rotation ${stamp.rotation}° (VECTOR)`);
 			
 			const parsedSvg = this.extractPathFromStamp(stampDef.svg);
 			if (parsedSvg) {
@@ -455,15 +533,12 @@ export class PDFExporter {
 				const rgbFill = this.hexToRgb(parsedSvg.fill);
 				const rgbStroke = this.hexToRgb(parsedSvg.stroke);
 				
-				// Transform stamp position
-				const pos = transformAnnotationPoint(stamp.x, stamp.y);
-				
 				// Calculate dimensions. SVGs have internal viewBoxes, usually 100x100
-				const scaleFactor = stamp.size / 100;
+				const scaleFactor = stampSize / 100;
 				
 				page.drawSvgPath(parsedSvg.pathData, {
 					x: pos.x,
-					y: pos.y - stamp.size,
+					y: pos.y - stampSize,
 					scale: scaleFactor,
 					rotate: degrees(stamp.rotation),
 					color: rgb(rgbFill.r, rgbFill.g, rgbFill.b),

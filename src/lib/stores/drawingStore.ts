@@ -286,16 +286,145 @@ export const stampAnnotations = writable<Map<number, StampAnnotation[]>>(new Map
 // Arrow annotations store - stores all arrow annotations per page (custom implementation)
 export const arrowAnnotations = writable<Map<number, ArrowAnnotation[]>>(new Map());
 
-// Auto-save functionality
-const STORAGE_KEY = 'leedpdf_drawings';
-const STORAGE_KEY_TEXT = 'leedpdf_text_annotations';
-const STORAGE_KEY_STICKY_NOTES = 'leedpdf_sticky_note_annotations';
-const STORAGE_KEY_STAMP_ANNOTATIONS = 'leedpdf_stamp_annotations';
-const STORAGE_KEY_ARROW_ANNOTATIONS = 'leedpdf_arrow_annotations';
-const STORAGE_KEY_PDF_INFO = 'leedpdf_current_pdf';
+// Auto-save functionality - Storage keys configuration
+const STORAGE_KEYS = {
+	drawings: 'leedpdf_drawings',
+	textAnnotations: 'leedpdf_text_annotations',
+	stickyNotes: 'leedpdf_sticky_note_annotations',
+	stamps: 'leedpdf_stamp_annotations',
+	arrows: 'leedpdf_arrow_annotations',
+	pdfInfo: 'leedpdf_current_pdf'
+} as const;
+
+// Legacy exports for backward compatibility
+const STORAGE_KEY = STORAGE_KEYS.drawings;
+const STORAGE_KEY_TEXT = STORAGE_KEYS.textAnnotations;
+const STORAGE_KEY_STICKY_NOTES = STORAGE_KEYS.stickyNotes;
+const STORAGE_KEY_STAMP_ANNOTATIONS = STORAGE_KEYS.stamps;
+const STORAGE_KEY_ARROW_ANNOTATIONS = STORAGE_KEYS.arrows;
+const STORAGE_KEY_PDF_INFO = STORAGE_KEYS.pdfInfo;
 
 // Track current PDF to associate drawings with specific files
 let currentPDFKey: string | null = null;
+
+// =============================================================================
+// GENERIC ANNOTATION STORE UTILITIES (DRY refactoring)
+// =============================================================================
+
+/**
+ * Generic factory to create a loader function for any annotation type.
+ * Loads annotation data from localStorage into a Svelte store.
+ */
+function createAnnotationLoader<T>(
+	storageKey: string,
+	store: import('svelte/store').Writable<Map<number, T[]>>,
+	annotationType: string
+): () => void {
+	return () => {
+		if (!currentPDFKey || typeof window === 'undefined') return;
+
+		try {
+			const saved = localStorage.getItem(`${storageKey}_${currentPDFKey}`);
+			if (saved) {
+				const parsed = JSON.parse(saved);
+				const map = new Map<number, T[]>();
+
+				Object.entries(parsed).forEach(([pageNum, items]) => {
+					map.set(parseInt(pageNum), items as T[]);
+				});
+
+				store.set(map);
+				console.log(`Loaded ${annotationType} for PDF ${currentPDFKey}:`, map);
+			} else {
+				store.set(new Map());
+				console.log(`No saved ${annotationType} found for PDF ${currentPDFKey}`);
+			}
+		} catch (error) {
+			console.error(`Error loading ${annotationType} for current PDF:`, error);
+			store.set(new Map());
+		}
+	};
+}
+
+/**
+ * Generic factory to set up auto-save subscription for any annotation type.
+ * Automatically saves annotation data to localStorage when the store changes.
+ */
+function setupAnnotationAutoSave<T>(
+	storageKey: string,
+	store: import('svelte/store').Writable<Map<number, T[]>>,
+	annotationType: string
+): void {
+	if (typeof window === 'undefined') return;
+
+	store.subscribe((items) => {
+		if (!currentPDFKey) return;
+
+		try {
+			const itemsObject: Record<string, T[]> = {};
+			items.forEach((itemList, pageNum) => {
+				if (itemList.length > 0) {
+					itemsObject[pageNum.toString()] = itemList;
+				}
+			});
+
+			localStorage.setItem(`${storageKey}_${currentPDFKey}`, JSON.stringify(itemsObject));
+			console.log(`Auto-saved ${annotationType} for PDF ${currentPDFKey}`);
+		} catch (error) {
+			console.error(`Error saving ${annotationType} to localStorage:`, error);
+		}
+	});
+}
+
+/**
+ * Generic factory to create CRUD operations for any annotation type.
+ * Returns add, update, and delete functions for the given store.
+ */
+function createAnnotationCRUD<T extends { id: string; pageNumber: number }>(
+	store: import('svelte/store').Writable<Map<number, T[]>>
+) {
+	return {
+		add: (annotation: T) => {
+			store.update((items) => {
+				const current = items.get(annotation.pageNumber) || [];
+				items.set(annotation.pageNumber, [...current, annotation]);
+				return new Map(items);
+			});
+		},
+		update: (annotation: T) => {
+			store.update((items) => {
+				const current = items.get(annotation.pageNumber) || [];
+				const updated = current.map((item) =>
+					item.id === annotation.id ? annotation : item
+				);
+				items.set(annotation.pageNumber, updated);
+				return new Map(items);
+			});
+		},
+		delete: (annotationId: string, pageNumber: number) => {
+			store.update((items) => {
+				const current = items.get(pageNumber) || [];
+				const filtered = current.filter((item) => item.id !== annotationId);
+				items.set(pageNumber, filtered);
+				return new Map(items);
+			});
+		}
+	};
+}
+
+/**
+ * Generic helper to convert a Map store to an object for JSON serialization.
+ * Used by forceSaveAllAnnotations.
+ */
+function mapToObject<T>(map: Map<number, T[]>): Record<string, T[]> {
+	const obj: Record<string, T[]> = {};
+	map.forEach((items, pageNum) => {
+		if (items.length > 0) {
+			obj[pageNum.toString()] = items;
+		}
+	});
+	return obj;
+}
 
 // Generate a unique key for PDF based on name and size
 export const generatePDFKey = (fileName: string, fileSize: number): string => {
@@ -327,144 +456,22 @@ export const setCurrentPDF = (fileName: string, fileSize: number) => {
 	selectedTextAnnotationId.set(null);
 };
 
-// Load drawings for current PDF
-const loadDrawingsForCurrentPDF = () => {
-	if (!currentPDFKey || typeof window === 'undefined') return;
-
-	try {
-		const savedDrawings = localStorage.getItem(`${STORAGE_KEY}_${currentPDFKey}`);
-		if (savedDrawings) {
-			const parsedDrawings = JSON.parse(savedDrawings);
-			const drawingsMap = new Map();
-
-			Object.entries(parsedDrawings).forEach(([pageNum, paths]) => {
-				drawingsMap.set(parseInt(pageNum), paths as DrawingPath[]);
-			});
-
-			drawingPaths.set(drawingsMap);
-			console.log(`Loaded drawings for PDF ${currentPDFKey}:`, drawingsMap);
-		} else {
-			// No saved drawings for this PDF, start fresh
-			drawingPaths.set(new Map());
-			console.log(`No saved drawings found for PDF ${currentPDFKey}`);
-		}
-	} catch (error) {
-		console.error('Error loading drawings for current PDF:', error);
-		drawingPaths.set(new Map());
-	}
-};
-
-// Load text annotations for current PDF
-const loadTextAnnotationsForCurrentPDF = () => {
-	if (!currentPDFKey || typeof window === 'undefined') return;
-
-	try {
-		const savedTextAnnotations = localStorage.getItem(`${STORAGE_KEY_TEXT}_${currentPDFKey}`);
-		if (savedTextAnnotations) {
-			const parsedTextAnnotations = JSON.parse(savedTextAnnotations);
-			const textMap = new Map();
-
-			Object.entries(parsedTextAnnotations).forEach(([pageNum, texts]) => {
-				textMap.set(parseInt(pageNum), texts as TextAnnotation[]);
-			});
-
-			textAnnotations.set(textMap);
-			console.log(`Loaded text annotations for PDF ${currentPDFKey}:`, textMap);
-		} else {
-			// No saved text annotations for this PDF, start fresh
-			textAnnotations.set(new Map());
-			console.log(`No saved text annotations found for PDF ${currentPDFKey}`);
-		}
-	} catch (error) {
-		console.error('Error loading text annotations for current PDF:', error);
-		textAnnotations.set(new Map());
-	}
-};
-
-// Load sticky notes for current PDF
-const loadStickyNotesForCurrentPDF = () => {
-	if (!currentPDFKey || typeof window === 'undefined') return;
-
-	try {
-		const savedStickyNotes = localStorage.getItem(`${STORAGE_KEY_STICKY_NOTES}_${currentPDFKey}`);
-		if (savedStickyNotes) {
-			const parsedStickyNotes = JSON.parse(savedStickyNotes);
-			const stickyNotesMap = new Map();
-
-			Object.entries(parsedStickyNotes).forEach(([pageNum, notes]) => {
-				stickyNotesMap.set(parseInt(pageNum), notes as StickyNoteAnnotation[]);
-			});
-
-			stickyNoteAnnotations.set(stickyNotesMap);
-			console.log(`Loaded sticky notes for PDF ${currentPDFKey}:`, stickyNotesMap);
-		} else {
-			// No saved sticky notes for this PDF, start fresh
-			stickyNoteAnnotations.set(new Map());
-			console.log(`No saved sticky notes found for PDF ${currentPDFKey}`);
-		}
-	} catch (error) {
-		console.error('Error loading sticky notes for current PDF:', error);
-		stickyNoteAnnotations.set(new Map());
-	}
-};
-
-// Load stamp annotations for current PDF
-const loadStampAnnotationsForCurrentPDF = () => {
-	if (!currentPDFKey || typeof window === 'undefined') return;
-
-	try {
-		const savedStampAnnotations = localStorage.getItem(
-			`${STORAGE_KEY_STAMP_ANNOTATIONS}_${currentPDFKey}`
-		);
-		if (savedStampAnnotations) {
-			const parsedStampAnnotations = JSON.parse(savedStampAnnotations);
-			const stampAnnotationsMap = new Map();
-
-			Object.entries(parsedStampAnnotations).forEach(([pageNum, stamps]) => {
-				stampAnnotationsMap.set(parseInt(pageNum), stamps as StampAnnotation[]);
-			});
-
-			stampAnnotations.set(stampAnnotationsMap);
-			console.log(`Loaded stamp annotations for PDF ${currentPDFKey}:`, stampAnnotationsMap);
-		} else {
-			// No saved stamp annotations for this PDF, start fresh
-			stampAnnotations.set(new Map());
-			console.log(`No saved stamp annotations found for PDF ${currentPDFKey}`);
-		}
-	} catch (error) {
-		console.error('Error loading stamp annotations for current PDF:', error);
-		stampAnnotations.set(new Map());
-	}
-};
-
-// Load arrow annotations for current PDF
-const loadArrowAnnotationsForCurrentPDF = () => {
-	if (!currentPDFKey || typeof window === 'undefined') return;
-
-	try {
-		const savedArrowAnnotations = localStorage.getItem(
-			`${STORAGE_KEY_ARROW_ANNOTATIONS}_${currentPDFKey}`
-		);
-		if (savedArrowAnnotations) {
-			const parsedArrowAnnotations = JSON.parse(savedArrowAnnotations);
-			const arrowAnnotationsMap = new Map();
-
-			Object.entries(parsedArrowAnnotations).forEach(([pageNum, arrows]) => {
-				arrowAnnotationsMap.set(parseInt(pageNum), arrows as ArrowAnnotation[]);
-			});
-
-			arrowAnnotations.set(arrowAnnotationsMap);
-			console.log(`Loaded arrow annotations for PDF ${currentPDFKey}:`, arrowAnnotationsMap);
-		} else {
-			// No saved arrow annotations for this PDF, start fresh
-			arrowAnnotations.set(new Map());
-			console.log(`No saved arrow annotations found for PDF ${currentPDFKey}`);
-		}
-	} catch (error) {
-		console.error('Error loading arrow annotations for current PDF:', error);
-		arrowAnnotations.set(new Map());
-	}
-};
+// Create loaders using the generic factory (DRY refactoring)
+const loadDrawingsForCurrentPDF = createAnnotationLoader<DrawingPath>(
+	STORAGE_KEY, drawingPaths, 'drawings'
+);
+const loadTextAnnotationsForCurrentPDF = createAnnotationLoader<TextAnnotation>(
+	STORAGE_KEY_TEXT, textAnnotations, 'text annotations'
+);
+const loadStickyNotesForCurrentPDF = createAnnotationLoader<StickyNoteAnnotation>(
+	STORAGE_KEY_STICKY_NOTES, stickyNoteAnnotations, 'sticky notes'
+);
+const loadStampAnnotationsForCurrentPDF = createAnnotationLoader<StampAnnotation>(
+	STORAGE_KEY_STAMP_ANNOTATIONS, stampAnnotations, 'stamp annotations'
+);
+const loadArrowAnnotationsForCurrentPDF = createAnnotationLoader<ArrowAnnotation>(
+	STORAGE_KEY_ARROW_ANNOTATIONS, arrowAnnotations, 'arrow annotations'
+);
 
 // Load last PDF info on initialization
 if (typeof window !== 'undefined') {
@@ -484,124 +491,12 @@ if (typeof window !== 'undefined') {
 	}
 }
 
-// Save drawings to localStorage whenever they change (PDF-specific)
-if (typeof window !== 'undefined') {
-	drawingPaths.subscribe((paths) => {
-		if (!currentPDFKey) return;
-
-		try {
-			// Convert Map to object for JSON serialization
-			const pathsObject: Record<string, DrawingPath[]> = {};
-			paths.forEach((pathList, pageNum) => {
-				if (pathList.length > 0) {
-					pathsObject[pageNum.toString()] = pathList;
-				}
-			});
-
-			localStorage.setItem(`${STORAGE_KEY}_${currentPDFKey}`, JSON.stringify(pathsObject));
-			console.log(`Auto-saved drawings for PDF ${currentPDFKey}`);
-		} catch (error) {
-			console.error('Error saving drawings to localStorage:', error);
-		}
-	});
-}
-
-// Save text annotations to localStorage whenever they change (PDF-specific)
-if (typeof window !== 'undefined') {
-	textAnnotations.subscribe((texts) => {
-		if (!currentPDFKey) return;
-
-		try {
-			// Convert Map to object for JSON serialization
-			const textsObject: Record<string, TextAnnotation[]> = {};
-			texts.forEach((textList, pageNum) => {
-				if (textList.length > 0) {
-					textsObject[pageNum.toString()] = textList;
-				}
-			});
-
-			localStorage.setItem(`${STORAGE_KEY_TEXT}_${currentPDFKey}`, JSON.stringify(textsObject));
-			console.log(`Auto-saved text annotations for PDF ${currentPDFKey}`);
-		} catch (error) {
-			console.error('Error saving text annotations to localStorage:', error);
-		}
-	});
-}
-
-// Save sticky note annotations to localStorage whenever they change (PDF-specific)
-if (typeof window !== 'undefined') {
-	stickyNoteAnnotations.subscribe((notes) => {
-		if (!currentPDFKey) return;
-
-		try {
-			// Convert Map to object for JSON serialization
-			const notesObject: Record<string, StickyNoteAnnotation[]> = {};
-			notes.forEach((noteList, pageNum) => {
-				if (noteList.length > 0) {
-					notesObject[pageNum.toString()] = noteList;
-				}
-			});
-
-			localStorage.setItem(
-				`${STORAGE_KEY_STICKY_NOTES}_${currentPDFKey}`,
-				JSON.stringify(notesObject)
-			);
-			console.log(`Auto-saved sticky notes for PDF ${currentPDFKey}`);
-		} catch (error) {
-			console.error('Error saving sticky notes to localStorage:', error);
-		}
-	});
-}
-
-// Save stamp annotations to localStorage whenever they change (PDF-specific)
-if (typeof window !== 'undefined') {
-	stampAnnotations.subscribe((stamps) => {
-		if (!currentPDFKey) return;
-
-		try {
-			// Convert Map to object for JSON serialization
-			const stampsObject: Record<string, StampAnnotation[]> = {};
-			stamps.forEach((stampList, pageNum) => {
-				if (stampList.length > 0) {
-					stampsObject[pageNum.toString()] = stampList;
-				}
-			});
-
-			localStorage.setItem(
-				`${STORAGE_KEY_STAMP_ANNOTATIONS}_${currentPDFKey}`,
-				JSON.stringify(stampsObject)
-			);
-			console.log(`Auto-saved stamp annotations for PDF ${currentPDFKey}`);
-		} catch (error) {
-			console.error('Error saving stamp annotations to localStorage:', error);
-		}
-	});
-}
-
-// Save arrow annotations to localStorage whenever they change (PDF-specific)
-if (typeof window !== 'undefined') {
-	arrowAnnotations.subscribe((arrows) => {
-		if (!currentPDFKey) return;
-
-		try {
-			// Convert Map to object for JSON serialization
-			const arrowsObject: Record<string, ArrowAnnotation[]> = {};
-			arrows.forEach((arrowList, pageNum) => {
-				if (arrowList.length > 0) {
-					arrowsObject[pageNum.toString()] = arrowList;
-				}
-			});
-
-			localStorage.setItem(
-				`${STORAGE_KEY_ARROW_ANNOTATIONS}_${currentPDFKey}`,
-				JSON.stringify(arrowsObject)
-			);
-			console.log(`Auto-saved arrow annotations for PDF ${currentPDFKey}`);
-		} catch (error) {
-			console.error('Error saving arrow annotations to localStorage:', error);
-		}
-	});
-}
+// Set up auto-save subscriptions using the generic factory (DRY refactoring)
+setupAnnotationAutoSave<DrawingPath>(STORAGE_KEY, drawingPaths, 'drawings');
+setupAnnotationAutoSave<TextAnnotation>(STORAGE_KEY_TEXT, textAnnotations, 'text annotations');
+setupAnnotationAutoSave<StickyNoteAnnotation>(STORAGE_KEY_STICKY_NOTES, stickyNoteAnnotations, 'sticky notes');
+setupAnnotationAutoSave<StampAnnotation>(STORAGE_KEY_STAMP_ANNOTATIONS, stampAnnotations, 'stamp annotations');
+setupAnnotationAutoSave<ArrowAnnotation>(STORAGE_KEY_ARROW_ANNOTATIONS, arrowAnnotations, 'arrow annotations');
 
 // Undo/redo functionality
 export const undoStack = writable<Array<{ pageNumber: number; paths: DrawingPath[] }>>([]);
@@ -910,35 +805,20 @@ export const redo = () => {
 // Legacy function - keeping for backward compatibility
 export const undoLastPath = undo;
 
-// Text annotation management functions
-export const addTextAnnotation = (annotation: TextAnnotation) => {
-	textAnnotations.update((texts) => {
-		const currentTexts = texts.get(annotation.pageNumber) || [];
-		const newTexts = [...currentTexts, annotation];
-		texts.set(annotation.pageNumber, newTexts);
-		return new Map(texts);
-	});
-};
+// =============================================================================
+// ANNOTATION CRUD OPERATIONS (using generic factory for DRY)
+// =============================================================================
 
-export const updateTextAnnotation = (updatedAnnotation: TextAnnotation) => {
-	textAnnotations.update((texts) => {
-		const currentTexts = texts.get(updatedAnnotation.pageNumber) || [];
-		const newTexts = currentTexts.map((text) =>
-			text.id === updatedAnnotation.id ? updatedAnnotation : text
-		);
-		texts.set(updatedAnnotation.pageNumber, newTexts);
-		return new Map(texts);
-	});
-};
+// Create CRUD operations using the generic factory
+const textAnnotationsCRUD = createAnnotationCRUD(textAnnotations);
+const stickyNotesCRUD = createAnnotationCRUD(stickyNoteAnnotations);
+const stampsCRUD = createAnnotationCRUD(stampAnnotations);
+const arrowsCRUD = createAnnotationCRUD(arrowAnnotations);
 
-export const deleteTextAnnotation = (annotationId: string, pageNumber: number) => {
-	textAnnotations.update((texts) => {
-		const currentTexts = texts.get(pageNumber) || [];
-		const newTexts = currentTexts.filter((text) => text.id !== annotationId);
-		texts.set(pageNumber, newTexts);
-		return new Map(texts);
-	});
-};
+// Text annotation management functions (exported for backward compatibility)
+export const addTextAnnotation = textAnnotationsCRUD.add;
+export const updateTextAnnotation = textAnnotationsCRUD.update;
+export const deleteTextAnnotation = textAnnotationsCRUD.delete;
 
 // Derived store for current page text annotations
 export const currentPageTextAnnotations = derived(
@@ -948,35 +828,10 @@ export const currentPageTextAnnotations = derived(
 	}
 );
 
-// Sticky note annotation management functions
-export const addStickyNoteAnnotation = (annotation: StickyNoteAnnotation) => {
-	stickyNoteAnnotations.update((notes) => {
-		const currentNotes = notes.get(annotation.pageNumber) || [];
-		const newNotes = [...currentNotes, annotation];
-		notes.set(annotation.pageNumber, newNotes);
-		return new Map(notes);
-	});
-};
-
-export const updateStickyNoteAnnotation = (updatedAnnotation: StickyNoteAnnotation) => {
-	stickyNoteAnnotations.update((notes) => {
-		const currentNotes = notes.get(updatedAnnotation.pageNumber) || [];
-		const newNotes = currentNotes.map((note) =>
-			note.id === updatedAnnotation.id ? updatedAnnotation : note
-		);
-		notes.set(updatedAnnotation.pageNumber, newNotes);
-		return new Map(notes);
-	});
-};
-
-export const deleteStickyNoteAnnotation = (annotationId: string, pageNumber: number) => {
-	stickyNoteAnnotations.update((notes) => {
-		const currentNotes = notes.get(pageNumber) || [];
-		const newNotes = currentNotes.filter((note) => note.id !== annotationId);
-		notes.set(pageNumber, newNotes);
-		return new Map(notes);
-	});
-};
+// Sticky note annotation management functions (exported for backward compatibility)
+export const addStickyNoteAnnotation = stickyNotesCRUD.add;
+export const updateStickyNoteAnnotation = stickyNotesCRUD.update;
+export const deleteStickyNoteAnnotation = stickyNotesCRUD.delete;
 
 // Derived store for current page sticky note annotations
 export const currentPageStickyNotes = derived(
@@ -986,35 +841,10 @@ export const currentPageStickyNotes = derived(
 	}
 );
 
-// Stamp annotation management functions
-export const addStampAnnotation = (annotation: StampAnnotation) => {
-	stampAnnotations.update((stamps) => {
-		const currentStamps = stamps.get(annotation.pageNumber) || [];
-		const newStamps = [...currentStamps, annotation];
-		stamps.set(annotation.pageNumber, newStamps);
-		return new Map(stamps);
-	});
-};
-
-export const updateStampAnnotation = (updatedAnnotation: StampAnnotation) => {
-	stampAnnotations.update((stamps) => {
-		const currentStamps = stamps.get(updatedAnnotation.pageNumber) || [];
-		const newStamps = currentStamps.map((stamp) =>
-			stamp.id === updatedAnnotation.id ? updatedAnnotation : stamp
-		);
-		stamps.set(updatedAnnotation.pageNumber, newStamps);
-		return new Map(stamps);
-	});
-};
-
-export const deleteStampAnnotation = (annotationId: string, pageNumber: number) => {
-	stampAnnotations.update((stamps) => {
-		const currentStamps = stamps.get(pageNumber) || [];
-		const newStamps = currentStamps.filter((stamp) => stamp.id !== annotationId);
-		stamps.set(pageNumber, newStamps);
-		return new Map(stamps);
-	});
-};
+// Stamp annotation management functions (exported for backward compatibility)
+export const addStampAnnotation = stampsCRUD.add;
+export const updateStampAnnotation = stampsCRUD.update;
+export const deleteStampAnnotation = stampsCRUD.delete;
 
 // Derived store for current page stamp annotations
 export const currentPageStampAnnotations = derived(
@@ -1024,35 +854,10 @@ export const currentPageStampAnnotations = derived(
 	}
 );
 
-// Arrow annotation management functions
-export const addArrowAnnotation = (annotation: ArrowAnnotation) => {
-	arrowAnnotations.update((arrows) => {
-		const currentArrows = arrows.get(annotation.pageNumber) || [];
-		const newArrows = [...currentArrows, annotation];
-		arrows.set(annotation.pageNumber, newArrows);
-		return new Map(arrows);
-	});
-};
-
-export const updateArrowAnnotation = (updatedAnnotation: ArrowAnnotation) => {
-	arrowAnnotations.update((arrows) => {
-		const currentArrows = arrows.get(updatedAnnotation.pageNumber) || [];
-		const newArrows = currentArrows.map((arrow) =>
-			arrow.id === updatedAnnotation.id ? updatedAnnotation : arrow
-		);
-		arrows.set(updatedAnnotation.pageNumber, newArrows);
-		return new Map(arrows);
-	});
-};
-
-export const deleteArrowAnnotation = (annotationId: string, pageNumber: number) => {
-	arrowAnnotations.update((arrows) => {
-		const currentArrows = arrows.get(pageNumber) || [];
-		const newArrows = currentArrows.filter((arrow) => arrow.id !== annotationId);
-		arrows.set(pageNumber, newArrows);
-		return new Map(arrows);
-	});
-};
+// Arrow annotation management functions (exported for backward compatibility)
+export const addArrowAnnotation = arrowsCRUD.add;
+export const updateArrowAnnotation = arrowsCRUD.update;
+export const deleteArrowAnnotation = arrowsCRUD.delete;
 
 // Force save all annotation data to localStorage immediately
 // This ensures all pending changes are persisted before operations like export
@@ -1063,69 +868,22 @@ export const forceSaveAllAnnotations = (): void => {
 	}
 
 	try {
-		// Force save drawing paths
-		drawingPaths.subscribe((paths) => {
-			const pathsObject: Record<string, DrawingPath[]> = {};
-			paths.forEach((pathList, pageNum) => {
-				if (pathList.length > 0) {
-					pathsObject[pageNum.toString()] = pathList;
-				}
-			});
-			localStorage.setItem(`${STORAGE_KEY}_${currentPDFKey}`, JSON.stringify(pathsObject));
-		})();
+		// Helper to force save a single store (DRY refactoring)
+		const forceSaveStore = <T>(
+			store: import('svelte/store').Writable<Map<number, T[]>>,
+			storageKey: string
+		) => {
+			store.subscribe((items) => {
+				localStorage.setItem(`${storageKey}_${currentPDFKey}`, JSON.stringify(mapToObject(items)));
+			})();
+		};
 
-		// Force save text annotations
-		textAnnotations.subscribe((texts) => {
-			const textsObject: Record<string, TextAnnotation[]> = {};
-			texts.forEach((textList, pageNum) => {
-				if (textList.length > 0) {
-					textsObject[pageNum.toString()] = textList;
-				}
-			});
-			localStorage.setItem(`${STORAGE_KEY_TEXT}_${currentPDFKey}`, JSON.stringify(textsObject));
-		})();
-
-		// Force save sticky note annotations
-		stickyNoteAnnotations.subscribe((notes) => {
-			const notesObject: Record<string, StickyNoteAnnotation[]> = {};
-			notes.forEach((noteList, pageNum) => {
-				if (noteList.length > 0) {
-					notesObject[pageNum.toString()] = noteList;
-				}
-			});
-			localStorage.setItem(
-				`${STORAGE_KEY_STICKY_NOTES}_${currentPDFKey}`,
-				JSON.stringify(notesObject)
-			);
-		})();
-
-		// Force save stamp annotations
-		stampAnnotations.subscribe((stamps) => {
-			const stampsObject: Record<string, StampAnnotation[]> = {};
-			stamps.forEach((stampList, pageNum) => {
-				if (stampList.length > 0) {
-					stampsObject[pageNum.toString()] = stampList;
-				}
-			});
-			localStorage.setItem(
-				`${STORAGE_KEY_STAMP_ANNOTATIONS}_${currentPDFKey}`,
-				JSON.stringify(stampsObject)
-			);
-		})();
-
-		// Force save arrow annotations
-		arrowAnnotations.subscribe((arrows) => {
-			const arrowsObject: Record<string, ArrowAnnotation[]> = {};
-			arrows.forEach((arrowList, pageNum) => {
-				if (arrowList.length > 0) {
-					arrowsObject[pageNum.toString()] = arrowList;
-				}
-			});
-			localStorage.setItem(
-				`${STORAGE_KEY_ARROW_ANNOTATIONS}_${currentPDFKey}`,
-				JSON.stringify(arrowsObject)
-			);
-		})();
+		// Force save all annotation stores
+		forceSaveStore(drawingPaths, STORAGE_KEY);
+		forceSaveStore(textAnnotations, STORAGE_KEY_TEXT);
+		forceSaveStore(stickyNoteAnnotations, STORAGE_KEY_STICKY_NOTES);
+		forceSaveStore(stampAnnotations, STORAGE_KEY_STAMP_ANNOTATIONS);
+		forceSaveStore(arrowAnnotations, STORAGE_KEY_ARROW_ANNOTATIONS);
 
 		console.log(`Force saved all annotations for PDF ${currentPDFKey}`);
 	} catch (error) {

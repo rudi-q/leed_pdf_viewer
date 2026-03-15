@@ -108,8 +108,10 @@ export async function buildAnnotatedPdfExporter(
 						});
 						exporter.setPageAnnotations(pageNumber, annotations);
 						nativeAnnotationPages++;
-					} else {
-						console.warn(`[Export] Page ${pageNumber}: getPageAnnotations returned empty arrays despite hasAnnotations=${hasAnnotations}`);
+					} else if (hasAnnotations) {
+						// Only warn if hasAnnotations was true but we got empty arrays
+						// (don't warn for clean pages when captureAllPages is true)
+						console.warn(`[Export] Page ${pageNumber}: getPageAnnotations returned empty arrays despite hasAnnotations=true`);
 					}
 				}
 			}
