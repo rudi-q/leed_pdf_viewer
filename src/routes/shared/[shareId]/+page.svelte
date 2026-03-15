@@ -14,6 +14,7 @@
 	import { pdfState, redo, setTool, undo } from '$lib/stores/drawingStore';
 	import { getFormattedVersion } from '$lib/utils/version';
 	import { PDFExporter } from '$lib/utils/pdfExport';
+	import { buildAnnotatedPdfExporter } from '$lib/utils/exportHandlers';
 	import { exportCurrentPDFAsDocx } from '$lib/utils/docxExport';
 	import { exportCurrentPDFAsLPDF } from '$lib/utils/lpdfExport';
 	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
@@ -298,36 +299,8 @@
 			return { pdfBytes, originalName, exporter: null };
 		}
 
-		// Create and configure PDFExporter with page canvases
-		const exporter = new PDFExporter();
-		exporter.setOriginalPDF(pdfBytes);
-
-		const totalPages = $pdfState.totalPages;
-		console.log(`Preparing ${formatName} export with ${totalPages} pages`);
-
-		for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
-			const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
-			const pageRotation = pdfViewer.getPageRotation
-				? pdfViewer.getPageRotation(pageNumber)
-				: ($pdfState.rotation || 0);
-			if (pageRotation !== 0) {
-				exporter.setRotation(pageNumber, pageRotation);
-			}
-
-			if (hasAnnotations) {
-				console.log(`📝 Page ${pageNumber} has annotations - creating merged canvas`);
-				const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
-				if (mergedCanvas) {
-					exporter.setPageCanvas(pageNumber, mergedCanvas);
-
-					console.log(`✅ Added merged canvas for page ${pageNumber}`);
-				} else {
-					console.log(`❌ Failed to create merged canvas for page ${pageNumber}`);
-				}
-			} else {
-				console.log(`📄 Page ${pageNumber} has no annotations - will preserve original page`);
-			}
-		}
+		// Use shared utility for DRY export with native vector annotations
+		const exporter = await buildAnnotatedPdfExporter(pdfBytes, pdfViewer, $pdfState.totalPages);
 
 		return { pdfBytes, originalName, exporter };
 	}

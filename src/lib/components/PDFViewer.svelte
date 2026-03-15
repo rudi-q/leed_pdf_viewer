@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
 	import { onDestroy, onMount, tick } from 'svelte';
 	import {
 		addDrawingPath,
@@ -1653,6 +1653,17 @@
 		}
 
 		return $pdfState.rotation || 0;
+	}
+
+	// Function to get all native annotations for a specific page
+	export function getPageAnnotations(pageNumber: number) {
+		return {
+			drawingPaths: $drawingPaths.get(pageNumber) || [],
+			textAnnotations: $textAnnotations.get(pageNumber) || [],
+			stickyNotes: $stickyNoteAnnotations.get(pageNumber) || [],
+			stampAnnotations: $stampAnnotations.get(pageNumber) || [],
+			arrowAnnotations: $arrowAnnotations.get(pageNumber) || []
+		};
 	}
 
 	// Function to get merged canvas for a specific page
