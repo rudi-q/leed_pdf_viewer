@@ -71,7 +71,7 @@
 		"@tauri-apps/plugin-process": "^2.3.1",
 		"@tauri-apps/plugin-shell": "^2.3.5",
 		"@tauri-apps/plugin-updater": "~2.10.0",
-		"@vercel/analytics": "^1.6.1",
+		"@vercel/analytics": "^2.0.1",
 		"appwrite": "^23.0.0",
 		"autoprefixer": "^10.4.27",
 		"jspdf": "^4.2.0",
