@@ -10,7 +10,7 @@ import type {
 	StampAnnotation
 } from '../stores/drawingStore';
 import { getStampById } from '../stores/drawingStore';
-import { transformPoint } from './rotationUtils';
+// transformPoint no longer needed — annotations are in the page's native coordinate space
 
 export interface PageAnnotations {
 	drawingPaths: DrawingPath[];
@@ -300,45 +300,34 @@ export class PDFExporter {
 		annotations: PageAnnotations,
 		rotationDegrees: number
 	) {
-		const originalSize = page.getSize();
-		let { width, height } = originalSize;
-		
-		// Handle page rotation: swap dimensions and reset rotation attribute
-		// This matches the behavior of embedCanvasInPage for consistency
-		const isRotated90or270 = (rotationDegrees / 90) % 2 !== 0;
-		if (isRotated90or270) {
-			// Swap dimensions for 90° or 270° rotation
-			const targetWidth = height;
-			const targetHeight = width;
-			page.setSize(targetWidth, targetHeight);
-			width = targetWidth;
-			height = targetHeight;
-		}
-		// Reset rotation attribute since we handle rotation via coordinate transforms
-		page.setRotation(degrees(0));
-		
-		console.log(`[PDFExport:Native] Drawing annotations natively on page (${width}x${height}pt, rotation: ${rotationDegrees}°)`);
-		
-		// pdf-lib origin (0,0) is bottom-left. We must flip Y.
+		// IMPORTANT: Do NOT modify page dimensions or rotation.
+		// The page content stream is in its native (unrotated) coordinate space.
+		// The /Rotate attribute is just metadata the PDF viewer uses to display.
+		// Annotations are stored in rotation-0 base coordinates — same space as the content stream.
+		// We only need to flip Y (PDF origin = bottom-left, viewer origin = top-left).
+		// The PDF viewer applies /Rotate to both original content and our annotations together.
+		const { width, height } = page.getSize();
+
+		console.log(`[PDFExport:Native] Drawing annotations natively on page (${width}x${height}pt, page rotation: ${rotationDegrees}°)`);
+
+		// pdf-lib origin (0,0) is bottom-left; viewer origin is top-left. Flip Y only.
 		const flipY = (y: number) => height - y;
-		
-		// Convert relative coordinates (0-1 range) to PDF page coordinates (points)
-		// This is the key fix: annotations store relativeX/relativeY which are 0-1 normalized
-		const relativeToPageCoords = (relX: number, relY: number) => {
-			return { x: relX * width, y: relY * height };
-		};
-		
-		// Transform point based on rotation (annotations are stored in rotation-0 coordinates)
-		const transformAnnotationPoint = (x: number, y: number) => {
-			const transformed = transformPoint(
-				x,
-				y,
-				rotationDegrees as 0 | 90 | 180 | 270,
-				width,
-				height
-			);
-			return { x: transformed.x, y: flipY(transformed.y) };
-		};
+
+		// Convert relative coordinates (0-1) to page coordinates (points).
+		// Relative values are normalized to the unrotated page — which is page.getSize().
+		const relToPage = (relX: number, relY: number) => ({
+			x: relX * width,
+			y: relY * height
+		});
+
+		// Convert point from viewer-space (top-left) to PDF-space (bottom-left). No rotation needed.
+		const toPdf = (x: number, y: number) => ({ x, y: flipY(y) });
+
+		// Rotate an offset vector by angle (for placing lines within rotated text blocks)
+		const rotateOffset = (dx: number, dy: number, rad: number) => ({
+			x: dx * Math.cos(rad) - dy * Math.sin(rad),
+			y: dx * Math.sin(rad) + dy * Math.cos(rad)
+		});
 
 		// 1. Draw Paths (Freehand / Highlighters - VECTOR)
 		for (const path of annotations.drawingPaths) {
@@ -349,21 +338,18 @@ export class PDFExporter {
 			const opacity = path.highlightOpacity ?? (path.tool === 'highlight' ? 0.4 : 1);
 			
 			// Drawing paths are stored in base viewport coordinates (PDF points at scale 1.0, rotation 0)
-			// These coordinates are already in PDF page space, just need rotation transform and Y-flip
+			// These are already in the page's native coordinate space — just flip Y.
 			const lineWidthPt = path.lineWidth;
-			
+
 			console.log(`[PDFExport:Native] Path: ${path.tool} with ${path.points.length} points, width ${lineWidthPt.toFixed(1)}pt, opacity ${opacity} (VECTOR)`);
-			
-			// Use drawLine for each segment - pdf-lib's drawSvgPath doesn't handle stroke-only paths well
+
 			for (let i = 1; i < path.points.length; i++) {
-				const prevPt = path.points[i - 1];
-				const currPt = path.points[i];
-				const prevTransformed = transformAnnotationPoint(prevPt.x, prevPt.y);
-				const currTransformed = transformAnnotationPoint(currPt.x, currPt.y);
-				
+				const prev = toPdf(path.points[i - 1].x, path.points[i - 1].y);
+				const curr = toPdf(path.points[i].x, path.points[i].y);
+
 				page.drawLine({
-					start: { x: prevTransformed.x, y: prevTransformed.y },
-					end: { x: currTransformed.x, y: currTransformed.y },
+					start: prev,
+					end: curr,
 					thickness: lineWidthPt,
 					color: pdfColor,
 					opacity: opacity,
@@ -375,19 +361,33 @@ export class PDFExporter {
 		for (const textMod of annotations.textAnnotations) {
 			const font = await this.loadCustomFont(pdfDoc, textMod.fontFamily);
 			const rgbColor = this.hexToRgb(textMod.color);
-			
-			// Use relative coordinates to get page-space position
-			const pageCoords = relativeToPageCoords(textMod.relativeX, textMod.relativeY);
-			const pos = transformAnnotationPoint(pageCoords.x, pageCoords.y);
-			const yPos = pos.y - textMod.fontSize;
 
-			console.log(`[PDFExport:Native] Text: "${textMod.text.substring(0, 30)}..." at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}) size ${textMod.fontSize}pt (VECTOR)`);
-			page.drawText(textMod.text, {
-				x: pos.x,
-				y: yPos,
-				size: textMod.fontSize,
-				font: font,
-				color: rgb(rgbColor.r, rgbColor.g, rgbColor.b)
+			// Convert relative coords to page-space, then flip Y
+			const abs = relToPage(textMod.relativeX, textMod.relativeY);
+			const pos = toPdf(abs.x, abs.y);
+
+			// Text rotation offset only (not combined with page rotation).
+			// The viewer's /Rotate handles page rotation for everything.
+			// annotation.rotation stores -pageRotation to keep text upright in the viewer.
+			const textRotation = textMod.rotation ?? 0;
+			const rotRad = (textRotation * Math.PI) / 180;
+			const lineHeight = textMod.fontSize * 1.2;
+			const lines = textMod.text.split('\n');
+
+			console.log(`[PDFExport:Native] Text at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}) size ${textMod.fontSize}pt, rotation ${textRotation}° (VECTOR)`);
+			lines.forEach((line, index) => {
+				// Offset each line downward from anchor, rotated if needed
+				const dy = -(textMod.fontSize + index * lineHeight);
+				const off = rotateOffset(0, dy, rotRad);
+
+				page.drawText(line, {
+					x: pos.x + off.x,
+					y: pos.y + off.y,
+					size: textMod.fontSize,
+					font: font,
+					color: rgb(rgbColor.r, rgbColor.g, rgbColor.b),
+					rotate: degrees(textRotation)
+				});
 			});
 		}
 
@@ -395,51 +395,43 @@ export class PDFExporter {
 		for (const note of annotations.stickyNotes) {
 			const font = await this.loadCustomFont(pdfDoc, note.fontFamily);
 			const bgRgb = this.hexToRgb(note.backgroundColor);
-			
-			// Use relative coordinates to get page-space position and dimensions
-			const pageCoords = relativeToPageCoords(note.relativeX, note.relativeY);
-			const pos = transformAnnotationPoint(pageCoords.x, pageCoords.y);
-			
-			// Convert relative width/height to page points
+
+			const abs = relToPage(note.relativeX, note.relativeY);
+			const pos = toPdf(abs.x, abs.y);
+
 			const noteWidth = note.relativeWidth * width;
 			const noteHeight = note.relativeHeight * height;
-			
-			console.log(`[PDFExport:Native] Sticky Note: ${noteWidth.toFixed(1)}x${noteHeight.toFixed(1)}pt, text: "${note.text.substring(0, 20)}..." (VECTOR)`);
-			
-			// Apply rotated dimensions: swap width/height for 90° and 270° rotations
-			const isRotated90or270 = (rotationDegrees / 90) % 2 !== 0;
-			const finalWidth = isRotated90or270 ? noteHeight : noteWidth;
-			const finalHeight = isRotated90or270 ? noteWidth : noteHeight;
-			
-			const rectY = pos.y - finalHeight;
-			
-			// Draw sticky note background
+			const noteRotation = note.rotation ?? 0;
+			const rotRad = (noteRotation * Math.PI) / 180;
+
+			// Rectangle bottom-left corner (pos is top-left in PDF-space after flip)
+			const rectOff = rotateOffset(0, -noteHeight, rotRad);
+
+			console.log(`[PDFExport:Native] Sticky Note: ${noteWidth.toFixed(1)}x${noteHeight.toFixed(1)}pt, rotation ${noteRotation}° (VECTOR)`);
+
 			page.drawRectangle({
-				x: pos.x,
-				y: rectY,
-				width: finalWidth,
-				height: finalHeight,
+				x: pos.x + rectOff.x,
+				y: pos.y + rectOff.y,
+				width: noteWidth,
+				height: noteHeight,
 				color: rgb(bgRgb.r, bgRgb.g, bgRgb.b),
-				opacity: 0.9
+				opacity: 0.9,
+				rotate: degrees(noteRotation)
 			});
 
-			// Draw sticky note text with wrapping
 			const padding = 10;
 			const lineHeight = note.fontSize * 1.2;
-			const maxWidth = finalWidth - (padding * 2);
-			
+			const maxWidth = noteWidth - (padding * 2);
+			const maxLines = Math.max(0, Math.floor((noteHeight - padding * 2) / lineHeight));
+
 			const lines = note.text.split('\n');
 			const wrappedLines: string[] = [];
-			
-			// Word wrap each line
 			for (const line of lines) {
 				const words = line.split(' ');
 				let currentLine = '';
-				
 				for (const word of words) {
 					const testLine = currentLine ? `${currentLine} ${word}` : word;
 					const testWidth = font.widthOfTextAtSize(testLine, note.fontSize);
-					
 					if (testWidth > maxWidth && currentLine) {
 						wrappedLines.push(currentLine);
 						currentLine = word;
@@ -449,21 +441,19 @@ export class PDFExporter {
 				}
 				if (currentLine) wrappedLines.push(currentLine);
 			}
-			
-			// Draw each line, respecting height bounds
-			let currentY = pos.y - note.fontSize - padding;
-			for (let i = 0; i < wrappedLines.length; i++) {
-				if (currentY < rectY) break; // Stop if exceeds bottom
-				
+
+			for (let i = 0; i < wrappedLines.length && i < maxLines; i++) {
+				const dy = -(padding + note.fontSize + i * lineHeight);
+				const off = rotateOffset(padding, dy, rotRad);
+
 				page.drawText(wrappedLines[i], {
-					x: pos.x + padding,
-					y: currentY,
+					x: pos.x + off.x,
+					y: pos.y + off.y,
 					size: note.fontSize,
 					font: font,
-					color: rgb(0, 0, 0)
+					color: rgb(0, 0, 0),
+					rotate: degrees(noteRotation)
 				});
-				
-				currentY -= lineHeight;
 			}
 		}
 
@@ -471,37 +461,30 @@ export class PDFExporter {
 		for (const arrow of annotations.arrowAnnotations) {
 			const rgbColor = this.hexToRgb(arrow.stroke);
 			const pdfColor = rgb(rgbColor.r, rgbColor.g, rgbColor.b);
-			
-			// Use relative coordinates to get page-space positions
-			const startCoords = relativeToPageCoords(arrow.relativeX1, arrow.relativeY1);
-			const endCoords = relativeToPageCoords(arrow.relativeX2, arrow.relativeY2);
-			
-			const start = transformAnnotationPoint(startCoords.x, startCoords.y);
-			const end = transformAnnotationPoint(endCoords.x, endCoords.y);
-			
+
+			const sAbs = relToPage(arrow.relativeX1, arrow.relativeY1);
+			const eAbs = relToPage(arrow.relativeX2, arrow.relativeY2);
+			const start = toPdf(sAbs.x, sAbs.y);
+			const end = toPdf(eAbs.x, eAbs.y);
+
 			console.log(`[PDFExport:Native] Arrow: from (${start.x.toFixed(1)}, ${start.y.toFixed(1)}) to (${end.x.toFixed(1)}, ${end.y.toFixed(1)}), width ${arrow.strokeWidth}px (VECTOR)`);
-			
-			// Draw line
+
 			page.drawLine({
-				start: { x: start.x, y: start.y },
-				end: { x: end.x, y: end.y },
+				start,
+				end,
 				thickness: arrow.strokeWidth,
 				color: pdfColor
 			});
 
-			// Draw arrowhead if needed
 			if (arrow.arrowHead) {
 				const angle = Math.atan2(end.y - start.y, end.x - start.x);
 				const arrowLength = arrow.strokeWidth * 3;
-				
 				const x3 = end.x - arrowLength * Math.cos(angle - Math.PI / 6);
 				const y3 = end.y - arrowLength * Math.sin(angle - Math.PI / 6);
-				
 				const x4 = end.x - arrowLength * Math.cos(angle + Math.PI / 6);
 				const y4 = end.y - arrowLength * Math.sin(angle + Math.PI / 6);
-				
-				const arrowFill = `M ${end.x} ${end.y} L ${x3} ${y3} L ${x4} ${y4} Z`;
-				page.drawSvgPath(arrowFill, {
+
+				page.drawSvgPath(`M ${end.x} ${end.y} L ${x3} ${y3} L ${x4} ${y4} Z`, {
 					color: pdfColor,
 					borderWidth: 0
 				});
@@ -515,25 +498,19 @@ export class PDFExporter {
 				console.warn(`[PDFExport:Native] Stamp ID ${stamp.stampId} not found`);
 				continue;
 			}
-			
-			// Use relative coordinates to get page-space position
-			const pageCoords = relativeToPageCoords(stamp.relativeX, stamp.relativeY);
-			const pos = transformAnnotationPoint(pageCoords.x, pageCoords.y);
-			
-			// Convert relative size to page points
+
+			const sAbs = relToPage(stamp.relativeX, stamp.relativeY);
+			const pos = toPdf(sAbs.x, sAbs.y);
 			const stampSize = stamp.relativeSize * Math.min(width, height);
-			
+
 			console.log(`[PDFExport:Native] Stamp: ${stamp.stampId} at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}), size ${stampSize.toFixed(1)}pt, rotation ${stamp.rotation}° (VECTOR)`);
-			
+
 			const parsedSvg = this.extractPathFromStamp(stampDef.svg);
 			if (parsedSvg) {
-				console.log(`[PDFExport:Native] Stamp SVG path extracted successfully`);
 				const rgbFill = this.hexToRgb(parsedSvg.fill);
 				const rgbStroke = this.hexToRgb(parsedSvg.stroke);
-				
-				// Calculate dimensions. SVGs have internal viewBoxes, usually 100x100
 				const scaleFactor = stampSize / 100;
-				
+
 				page.drawSvgPath(parsedSvg.pathData, {
 					x: pos.x,
 					y: pos.y - stampSize,

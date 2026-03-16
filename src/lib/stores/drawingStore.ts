@@ -330,7 +330,7 @@ function createAnnotationLoader<T>(
 				const map = new Map<number, T[]>();
 
 				Object.entries(parsed).forEach(([pageNum, items]) => {
-					map.set(parseInt(pageNum), items as T[]);
+					map.set(parseInt(pageNum, 10), items as T[]);
 				});
 
 				store.set(map);
