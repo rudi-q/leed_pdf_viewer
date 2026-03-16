@@ -334,7 +334,7 @@ function createAnnotationLoader<T>(
 				});
 
 				store.set(map);
-				console.log(`Loaded ${annotationType} for PDF ${currentPDFKey}:`, map);
+				console.log(`Loaded ${annotationType} for PDF ${currentPDFKey}: ${map.size} pages with annotations`);
 			} else {
 				store.set(new Map());
 				console.log(`No saved ${annotationType} found for PDF ${currentPDFKey}`);

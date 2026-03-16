@@ -194,13 +194,21 @@ export class PDFExporter {
 					await this.embedCanvasInPage(newDoc, page, canvas, pageRotation);
 					pagesEmbedded++;
 				} else {
-					// Try to copy original page instead of creating blank
+					// Check if this page has native annotations that would be lost
+					const hasAnnotations = this.pageAnnotations.has(pageNum);
+					
+					if (hasAnnotations) {
+						// Page has annotations but no canvas - this is an error condition
+						throw new Error(`Page ${pageNum} has annotations but no rasterized canvas. Cannot export without losing annotations. Please ensure all annotated pages are rendered before export.`);
+					}
+					
+					// No annotations and no canvas - safe to copy original page
 					if (originalDoc && pageNum <= originalDoc.getPageCount()) {
 						try {
 							const [copiedPage] = await newDoc.copyPages(originalDoc, [pageNum - 1]);
 							newDoc.addPage(copiedPage);
 							pagesCopied++;
-							console.log(`[PDFExport:Fallback] Page ${pageNum}: Copied from original PDF (no canvas)`);
+							console.log(`[PDFExport:Fallback] Page ${pageNum}: Copied from original PDF (no canvas, no annotations)`);
 							continue;
 						} catch (copyError) {
 							console.warn(`[PDFExport:Fallback] Failed to copy page ${pageNum} from original:`, copyError);
@@ -224,6 +232,15 @@ export class PDFExporter {
 	}
 	
 	private extractPathFromStamp(svgString: string): { pathData: string, fill: string, stroke: string, strokeWidth: number } | null {
+		// Detect non-path primitives (circles, ellipses, etc.) that require raster fallback
+		const hasCircle = /<circle[^>]*(?:fill|stroke)="(?!none|white)[^"]+"/i.test(svgString);
+		const hasEllipse = /<ellipse[^>]*(?:fill|stroke)="(?!none|white)[^"]+"/i.test(svgString);
+		
+		if (hasCircle || hasEllipse) {
+			// Multi-shape stamps (smiley, thumbs-up) need raster fallback
+			return null;
+		}
+		
 		// Extract path elements and parse attributes regardless of order
 		const pathTagRegex = /<path[^>]*>/g;
 		let match;
@@ -400,10 +417,49 @@ export class PDFExporter {
 			const combinedRotation = rotationDegrees + (textMod.rotation ?? 0);
 			const rotRad = (combinedRotation * Math.PI) / 180;
 			const lineHeight = textMod.fontSize * 1.2;
-			const lines = textMod.text.split('\n');
+			
+			// Handle width-aware wrapping if width is set
+			let linesToDraw: string[];
+			const textWidth = textMod.width !== undefined ? textMod.width : (textMod.relativeWidth !== undefined ? textMod.relativeWidth * baseWidth : undefined);
+			
+			if (textWidth) {
+				// Wrap text to fit within width
+				const padding = 4; // Small padding
+				const maxWidth = textWidth - (padding * 2);
+				const rawLines = textMod.text.split('\n');
+				linesToDraw = [];
+				
+				for (const line of rawLines) {
+					const words = line.split(' ');
+					let currentLine = '';
+					
+					for (const word of words) {
+						const testLine = currentLine ? `${currentLine} ${word}` : word;
+						const testWidth = font.widthOfTextAtSize(testLine, textMod.fontSize);
+						
+						if (testWidth > maxWidth && currentLine) {
+							linesToDraw.push(currentLine);
+							currentLine = word;
+						} else {
+							currentLine = testLine;
+						}
+					}
+					if (currentLine) linesToDraw.push(currentLine);
+				}
+			} else {
+				linesToDraw = textMod.text.split('\n');
+			}
+			
+			// Handle height-aware clipping if height is set
+			const textHeight = textMod.height !== undefined ? textMod.height : (textMod.relativeHeight !== undefined ? textMod.relativeHeight * baseHeight : undefined);
+			if (textHeight) {
+				const padding = 4;
+				const maxLines = Math.max(0, Math.floor((textHeight - padding * 2) / lineHeight));
+				linesToDraw = linesToDraw.slice(0, maxLines);
+			}
 
-			console.log(`[PDFExport:Native] Text at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}) size ${textMod.fontSize}pt, combinedRotation ${combinedRotation}° (VECTOR)`);
-			lines.forEach((line, index) => {
+			console.log(`[PDFExport:Native] Text at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}) size ${textMod.fontSize}pt, ${linesToDraw.length} lines, combinedRotation ${combinedRotation}° (VECTOR)`);
+			linesToDraw.forEach((line, index) => {
 				// Offset each line downward from anchor, rotated if text has rotation
 				const dy = -(textMod.fontSize + index * lineHeight);
 				const off = rotateOffset(0, dy, rotRad);
@@ -530,15 +586,31 @@ export class PDFExporter {
 				continue;
 			}
 
-			const sAbs = relToBase(stamp.relativeX, stamp.relativeY);
-			const pos = toPdf(sAbs.x, sAbs.y);
-			const stampSize = stamp.relativeSize * Math.min(baseWidth, baseHeight);
+			// Get base coordinates (same as canvas export)
+			const baseX = stamp.x !== undefined ? stamp.x : stamp.relativeX * baseWidth;
+			const baseY = stamp.y !== undefined ? stamp.y : stamp.relativeY * baseHeight;
+			
+			// Calculate stamp size (same as canvas export)
+			const MIN_SIZE = 16;
+			const MAX_SIZE = 120;
+			const stampSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE,
+				stamp.size !== undefined ? stamp.size : stamp.relativeSize * Math.min(baseWidth, baseHeight)
+			));
+
+			// Transform to rotated display coords (same as canvas export)
+			const rotated = transformPoint(baseX, baseY, rotationDegrees as 0 | 90 | 180 | 270, baseWidth, baseHeight);
+			
+			// Canvas draws at (x, y) with top-left origin
+			// PDF needs bottom-left origin, so flip Y: displayHeight - y
+			// But drawSvgPath places SVG origin at (x, y), and SVG content extends upward in PDF coords
+			// So we need: displayHeight - rotated.y - stampSize (to align visual tops)
+			const drawX = rotated.x;
+			const drawY = displayHeight - rotated.y - stampSize;
 
 			// Combined rotation = pageRotation + stamp.rotation (cancels to 0 for upright stamps)
-			// stamp.rotation stores -pageRotation, matching text/sticky note behavior
 			const combinedRotation = rotationDegrees + (stamp.rotation ?? 0);
 
-			console.log(`[PDFExport:Native] Stamp: ${stamp.stampId} at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}), size ${stampSize.toFixed(1)}pt, combinedRotation ${combinedRotation}° (VECTOR)`);
+			console.log(`[PDFExport:Native] Stamp: ${stamp.stampId} at (${drawX.toFixed(1)}, ${drawY.toFixed(1)}), size ${stampSize.toFixed(1)}pt, combinedRotation ${combinedRotation}° (VECTOR)`);
 
 			const parsedSvg = this.extractPathFromStamp(stampDef.svg);
 			if (parsedSvg) {
@@ -549,8 +621,8 @@ export class PDFExporter {
 				if (isStrokeOnly) {
 					// Stroke-only stamps (checkmarks, x-marks, etc.)
 					page.drawSvgPath(parsedSvg.pathData, {
-						x: pos.x,
-						y: pos.y,
+						x: drawX,
+						y: drawY,
 						scale: scaleFactor,
 						rotate: degrees(combinedRotation),
 						borderColor: rgb(rgbStroke.r, rgbStroke.g, rgbStroke.b),
@@ -560,8 +632,8 @@ export class PDFExporter {
 					// Filled stamps (stars, hearts, smileys, etc.)
 					const rgbFill = this.hexToRgb(parsedSvg.fill);
 					page.drawSvgPath(parsedSvg.pathData, {
-						x: pos.x,
-						y: pos.y,
+						x: drawX,
+						y: drawY,
 						scale: scaleFactor,
 						rotate: degrees(combinedRotation),
 						color: rgb(rgbFill.r, rgbFill.g, rgbFill.b),
