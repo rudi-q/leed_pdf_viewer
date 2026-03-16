@@ -324,40 +324,22 @@ export class PDFExporter {
 		annotations: PageAnnotations,
 		rotationDegrees: number
 	) {
-		// Match embedCanvasInPage / createMergedCanvasWithAnnotations approach exactly:
-		// 1. Get unrotated (base) page dimensions
-		// 2. Swap dimensions for 90°/270° and reset /Rotate to 0
-		// 3. Use transformPoint to convert base coords → rotated display coords
-		// 4. Text rotation = pageRotation + annotation.rotation (cancels to 0 for upright text)
-		// This is identical to how the canvas export renders, just using pdf-lib primitives.
 		const originalSize = page.getSize();
 		const baseWidth = originalSize.width;
 		const baseHeight = originalSize.height;
 
-		// Swap page dimensions for 90°/270° and reset rotation, same as embedCanvasInPage
-		const isRotated90or270 = (rotationDegrees / 90) % 2 !== 0;
-		const displayWidth = isRotated90or270 ? baseHeight : baseWidth;
-		const displayHeight = isRotated90or270 ? baseWidth : baseHeight;
+		// We explicitly set the page rotation to whatever the user set visually in the viewer.
+		// This ensures the original PDF content is visually rotated by the viewer correctly without clipping.
+		// We DO NOT swap the page size (width/height), we let the PDF viewer handle the rotation.
+		page.setRotation(degrees(rotationDegrees));
 
-		if (isRotated90or270) {
-			page.setSize(displayWidth, displayHeight);
-		}
-		page.setRotation(degrees(0));
+		console.log(`[PDFExport:Native] Drawing annotations on page (base ${baseWidth}x${baseHeight}pt, rotation set to: ${rotationDegrees}°)`);
 
-		console.log(`[PDFExport:Native] Drawing annotations on page (base ${baseWidth}x${baseHeight}pt → display ${displayWidth}x${displayHeight}pt, rotation: ${rotationDegrees}°)`);
-
-		// pdf-lib Y-flip: origin is bottom-left, viewer origin is top-left
-		const flipY = (y: number) => displayHeight - y;
-
-		// Transform a point from base (rotation-0) coords to rotated display coords, then flip Y for PDF.
-		// This matches exactly what the canvas export does with transformPoint.
+		// The annotations are stored in unrotated base viewport coordinates.
+		// Since we're drawing them onto the original unrotated page bounds and letting the viewer rotate it,
+		// we just map the coordinates from top-left (web) to bottom-left (PDF).
 		const toPdf = (baseX: number, baseY: number) => {
-			const rotated = transformPoint(
-				baseX, baseY,
-				rotationDegrees as 0 | 90 | 180 | 270,
-				baseWidth, baseHeight
-			);
-			return { x: rotated.x, y: flipY(rotated.y) };
+			return { x: baseX, y: baseHeight - baseY };
 		};
 
 		// Convert relative coordinates (0-1) to base page coordinates (points)
@@ -411,11 +393,10 @@ export class PDFExporter {
 			const baseY = textMod.y !== undefined ? textMod.y : textMod.relativeY * baseHeight;
 			const pos = toPdf(baseX, baseY);
 
-			// Combined rotation = pageRotation + annotation.rotation
-			// annotation.rotation stores -pageRotation, so this cancels to 0 for upright text.
-			// This matches the canvas export: ctx.rotate((currentRotation + annotation.rotation) * Math.PI / 180)
-			const combinedRotation = rotationDegrees + (textMod.rotation ?? 0);
-			const rotRad = (combinedRotation * Math.PI) / 180;
+			// text.rotation is already the relative rotation needed on the base page to achieve the visual effect.
+			// pdf-lib's drawText rotation is CCW positive, while our app's rotation is CW positive.
+			const pdfRotation = -(textMod.rotation ?? 0);
+			const rotRad = (pdfRotation * Math.PI) / 180;
 			const lineHeight = textMod.fontSize * 1.2;
 			
 			// Handle width-aware wrapping if width is set
@@ -458,7 +439,7 @@ export class PDFExporter {
 				linesToDraw = linesToDraw.slice(0, maxLines);
 			}
 
-			console.log(`[PDFExport:Native] Text at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}) size ${textMod.fontSize}pt, ${linesToDraw.length} lines, combinedRotation ${combinedRotation}° (VECTOR)`);
+			console.log(`[PDFExport:Native] Text at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}) size ${textMod.fontSize}pt, ${linesToDraw.length} lines, baseRotation ${textMod.rotation ?? 0}° (VECTOR)`);
 			linesToDraw.forEach((line, index) => {
 				// Offset each line downward from anchor, rotated if text has rotation
 				const dy = -(textMod.fontSize + index * lineHeight);
@@ -470,7 +451,7 @@ export class PDFExporter {
 					size: textMod.fontSize,
 					font: font,
 					color: rgb(rgbColor.r, rgbColor.g, rgbColor.b),
-					rotate: degrees(combinedRotation)
+					rotate: degrees(pdfRotation)
 				});
 			});
 		}
@@ -487,14 +468,14 @@ export class PDFExporter {
 
 			const noteWidth = note.relativeWidth * baseWidth;
 			const noteHeight = note.relativeHeight * baseHeight;
-			// Combined rotation cancels to 0 for upright notes (same as text)
-			const combinedRotation = rotationDegrees + (note.rotation ?? 0);
-			const rotRad = (combinedRotation * Math.PI) / 180;
+			// note.rotation is already the relative rotation needed on the base page to achieve the visual effect.
+			const pdfRotation = -(note.rotation ?? 0);
+			const rotRad = (pdfRotation * Math.PI) / 180;
 
 			// Rectangle bottom-left corner (pos is top-left in PDF-space after flip)
 			const rectOff = rotateOffset(0, -noteHeight, rotRad);
 
-			console.log(`[PDFExport:Native] Sticky Note: ${noteWidth.toFixed(1)}x${noteHeight.toFixed(1)}pt, combinedRotation ${combinedRotation}° (VECTOR)`);
+			console.log(`[PDFExport:Native] Sticky Note: ${noteWidth.toFixed(1)}x${noteHeight.toFixed(1)}pt, baseRotation ${note.rotation ?? 0}° (VECTOR)`);
 
 			page.drawRectangle({
 				x: pos.x + rectOff.x,
@@ -503,7 +484,7 @@ export class PDFExporter {
 				height: noteHeight,
 				color: rgb(bgRgb.r, bgRgb.g, bgRgb.b),
 				opacity: 0.9,
-				rotate: degrees(combinedRotation)
+				rotate: degrees(pdfRotation)
 			});
 
 			const padding = 10;
@@ -539,7 +520,7 @@ export class PDFExporter {
 					size: note.fontSize,
 					font: font,
 					color: rgb(0, 0, 0),
-					rotate: degrees(combinedRotation)
+					rotate: degrees(pdfRotation)
 				});
 			}
 		}
@@ -597,24 +578,30 @@ export class PDFExporter {
 				stamp.size !== undefined ? stamp.size : stamp.relativeSize * Math.min(baseWidth, baseHeight)
 			));
 
-			// Transform to rotated display coords (same as canvas export)
-			const rotated = transformPoint(baseX, baseY, rotationDegrees as 0 | 90 | 180 | 270, baseWidth, baseHeight);
+						// stamp.x and stamp.y are in base coordinates.
+			const cxBase = baseX + stampSize / 2;
+			const cyBase = baseY + stampSize / 2;
 			
-			// Canvas draws at (x, y) with top-left origin.
-			// pdf-lib's drawSvgPath places the (0,0) of the SVG viewBox at the exact (x, y) passed in,
-			// but because PDF coordinate space increases Y upwards while SVG increases Y downwards,
-			// the drawn SVG automatically extends *downwards* from the provided Y coordinate.
-			// To align the top edge, we simply flip the Y coordinate to PDF space without offsetting by stampSize.
-			const drawX = rotated.x;
-			const drawY = displayHeight - rotated.y;
+			// Convert base center to Y-up PDF unrotated space
+			const cxPdf = cxBase;
+			const cyPdf = baseHeight - cyBase;
+			
+			// stamp.rotation is already the relative rotation needed on the base page.
+			const pdfRotation = -(stamp.rotation ?? 0);
+			const radPdf = pdfRotation * Math.PI / 180;
+			
+			// Vector from center to SVG origin (-stampSize/2, +stampSize/2) in Y-up PDF space
+			const vx = -stampSize / 2;
+			const vy = stampSize / 2;
+			
+			// Rotate vector
+			const vrx = vx * Math.cos(radPdf) - vy * Math.sin(radPdf);
+			const vry = vx * Math.sin(radPdf) + vy * Math.cos(radPdf);
+			
+			const drawX = cxPdf + vrx;
+			const drawY = cyPdf + vry;
 
-			// Combined rotation = pageRotation + stamp.rotation (cancels to 0 for upright stamps)
-			// pdf-lib's drawSvgPath rotates counter-clockwise for positive values, while viewer is clockwise.
-			// Negate the combined rotation to match the visual orientation in the viewer.
-			const combinedRotation = rotationDegrees + (stamp.rotation ?? 0);
-			const pdfRotation = -combinedRotation;
-
-			console.log(`[PDFExport:Native] Stamp: ${stamp.stampId} at (${drawX.toFixed(1)}, ${drawY.toFixed(1)}), size ${stampSize.toFixed(1)}pt, combinedRotation ${combinedRotation}° (VECTOR)`);
+			console.log(`[PDFExport:Native] Stamp: ${stamp.stampId} at (${drawX.toFixed(1)}, ${drawY.toFixed(1)}), center (${cxPdf.toFixed(1)}, ${cyPdf.toFixed(1)}), size ${stampSize.toFixed(1)}pt, baseRotation ${stamp.rotation ?? 0}° (VECTOR)`);
 
 			const parsedSvg = this.extractPathFromStamp(stampDef.svg);
 			if (parsedSvg) {

@@ -2,7 +2,7 @@
 export const prerender = false;
 
 // Load function to validate template exists and pass template info to the page
-export async function load({ params, fetch, url }) {
+export async function load({ params, fetch, url }: any) {
     const { templateName } = params;
     
     // Construct the relative URL to the template PDF in static assets
