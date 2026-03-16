@@ -1,8 +1,10 @@
+import type { PageLoad } from './$types';
+
 // Disable prerendering for this dynamic route since we can't know all possible template names in advance
 export const prerender = false;
 
 // Load function to validate template exists and pass template info to the page
-export async function load({ params, fetch, url }: any) {
+export const load: PageLoad = async ({ params, fetch, url }) => {
     const { templateName } = params;
     
     // Construct the relative URL to the template PDF in static assets

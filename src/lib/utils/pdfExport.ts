@@ -231,45 +231,78 @@ export class PDFExporter {
 		}
 	}
 	
-	private extractPathFromStamp(svgString: string): { pathData: string, fill: string, stroke: string, strokeWidth: number } | null {
-		// Detect non-path primitives (circles, ellipses, etc.) that require raster fallback
-		const hasCircle = /<circle[^>]*(?:fill|stroke)="(?!none|white)[^"]+"/i.test(svgString);
-		const hasEllipse = /<ellipse[^>]*(?:fill|stroke)="(?!none|white)[^"]+"/i.test(svgString);
-		
-		if (hasCircle || hasEllipse) {
-			// Multi-shape stamps (smiley, thumbs-up) need raster fallback
-			return null;
-		}
-		
-		// Extract path elements and parse attributes regardless of order
-		const pathTagRegex = /<path[^>]*>/g;
+	private convertShapesToPaths(svgString: string): string {
+		let result = svgString.replace(/<circle([^>]*)>/g, (match, attrs) => {
+			const cxMatch = /cx="([^"]+)"/.exec(attrs);
+			const cyMatch = /cy="([^"]+)"/.exec(attrs);
+			const rMatch = /r="([^"]+)"/.exec(attrs);
+			if (!cxMatch || !cyMatch || !rMatch) return match;
+			
+			const cx = parseFloat(cxMatch[1]);
+			const cy = parseFloat(cyMatch[1]);
+			const r = parseFloat(rMatch[1]);
+			
+			const d = `M ${cx - r} ${cy} A ${r} ${r} 0 1 0 ${cx + r} ${cy} A ${r} ${r} 0 1 0 ${cx - r} ${cy}`;
+			return `<path d="${d}" ${attrs} />`;
+		});
+
+		result = result.replace(/<ellipse([^>]*)>/g, (match, attrs) => {
+			const cxMatch = /cx="([^"]+)"/.exec(attrs);
+			const cyMatch = /cy="([^"]+)"/.exec(attrs);
+			const rxMatch = /rx="([^"]+)"/.exec(attrs);
+			const ryMatch = /ry="([^"]+)"/.exec(attrs);
+			if (!cxMatch || !cyMatch || !rxMatch || !ryMatch) return match;
+			
+			const cx = parseFloat(cxMatch[1]);
+			const cy = parseFloat(cyMatch[1]);
+			const rx = parseFloat(rxMatch[1]);
+			const ry = parseFloat(ryMatch[1]);
+			
+			const d = `M ${cx - rx} ${cy} A ${rx} ${ry} 0 1 0 ${cx + rx} ${cy} A ${rx} ${ry} 0 1 0 ${cx - rx} ${cy}`;
+			return `<path d="${d}" ${attrs} />`;
+		});
+
+		return result;
+	}
+
+	private extractPathsFromStamp(svgString: string): Array<{ pathData: string, fill: string, stroke: string, strokeWidth: number }> {
+		const convertedSvg = this.convertShapesToPaths(svgString);
+		const pathRegex = /<path([^>]*)>/g;
 		let match;
+		const paths = [];
 		
-		while ((match = pathTagRegex.exec(svgString)) !== null) {
-			const pathTag = match[0];
+		while ((match = pathRegex.exec(convertedSvg)) !== null) {
+			const attrs = match[1];
 			
-			// Extract attributes by name
-			const dMatch = /d="([^"]+)"/.exec(pathTag);
-			const fillMatch = /fill="([^"]+)"/.exec(pathTag);
-			const strokeMatch = /stroke="([^"]+)"/.exec(pathTag);
-			const strokeWidthMatch = /stroke-width="([^"]+)"/.exec(pathTag);
+			// Skip shadows/borders which we handle manually
+			if (attrs.includes('filter=') || attrs.includes('stroke="white"') || attrs.includes('fill="white"')) {
+				continue;
+			}
 			
-			if (dMatch && strokeMatch) {
+			const dMatch = /d="([^"]+)"/.exec(attrs);
+			const fillMatch = /fill="([^"]+)"/.exec(attrs);
+			const strokeMatch = /stroke="([^"]+)"/.exec(attrs);
+			const strokeWidthMatch = /stroke-width="([^"]+)"/.exec(attrs);
+			
+			if (dMatch) {
 				const fill = fillMatch ? fillMatch[1] : 'none';
-				const stroke = strokeMatch[1];
+				const stroke = strokeMatch ? strokeMatch[1] : 'none';
 				const strokeWidth = strokeWidthMatch ? parseFloat(strokeWidthMatch[1]) : 1.5;
 				
-				// Return the first element that has a visible color (not white background/shadow)
 				const hasColoredFill = fill !== 'none' && fill !== 'white';
-				const hasColoredStroke = stroke !== 'none' && stroke !== 'white';
+				const hasColoredStroke = stroke !== 'none' && stroke !== 'white' && strokeWidth > 0;
 				
 				if (hasColoredFill || hasColoredStroke) {
-					return { pathData: dMatch[1], fill, stroke, strokeWidth };
+					paths.push({ 
+						pathData: dMatch[1], 
+						fill: hasColoredFill ? fill : 'none', 
+						stroke: hasColoredStroke ? stroke : 'none', 
+						strokeWidth: hasColoredStroke ? strokeWidth : 0
+					});
 				}
 			}
 		}
-		
-		return null;
+		return paths;
 	}
 
 	private async loadCustomFont(pdfDoc: PDFDocument, fontFamily: string) {
@@ -545,15 +578,24 @@ export class PDFExporter {
 			});
 
 			if (arrow.arrowHead) {
-				const angle = Math.atan2(end.y - start.y, end.x - start.x);
-				const arrowLength = arrow.strokeWidth * 3;
-				const x3 = end.x - arrowLength * Math.cos(angle - Math.PI / 6);
-				const y3 = end.y - arrowLength * Math.sin(angle - Math.PI / 6);
-				const x4 = end.x - arrowLength * Math.cos(angle + Math.PI / 6);
-				const y4 = end.y - arrowLength * Math.sin(angle + Math.PI / 6);
+				// Calculate angle using original Y-down space to match viewer exactly
+				const angle = Math.atan2(eAbs.y - sAbs.y, eAbs.x - sAbs.x);
+				const headLength = 10;
+				
+				// Points in Y-down space
+				const x3 = eAbs.x - headLength * Math.cos(angle - Math.PI / 6);
+				const y3 = eAbs.y - headLength * Math.sin(angle - Math.PI / 6);
+				const x4 = eAbs.x - headLength * Math.cos(angle + Math.PI / 6);
+				const y4 = eAbs.y - headLength * Math.sin(angle + Math.PI / 6);
 
-				page.drawSvgPath(`M ${end.x} ${end.y} L ${x3} ${y3} L ${x4} ${y4} Z`, {
+				// pdf-lib's drawSvgPath maps (px, py) to (x + px*scale, y - py*scale).
+				// By setting x=0, y=baseHeight, scale=1, it maps (px, py) to (px, baseHeight - py),
+				// which exactly converts our Y-down web coordinates to Y-up PDF coordinates!
+				page.drawSvgPath(`M ${eAbs.x} ${eAbs.y} L ${x3} ${y3} L ${x4} ${y4} Z`, {
+					x: 0,
+					y: baseHeight,
 					color: pdfColor,
+					borderColor: pdfColor,
 					borderWidth: 0
 				});
 			}
@@ -603,34 +645,36 @@ export class PDFExporter {
 
 			console.log(`[PDFExport:Native] Stamp: ${stamp.stampId} at (${drawX.toFixed(1)}, ${drawY.toFixed(1)}), center (${cxPdf.toFixed(1)}, ${cyPdf.toFixed(1)}), size ${stampSize.toFixed(1)}pt, baseRotation ${stamp.rotation ?? 0}° (VECTOR)`);
 
-			const parsedSvg = this.extractPathFromStamp(stampDef.svg);
-			if (parsedSvg) {
-				const rgbStroke = this.hexToRgb(parsedSvg.stroke);
+			const parsedPaths = this.extractPathsFromStamp(stampDef.svg);
+			if (parsedPaths && parsedPaths.length > 0) {
 				const scaleFactor = stampSize / 100;
-				const isStrokeOnly = parsedSvg.fill === 'none';
+				for (const parsedSvg of parsedPaths) {
+					const rgbStroke = this.hexToRgb(parsedSvg.stroke);
+					const isStrokeOnly = parsedSvg.fill === 'none';
 
-				if (isStrokeOnly) {
-					// Stroke-only stamps (checkmarks, x-marks, etc.)
-					page.drawSvgPath(parsedSvg.pathData, {
-						x: drawX,
-						y: drawY,
-						scale: scaleFactor,
-						rotate: degrees(pdfRotation),
-						borderColor: rgb(rgbStroke.r, rgbStroke.g, rgbStroke.b),
-						borderWidth: parsedSvg.strokeWidth
-					});
-				} else {
-					// Filled stamps (stars, hearts, smileys, etc.)
-					const rgbFill = this.hexToRgb(parsedSvg.fill);
-					page.drawSvgPath(parsedSvg.pathData, {
-						x: drawX,
-						y: drawY,
-						scale: scaleFactor,
-						rotate: degrees(pdfRotation),
-						color: rgb(rgbFill.r, rgbFill.g, rgbFill.b),
-						borderColor: rgb(rgbStroke.r, rgbStroke.g, rgbStroke.b),
-						borderWidth: parsedSvg.strokeWidth
-					});
+					if (isStrokeOnly) {
+						// Stroke-only stamps (checkmarks, x-marks, etc.)
+						page.drawSvgPath(parsedSvg.pathData, {
+							x: drawX,
+							y: drawY,
+							scale: scaleFactor,
+							rotate: degrees(pdfRotation),
+							borderColor: rgb(rgbStroke.r, rgbStroke.g, rgbStroke.b),
+							borderWidth: parsedSvg.strokeWidth
+						});
+					} else {
+						// Filled stamps (stars, hearts, smileys, etc.)
+						const rgbFill = this.hexToRgb(parsedSvg.fill);
+						page.drawSvgPath(parsedSvg.pathData, {
+							x: drawX,
+							y: drawY,
+							scale: scaleFactor,
+							rotate: degrees(pdfRotation),
+							color: rgb(rgbFill.r, rgbFill.g, rgbFill.b),
+							borderColor: rgb(rgbStroke.r, rgbStroke.g, rgbStroke.b),
+							borderWidth: parsedSvg.strokeWidth
+						});
+					}
 				}
 			}
 		}
