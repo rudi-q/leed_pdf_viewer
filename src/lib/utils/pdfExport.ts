@@ -600,15 +600,19 @@ export class PDFExporter {
 			// Transform to rotated display coords (same as canvas export)
 			const rotated = transformPoint(baseX, baseY, rotationDegrees as 0 | 90 | 180 | 270, baseWidth, baseHeight);
 			
-			// Canvas draws at (x, y) with top-left origin
-			// PDF needs bottom-left origin, so flip Y: displayHeight - y
-			// But drawSvgPath places SVG origin at (x, y), and SVG content extends upward in PDF coords
-			// So we need: displayHeight - rotated.y - stampSize (to align visual tops)
+			// Canvas draws at (x, y) with top-left origin.
+			// pdf-lib's drawSvgPath places the (0,0) of the SVG viewBox at the exact (x, y) passed in,
+			// but because PDF coordinate space increases Y upwards while SVG increases Y downwards,
+			// the drawn SVG automatically extends *downwards* from the provided Y coordinate.
+			// To align the top edge, we simply flip the Y coordinate to PDF space without offsetting by stampSize.
 			const drawX = rotated.x;
-			const drawY = displayHeight - rotated.y - stampSize;
+			const drawY = displayHeight - rotated.y;
 
 			// Combined rotation = pageRotation + stamp.rotation (cancels to 0 for upright stamps)
+			// pdf-lib's drawSvgPath rotates counter-clockwise for positive values, while viewer is clockwise.
+			// Negate the combined rotation to match the visual orientation in the viewer.
 			const combinedRotation = rotationDegrees + (stamp.rotation ?? 0);
+			const pdfRotation = -combinedRotation;
 
 			console.log(`[PDFExport:Native] Stamp: ${stamp.stampId} at (${drawX.toFixed(1)}, ${drawY.toFixed(1)}), size ${stampSize.toFixed(1)}pt, combinedRotation ${combinedRotation}° (VECTOR)`);
 
@@ -624,7 +628,7 @@ export class PDFExporter {
 						x: drawX,
 						y: drawY,
 						scale: scaleFactor,
-						rotate: degrees(combinedRotation),
+						rotate: degrees(pdfRotation),
 						borderColor: rgb(rgbStroke.r, rgbStroke.g, rgbStroke.b),
 						borderWidth: parsedSvg.strokeWidth
 					});
@@ -635,7 +639,7 @@ export class PDFExporter {
 						x: drawX,
 						y: drawY,
 						scale: scaleFactor,
-						rotate: degrees(combinedRotation),
+						rotate: degrees(pdfRotation),
 						color: rgb(rgbFill.r, rgbFill.g, rgbFill.b),
 						borderColor: rgb(rgbStroke.r, rgbStroke.g, rgbStroke.b),
 						borderWidth: parsedSvg.strokeWidth
