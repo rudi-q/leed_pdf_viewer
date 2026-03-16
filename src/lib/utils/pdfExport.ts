@@ -113,6 +113,10 @@ export class PDFExporter {
 						console.log(`[PDFExport] Page ${pageNumber}: Using canvas fallback (RASTER)`);
 						await this.embedCanvasInPage(pdfDoc, page, canvas, rotation);
 						canvasFallbackCount++;
+					} else {
+						// No annotations and no canvas: just apply the page rotation
+						page.setRotation(degrees(rotation));
+						console.log(`[PDFExport] Page ${pageNumber}: No annotations or canvas, applied rotation ${rotation}°`);
 					}
 				}
 			}
@@ -158,9 +162,25 @@ export class PDFExporter {
 			let pagesEmbedded = 0;
 			let pagesCopied = 0;
 			let blankPagesCreated = 0;
-			
+			let pagesSkippedAnnotated = 0;
+
 			for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
 				const canvas = this.canvasElements.get(pageNum);
+				const hasAnnotations = this.pageAnnotations.has(pageNum);
+				
+				// Helper to check for existing PDF annotations on the original document
+				let hasNativePDFAnnotations = false;
+				if (originalDoc && pageNum <= originalDoc.getPageCount()) {
+					try {
+						const origPage = originalDoc.getPage(pageNum - 1);
+						const annots = origPage.node.Annots();
+						if (annots && annots.size() > 0) {
+							hasNativePDFAnnotations = true;
+						}
+					} catch (e) {
+						// Ignore
+					}
+				}
 				
 				if (canvas) {
 					// Validate canvas dimensions
@@ -178,7 +198,13 @@ export class PDFExporter {
 								console.warn(`[PDFExport:Fallback] Failed to copy page ${pageNum} from original:`, copyError);
 							}
 						}
-						// Fall back to blank page only if copy fails
+						// If we couldn't copy and it has native PDF annotations, skip to prevent dataloss
+						if (hasNativePDFAnnotations || hasAnnotations) {
+							console.warn(`[PDFExport:Fallback] Page ${pageNum} has annotations but invalid canvas and could not be copied. Skipping page creation to prevent annotation loss.`);
+							pagesSkippedAnnotated++;
+							continue;
+						}
+						// Fall back to blank page only if no annotations are lost
 						newDoc.addPage([612, 792]);
 						blankPagesCreated++;
 						continue;
@@ -195,14 +221,12 @@ export class PDFExporter {
 					pagesEmbedded++;
 				} else {
 					// Check if this page has native annotations that would be lost
-					const hasAnnotations = this.pageAnnotations.has(pageNum);
-					
 					if (hasAnnotations) {
-						// Page has annotations but no canvas - this is an error condition
+						// Page has drawn annotations but no canvas - this is an error condition
 						throw new Error(`Page ${pageNum} has annotations but no rasterized canvas. Cannot export without losing annotations. Please ensure all annotated pages are rendered before export.`);
 					}
 					
-					// No annotations and no canvas - safe to copy original page
+					// No app annotations and no canvas - safe to copy original page
 					if (originalDoc && pageNum <= originalDoc.getPageCount()) {
 						try {
 							const [copiedPage] = await newDoc.copyPages(originalDoc, [pageNum - 1]);
@@ -214,14 +238,22 @@ export class PDFExporter {
 							console.warn(`[PDFExport:Fallback] Failed to copy page ${pageNum} from original:`, copyError);
 						}
 					}
-					// Fall back to blank page only if copy fails
+					
+					// If we couldn't copy and the original PDF page had existing annotations, do not drop them by inserting a blank page
+					if (hasNativePDFAnnotations) {
+						console.warn(`[PDFExport:Fallback] Page ${pageNum} has existing native PDF annotations but no canvas and could not be copied. Skipping page creation to prevent annotation loss.`);
+						pagesSkippedAnnotated++;
+						continue;
+					}
+					
+					// Fall back to blank page only if copy fails and there's no annotations to lose
 					console.warn(`[PDFExport:Fallback] No canvas found for page ${pageNum}, creating blank page`);
 					newDoc.addPage([612, 792]);
 					blankPagesCreated++;
 				}
 			}
 			
-			console.log(`[PDFExport:Fallback] ✓ Fallback export complete: ${pagesEmbedded} canvas pages, ${pagesCopied} copied pages, ${blankPagesCreated} blank pages`);
+			console.log(`[PDFExport:Fallback] ✓ Fallback export complete: ${pagesEmbedded} canvas pages, ${pagesCopied} copied pages, ${blankPagesCreated} blank pages, ${pagesSkippedAnnotated} pages skipped to preserve annotations`);
 			const pdfBytes = await newDoc.save();
 			console.log(`[PDFExport:Fallback] ✓ Fallback PDF saved (${(pdfBytes.length / 1024).toFixed(2)} KB) - NOTE: This is RASTER, not vector!`);
 			return pdfBytes;
@@ -563,8 +595,13 @@ export class PDFExporter {
 			const rgbColor = this.hexToRgb(arrow.stroke);
 			const pdfColor = rgb(rgbColor.r, rgbColor.g, rgbColor.b);
 
-			const sAbs = relToBase(arrow.relativeX1, arrow.relativeY1);
-			const eAbs = relToBase(arrow.relativeX2, arrow.relativeY2);
+			const safeX1 = arrow.relativeX1 ?? 0;
+			const safeY1 = arrow.relativeY1 ?? 0;
+			const safeX2 = arrow.relativeX2 ?? safeX1;
+			const safeY2 = arrow.relativeY2 ?? safeY1;
+
+			const sAbs = relToBase(safeX1, safeY1);
+			const eAbs = relToBase(safeX2, safeY2);
 			const start = toPdf(sAbs.x, sAbs.y);
 			const end = toPdf(eAbs.x, eAbs.y);
 
