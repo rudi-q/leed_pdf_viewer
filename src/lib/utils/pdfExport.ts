@@ -1,4 +1,4 @@
-import { PDFDocument, PDFPage, degrees, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, PDFPage, LineCapStyle, LineJoinStyle, BlendMode, degrees, rgb, StandardFonts } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { invoke } from '@tauri-apps/api/core';
 import { isTauri } from './tauriUtils';
@@ -389,22 +389,24 @@ export class PDFExporter {
 		annotations: PageAnnotations,
 		rotationDegrees: number
 	) {
-		const originalSize = page.getSize();
-		const baseWidth = originalSize.width;
-		const baseHeight = originalSize.height;
+		// Use getCropBox() instead of getSize() to handle PDFs where the origin is not (0,0)
+		const cropBox = page.getCropBox();
+		const baseWidth = cropBox.width;
+		const baseHeight = cropBox.height;
 
 		// We explicitly set the page rotation to whatever the user set visually in the viewer.
 		// This ensures the original PDF content is visually rotated by the viewer correctly without clipping.
 		// We DO NOT swap the page size (width/height), we let the PDF viewer handle the rotation.
 		page.setRotation(degrees(rotationDegrees));
 
-		console.log(`[PDFExport:Native] Drawing annotations on page (base ${baseWidth}x${baseHeight}pt, rotation set to: ${rotationDegrees}°)`);
+		console.log(`[PDFExport:Native] Drawing annotations on page (base ${baseWidth}x${baseHeight}pt, cropBox offset ${cropBox.x},${cropBox.y}, rotation set to: ${rotationDegrees}°)`);
 
 		// The annotations are stored in unrotated base viewport coordinates.
 		// Since we're drawing them onto the original unrotated page bounds and letting the viewer rotate it,
 		// we just map the coordinates from top-left (web) to bottom-left (PDF).
+		// We must also account for any cropBox offsets.
 		const toPdf = (baseX: number, baseY: number) => {
-			return { x: baseX, y: baseHeight - baseY };
+			return { x: cropBox.x + baseX, y: cropBox.y + (baseHeight - baseY) };
 		};
 
 		// Convert relative coordinates (0-1) to base page coordinates (points)
@@ -427,25 +429,50 @@ export class PDFExporter {
 			const rgbColor = this.hexToRgb(path.highlightColor || path.color);
 			const pdfColor = rgb(rgbColor.r, rgbColor.g, rgbColor.b);
 			const opacity = path.highlightOpacity ?? (path.tool === 'highlight' ? 0.4 : 1);
-			
-			// Drawing paths are stored in base viewport coordinates (PDF points at scale 1.0, rotation 0)
-			// Transform to rotated display coords via toPdf (same as canvas export)
-			const lineWidthPt = path.lineWidth;
+			// Apply the same lineWidth multiplier as the canvas renderer
+			const lineWidthPt = path.tool === 'highlight' ? path.lineWidth * 3 : path.lineWidth;
 
 			console.log(`[PDFExport:Native] Path: ${path.tool} with ${path.points.length} points, width ${lineWidthPt.toFixed(1)}pt, opacity ${opacity} (VECTOR)`);
 
-			for (let i = 1; i < path.points.length; i++) {
-				const prev = toPdf(path.points[i - 1].x, path.points[i - 1].y);
-				const curr = toPdf(path.points[i].x, path.points[i].y);
+			// Build a single SVG path string so that all segments are joined with
+			// round line caps/joins, exactly like the canvas renderer.
+			// We use x=cropBox.x, y=cropBox.y+baseHeight so the SVG coord (px, py) maps to
+			// PDF coord (cropBox.x + px, cropBox.y + baseHeight - py), which is our standard Y-flip with offset.
+			const pts = path.points.map((p) => ({
+				x: p.relativeX !== undefined ? p.relativeX * baseWidth : p.x,
+				y: p.relativeY !== undefined ? p.relativeY * baseHeight : p.y
+			}));
 
-				page.drawLine({
-					start: prev,
-					end: curr,
-					thickness: lineWidthPt,
-					color: pdfColor,
-					opacity: opacity,
-				});
+			let svgPath = `M ${pts[0].x} ${pts[0].y}`;
+			// Duplicate the quadratic curve logic from drawingUtils.ts to match smoothness
+			for (let i = 1; i < pts.length - 1; i++) {
+				const currentPoint = pts[i];
+				const nextPoint = pts[i + 1];
+
+				const midPoint = {
+					x: (currentPoint.x + nextPoint.x) / 2,
+					y: (currentPoint.y + nextPoint.y) / 2
+				};
+
+				// SVG Q command: control-point-x control-point-y end-point-x end-point-y
+				svgPath += ` Q ${currentPoint.x} ${currentPoint.y} ${midPoint.x} ${midPoint.y}`;
 			}
+			
+			// Draw to the last point if we have more than 1 point
+			if (pts.length > 1) {
+				const lastPoint = pts[pts.length - 1];
+				svgPath += ` L ${lastPoint.x} ${lastPoint.y}`;
+			}
+
+			page.drawSvgPath(svgPath, {
+				x: cropBox.x,
+				y: cropBox.y + baseHeight, // Y-flip: SVG (px, py) → PDF (px, baseHeight - py) with crop offset
+				borderColor: pdfColor,
+				borderWidth: lineWidthPt,
+				borderOpacity: opacity,
+				borderLineCap: LineCapStyle.Round,
+				blendMode: path.tool === 'highlight' ? BlendMode.Multiply : BlendMode.Normal,
+			});
 		}
 
 		// 2. Draw Text Annotations (VECTOR - uses embedded fonts)
@@ -453,9 +480,11 @@ export class PDFExporter {
 			const font = await this.loadCustomFont(pdfDoc, textMod.fontFamily);
 			const rgbColor = this.hexToRgb(textMod.color);
 
-			// Get base coordinates and transform to rotated display space
-			const baseX = textMod.x !== undefined ? textMod.x : textMod.relativeX * baseWidth;
-			const baseY = textMod.y !== undefined ? textMod.y : textMod.relativeY * baseHeight;
+			// Always use relative coords mapped to PDF dimensions – the x/y pixel
+			// fields are CSS-display-space and depend on the viewer zoom at the time
+			// of creation, which can differ from PDF native point space.
+			const baseX = textMod.relativeX * baseWidth;
+			const baseY = textMod.relativeY * baseHeight;
 			const pos = toPdf(baseX, baseY);
 
 			// text.rotation is already the relative rotation needed on the base page to achieve the visual effect.
@@ -506,8 +535,9 @@ export class PDFExporter {
 
 			console.log(`[PDFExport:Native] Text at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}) size ${textMod.fontSize}pt, ${linesToDraw.length} lines, baseRotation ${textMod.rotation ?? 0}° (VECTOR)`);
 			linesToDraw.forEach((line, index) => {
-				// Offset each line downward from anchor, rotated if text has rotation
-				const dy = -(textMod.fontSize + index * lineHeight);
+				// We want the first line's baseline to be about 0.85 * fontSize below the top of the container
+				// to closely match how the browser renders HTML text without arbitrary padding.
+				const dy = -(textMod.fontSize * 0.85 + index * lineHeight);
 				const off = rotateOffset(0, dy, rotRad);
 
 				page.drawText(line, {
@@ -526,9 +556,9 @@ export class PDFExporter {
 			const font = await this.loadCustomFont(pdfDoc, note.fontFamily);
 			const bgRgb = this.hexToRgb(note.backgroundColor);
 
-			// Get base coordinates and transform to rotated display space
-			const baseX = note.x !== undefined ? note.x : note.relativeX * baseWidth;
-			const baseY = note.y !== undefined ? note.y : note.relativeY * baseHeight;
+			// Always use relative coords mapped to PDF dimensions.
+			const baseX = note.relativeX * baseWidth;
+			const baseY = note.relativeY * baseHeight;
 			const pos = toPdf(baseX, baseY);
 
 			const noteWidth = note.relativeWidth * baseWidth;
@@ -626,11 +656,11 @@ export class PDFExporter {
 				const y4 = eAbs.y - headLength * Math.sin(angle + Math.PI / 6);
 
 				// pdf-lib's drawSvgPath maps (px, py) to (x + px*scale, y - py*scale).
-				// By setting x=0, y=baseHeight, scale=1, it maps (px, py) to (px, baseHeight - py),
-				// which exactly converts our Y-down web coordinates to Y-up PDF coordinates!
+				// By setting x=cropBox.x, y=cropBox.y+baseHeight, scale=1, it maps (px, py) to (cropBox.x + px, cropBox.y + baseHeight - py),
+				// which exactly converts our Y-down web coordinates to Y-up PDF coordinates with crop offsets!
 				page.drawSvgPath(`M ${eAbs.x} ${eAbs.y} L ${x3} ${y3} L ${x4} ${y4} Z`, {
-					x: 0,
-					y: baseHeight,
+					x: cropBox.x,
+					y: cropBox.y + baseHeight,
 					color: pdfColor,
 					borderColor: pdfColor,
 					borderWidth: 0
@@ -646,9 +676,9 @@ export class PDFExporter {
 				continue;
 			}
 
-			// Get base coordinates (same as canvas export)
-			const baseX = stamp.x !== undefined ? stamp.x : stamp.relativeX * baseWidth;
-			const baseY = stamp.y !== undefined ? stamp.y : stamp.relativeY * baseHeight;
+			// Always prefer relative coords (scale-independent) mapped to PDF dimensions.
+			const baseX = stamp.relativeX * baseWidth;
+			const baseY = stamp.relativeY * baseHeight;
 			
 			// Calculate stamp size (same as canvas export)
 			const MIN_SIZE = 16;
@@ -661,9 +691,9 @@ export class PDFExporter {
 			const cxBase = baseX + stampSize / 2;
 			const cyBase = baseY + stampSize / 2;
 			
-			// Convert base center to Y-up PDF unrotated space
-			const cxPdf = cxBase;
-			const cyPdf = baseHeight - cyBase;
+			// Convert base center to Y-up PDF unrotated space with crop offset
+			const cxPdf = cropBox.x + cxBase;
+			const cyPdf = cropBox.y + (baseHeight - cyBase);
 			
 			// stamp.rotation is already the relative rotation needed on the base page.
 			const pdfRotation = -(stamp.rotation ?? 0);

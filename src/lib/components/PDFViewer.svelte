@@ -1000,10 +1000,13 @@
 					);
 					return { x: base.x, y: base.y, pressure: point.pressure };
 				});
+				const safeScale = $pdfState.scale > 0 ? $pdfState.scale : 1;
 				const drawingPath: DrawingPath = {
 					tool: $drawingState.tool,
 					color: color,
-					lineWidth: $drawingState.lineWidth,
+					// Divide by scale so lineWidth is stored in base PDF-point space,
+					// matching how the x/y point coordinates are stored above.
+					lineWidth: $drawingState.lineWidth / safeScale,
 					points: basePathPoints, // Store base viewport coordinates
 					pageNumber: $pdfState.currentPage
 					// No need for viewerScale anymore - all coords are at scale 1.0
