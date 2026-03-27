@@ -22,6 +22,11 @@ import { get } from 'svelte/store';
 import { toastStore } from '$lib/stores/toastStore';
 import { PDFExporter } from './pdfExport';
 import { LPDF_MAX_JSON_SIZE, LPDF_MAX_PDF_SIZE, LPDF_MAX_TOTAL_UNCOMPRESSED } from '$lib/constants';
+import type { DrawingTool } from '$lib/stores/drawingStore';
+
+/** Local type guard — keeps drawingStore.ts unchanged */
+const isDrawingTool = (tool: unknown): tool is DrawingTool =>
+	['pencil', 'eraser', 'text', 'arrow', 'highlight', 'note', 'stamp', 'select'].includes(tool as string);
 
 /**
  * Complete annotation data structure for .lpdf format
@@ -497,7 +502,6 @@ export class LPDFExporter {
 			stampAnnotations.set(new Map());
 			arrowAnnotations.set(new Map());
 			
-			// Generic helper to load annotations into a store (DRY refactoring)
 			const loadIntoStore = <TInput, TOutput>(
 				data: Record<string, TInput[]> | undefined,
 				store: import('svelte/store').Writable<Map<number, TOutput[]>>,
@@ -506,23 +510,31 @@ export class LPDFExporter {
 				if (!data) return;
 				const map = new Map<number, TOutput[]>();
 				Object.entries(data).forEach(([pageNum, items]) => {
-					const pageNumber = parseInt(pageNum);
+					const pageNumber = parseInt(pageNum, 10);
+					if (Number.isNaN(pageNumber)) return;
 					map.set(pageNumber, items.map(item => converter(item, pageNumber)));
 				});
 				store.set(map);
 			};
 			
 			// Load all annotation types using the generic helper
-			loadIntoStore(annotations.drawings, drawingPaths, (path, pageNumber) => ({
-				tool: path.tool as any,
-				color: path.color,
-				lineWidth: path.lineWidth, // Already in base space; drop legacy viewerScale
-				points: path.points,
-				pageNumber,
-				highlightColor: path.highlightColor,
-				highlightOpacity: path.highlightOpacity
-				// viewerScale intentionally omitted
-			}));
+			loadIntoStore(annotations.drawings, drawingPaths, (path, pageNumber) => {
+				const tool = isDrawingTool(path.tool) ? path.tool : 'pencil';
+				if (!isDrawingTool(path.tool)) {
+					console.warn(`[LPDFExport] Invalid tool '${path.tool}' imported on page ${pageNumber}. Falling back to 'pencil'.`);
+				}
+
+				return {
+					tool,
+					color: path.color,
+					lineWidth: path.lineWidth, // Already in base space; drop legacy viewerScale
+					points: path.points,
+					pageNumber,
+					highlightColor: path.highlightColor,
+					highlightOpacity: path.highlightOpacity
+					// viewerScale intentionally omitted
+				};
+			});
 			
 			loadIntoStore(annotations.textAnnotations, textAnnotations, (text, pageNumber) => ({
 				...text,
