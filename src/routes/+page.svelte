@@ -687,38 +687,10 @@
 				originalName = currentFile.name.replace(/\.pdf$/i, '');
 			}
 
-			const exporter = new PDFExporter();
-			exporter.setOriginalPDF(pdfBytes);
-
-			// Export all pages with annotations
-			console.log('Exporting PDF with', $pdfState.totalPages, 'pages');
-
-			for (let pageNum = 1; pageNum <= $pdfState.totalPages; pageNum++) {
-				console.log(`Processing page ${pageNum} for export...`);
-
-				// Check if this page has any annotations
-				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNum);
-
-				// Apply rotation to the exported PDF page regardless of annotations
-				const pageRotation = pdfViewer.getPageRotation
-					? pdfViewer.getPageRotation(pageNum)
-					: ($pdfState.rotation || 0);
-				if (pageRotation !== 0) {
-					exporter.setRotation(pageNum, pageRotation);
-				}
-
-				// Always try to create merged canvas for all pages to debug the issue
-				console.log(
-					`Page ${pageNum} has annotations: ${hasAnnotations}. Creating merged canvas anyway...`
-				);
-				const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNum);
-				if (mergedCanvas) {
-					exporter.setPageCanvas(pageNum, mergedCanvas);
-					console.log(`Added merged canvas for page ${pageNum}`);
-				} else {
-					console.log(`Failed to create merged canvas for page ${pageNum}`);
-				}
-			}
+			// Use shared utility for DRY export with native vector annotations
+			const exporter = await buildAnnotatedPdfExporter(pdfBytes, pdfViewer, $pdfState.totalPages, {
+				captureAllPages: true
+			});
 
 			const annotatedPdfBytes = await exporter.exportToPDF();
 			const filename = `${originalName}_annotated.pdf`;
@@ -803,43 +775,9 @@
 				originalName = currentFile.name.replace(/\.pdf$/i, '');
 			}
 
-			// Create annotated PDF first (same process as handleExportPDF)
-			const exporter = new PDFExporter();
-			exporter.setOriginalPDF(pdfBytes);
-
-			// Export all pages with annotations
-			console.log('Creating annotated PDF for DOCX export with', $pdfState.totalPages, 'pages');
-
-			for (let pageNum = 1; pageNum <= $pdfState.totalPages; pageNum++) {
-				console.log(`Processing page ${pageNum} for DOCX export...`);
-
-				// Check if this page has any annotations
-				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNum);
-
-				// Apply rotation to the exported PDF page regardless of annotations
-				const pageRotation = pdfViewer.getPageRotation
-					? pdfViewer.getPageRotation(pageNum)
-					: ($pdfState.rotation || 0);
-				if (pageRotation !== 0) {
-					exporter.setRotation(pageNum, pageRotation);
-				}
-
-				// Create merged canvas for all pages (including annotations if present)
-				console.log(
-					`Page ${pageNum} has annotations: ${hasAnnotations}. Creating merged canvas...`
-				);
-				const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNum);
-				if (mergedCanvas) {
-					exporter.setPageCanvas(pageNum, mergedCanvas);
-					console.log(`Added merged canvas for page ${pageNum} to DOCX export`);
-				} else {
-					console.log(`Failed to create merged canvas for page ${pageNum}`);
-				}
-			}
-
-			// Get the annotated PDF bytes
+			// Use shared utility for DRY export with native vector annotations
+			const exporter = await buildAnnotatedPdfExporter(pdfBytes, pdfViewer, $pdfState.totalPages);
 			const annotatedPdfBytes = await exporter.exportToPDF();
-			console.log('Annotated PDF created for DOCX conversion, size:', annotatedPdfBytes.length);
 
 			// Now convert the annotated PDF to DOCX
 			const success = await exportCurrentPDFAsDocx(annotatedPdfBytes, `${originalName}.pdf`);

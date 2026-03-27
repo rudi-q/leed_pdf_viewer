@@ -1,8 +1,9 @@
 {
 	"name": "leedpdf",
 	"private": true,
-	"version": "2.30.0",
+	"version": "2.31.0",
 	"type": "module",
+	"packageManager": "pnpm@10.32.1",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
@@ -23,6 +24,9 @@
 		"tauri:build": "tauri build",
 		"tauri:build:debug": "tauri build --debug",
 		"tauri:check": "cd src-tauri && cargo check"
+	},
+	"engines": {
+		"node": "24.x"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.39.3",
@@ -64,6 +68,7 @@
 		]
 	},
 	"dependencies": {
+		"@pdf-lib/fontkit": "^1.1.1",
 		"@tailwindcss/typography": "^0.5.19",
 		"@tauri-apps/plugin-deep-link": "^2.4.7",
 		"@tauri-apps/plugin-dialog": "^2.6.0",

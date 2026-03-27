@@ -50,6 +50,9 @@ export async function getPdfBytesAndName(
 /**
  * Build a PDFExporter with merged annotation canvases for annotated pages (or all pages).
  * Re-usable across all export flows that need annotated PDF output.
+ * 
+ * This function prioritizes native vector annotations (infinite zoom, no pixelation)
+ * and falls back to canvas embedding only if native rendering fails.
  *
  * @param options.captureAllPages - If true, captures canvases for all pages, not just annotated ones.
  *                                   Useful for canvas-only exports. Defaults to false.
@@ -59,6 +62,7 @@ export async function buildAnnotatedPdfExporter(
 	pdfViewer: {
 		pageHasAnnotations: (page: number) => Promise<boolean>;
 		getMergedCanvasForPage: (page: number) => Promise<HTMLCanvasElement | null>;
+		getPageAnnotations?: (page: number) => import('./pdfExport').PageAnnotations | null;
 		getPageRotation?: (page: number) => number;
 	},
 	totalPages: number,
@@ -68,6 +72,10 @@ export async function buildAnnotatedPdfExporter(
 	exporter.setOriginalPDF(pdfBytes);
 
 	const captureAllPages = options?.captureAllPages ?? false;
+	
+	console.log(`[Export] Building PDF exporter for ${totalPages} pages (captureAllPages=${captureAllPages})`);
+	let nativeAnnotationPages = 0;
+	let canvasFallbackPages = 0;
 
 	for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
 		if (pdfViewer.getPageRotation) {
@@ -79,12 +87,45 @@ export async function buildAnnotatedPdfExporter(
 
 		const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
 		if (hasAnnotations || captureAllPages) {
+			// Try native vector annotations first (preferred - infinite zoom, no pixelation)
+			if (pdfViewer.getPageAnnotations) {
+				const annotations = pdfViewer.getPageAnnotations(pageNumber);
+				if (annotations) {
+					const totalAnnotations = 
+						annotations.drawingPaths.length +
+						annotations.textAnnotations.length +
+						annotations.stickyNotes.length +
+						annotations.stampAnnotations.length +
+						annotations.arrowAnnotations.length;
+					
+					if (totalAnnotations > 0) {
+						console.log(`[Export] Page ${pageNumber}: Setting native annotations (VECTOR)`, {
+							paths: annotations.drawingPaths.length,
+							text: annotations.textAnnotations.length,
+							sticky: annotations.stickyNotes.length,
+							stamps: annotations.stampAnnotations.length,
+							arrows: annotations.arrowAnnotations.length
+						});
+						exporter.setPageAnnotations(pageNumber, annotations);
+						nativeAnnotationPages++;
+					} else if (hasAnnotations) {
+						// Only warn if hasAnnotations was true but we got empty arrays
+						// (don't warn for clean pages when captureAllPages is true)
+						console.warn(`[Export] Page ${pageNumber}: getPageAnnotations returned empty arrays despite hasAnnotations=true`);
+					}
+				}
+			}
+			
+			// Also set canvas as fallback (in case native rendering fails)
 			const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
 			if (mergedCanvas) {
 				exporter.setPageCanvas(pageNumber, mergedCanvas);
+				canvasFallbackPages++;
 			}
 		}
 	}
+	
+	console.log(`[Export] Exporter ready: ${nativeAnnotationPages} pages with vector annotations, ${canvasFallbackPages} pages with canvas fallback`);
 
 	return exporter;
 }

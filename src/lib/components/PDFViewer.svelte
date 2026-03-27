@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
 	import { onDestroy, onMount, tick } from 'svelte';
 	import {
 		addDrawingPath,
@@ -1000,10 +1000,13 @@
 					);
 					return { x: base.x, y: base.y, pressure: point.pressure };
 				});
+				const safeScale = $pdfState.scale > 0 ? $pdfState.scale : 1;
 				const drawingPath: DrawingPath = {
 					tool: $drawingState.tool,
 					color: color,
-					lineWidth: $drawingState.lineWidth,
+					// Divide by scale so lineWidth is stored in base PDF-point space,
+					// matching how the x/y point coordinates are stored above.
+					lineWidth: $drawingState.lineWidth / safeScale,
 					points: basePathPoints, // Store base viewport coordinates
 					pageNumber: $pdfState.currentPage
 					// No need for viewerScale anymore - all coords are at scale 1.0
@@ -1653,6 +1656,17 @@
 		}
 
 		return $pdfState.rotation || 0;
+	}
+
+	// Function to get all native annotations for a specific page
+	export function getPageAnnotations(pageNumber: number) {
+		return {
+			drawingPaths: $drawingPaths.get(pageNumber) || [],
+			textAnnotations: $textAnnotations.get(pageNumber) || [],
+			stickyNotes: $stickyNoteAnnotations.get(pageNumber) || [],
+			stampAnnotations: $stampAnnotations.get(pageNumber) || [],
+			arrowAnnotations: $arrowAnnotations.get(pageNumber) || []
+		};
 	}
 
 	// Function to get merged canvas for a specific page
