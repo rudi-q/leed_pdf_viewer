@@ -513,23 +513,16 @@ export class LPDFExporter {
 			};
 			
 			// Load all annotation types using the generic helper
-			loadIntoStore(annotations.drawings, drawingPaths, (path, pageNumber) => {
-				let lineWidth = path.lineWidth;
-				if (path.viewerScale !== undefined) {
-					lineWidth = lineWidth * path.viewerScale;
-				}
-				
-				return {
-					tool: path.tool as any,
-					color: path.color,
-					lineWidth,
-					points: path.points,
-					pageNumber,
-					highlightColor: path.highlightColor,
-					highlightOpacity: path.highlightOpacity
-					// Drop viewerScale property
-				};
-			});
+			loadIntoStore(annotations.drawings, drawingPaths, (path, pageNumber) => ({
+				tool: path.tool as any,
+				color: path.color,
+				lineWidth: path.lineWidth, // Already in base space; drop legacy viewerScale
+				points: path.points,
+				pageNumber,
+				highlightColor: path.highlightColor,
+				highlightOpacity: path.highlightOpacity
+				// viewerScale intentionally omitted
+			}));
 			
 			loadIntoStore(annotations.textAnnotations, textAnnotations, (text, pageNumber) => ({
 				...text,
