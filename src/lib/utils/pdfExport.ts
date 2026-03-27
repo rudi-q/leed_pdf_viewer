@@ -190,6 +190,8 @@ export class PDFExporter {
 						if (originalDoc && pageNum <= originalDoc.getPageCount()) {
 							try {
 								const [copiedPage] = await newDoc.copyPages(originalDoc, [pageNum - 1]);
+								const pageRotation = this.rotations.get(pageNum) || 0;
+								copiedPage.setRotation(degrees(pageRotation));
 								newDoc.addPage(copiedPage);
 								pagesCopied++;
 								console.log(`[PDFExport:Fallback] Page ${pageNum}: Copied from original PDF (invalid canvas)`);
@@ -212,8 +214,8 @@ export class PDFExporter {
 
 					console.log(`[PDFExport:Fallback] Page ${pageNum}: Embedding canvas (${canvas.width}x${canvas.height}px)`);
 					const page = newDoc.addPage([
-						PDFExporter.pixelsToPoints(canvas.width),
-						PDFExporter.pixelsToPoints(canvas.height)
+						PDFExporter.pixelsToPoints(canvas.width / 2),
+						PDFExporter.pixelsToPoints(canvas.height / 2)
 					]);
 
 					const pageRotation = this.rotations.get(pageNum) || 0;
@@ -230,6 +232,8 @@ export class PDFExporter {
 					if (originalDoc && pageNum <= originalDoc.getPageCount()) {
 						try {
 							const [copiedPage] = await newDoc.copyPages(originalDoc, [pageNum - 1]);
+							const pageRotation = this.rotations.get(pageNum) || 0;
+							copiedPage.setRotation(degrees(pageRotation));
 							newDoc.addPage(copiedPage);
 							pagesCopied++;
 							console.log(`[PDFExport:Fallback] Page ${pageNum}: Copied from original PDF (no canvas, no annotations)`);
@@ -338,6 +342,36 @@ export class PDFExporter {
 	}
 
 	private async loadCustomFont(pdfDoc: PDFDocument, fontFamily: string) {
+		if (!fontFamily) {
+			console.log(`[PDFExport:Font] Missing fontFamily → Helvetica (fallback)`);
+			return pdfDoc.embedStandardFont(StandardFonts.Helvetica);
+		}
+
+		// Look up font path from mapping
+		let fontPath = '';
+		for (const [fontName, path] of Object.entries(FONT_ASSETS)) {
+			if (fontFamily.includes(fontName)) {
+				fontPath = path;
+				break;
+			}
+		}
+		
+		if (fontPath) {
+			try {
+				console.log(`[PDFExport:Font] Fetching custom font: ${fontFamily} from ${fontPath}`);
+				const response = await fetch(fontPath);
+				if (!response.ok) {
+					throw new Error(`Failed to fetch font: HTTP ${response.status} for ${fontPath}`);
+				}
+				const fontBytes = await response.arrayBuffer();
+				const embeddedFont = await pdfDoc.embedFont(fontBytes);
+				console.log(`[PDFExport:Font] ✓ Successfully embedded custom font: ${fontFamily} (${(fontBytes.byteLength / 1024).toFixed(2)} KB)`);
+				return embeddedFont;
+			} catch (e) {
+				console.warn(`[PDFExport:Font] ✗ Failed to embed ${fontFamily}, falling back to generic alternatives:`, e instanceof Error ? e.message : String(e));
+			}
+		}
+
 		// Provide fallback mapping for generic families
 		if (fontFamily.includes('sans-serif')) {
 			console.log(`[PDFExport:Font] ${fontFamily} → Helvetica (generic sans-serif)`);
@@ -352,35 +386,9 @@ export class PDFExporter {
 			return pdfDoc.embedStandardFont(StandardFonts.Courier);
 		}
 		
-		// Look up font path from mapping
-		let fontPath = '';
-		for (const [fontName, path] of Object.entries(FONT_ASSETS)) {
-			if (fontFamily.includes(fontName)) {
-				fontPath = path;
-				break;
-			}
-		}
-		
 		// If no match found, use standard font
-		if (!fontPath) {
-			console.log(`[PDFExport:Font] ${fontFamily} → Helvetica (no custom font found)`);
-			return pdfDoc.embedStandardFont(StandardFonts.Helvetica);
-		}
-
-		try {
-			console.log(`[PDFExport:Font] Fetching custom font: ${fontFamily} from ${fontPath}`);
-			const response = await fetch(fontPath);
-			if (!response.ok) {
-				throw new Error(`Failed to fetch font: HTTP ${response.status} for ${fontPath}`);
-			}
-			const fontBytes = await response.arrayBuffer();
-			const embeddedFont = await pdfDoc.embedFont(fontBytes);
-			console.log(`[PDFExport:Font] ✓ Successfully embedded custom font: ${fontFamily} (${(fontBytes.byteLength / 1024).toFixed(2)} KB)`);
-			return embeddedFont;
-		} catch (e) {
-			console.warn(`[PDFExport:Font] ✗ Failed to embed ${fontFamily}, falling back to Helvetica:`, e instanceof Error ? e.message : String(e));
-			return pdfDoc.embedStandardFont(StandardFonts.Helvetica);
-		}
+		console.log(`[PDFExport:Font] ${fontFamily} → Helvetica (no custom font found)`);
+		return pdfDoc.embedStandardFont(StandardFonts.Helvetica);
 	}
 
 	private async drawAnnotationsNatively(
