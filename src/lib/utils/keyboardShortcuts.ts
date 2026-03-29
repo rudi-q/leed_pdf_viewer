@@ -11,6 +11,8 @@ export interface KeyboardShortcutsParams {
 		fitToWidth: () => void;
 		scrollUp: () => void;
 		scrollDown: () => void;
+		rotateLeft: () => void;
+		rotateRight: () => void;
 	} | null;
 	showShortcuts: boolean;
 	showThumbnails: boolean;
@@ -136,6 +138,15 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 				case 'W':
 					event.preventDefault();
 					params.pdfViewer?.fitToWidth();
+					break;
+				case 'r':
+				case 'R':
+					event.preventDefault();
+					if (event.shiftKey) {
+						params.pdfViewer?.rotateLeft();
+					} else {
+						params.pdfViewer?.rotateRight();
+					}
 					break;
 				case '?':
 					event.preventDefault();

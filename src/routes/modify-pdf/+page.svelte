@@ -15,11 +15,14 @@
 		type PDFFileInfo
 	} from '$lib/utils/pdfMergeUtils';
 	import { PDFExporter } from '$lib/utils/pdfExport';
+	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
 
 	let uploadedFiles: PDFFileInfo[] = [];
 	let pages: PDFPageInfo[] = [];
 	let isProcessing = false;
 	let processingMessage = '';
+
+	let compressedPDFExport: CompressedPDFExport;
 
 	// For display in upload zone
 	$: uploadedFilesDisplay = uploadedFiles.map((f) => ({
@@ -47,54 +50,52 @@
 				return;
 			}
 
-		// Load PDF info for each file concurrently
-		const loadPromises = validFiles.map(async (file) => {
-			try {
-				const pdfInfo = await loadPDFInfo(file);
-				
-				// Generate pages for this PDF
-				const newPages: PDFPageInfo[] = [];
-				for (let i = 1; i <= pdfInfo.pageCount; i++) {
-					newPages.push({
-						id: `${pdfInfo.id}-page-${i}`,
-						sourceFileId: pdfInfo.id,
-						sourceFileName: file.name,
-						pageNumber: i
-					});
-				}
-				
-				return { pdfInfo, newPages, file };
-			} catch (error) {
-				console.error('Error loading PDF:', error);
-				toastStore.error('Load Error', `Failed to load ${file.name}`);
-				return null;
-			}
-		});
-		
-		// Process results as they complete
-		const results = await Promise.allSettled(loadPromises);
-		
-		let successfulLoads = 0;
-		for (const result of results) {
-			if (result.status === 'fulfilled' && result.value) {
-				const { pdfInfo, newPages, file } = result.value;
-				uploadedFiles = [...uploadedFiles, pdfInfo];
-				pages = [...pages, ...newPages];
-				
-				// Generate thumbnails in background
-				generateThumbnailsForPages(newPages, file);
-				successfulLoads++;
-			} else if (result.status === 'rejected') {
-				console.error('Promise rejected:', result.reason);
-			}
-		}
+			// Load PDF info for each file concurrently
+			const loadPromises = validFiles.map(async (file) => {
+				try {
+					const pdfInfo = await loadPDFInfo(file);
 
-		if (successfulLoads > 0) {
-			toastStore.success(
-				'PDFs Loaded',
-				`Successfully loaded ${successfulLoads} PDF${successfulLoads > 1 ? 's' : ''}`
-			);
-		}
+					// Generate pages for this PDF
+					const newPages: PDFPageInfo[] = [];
+					for (let i = 1; i <= pdfInfo.pageCount; i++) {
+						newPages.push({
+							id: `${pdfInfo.id}-page-${i}`,
+							sourceFileId: pdfInfo.id,
+							sourceFileName: file.name,
+							pageNumber: i
+						});
+					}
+
+					return { pdfInfo, newPages, file };
+				} catch (error) {
+					console.error('Error loading PDF:', error);
+					toastStore.error('Load Error', `Failed to load ${file.name}`);
+					return null;
+				}
+			});
+
+			// Process results as they complete
+			const results = await Promise.all(loadPromises);
+
+			let successfulLoads = 0;
+			for (const result of results) {
+				if (result) {
+					const { pdfInfo, newPages, file } = result;
+					uploadedFiles = [...uploadedFiles, pdfInfo];
+					pages = [...pages, ...newPages];
+
+					// Generate thumbnails in background
+					generateThumbnailsForPages(newPages, file);
+					successfulLoads++;
+				}
+			}
+
+			if (successfulLoads > 0) {
+				toastStore.success(
+					'PDFs Loaded',
+					`Successfully loaded ${successfulLoads} PDF${successfulLoads > 1 ? 's' : ''}`
+				);
+			}
 		} catch (error) {
 			console.error('Error processing files:', error);
 			toastStore.error('Processing Error', 'Failed to process PDF files');
@@ -136,18 +137,20 @@
 		toastStore.info('Page Deleted', 'Page removed successfully');
 	}
 
-function handleReorder(fromIndex: number, toIndex: number) {
-	const newPages = [...pages];
-	const [movedPage] = newPages.splice(fromIndex, 1);
-	
-	// Insert at toIndex in the post-removal array
-	// Allow inserting at newPages.length to move to the end
-	const insertIndex = Math.min(toIndex, newPages.length);
-	newPages.splice(insertIndex, 0, movedPage);
-	pages = newPages;
+	function handleReorder(fromIndex: number, toIndex: number) {
+		const newPages = [...pages];
+		const [movedPage] = newPages.splice(fromIndex, 1);
 
-	console.log(`Reordered: page ${fromIndex + 1} → ${insertIndex + 1} (target was ${toIndex + 1})`);
-}
+		// Insert at toIndex in the post-removal array
+		// Allow inserting at newPages.length to move to the end
+		const insertIndex = Math.min(toIndex, newPages.length);
+		newPages.splice(insertIndex, 0, movedPage);
+		pages = newPages;
+
+		console.log(
+			`Reordered: page ${fromIndex + 1} → ${insertIndex + 1} (target was ${toIndex + 1})`
+		);
+	}
 
 	async function handleMergeAndDownload() {
 		if (pages.length === 0) {
@@ -157,6 +160,36 @@ function handleReorder(fromIndex: number, toIndex: number) {
 
 		isProcessing = true;
 		processingMessage = 'Merging PDFs...';
+
+		try {
+			const { bytes: mergedPdfBytes, filename } = await getMergedPdfData();
+
+			// Export using smart logic (Tauri or browser)
+			const success = await PDFExporter.exportFile(mergedPdfBytes, filename, 'application/pdf');
+
+			if (success) {
+				toastStore.success('Success', `PDF merged successfully: ${filename}`);
+			} else {
+				console.log('Export was cancelled by user');
+			}
+		} catch (error) {
+			console.error(error);
+			toastStore.error(
+				'Export Error',
+				error instanceof Error ? error.message : 'An unexpected error occurred during export.'
+			);
+			// error already logged and toasted in getMergedPdfData
+		} finally {
+			isProcessing = false;
+			processingMessage = '';
+		}
+	}
+
+	async function getMergedPdfData(): Promise<{ bytes: Uint8Array; filename: string }> {
+		if (pages.length === 0) {
+			toastStore.warning('No Pages', 'Please upload at least one PDF file');
+			throw new Error('No pages to merge');
+		}
 
 		try {
 			// Create a map of file IDs to File objects
@@ -172,21 +205,21 @@ function handleReorder(fromIndex: number, toIndex: number) {
 			const timestamp = new Date().toISOString().split('T')[0];
 			const filename = `merged_${timestamp}.pdf`;
 
-			// Export using smart logic (Tauri or browser)
-			const success = await PDFExporter.exportFile(mergedPdfBytes, filename, 'application/pdf');
-
-			if (success) {
-				toastStore.success('Success', `PDF merged successfully: ${filename}`);
-			} else {
-				console.log('Export was cancelled by user');
-			}
+			return { bytes: mergedPdfBytes, filename };
 		} catch (error) {
-			console.error('Error merging PDFs:', error);
+			console.error('Error computing merged PDF:', error);
 			toastStore.error('Merge Failed', 'Failed to merge PDFs. Please try again.');
-		} finally {
-			isProcessing = false;
-			processingMessage = '';
+			throw error;
 		}
+	}
+
+	function handleCompressAndDownload() {
+		if (pages.length === 0) {
+			toastStore.warning('No Pages', 'Please upload at least one PDF file');
+			return;
+		}
+
+		compressedPDFExport?.open();
 	}
 
 	function handleReset() {
@@ -213,28 +246,34 @@ function handleReorder(fromIndex: number, toIndex: number) {
 	/>
 </svelte:head>
 
-<div class="h-screen overflow-y-auto bg-gradient-to-br from-cream via-sage/10 to-cream dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+<div
+	class="h-screen overflow-y-auto bg-gradient-to-br from-cream via-sage/10 to-cream dark:from-gray-900 dark:via-gray-800 dark:to-gray-900"
+>
 	<!-- Header -->
-	<header class="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-b border-slate/20 dark:border-gray-700 sticky top-0 z-10 shadow-sm">
+	<header
+		class="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-b border-slate/20 dark:border-gray-700 sticky top-0 z-10 shadow-sm"
+	>
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
 			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-4">
 					<!-- Logo -->
 					<button on:click={handleGoHome} class="flex-shrink-0" title="Go to LeedPDF home">
-						<img 
-							src="/logo.png" 
-							alt="LeedPDF" 
-							class="w-10 h-10 dark:hidden object-contain hover:scale-110 transition-transform" 
+						<img
+							src="/logo.png"
+							alt="LeedPDF"
+							class="w-10 h-10 dark:hidden object-contain hover:scale-110 transition-transform"
 						/>
-						<img 
-							src="/logo-dark.png" 
-							alt="LeedPDF" 
-							class="w-10 h-10 hidden dark:block object-contain hover:scale-110 transition-transform" 
+						<img
+							src="/logo-dark.png"
+							alt="LeedPDF"
+							class="w-10 h-10 hidden dark:block object-contain hover:scale-110 transition-transform"
 						/>
 					</button>
-					
+
 					<div>
-						<h1 class="text-xl sm:text-2xl font-bold text-charcoal dark:text-gray-100">Modify PDFs</h1>
+						<h1 class="text-xl sm:text-2xl font-bold text-charcoal dark:text-gray-100">
+							Modify PDFs
+						</h1>
 						<p class="text-xs sm:text-sm text-slate dark:text-gray-400 mt-0.5">
 							Merge & reorder pages
 						</p>
@@ -283,8 +322,17 @@ function handleReorder(fromIndex: number, toIndex: number) {
 							<span>{processingMessage}</span>
 						{:else}
 							<Download size={20} />
-							<span>Merge & Download PDF</span>
+							<span>Merge & Export PDF</span>
 						{/if}
+					</button>
+
+					<button
+						on:click={handleCompressAndDownload}
+						disabled={isProcessing}
+						class="flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:bg-slate/30 text-charcoal dark:text-gray-200 font-semibold rounded-lg shadow-md hover:shadow-lg border-2 border-sage transition-all duration-200 disabled:cursor-not-allowed"
+					>
+						<Download size={20} />
+						<span>Compress & Export PDF</span>
 					</button>
 
 					<button
@@ -293,7 +341,7 @@ function handleReorder(fromIndex: number, toIndex: number) {
 						class="flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:bg-slate/30 text-charcoal dark:text-gray-200 font-semibold rounded-lg shadow-md hover:shadow-lg border-2 border-slate/20 dark:border-gray-600 transition-all duration-200 disabled:cursor-not-allowed"
 					>
 						<RotateCcw size={20} />
-						<span>Reset</span>
+						<span>Clear</span>
 					</button>
 				</section>
 			{/if}
@@ -302,9 +350,7 @@ function handleReorder(fromIndex: number, toIndex: number) {
 			<section
 				class="bg-white dark:bg-gray-800 rounded-lg p-6 border border-slate/20 dark:border-gray-700 shadow-sm"
 			>
-				<h2 class="text-lg font-semibold text-charcoal dark:text-gray-200 mb-4">
-					How to Use
-				</h2>
+				<h2 class="text-lg font-semibold text-charcoal dark:text-gray-200 mb-4">How to Use</h2>
 				<ol class="space-y-2 text-sm text-slate dark:text-gray-400">
 					<li class="flex items-start gap-3">
 						<span
@@ -334,7 +380,7 @@ function handleReorder(fromIndex: number, toIndex: number) {
 							class="flex-shrink-0 w-6 h-6 bg-sage/20 text-sage rounded-full flex items-center justify-center text-xs font-bold"
 							>4</span
 						>
-						<span>Click "Merge & Download PDF" to download your customized PDF</span>
+						<span>Click "Merge & Export PDF" to download your customized PDF</span>
 					</li>
 				</ol>
 			</section>
@@ -357,3 +403,8 @@ function handleReorder(fromIndex: number, toIndex: number) {
 		</div>
 	{/if}
 </div>
+
+<CompressedPDFExport
+	bind:this={compressedPDFExport}
+	getAnnotatedPdf={pages.length > 0 ? getMergedPdfData : null}
+/>

@@ -13,11 +13,15 @@
 		updateStampAnnotation
 	} from '../stores/drawingStore';
 	import { trackFirstAnnotation } from '../utils/analytics';
+	import { inverseTransformPoint, type RotationAngle } from '../utils/rotationUtils';
 
-	export let containerWidth: number = 0; // Base viewport width at scale 1.0
-	export let containerHeight: number = 0; // Base viewport height at scale 1.0
+	export let containerWidth: number = 0; // Actual displayed canvas width
+	export let containerHeight: number = 0; // Actual displayed canvas height
 	export let scale: number = 1; // Current zoom scale
 	export let viewOnlyMode = false; // If true, disable all editing interactions
+	export let rotation: RotationAngle = 0;
+	export let basePageWidth: number = 0;
+	export let basePageHeight: number = 0;
 
 	let overlayElement: HTMLDivElement;
 	let isCreatingStamp = false;
@@ -36,32 +40,50 @@
 		const target = event.target as HTMLElement;
 		if (target.closest('.stamp-annotation')) return;
 
+		if (!basePageWidth || !basePageHeight) return;
+
 		// Calculate click position relative to the container
-		const rect = overlayElement.getBoundingClientRect();
 		// Get click position in current scale
+		const rect = overlayElement.getBoundingClientRect();
 		const scaledX = event.clientX - rect.left;
 		const scaledY = event.clientY - rect.top;
-		
-		// Convert to base viewport coordinates
-		const x = scaledX / scale;
-		const y = scaledY / scale;
+
+		const safeScale = scale > 0 ? scale : 1;
+		const rotatedBaseX = scaledX / safeScale;
+		const rotatedBaseY = scaledY / safeScale;
+
+		const basePoint = inverseTransformPoint(
+			rotatedBaseX,
+			rotatedBaseY,
+			rotation as RotationAngle,
+			basePageWidth,
+			basePageHeight
+		);
+		const baseX = basePoint.x;
+		const baseY = basePoint.y;
 
 		// Default dimensions for new stamps (at base scale)
 		const defaultSize = 32;
 
 		// Ensure the stamp fits within the container (at base scale)
-		const constrainedX = Math.max(0, Math.min(containerWidth - defaultSize, x - defaultSize / 2));
-		const constrainedY = Math.max(0, Math.min(containerHeight - defaultSize, y - defaultSize / 2));
+		const constrainedX = Math.max(
+			0,
+			Math.min(basePageWidth - defaultSize, baseX - defaultSize / 2)
+		);
+		const constrainedY = Math.max(
+			0,
+			Math.min(basePageHeight - defaultSize, baseY - defaultSize / 2)
+		);
 
 		// Create new stamp using the currently selected stamp ID from the store
 		const selectedStampId = $drawingState.stampId || 'star';
 		const selectedStamp = getStampById(selectedStampId);
-		
+
 		if (!selectedStamp) {
 			console.warn('No stamp found for ID:', selectedStampId);
 			return;
 		}
-		
+
 		const newStamp: StampAnnotationType = {
 			id: `stamp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
 			pageNumber: $pdfState.currentPage,
@@ -71,19 +93,22 @@
 			width: defaultSize, // Store at base scale
 			height: defaultSize, // Store at base scale
 			size: defaultSize, // Store at base scale
-			rotation: 0,
-			relativeX: constrainedX / containerWidth,
-			relativeY: constrainedY / containerHeight,
-			relativeSize: defaultSize / Math.min(containerWidth, containerHeight)
+			rotation: -rotation, // Store negative page rotation to keep stamp straight
+			relativeX: basePageWidth > 0 ? constrainedX / basePageWidth : 0,
+			relativeY: basePageHeight > 0 ? constrainedY / basePageHeight : 0,
+			relativeSize:
+				basePageWidth > 0 && basePageHeight > 0
+					? defaultSize / Math.min(basePageWidth, basePageHeight)
+					: 0
 		};
 
-	isCreatingStamp = true;
-	
-	// Track first annotation creation
-	trackFirstAnnotation('stamp');
-	
-	addStampAnnotation(newStamp);
-		
+		isCreatingStamp = true;
+
+		// Track first annotation creation
+		trackFirstAnnotation('stamp');
+
+		addStampAnnotation(newStamp);
+
 		// Reset creating state after a short delay
 		setTimeout(() => {
 			isCreatingStamp = false;
@@ -113,7 +138,7 @@
 		};
 
 		updateCursor();
-		
+
 		// Watch for tool changes
 		const unsubscribe = drawingState.subscribe(() => {
 			updateCursor();
@@ -131,8 +156,8 @@
 	bind:this={overlayElement}
 	class="stamp-overlay"
 	class:stamp-tool-active={isStampTool}
-	style:width="{containerWidth * scale}px"
-	style:height="{containerHeight * scale}px"
+	style:width="{containerWidth}px"
+	style:height="{containerHeight}px"
 	on:click={handleContainerClick}
 	role="application"
 	aria-label="Stamps area - click to create new stamp when stamp tool is active"
@@ -141,8 +166,9 @@
 		<StampAnnotation
 			{stamp}
 			{scale}
-			{containerWidth}
-			{containerHeight}
+			{rotation}
+			{basePageWidth}
+			{basePageHeight}
 			on:update={handleStampUpdate}
 			on:delete={handleStampDelete}
 		/>
@@ -157,7 +183,6 @@
 			</div>
 		</div>
 	{/if}
-
 </div>
 
 <style>
@@ -208,8 +233,6 @@
 		white-space: nowrap;
 	}
 
-
-
 	@keyframes fadeInHint {
 		0% {
 			opacity: 0;
@@ -220,12 +243,6 @@
 			transform: translate(-50%, -50%) scale(1);
 		}
 	}
-
-
-
-
-
-
 
 	/* Prevent text selection when in stamp tool mode */
 	.stamp-overlay.stamp-tool-active * {
@@ -238,7 +255,7 @@
 			font-size: 12px;
 			padding: 8px 16px;
 		}
-		
+
 		.hint-icon {
 			font-size: 20px;
 		}

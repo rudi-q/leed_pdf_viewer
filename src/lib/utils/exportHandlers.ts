@@ -50,6 +50,9 @@ export async function getPdfBytesAndName(
 /**
  * Build a PDFExporter with merged annotation canvases for annotated pages (or all pages).
  * Re-usable across all export flows that need annotated PDF output.
+ * 
+ * This function prioritizes native vector annotations (infinite zoom, no pixelation)
+ * and falls back to canvas embedding only if native rendering fails.
  *
  * @param options.captureAllPages - If true, captures canvases for all pages, not just annotated ones.
  *                                   Useful for canvas-only exports. Defaults to false.
@@ -59,6 +62,8 @@ export async function buildAnnotatedPdfExporter(
 	pdfViewer: {
 		pageHasAnnotations: (page: number) => Promise<boolean>;
 		getMergedCanvasForPage: (page: number) => Promise<HTMLCanvasElement | null>;
+		getPageAnnotations?: (page: number) => import('./pdfExport').PageAnnotations | null;
+		getPageRotation?: (page: number) => number;
 	},
 	totalPages: number,
 	options?: { captureAllPages?: boolean }
@@ -67,16 +72,60 @@ export async function buildAnnotatedPdfExporter(
 	exporter.setOriginalPDF(pdfBytes);
 
 	const captureAllPages = options?.captureAllPages ?? false;
+	
+	console.log(`[Export] Building PDF exporter for ${totalPages} pages (captureAllPages=${captureAllPages})`);
+	let nativeAnnotationPages = 0;
+	let canvasFallbackPages = 0;
 
 	for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+		if (pdfViewer.getPageRotation) {
+			const rotation = pdfViewer.getPageRotation(pageNumber);
+			if (rotation !== 0) {
+				exporter.setRotation(pageNumber, rotation);
+			}
+		}
+
 		const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
 		if (hasAnnotations || captureAllPages) {
+			// Try native vector annotations first (preferred - infinite zoom, no pixelation)
+			if (pdfViewer.getPageAnnotations) {
+				const annotations = pdfViewer.getPageAnnotations(pageNumber);
+				if (annotations) {
+					const totalAnnotations = 
+						annotations.drawingPaths.length +
+						annotations.textAnnotations.length +
+						annotations.stickyNotes.length +
+						annotations.stampAnnotations.length +
+						annotations.arrowAnnotations.length;
+					
+					if (totalAnnotations > 0) {
+						console.log(`[Export] Page ${pageNumber}: Setting native annotations (VECTOR)`, {
+							paths: annotations.drawingPaths.length,
+							text: annotations.textAnnotations.length,
+							sticky: annotations.stickyNotes.length,
+							stamps: annotations.stampAnnotations.length,
+							arrows: annotations.arrowAnnotations.length
+						});
+						exporter.setPageAnnotations(pageNumber, annotations);
+						nativeAnnotationPages++;
+					} else if (hasAnnotations) {
+						// Only warn if hasAnnotations was true but we got empty arrays
+						// (don't warn for clean pages when captureAllPages is true)
+						console.warn(`[Export] Page ${pageNumber}: getPageAnnotations returned empty arrays despite hasAnnotations=true`);
+					}
+				}
+			}
+			
+			// Also set canvas as fallback (in case native rendering fails)
 			const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
 			if (mergedCanvas) {
 				exporter.setPageCanvas(pageNumber, mergedCanvas);
+				canvasFallbackPages++;
 			}
 		}
 	}
+	
+	console.log(`[Export] Exporter ready: ${nativeAnnotationPages} pages with vector annotations, ${canvasFallbackPages} pages with canvas fallback`);
 
 	return exporter;
 }
@@ -111,4 +160,101 @@ export async function compressPdfBytes(pdfBytes: Uint8Array, quality = 75): Prom
 		console.warn('pdf-lib compression fallback failed, returning original:', error);
 		return pdfBytes;
 	}
+}
+
+/**
+ * Convert a canvas to a PNG Blob.
+ * Shared helper used by single-page and multi-page PNG exports.
+ */
+async function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+	return new Promise<Blob>((resolve, reject) =>
+		canvas.toBlob(
+			(b) => (b ? resolve(b) : reject(new Error('Canvas toBlob failed'))),
+			'image/png'
+		)
+	);
+}
+
+/**
+ * Export a single PDF page as a PNG image.
+ *
+ * @param pdfViewer - Must expose getMergedCanvasForPage
+ * @param currentPage - 1-based page number to export
+ * @param baseName - Base filename without extension (e.g. "report")
+ * @returns true if the file was saved, false if user cancelled
+ */
+export async function exportCurrentPageAsPng(
+	pdfViewer: { getMergedCanvasForPage: (page: number) => Promise<HTMLCanvasElement | null> },
+	currentPage: number,
+	baseName: string
+): Promise<boolean> {
+	const canvas = await pdfViewer.getMergedCanvasForPage(currentPage);
+	if (!canvas) {
+		throw new Error(`Could not render page ${currentPage} to canvas`);
+	}
+	const blob = await canvasToPngBlob(canvas);
+	const filename = `${baseName}_page${currentPage}.png`;
+	return PDFExporter.exportFile(blob, filename, 'image/png');
+}
+
+/**
+ * Export all PDF pages as PNG images inside a ZIP archive.
+ * JSZip is dynamically imported (same pattern as lpdfExport.ts) so it
+ * doesn't increase the initial bundle size.
+ *
+ * @param pdfViewer - Must expose getMergedCanvasForPage
+ * @param totalPages - Total number of pages in the PDF
+ * @param baseName - Base filename without extension (e.g. "report")
+ * @param onProgress - Optional callback receiving progress 0-100
+ * @returns true if the file was saved, false if user cancelled
+ */
+export async function exportAllPagesAsPngZip(
+	pdfViewer: { getMergedCanvasForPage: (page: number) => Promise<HTMLCanvasElement | null> },
+	totalPages: number,
+	baseName: string,
+	onProgress?: (percent: number) => void
+): Promise<boolean> {
+	const JSZip = (await import('jszip')).default;
+	const zip = new JSZip();
+
+	let filesAdded = 0;
+
+	for (let page = 1; page <= totalPages; page++) {
+		const canvas = await pdfViewer.getMergedCanvasForPage(page);
+		if (!canvas) {
+			console.warn(`Skipping page ${page}: could not render to canvas`);
+			continue;
+		}
+		const blob = await canvasToPngBlob(canvas);
+		const arrayBuffer = await blob.arrayBuffer();
+		zip.file(`page${page}.png`, new Uint8Array(arrayBuffer));
+		filesAdded++;
+
+		if (onProgress) {
+			onProgress(Math.round((page / totalPages) * 80));
+		}
+	}
+
+	if (filesAdded === 0) {
+		throw new Error('No pages could be rendered — the ZIP would be empty.');
+	}
+
+	const zipBytes = await zip.generateAsync({
+		type: 'uint8array',
+		compression: 'DEFLATE',
+		compressionOptions: { level: 6 }
+	});
+
+	if (onProgress) {
+		onProgress(95);
+	}
+
+	const filename = `${baseName}_pages.zip`;
+	const saved = await PDFExporter.exportFile(zipBytes, filename, 'application/zip');
+
+	if (saved && onProgress) {
+		onProgress(100);
+	}
+
+	return saved;
 }

@@ -56,7 +56,7 @@ export const defaultSEOData: SEOData = {
 
 export function generateMetaTags(seoData: Partial<SEOData> = {}): string {
   const data = { ...defaultSEOData, ...seoData };
-  
+
   return `
     <!-- Primary Meta Tags -->
     <title>${data.title}</title>
@@ -307,4 +307,24 @@ export const pageSEOData: Record<string, Partial<SEOData>> = {
     url: 'https://leed.my/search',
     robots: 'noindex, nofollow'
   },
+  '/convert/png-to-pdf': {
+    title: 'PNG to PDF Converter — Free & Private | LeedPDF',
+    description: 'Convert PNG images to PDF instantly in your browser. No uploads, completely private, and free to use.',
+    url: 'https://leed.my/convert/png-to-pdf'
+  },
+  '/convert/jpg-to-pdf': {
+    title: 'JPG to PDF Converter — Free & Private | LeedPDF',
+    description: 'Convert JPG and JPEG images to PDF instantly in your browser. No uploads, completely private, and free to use.',
+    url: 'https://leed.my/convert/jpg-to-pdf'
+  },
+  '/convert/webp-to-pdf': {
+    title: 'WebP to PDF Converter — Free & Private | LeedPDF',
+    description: 'Convert WebP images to PDF instantly in your browser. No uploads, completely private, and free to use.',
+    url: 'https://leed.my/convert/webp-to-pdf'
+  },
+  '/convert/markdown-to-pdf': {
+    title: 'Markdown to PDF Converter — Free & Private | LeedPDF',
+    description: 'Convert Markdown files to PDF instantly in your browser. No uploads, completely private, and free to use.',
+    url: 'https://leed.my/convert/markdown-to-pdf'
+  }
 };

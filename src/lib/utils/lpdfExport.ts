@@ -22,6 +22,11 @@ import { get } from 'svelte/store';
 import { toastStore } from '$lib/stores/toastStore';
 import { PDFExporter } from './pdfExport';
 import { LPDF_MAX_JSON_SIZE, LPDF_MAX_PDF_SIZE, LPDF_MAX_TOTAL_UNCOMPRESSED } from '$lib/constants';
+import type { DrawingTool } from '$lib/stores/drawingStore';
+
+/** Local type guard — keeps drawingStore.ts unchanged */
+const isDrawingTool = (tool: unknown): tool is DrawingTool =>
+	['pencil', 'eraser', 'text', 'arrow', 'highlight', 'note', 'stamp', 'select'].includes(tool as string);
 
 /**
  * Complete annotation data structure for .lpdf format
@@ -497,81 +502,59 @@ export class LPDFExporter {
 			stampAnnotations.set(new Map());
 			arrowAnnotations.set(new Map());
 			
-			// Load drawing paths
-			if (annotations.drawings) {
-				const drawingPathsMap = new Map<number, DrawingPath[]>();
-				Object.entries(annotations.drawings).forEach(([pageNum, paths]) => {
-					const pageNumber = parseInt(pageNum);
-					const convertedPaths: DrawingPath[] = paths.map(path => ({
-						tool: path.tool as any,
-						color: path.color,
-						lineWidth: path.lineWidth,
-						points: path.points,
-						pageNumber,
-						highlightColor: path.highlightColor,
-						highlightOpacity: path.highlightOpacity,
-						viewerScale: path.viewerScale
-					}));
-					drawingPathsMap.set(pageNumber, convertedPaths);
+			const loadIntoStore = <TInput, TOutput>(
+				data: Record<string, TInput[]> | undefined,
+				store: import('svelte/store').Writable<Map<number, TOutput[]>>,
+				converter: (item: TInput, pageNumber: number) => TOutput
+			) => {
+				if (!data) return;
+				const map = new Map<number, TOutput[]>();
+				Object.entries(data).forEach(([pageNum, items]) => {
+					const pageNumber = parseInt(pageNum, 10);
+					if (Number.isNaN(pageNumber)) return;
+					map.set(pageNumber, items.map(item => converter(item, pageNumber)));
 				});
-				drawingPaths.set(drawingPathsMap);
-			}
+				store.set(map);
+			};
 			
-			// Load text annotations
-			if (annotations.textAnnotations) {
-				const textAnnotationsMap = new Map<number, TextAnnotation[]>();
-				Object.entries(annotations.textAnnotations).forEach(([pageNum, texts]) => {
-					const pageNumber = parseInt(pageNum);
-					const convertedTexts: TextAnnotation[] = texts.map(text => ({
-						...text,
-						pageNumber
-					}));
-					textAnnotationsMap.set(pageNumber, convertedTexts);
-				});
-				textAnnotations.set(textAnnotationsMap);
-			}
+			// Load all annotation types using the generic helper
+			loadIntoStore(annotations.drawings, drawingPaths, (path, pageNumber) => {
+				const tool = isDrawingTool(path.tool) ? path.tool : 'pencil';
+				if (!isDrawingTool(path.tool)) {
+					console.warn(`[LPDFExport] Invalid tool '${path.tool}' imported on page ${pageNumber}. Falling back to 'pencil'.`);
+				}
+
+				return {
+					tool,
+					color: path.color,
+					lineWidth: path.lineWidth, // Already in base space; drop legacy viewerScale
+					points: path.points,
+					pageNumber,
+					highlightColor: path.highlightColor,
+					highlightOpacity: path.highlightOpacity
+					// viewerScale intentionally omitted
+				};
+			});
 			
-			// Load sticky notes
-			if (annotations.stickyNotes) {
-				const stickyNotesMap = new Map<number, StickyNoteAnnotation[]>();
-				Object.entries(annotations.stickyNotes).forEach(([pageNum, notes]) => {
-					const pageNumber = parseInt(pageNum);
-					const convertedNotes: StickyNoteAnnotation[] = notes.map(note => ({
-						...note,
-						pageNumber
-					}));
-					stickyNotesMap.set(pageNumber, convertedNotes);
-				});
-				stickyNoteAnnotations.set(stickyNotesMap);
-			}
+			loadIntoStore(annotations.textAnnotations, textAnnotations, (text, pageNumber) => ({
+				...text,
+				pageNumber
+			}));
 			
-			// Load stamps
-			if (annotations.stamps) {
-				const stampsMap = new Map<number, StampAnnotation[]>();
-				Object.entries(annotations.stamps).forEach(([pageNum, stamps]) => {
-					const pageNumber = parseInt(pageNum);
-					const convertedStamps: StampAnnotation[] = stamps.map(stamp => ({
-						...stamp,
-						pageNumber
-					}));
-					stampsMap.set(pageNumber, convertedStamps);
-				});
-				stampAnnotations.set(stampsMap);
-			}
+			loadIntoStore(annotations.stickyNotes, stickyNoteAnnotations, (note, pageNumber) => ({
+				...note,
+				pageNumber
+			}));
 			
-			// Load arrows
-			if (annotations.arrows) {
-				const arrowsMap = new Map<number, ArrowAnnotation[]>();
-				Object.entries(annotations.arrows).forEach(([pageNum, arrows]) => {
-					const pageNumber = parseInt(pageNum);
-					const convertedArrows: ArrowAnnotation[] = arrows.map(arrow => ({
-						...arrow,
-						pageNumber
-					}));
-					arrowsMap.set(pageNumber, convertedArrows);
-				});
-				arrowAnnotations.set(arrowsMap);
-			}
+			loadIntoStore(annotations.stamps, stampAnnotations, (stamp, pageNumber) => ({
+				...stamp,
+				pageNumber
+			}));
+			
+			loadIntoStore(annotations.arrows, arrowAnnotations, (arrow, pageNumber) => ({
+				...arrow,
+				pageNumber
+			}));
 			
 			console.log('Successfully loaded all annotations into stores');
 			

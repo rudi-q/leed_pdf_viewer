@@ -9,15 +9,15 @@ export function generateSitemap(urls: SitemapUrl[], baseUrl: string = 'https://l
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls
-  .map(
-    ({ url, lastmod, changefreq, priority }) => `  <url>
+      .map(
+        ({ url, lastmod, changefreq, priority }) => `  <url>
     <loc>${baseUrl}${url}</loc>
     ${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}
     ${changefreq ? `<changefreq>${changefreq}</changefreq>` : ''}
     ${priority ? `<priority>${priority.toFixed(1)}</priority>` : ''}
   </url>`
-  )
-  .join('\n')}
+      )
+      .join('\n')}
 </urlset>`;
 
   return sitemap;
@@ -46,5 +46,29 @@ export const siteUrls: SitemapUrl[] = [
     lastmod: getCurrentDate(),
     changefreq: 'weekly',
     priority: 0.8
+  },
+  {
+    url: '/convert/png-to-pdf',
+    lastmod: getCurrentDate(),
+    changefreq: 'weekly',
+    priority: 0.9
+  },
+  {
+    url: '/convert/jpg-to-pdf',
+    lastmod: getCurrentDate(),
+    changefreq: 'weekly',
+    priority: 0.9
+  },
+  {
+    url: '/convert/webp-to-pdf',
+    lastmod: getCurrentDate(),
+    changefreq: 'weekly',
+    priority: 0.9
+  },
+  {
+    url: '/convert/markdown-to-pdf',
+    lastmod: getCurrentDate(),
+    changefreq: 'weekly',
+    priority: 0.9
   }
 ];

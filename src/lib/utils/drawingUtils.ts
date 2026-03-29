@@ -155,22 +155,25 @@ export class DrawingEngine {
 			}
 		});
 
+		// Scale lineWidth to current display scale (lineWidth is stored in base PDF-point space)
+		const displayLineWidth = currentScale ? path.lineWidth * currentScale : path.lineWidth;
+
 		this.context.beginPath();
 		this.context.moveTo(scaledPoints[0].x, scaledPoints[0].y);
 
 		// Set drawing properties
 		if (path.tool === 'eraser') {
 			this.context.globalCompositeOperation = 'destination-out';
-			this.context.lineWidth = path.lineWidth * 2;
+			this.context.lineWidth = displayLineWidth * 2;
 		} else if (path.tool === 'highlight') {
 			this.context.globalCompositeOperation = 'multiply';
 			this.context.strokeStyle = path.color;
-			this.context.lineWidth = path.lineWidth * 3; // Highlighter is wider
+			this.context.lineWidth = displayLineWidth * 3; // Highlighter is wider
 			this.context.globalAlpha = 0.3; // Semi-transparent for highlight effect
 		} else {
 			this.context.globalCompositeOperation = 'source-over';
 			this.context.strokeStyle = path.color;
-			this.context.lineWidth = path.lineWidth;
+			this.context.lineWidth = displayLineWidth;
 			this.context.globalAlpha = 1.0; // Reset alpha for pencil
 		}
 

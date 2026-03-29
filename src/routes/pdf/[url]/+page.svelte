@@ -13,7 +13,7 @@
 	import HelpButton from '$lib/components/HelpButton.svelte';
 	import HomeButton from '$lib/components/HomeButton.svelte';
 	import Footer from '$lib/components/Footer.svelte';
-	import { isValidLPDFFile, isValidPDFFile } from '$lib/utils/pdfUtils';
+	import { isValidLPDFFile, isValidPDFFile, isValidImageFile } from '$lib/utils/pdfUtils';
 	import {
 		forceSaveAllAnnotations,
 		pdfState,
@@ -30,8 +30,10 @@
 	import { MAX_FILE_SIZE } from '$lib/constants';
 	import { isTauri } from '$lib/utils/tauriUtils';
 	import { storeUploadedFile } from '$lib/utils/fileStorageUtils';
+	import { convertImageToPDF } from '$lib/utils/imageImport';
 	import SharePDFModal from '$lib/components/SharePDFModal.svelte';
 	import CompressedPDFExport from '$lib/components/CompressedPDFExport.svelte';
+	import PngExport from '$lib/components/PngExport.svelte';
 	import { getFormattedVersion } from '$lib/utils/version';
 	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
 	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
@@ -61,6 +63,7 @@
 	let showShareModal = false;
 
 	let compressedPDFExport: CompressedPDFExport;
+	let pngExport: PngExport;
 
 	// Debug variables
 	let debugVisible = false;
@@ -398,10 +401,11 @@
 
 		const isPDF = isValidPDFFile(file);
 		const isLPDF = isValidLPDFFile(file);
+		const isImage = isValidImageFile(file);
 
-		if (!isPDF && !isLPDF) {
+		if (!isPDF && !isLPDF && !isImage) {
 			console.log('Invalid file type');
-			toastStore.error('Invalid File', 'Please choose a valid PDF or LPDF file.');
+			toastStore.error('Invalid File', 'Please choose a valid PDF, LPDF, or image file.');
 			return;
 		}
 
@@ -459,8 +463,28 @@
 		console.log('Storing file and navigating to pdf-upload route');
 
 		try {
+			let fileToStore = file;
+
+			// If it's an image file, convert it to PDF first
+			if (isImage) {
+				console.log('Converting image file to PDF...');
+				toastStore.info('Converting...', 'Converting image to PDF, please wait...');
+				fileToStore = await convertImageToPDF(file);
+				console.log('Image converted to PDF successfully');
+
+				// Guard: converted PDF must also be within the size limit
+				if (fileToStore.size > MAX_FILE_SIZE) {
+					console.log('Converted PDF too large:', fileToStore.size);
+					toastStore.error(
+						'File Too Large',
+						`Converted PDF size (${(fileToStore.size / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum limit of ${MAX_FILE_SIZE / (1024 * 1024)}MB.`
+					);
+					return;
+				}
+			}
+
 			// Store file using IndexedDB (same as main route)
-			const storeResult = await storeUploadedFile(file);
+			const storeResult = await storeUploadedFile(fileToStore);
 
 			if (storeResult.success && storeResult.id) {
 				console.log('File stored successfully, navigating to pdf-upload with ID:', storeResult.id);
@@ -856,36 +880,8 @@
 
 			const { pdfBytes, originalName } = await getPdfBytesAndBaseName();
 
-			const exporter = new PDFExporter();
-			exporter.setOriginalPDF(pdfBytes);
-
-			// Export ALL pages that have annotations
-			console.log('Checking all pages for annotations...');
-			const totalPages = $pdfState.totalPages;
-			let pagesWithAnnotations = 0;
-
-			for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
-				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
-
-				if (hasAnnotations) {
-					console.log(`📄 Page ${pageNumber} has annotations - creating merged canvas`);
-					const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
-					if (mergedCanvas) {
-						exporter.setPageCanvas(pageNumber, mergedCanvas);
-						pagesWithAnnotations++;
-						console.log(`✅ Added merged canvas for page ${pageNumber}`);
-					} else {
-						console.warn(`❌ Failed to create merged canvas for page ${pageNumber}`);
-					}
-				} else {
-					console.log(`📄 Page ${pageNumber} has no annotations - will preserve original page`);
-				}
-			}
-
-			console.log(
-				`📊 Export summary: ${pagesWithAnnotations} pages with annotations out of ${totalPages} total pages`
-			);
-
+			// Use shared utility for DRY export with native vector annotations
+			const exporter = await buildAnnotatedPdfExporter(pdfBytes, pdfViewer, $pdfState.totalPages);
 			const annotatedPdfBytes = await exporter.exportToPDF();
 			const filename = `${originalName}_annotated.pdf`;
 
@@ -939,38 +935,8 @@
 
 			const { pdfBytes, originalName } = await getPdfBytesAndBaseName();
 
-			// First export to annotated PDF, then convert to DOCX
-			const exporter = new PDFExporter();
-			exporter.setOriginalPDF(pdfBytes);
-
-			// Export ALL pages that have annotations
-			console.log('Checking all pages for annotations...');
-			const totalPages = $pdfState.totalPages;
-			let pagesWithAnnotations = 0;
-
-			for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
-				const hasAnnotations = await pdfViewer.pageHasAnnotations(pageNumber);
-
-				if (hasAnnotations) {
-					console.log(`📄 Page ${pageNumber} has annotations - creating merged canvas`);
-					const mergedCanvas = await pdfViewer.getMergedCanvasForPage(pageNumber);
-					if (mergedCanvas) {
-						exporter.setPageCanvas(pageNumber, mergedCanvas);
-						pagesWithAnnotations++;
-						console.log(`✅ Added merged canvas for page ${pageNumber}`);
-					} else {
-						console.warn(`❌ Failed to create merged canvas for page ${pageNumber}`);
-					}
-				} else {
-					console.log(`📄 Page ${pageNumber} has no annotations - will preserve original page`);
-				}
-			}
-
-			console.log(
-				`📊 Export summary: ${pagesWithAnnotations} pages with annotations out of ${totalPages} total pages`
-			);
-
-			// Generate annotated PDF bytes
+			// Use shared utility for DRY export with native vector annotations
+			const exporter = await buildAnnotatedPdfExporter(pdfBytes, pdfViewer, $pdfState.totalPages);
 			const annotatedPdfBytes = await exporter.exportToPDF();
 
 			// Convert annotated PDF to DOCX
@@ -992,6 +958,14 @@
 			return;
 		}
 		compressedPDFExport?.open();
+	}
+
+	function handleExportPNG() {
+		if (!currentFile || !pdfViewer) {
+			toastStore.warning('No PDF', 'No PDF to export');
+			return;
+		}
+		pngExport?.open();
 	}
 
 	async function getAnnotatedPdfForCompression() {
@@ -1086,10 +1060,13 @@
 				onResetZoom={() => pdfViewer?.resetZoom()}
 				onFitToWidth={() => pdfViewer?.fitToWidth()}
 				onFitToHeight={() => pdfViewer?.fitToHeight()}
+				onRotateLeft={() => pdfViewer?.rotateLeft()}
+				onRotateRight={() => pdfViewer?.rotateRight()}
 				onExportPDF={handleExportPDF}
 				onExportLPDF={handleExportLPDF}
 				onExportDOCX={handleExportDOCX}
 				onExportCompressedPDF={handleExportCompressedPDF}
+				onExportPNG={handleExportPNG}
 				onSharePDF={handleSharePDF}
 				{showThumbnails}
 				onToggleThumbnails={handleToggleThumbnails}
@@ -1103,16 +1080,16 @@
 					}
 				}}
 			/>
-	{/if}
+		{/if}
 
-	<div class="w-full h-full" class:pt-12={!focusMode && !presentationMode}>
-		<div class="flex h-full">
-			{#if showThumbnails}
-				<PageThumbnails isVisible={showThumbnails} onPageSelect={handlePageSelect} />
-			{/if}
+		<div class="w-full h-full" class:pt-12={!focusMode && !presentationMode}>
+			<div class="flex h-full">
+				{#if showThumbnails}
+					<PageThumbnails isVisible={showThumbnails} onPageSelect={handlePageSelect} />
+				{/if}
 
-			<div class="flex-1">
-				<PDFViewer bind:this={pdfViewer} pdfFile={currentFile} {presentationMode} />
+				<div class="flex-1">
+					<PDFViewer bind:this={pdfViewer} pdfFile={currentFile} {presentationMode} />
 				</div>
 			</div>
 		</div>
@@ -1155,6 +1132,22 @@
 	getAnnotatedPdf={currentFile && pdfViewer ? getAnnotatedPdfForCompression : null}
 />
 
+<!-- PNG Export (progress card) -->
+<PngExport
+	bind:this={pngExport}
+	getExportContext={currentFile && pdfViewer
+		? () => ({
+				pdfViewer,
+				currentPage: $pdfState.currentPage,
+				totalPages: $pdfState.totalPages,
+				baseName:
+					typeof currentFile === 'string'
+						? extractFilenameFromUrl(currentFile).replace(/\.pdf$/i, '')
+						: (currentFile?.name || 'document').replace(/\.pdf$/i, '')
+			})
+		: null}
+/>
+
 <KeyboardShortcuts bind:isOpen={showShortcuts} on:close={() => (showShortcuts = false)} />
 
 <!-- Share PDF Modal -->
@@ -1173,7 +1166,7 @@
 <input
 	id="file-input"
 	type="file"
-	accept=".pdf,.lpdf"
+	accept=".pdf,.lpdf,.png,.jpg,.jpeg,.webp"
 	multiple={false}
 	class="hidden"
 	on:change={(event) => {
