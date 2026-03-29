@@ -20,6 +20,14 @@
 
     "dialog:allow-save",
 
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://fra.cloud.appwrite.io/**" },
+        { "url": "https://cloud.appwrite.io/**" }
+      ]
+    },
+
     "fs:allow-write-file",
     "fs:allow-localdata-write-recursive",
     "fs:allow-home-write-recursive",
