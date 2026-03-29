@@ -6,141 +6,275 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-### Added
 - Auto-fit to height when PDF first loads for better initial viewing experience
 - Console logs disabled in production builds for cleaner performance
 
-## [v1.4.0] - 2025-01-02
+---
+
+## [v2.31.0] - 2026-03-27
 
 ### Added
-- **Progressive Web App (PWA) Support**
-  - App is now installable on mobile and desktop devices
-  - Offline functionality after first visit
-  - Service worker with Workbox caching for faster loading
-  - Auto-updating mechanism for new versions
-  - Standalone display mode for native app feel
-  - File handling capability for PDF files
-
-### Added
-- **'U' Keyboard Shortcut for File Upload**
-  - Quick file upload with U key
-  - Updated keyboard shortcuts help documentation
-  - Works alongside existing toolbar upload button
+- Native vector annotation rendering in PDF export — annotations (paths, text, arrows, stamps, sticky notes) are now embedded as vectors instead of being rasterized to canvas, producing cleaner and smaller output files
+- Full rotation-aware coordinate transformations for all annotation types during export
+- Shape-to-path conversion for SVG circles and ellipses for consistent vector rendering
+- Scale-aware line width adjustments during annotation storage and rendering
+- Crop box handling for accurate base coordinate mapping in rotated and cropped PDF pages
 
 ### Fixed
-- Lazy loading issues in page thumbnails
-- WebSocket HMR (Hot Module Reload) connection problems
-- Development server stability improvements
-
-## [v1.3.0] - 2025-01-01
-
-### Added
-- **Page Thumbnails Navigator**
-  - Sidebar panel with 120x160px page previews
-  - Click-to-navigate functionality between pages
-  - Toggle button in toolbar with Layout icon
-  - T key keyboard shortcut for quick toggle
-  - Visual indicator for currently active page
-  - Lazy loading for better performance
-  - Responsive layout integration
-
-### Fixed
-- Drawing alignment issues in PDF export
-- Canvas coordinate system synchronization
-- Export quality improvements
-
-## [v1.2.0] - 2024-12-31
-
-### Added
-- **Custom Cursor System**
-  - Custom SVG pencil cursor with proper hotspot (2,18)
-  - Custom SVG eraser cursor with visual feedback (10,10)
-  - Fallback cursor support for compatibility
-  - Dynamic cursor switching based on active tool
-  - Stored in /static/cursors/ for better organization
-
-### Fixed
-- Cursor deployment issues in production
-- SVG cursor accessibility and loading
-
-## [v1.1.0] - 2024-12-30
-
-### Added
-- **PDF Export with Annotations**
-  - Export annotated PDFs with all drawings and shapes
-  - Canvas merging system (PDF + drawings + shapes)
-  - High-resolution export with device pixel ratio support
-  - Automatic filename generation with _annotated.pdf suffix
-  - One-click export from toolbar
-  - Full preservation of original PDF quality
-
-### Added
-- **Comprehensive Keyboard Shortcuts**
-  - Tool shortcuts: 1-6 keys for switching tools
-  - Navigation: Arrow keys for pages, W/H for fit-to-width/height
-  - Zoom: Ctrl+/-, Ctrl+0, Ctrl+scroll wheel
-  - Actions: Ctrl+Z/Y for undo/redo, U for upload
-  - Utility: F11 for fullscreen, ? for help, T for thumbnails
-  - Updated help overlay with all shortcuts
-
-### Improved
-- Text tool now starts with empty text input
-- Empty text automatically removed on ESC key
-- Better text editing workflow
-
-## [v1.0.0] - 2024-12-29
-
-### Added
-- **Hybrid Drawing System**
-  - Canvas-based freehand drawing (pencil, eraser)
-  - Overlay-based shape tools (rectangle, circle, arrow, text)
-  - Full undo/redo system for all tools
-  - Tool-specific event handling and optimization
-
-### Added
-- **Keyboard Shortcuts Overlay**
-  - Comprehensive help modal with organized categories
-  - Multiple triggers: ?, F1, and help button
-  - Responsive design with backdrop blur
-  - ESC to close, click outside to close
-
-### Added
-- **Fullscreen Mode**
-  - F11 key toggles fullscreen mode
-  - ESC key exits fullscreen
-  - Cross-browser fullscreen API support
-  - Automatic state tracking
-  - Distraction-free PDF viewing experience
-
-### Improved
-- Eraser tool now properly erases all types of shapes
-- Enhanced shape intersection detection for arrows
-- Better persistence of annotations in localStorage
-
-## [v0.9.0] - 2024-12-28
-
-### Added
-- **Auto-save Drawing System**
-  - PDF-specific storage using fileName + fileSize as unique key
-  - Auto-save drawings to localStorage on every change
-  - Auto-restore drawings when reopening same PDF
-  - Visual "Saved ✓" indicator in toolbar
-  - Clear drawings function for new PDFs
-
-### Added
-- **Fit to Width/Height Controls**
-  - "Fit W" and "Fit H" buttons in toolbar
-  - Auto-calculates optimal scale for viewport
-  - Centers view and resets pan position
-  - Better initial PDF viewing experience
+- Fallback PDF export now creates blank pages for missing canvases instead of failing
+- Improved LPDF import robustness with drawing tool type and page number validation
+- HTTP response validation when fetching fonts with detailed error messages
+- Opacity fallback changed from `||` to `??` to correctly handle `0` opacity values
 
 ### Changed
-- **Compact toolbar**: Significantly reduced toolbar height and button sizes for more space
-- **Updated footer**: Merged open-source info with attribution and added GitHub icon link
+- Updated CI workflows to use Node.js 24 and pnpm 10.32.1
+- Centralized annotation CRUD logic into reusable generic utilities (DRY refactor)
 
-### Technical
-- Improved Canvas and drawing system integration
-- Better event handling for different drawing tools
-- Enhanced coordinate system synchronization
-- PDF-specific drawing storage prevents mixing drawings between different documents
-- Improved SSR compatibility for browser-only features
+---
+
+## [v2.30.0] - 2026-03-10
+
+### Added
+- PDF page rotation with `R` (rotate right) and `Shift+R` (rotate left) keyboard shortcuts
+- All annotation types (text, arrows, stamps, sticky notes) reposition and export correctly at any rotation angle
+- `rotationUtils` module for point transformations between rotated and unrotated coordinate spaces
+- View Options dropdown in the toolbar (Reset Zoom, Fit Width, Fit Height)
+- Undo state support when clearing drawing paths
+- Keyboard interaction for text annotations: edit with `Enter`/`Space`, delete with `Delete`/`Backspace`
+- `clearCurrentPageDrawings` now clears all annotation types (text, arrows, stamps, sticky notes) for the current page
+
+### Fixed
+- Lazy loading in PageThumbnails now initialises only when the panel is visible
+- Zoom level resets to 100% instead of 120% on document open
+
+---
+
+## [v2.29.0] - 2026-02-25
+
+### Added
+- Smooth two-finger panning for touchscreen users navigating PDF documents
+
+### Fixed
+- Resolved longstanding pinch-zoom bugs (issue #138) for a more reliable touch experience
+
+---
+
+## [v2.28.0] - 2026-02-24
+
+### Added
+- Export any single PDF page as a PNG, or all pages as a ZIP of PNGs
+- Convert images (JPG, PNG, WebP) directly into a PDF document
+- Touchscreen gesture hints via new `GestureHint` component and `gestureUtils` module
+- New convert routes: `/convert/jpg-to-pdf`, `/convert/png-to-pdf`, `/convert/webp-to-pdf`, `/convert/markdown-to-pdf`
+- `DropzonePage` component for drag-and-drop image import
+
+---
+
+## [v2.27.0] - 2026-02-22
+
+### Added
+- Enhanced scaling behaviour in presentation mode for better full-screen rendering quality
+- Refined compressed export functionality with additional quality controls
+
+---
+
+## [v2.26.0] - 2026-02-18
+
+### Added
+- Export PDFs with high compression — reduces file size up to 80% without major loss in visual quality
+
+---
+
+## [v2.25.0] - 2026-02-15
+
+### Added
+- Smart scrolling for smoother document navigation
+- Support for clicking internal and external PDF links seamlessly
+- Improved overall accessibility for screen readers and keyboard users
+
+---
+
+## [v2.24.0] - 2026-02-10
+
+### Added
+- `Ctrl/Cmd + S` keyboard shortcut for quickly saving and exporting documents
+- Window title now dynamically updates to reflect the current document name
+
+---
+
+## [v2.23.0] - 2026-02-05
+
+### Added
+- Presentation mode for distraction-free fullscreen PDF viewing
+- All UI toolbars and panels are automatically hidden in presentation mode
+
+---
+
+## [v2.22.0] - 2026-01-30
+
+### Added
+- Desktop app can now detect and use fonts installed natively on the OS
+- Wider variety of typography options for text annotations on desktop
+
+---
+
+## [v2.21.0] - 2026-01-25
+
+### Added
+- Dropdown font picker for the text annotation tool
+- Scroll, preview, and select fonts when adding inline text to PDFs
+
+---
+
+## [v2.20.0] - 2026-01-20
+
+### Added
+- New PDF templates: `storyboard_2x3` and `handwriting`
+
+---
+
+## [v2.19.4] - 2026-01-15
+
+### Fixed
+- Native file export for merged PDFs on desktop
+
+---
+
+## [v2.19.2] - 2026-01-10
+
+### Fixed
+- LPDF export failure for encrypted PDFs
+
+---
+
+## [v2.17.0] - 2025-10-11
+
+### Added
+- Text Selection Overlay
+
+---
+
+## [v2.16.0] - 2025-10-11
+
+### Added
+- Highlighter color picker
+
+### Improved
+- Performance optimizations for highlighting
+
+---
+
+## [v2.15.0] - 2025-10-09
+
+### Improved
+- UX with fallback button for external PDF links
+- Better toolbar icons
+
+---
+
+## [v2.14.2] - 2025-10-04
+
+### Added
+- PPP (Purchasing Power Parity) banner
+- Homepage improvements
+
+---
+
+## [v2.14.1] - 2025-10-04
+
+### Added
+- Updated toolbar icons
+
+---
+
+## [v2.14.0] - 2025-10-03
+
+### Added
+- Resize and delete on hover/double-click for the text annotation tool
+
+---
+
+## [v2.13.0] - 2025-10-03
+
+### Added
+- External link opening with deep links for the desktop app
+
+---
+
+## [v2.12.3] - 2025-10-02
+
+### Added
+- Sharing enabled for the desktop app
+
+---
+
+## [v2.12.2] - 2025-09-30
+
+### Fixed
+- Updated e2e tests
+
+---
+
+## [v2.12.1] - 2025-09-24
+
+### Added
+- Tooltips for better accessibility and improved UX
+
+---
+
+## [v2.12.0] - 2025-09-24
+
+### Added
+- Tooltips across the toolbar for better accessibility
+
+---
+
+## [v2.11.0] - 2025-09-22
+
+### Added
+- Export as DOCX
+
+---
+
+## [v2.10.0] - 2025-09-21
+
+### Added
+- View-only shareable links
+
+---
+
+## [v2.9.1] - 2025-09-19
+
+### Fixed
+- PDF sharing bug fixes
+
+---
+
+## [v2.9.0] - 2025-09-17
+
+### Added
+- Share PDFs via link
+
+---
+
+## [v2.8.0] - 2025-09-17
+
+### Added
+- LPDF file format support for importing/exporting PDFs with annotations
+
+---
+
+## [v2.7.0] - 2025-09-16
+
+### Added
+- GDPR compliance and cookie consent banner
+
+---
+
+## [v1.0.0] - 2025-08-21
+
+### Added
+- Initial release of LeedPDF Web App
+- Highlights, comments, and doodle annotation features
+- Windows download page with system requirements
+- Open-source page with AGPL license details
