@@ -4,11 +4,6 @@ All notable changes to LeedPDF will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
-
-- Auto-fit to height when PDF first loads for better initial viewing experience
-- Console logs disabled in production builds for cleaner performance
-
 ---
 
 ## [v2.31.0] - 2026-03-27
@@ -41,7 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - View Options dropdown in the toolbar (Reset Zoom, Fit Width, Fit Height)
 - Undo state support when clearing drawing paths
 - Keyboard interaction for text annotations: edit with `Enter`/`Space`, delete with `Delete`/`Backspace`
-- `clearCurrentPageDrawings` now clears all annotation types (text, arrows, stamps, sticky notes) for the current page
+- `clearCurrentPageDrawings` now clears all annotation types for the current page
 
 ### Fixed
 - Lazy loading in PageThumbnails now initialises only when the panel is visible
@@ -52,10 +47,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [v2.29.0] - 2026-02-25
 
 ### Added
-- Smooth two-finger panning for touchscreen users navigating PDF documents
+- Smooth two-finger panning for touchscreen users
 
 ### Fixed
-- Resolved longstanding pinch-zoom bugs (issue #138) for a more reliable touch experience
+- Resolved longstanding pinch-zoom bugs (issue #138)
 
 ---
 
@@ -140,10 +135,52 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v2.19.3] - 2025-10-24
+
+### Changed
+- Security dependency bumps (14 packages) via Dependabot
+
+---
+
 ## [v2.19.2] - 2026-01-10
 
 ### Fixed
 - LPDF export failure for encrypted PDFs
+
+---
+
+## [v2.19.1] - 2025-10-23
+
+### Added
+- `7` key shortcut for the select-text tool
+- `Alt+Erase` gesture documented in keyboard shortcuts help
+
+### Changed
+- Extracted keyboard shortcuts to a shared utility (DRY refactor)
+- Added SSR guards and proper type checks to keyboard helpers
+
+### Fixed
+- Prevent default browser scrolling on arrow key navigation
+- Detect `contenteditable` elements correctly in keyboard utility
+
+---
+
+## [v2.19.0] - 2025-10-20
+
+### Added
+- Modify PDFs: merge multiple PDFs and reorder pages
+
+---
+
+## [v2.18.0] - 2025-10-14
+
+### Added
+- `Alt+Erase` for partial stroke removal — erases only the portion of a stroke under the eraser path
+- `splitPathByEraser()` utility for vector stroke splitting with configurable tolerance
+
+### Fixed
+- Robust eraser hit-testing using CSS px coordinates and normalised relative points
+- Undo now works correctly after erasing strokes
 
 ---
 
@@ -175,7 +212,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [v2.14.2] - 2025-10-04
 
 ### Added
-- PPP (Purchasing Power Parity) banner
+- PPP (Purchasing Power Parity) pricing banner
 - Homepage improvements
 
 ---
@@ -271,10 +308,143 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [v1.0.0] - 2025-08-21
+## [v2.4.0] - 2025-09-01
 
 ### Added
-- Initial release of LeedPDF Web App
-- Highlights, comments, and doodle annotation features
-- Windows download page with system requirements
-- Open-source page with AGPL license details
+- New PDF templates: `CollegeRuled2` and `Cornell`
+- `HelpButton` and `HomeButton` extracted as dedicated components
+- Toolbar improvements and UX polish across all routes
+
+---
+
+## [v2.3.0] - 2025-08-26
+
+### Changed
+- Dependency bumps (15 packages)
+
+---
+
+## [v2.2.0] - 2025-08-21
+
+### Added
+- Desktop app: license manager with EULA enforcement via Tauri
+- Native file export routes for macOS and Windows (`/download-for-mac`, `/download-for-windows`)
+- `LicenseModal` component and `licenseManager` utility
+- `tauriUtils` for Tauri-specific helpers
+- Desktop EULA (`LICENSE-DESKTOP-EULA`)
+
+---
+
+## [v2.1.0] - 2025-08-19
+
+### Improved
+- Sticky note and text annotation appearance
+- Custom font support for annotations
+
+---
+
+## [v2.0.1] - 2025-08-19
+
+### Fixed
+- Export canvas race conditions causing misaligned annotations on export
+- Overlay position glitches resolved by awaiting canvas resize before state changes
+- Exported canvases now accurately match on-screen PDF rendering
+
+---
+
+## [v2.0.0] - 2025-08-18
+
+### Added
+- Full rewrite as a SvelteKit + Tauri app
+- Desktop app support (Windows, macOS)
+- Stamps, arrows, sticky notes, and text annotation tools
+- Multi-page PDF support with page thumbnails
+- LPDF format groundwork
+
+---
+
+## [v1.5.0] - 2025-08-13
+
+### Fixed
+- CORS: updated `+server.ts` to allow requests from the main domain
+
+---
+
+## [v1.4.0] - 2025-01-02
+
+### Added
+- Progressive Web App (PWA) support — installable on mobile and desktop
+- Offline functionality after first visit via Workbox service worker
+- Auto-updating mechanism for new versions
+- File handling capability for PDF files
+- `U` keyboard shortcut for quick file upload
+
+### Fixed
+- Lazy loading issues in page thumbnails
+- WebSocket HMR connection problems in development
+
+---
+
+## [v1.3.0] - 2025-01-01
+
+### Added
+- Page Thumbnails navigator sidebar with click-to-navigate and `T` keyboard shortcut
+- Lazy loading for thumbnails
+
+### Fixed
+- Drawing alignment issues in PDF export
+- Canvas coordinate system synchronization
+
+---
+
+## [v1.2.0] - 2024-12-31
+
+### Added
+- Custom SVG pencil and eraser cursors with proper hotspots
+- Dynamic cursor switching based on active tool
+
+### Fixed
+- Cursor deployment issues in production
+
+---
+
+## [v1.1.0] - 2024-12-30
+
+### Added
+- PDF export with all drawings and annotations merged
+- High-resolution export with device pixel ratio support
+- Comprehensive keyboard shortcuts (tools, navigation, zoom, undo/redo, fullscreen)
+
+### Improved
+- Text tool starts with empty input; empty text auto-removed on `Esc`
+
+---
+
+## [v1.0.0] - 2024-12-29
+
+### Added
+- Hybrid drawing system: canvas-based freehand (pencil, eraser) + overlay-based shapes (rectangle, circle, arrow, text)
+- Full undo/redo for all tools
+- Keyboard shortcuts overlay (`?`, `F1`)
+- Fullscreen mode (`F11`)
+
+### Improved
+- Eraser now correctly erases all shape types
+- Annotations persisted to localStorage
+
+---
+
+## [v0.9.0] - 2024-12-28
+
+### Added
+- Auto-save drawings to localStorage per PDF (keyed by filename + file size)
+- Auto-restore drawings when reopening the same PDF
+- Fit to Width / Fit to Height toolbar controls
+- Compact toolbar redesign
+
+---
+
+## [v0.1.0] - 2025-08-04
+
+### Added
+- Initial web prototype of LeedPDF
