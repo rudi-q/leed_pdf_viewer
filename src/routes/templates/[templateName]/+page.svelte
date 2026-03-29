@@ -75,9 +75,17 @@
 		return cleanup;
 	});
 
+	// Named handler for show-shortcuts event (needed for proper cleanup)
+	function handleShowShortcuts() {
+		showShortcuts = true;
+	}
+
 	function setupEventListeners() {
 		console.log('[Template Route] Setting up event listeners');
 		document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+		// Listen for menu shortcuts event from Tauri
+		window.addEventListener('show-shortcuts', handleShowShortcuts);
 
 		// Strategy 1: Immediate checks for Tauri file associations
 		if (isTauri) {
@@ -120,6 +128,7 @@
 	function cleanup() {
 		console.log('[Template Route] Cleaning up');
 		document.removeEventListener('fullscreenchange', handleFullscreenChange);
+		window.removeEventListener('show-shortcuts', handleShowShortcuts);
 
 		// Clean up Tauri event listeners
 		if ((window as any).__templateRouteCleanup) {
