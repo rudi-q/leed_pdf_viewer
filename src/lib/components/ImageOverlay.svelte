@@ -12,6 +12,7 @@
 	import { trackFirstAnnotation } from '../utils/analytics';
 	import { type RotationAngle } from '../utils/rotationUtils';
 	import { toastStore } from '../stores/toastStore';
+	import { showTipsFor } from '../utils/tipManager';
 
 	export let containerWidth: number = 0;
 	export let containerHeight: number = 0;
@@ -140,12 +141,7 @@
 	onMount(() => {
 		document.addEventListener('paste', handlePaste);
 
-		if (!sessionStorage.getItem('imagePasteTipShown')) {
-			sessionStorage.setItem('imagePasteTipShown', '1');
-			setTimeout(() => {
-				toastStore.tip('Tip', 'Paste images directly onto your PDF — just copy an image and press Ctrl+V (or Cmd+V on Mac)');
-			}, 1000);
-		}
+		showTipsFor('pdf-loaded');
 
 		return () => {
 			document.removeEventListener('paste', handlePaste);

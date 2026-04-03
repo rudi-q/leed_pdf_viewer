@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { type Toast, toastStore } from '$lib/stores/toastStore';
-	import { AlertTriangle, CheckCircle, Info, X, XCircle } from 'lucide-svelte';
+	import { AlertTriangle, CheckCircle, Info, Lightbulb, X, XCircle } from 'lucide-svelte';
 
 	export let toast: Toast;
 
@@ -12,7 +12,8 @@
     success: CheckCircle,
     error: XCircle,
     warning: AlertTriangle,
-    info: Info
+    info: Info,
+    tip: Lightbulb
   };
 
   const colorMap = {

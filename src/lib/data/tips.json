@@ -1,0 +1,14 @@
+[
+  {
+    "id": "image-paste",
+    "title": "Tip",
+    "routes": ["/pdf-upload", "/pdf/[url]"],
+    "trigger": "pdf-loaded",
+    "persistence": "session",
+    "delay": 1000,
+    "message": {
+      "mac": "Paste images onto your PDF — copy an image and press Cmd+V",
+      "windows": "Paste images onto your PDF — copy an image and press Ctrl+V"
+    }
+  }
+]
