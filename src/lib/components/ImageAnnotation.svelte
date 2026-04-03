@@ -178,7 +178,9 @@
 
 	const handleContextMenu = (event: MouseEvent) => {
 		event.preventDefault();
-		handleDelete();
+		if (confirm('Delete this image?')) {
+			handleDelete();
+		}
 	};
 
 	onMount(() => {

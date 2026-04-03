@@ -10,7 +10,7 @@
 		updateImageAnnotation
 	} from '../stores/drawingStore';
 	import { trackFirstAnnotation } from '../utils/analytics';
-	import { inverseTransformPoint, type RotationAngle } from '../utils/rotationUtils';
+	import { type RotationAngle } from '../utils/rotationUtils';
 	import { toastStore } from '../stores/toastStore';
 
 	export let containerWidth: number = 0;
@@ -38,7 +38,8 @@
 		const canvas = document.createElement('canvas');
 		canvas.width = w;
 		canvas.height = h;
-		const ctx = canvas.getContext('2d')!;
+		const ctx = canvas.getContext('2d');
+		if (!ctx) throw new Error('Could not get 2D canvas context');
 		ctx.drawImage(img, 0, 0, w, h);
 		return canvas.toDataURL('image/png');
 	}
@@ -138,6 +139,14 @@
 
 	onMount(() => {
 		document.addEventListener('paste', handlePaste);
+
+		if (!sessionStorage.getItem('imagePasteTipShown')) {
+			sessionStorage.setItem('imagePasteTipShown', '1');
+			setTimeout(() => {
+				toastStore.tip('Tip', 'Paste images directly onto your PDF — just copy an image and press Ctrl+V (or Cmd+V on Mac)');
+			}, 1000);
+		}
+
 		return () => {
 			document.removeEventListener('paste', handlePaste);
 		};
