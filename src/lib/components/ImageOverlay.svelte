@@ -94,10 +94,12 @@
 
 			if (!basePageWidth || !basePageHeight) return;
 
-			// Default display width: 40% of the page width, maintaining aspect ratio
-			const defaultBaseW = basePageWidth * 0.4;
-			const aspectRatio = naturalW / naturalH;
-			const defaultBaseH = defaultBaseW / aspectRatio;
+			// Fit within 40% of page width and 80% of page height, maintaining aspect ratio
+			const scaleW = (basePageWidth * 0.4) / naturalW;
+			const scaleH = (basePageHeight * 0.8) / naturalH;
+			const fitScale = Math.min(scaleW, scaleH);
+			const defaultBaseW = naturalW * fitScale;
+			const defaultBaseH = naturalH * fitScale;
 
 			// Place at page center
 			const centerX = (basePageWidth - defaultBaseW) / 2;
@@ -141,7 +143,7 @@
 	onMount(() => {
 		document.addEventListener('paste', handlePaste);
 
-		showTipsFor('pdf-loaded');
+		if (!viewOnlyMode) showTipsFor('pdf-loaded');
 
 		return () => {
 			document.removeEventListener('paste', handlePaste);

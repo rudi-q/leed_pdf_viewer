@@ -119,8 +119,8 @@
 
 			const { dx: deltaX, dy: deltaY } = rotateDelta(screenDeltaX, screenDeltaY, rotation);
 
-			// Use larger delta to preserve approximate aspect ratio during resize
-			const delta = Math.max(deltaX, deltaY);
+			// Use dominant-direction delta (by magnitude) to preserve aspect ratio during resize
+			const delta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
 			const safeScale = scale > 0 ? scale : 1;
 			const baseDelta = delta / safeScale;
 			const baseStartW = resizeStartWidth / safeScale;

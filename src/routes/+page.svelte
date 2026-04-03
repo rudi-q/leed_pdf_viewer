@@ -1122,7 +1122,7 @@
 									on:click={() =>
 										(document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
 								>
-									Choose PDF
+									Choose file
 								</button>
 
 								<button
