@@ -13,6 +13,7 @@
 	export let rotation: RotationAngle = 0;
 	export let basePageWidth: number = 0;
 	export let basePageHeight: number = 0;
+	export let viewOnlyMode = false;
 
 	const dispatch = createEventDispatcher<{
 		update: ImageAnnotation;
@@ -66,6 +67,7 @@
 	}
 
 	const handleMouseDown = (event: MouseEvent) => {
+		if (viewOnlyMode) return;
 		event.preventDefault();
 		event.stopPropagation();
 
@@ -172,6 +174,7 @@
 	};
 
 	const handleWheel = (event: WheelEvent) => {
+		if (viewOnlyMode) return;
 		event.preventDefault();
 		event.stopPropagation();
 
@@ -187,6 +190,7 @@
 	};
 
 	const handleContextMenu = (event: MouseEvent) => {
+		if (viewOnlyMode) return;
 		event.preventDefault();
 		if (confirm('Delete this image?')) {
 			handleDelete();
@@ -223,6 +227,7 @@
 	<button
 		class="delete-btn"
 		on:click|stopPropagation={handleDelete}
+		on:mousedown|stopPropagation
 		title="Delete image"
 		aria-label="Delete image"
 	>

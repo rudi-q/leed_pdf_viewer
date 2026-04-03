@@ -133,20 +133,23 @@
 	}
 
 	const handleAnnotationUpdate = (event: CustomEvent<ImageAnnotationType>) => {
+		if (viewOnlyMode) return;
 		updateImageAnnotation(event.detail);
 	};
 
 	const handleAnnotationDelete = (event: CustomEvent<string>) => {
+		if (viewOnlyMode) return;
 		deleteImageAnnotation(event.detail, $pdfState.currentPage);
 	};
 
 	onMount(() => {
 		document.addEventListener('paste', handlePaste);
 
-		if (!viewOnlyMode) showTipsFor('pdf-loaded');
+		const tipTimer = !viewOnlyMode ? showTipsFor('pdf-loaded') : null;
 
 		return () => {
 			document.removeEventListener('paste', handlePaste);
+			if (tipTimer != null) clearTimeout(tipTimer);
 		};
 	});
 </script>
@@ -163,6 +166,7 @@
 			{rotation}
 			{basePageWidth}
 			{basePageHeight}
+			{viewOnlyMode}
 			on:update={handleAnnotationUpdate}
 			on:delete={handleAnnotationDelete}
 		/>

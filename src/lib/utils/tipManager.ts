@@ -10,13 +10,23 @@ function detectPlatform(): Platform {
 }
 
 function hasBeenShown(id: string, persistence: string): boolean {
-	const storage = persistence === 'permanent' ? localStorage : sessionStorage;
-	return !!storage.getItem(`tip_shown_${id}`);
+	if (typeof window === 'undefined') return false;
+	try {
+		const storage = persistence === 'permanent' ? localStorage : sessionStorage;
+		return !!storage.getItem(`tip_shown_${id}`);
+	} catch {
+		return false;
+	}
 }
 
 function markShown(id: string, persistence: string): void {
-	const storage = persistence === 'permanent' ? localStorage : sessionStorage;
-	storage.setItem(`tip_shown_${id}`, '1');
+	if (typeof window === 'undefined') return;
+	try {
+		const storage = persistence === 'permanent' ? localStorage : sessionStorage;
+		storage.setItem(`tip_shown_${id}`, '1');
+	} catch {
+		// storage unavailable (e.g. private browsing quota exceeded)
+	}
 }
 
 function matchesRoute(tipRoutes: string[], currentRouteId: string | null): boolean {
@@ -24,7 +34,7 @@ function matchesRoute(tipRoutes: string[], currentRouteId: string | null): boole
 	return tipRoutes.some((r) => r === currentRouteId);
 }
 
-export function showTipsFor(trigger: string): void {
+export function showTipsFor(trigger: string): ReturnType<typeof setTimeout> | null {
 	const currentRouteId = get(page).route.id;
 	const platform = detectPlatform();
 
@@ -40,8 +50,8 @@ export function showTipsFor(trigger: string): void {
 	});
 
 	const tip = matching[0];
-	if (!tip) return;
-	setTimeout(() => {
+	if (!tip) return null;
+	return setTimeout(() => {
 		const message = tip.message[platform as keyof typeof tip.message];
 		markShown(tip.id, tip.persistence);
 		toastStore.tip(tip.title, message);
