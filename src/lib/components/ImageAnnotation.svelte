@@ -127,8 +127,18 @@
 			const baseStartH = resizeStartHeight / safeScale;
 			const aspectRatio = baseStartW > 0 ? baseStartW / baseStartH : 1;
 
-			const newBaseW = Math.max(MIN_SIZE, baseStartW + baseDelta);
-			const newBaseH = Math.max(MIN_SIZE, newBaseW / aspectRatio);
+			const availableWidth = basePageWidth - (annotation.x || 0);
+			const availableHeight = basePageHeight - (annotation.y || 0);
+
+			let newBaseW = Math.max(MIN_SIZE, baseStartW + baseDelta);
+			if (availableWidth > 0) newBaseW = Math.min(newBaseW, availableWidth);
+			let newBaseH = newBaseW / aspectRatio;
+			if (availableHeight > 0 && newBaseH > availableHeight) {
+				newBaseH = availableHeight;
+				newBaseW = newBaseH * aspectRatio;
+			}
+			newBaseW = Math.max(MIN_SIZE, newBaseW);
+			newBaseH = Math.max(MIN_SIZE, newBaseH);
 
 			dispatch('update', {
 				...annotation,

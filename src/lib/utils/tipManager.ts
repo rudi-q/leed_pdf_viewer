@@ -39,11 +39,11 @@ export function showTipsFor(trigger: string): void {
 		return true;
 	});
 
-	matching.forEach((tip, index) => {
-		setTimeout(() => {
-			const message = tip.message[platform as keyof typeof tip.message];
-			markShown(tip.id, tip.persistence);
-			toastStore.tip(tip.title, message);
-		}, (tip.delay ?? 1000) + index * 600);
-	});
+	const tip = matching[0];
+	if (!tip) return;
+	setTimeout(() => {
+		const message = tip.message[platform as keyof typeof tip.message];
+		markShown(tip.id, tip.persistence);
+		toastStore.tip(tip.title, message);
+	}, tip.delay ?? 1000);
 }
