@@ -22,6 +22,8 @@
 		"test:e2e": "playwright test",
 		"tauri:dev": "tauri dev",
 		"tauri:build": "tauri build",
+		"tauri:build:appstore": "tauri build --config src-tauri/tauri.appstore.json --target universal-apple-darwin",
+		"release:appstore": "./macos.sh",
 		"tauri:build:debug": "tauri build --debug",
 		"tauri:check": "cd src-tauri && cargo check"
 	},
