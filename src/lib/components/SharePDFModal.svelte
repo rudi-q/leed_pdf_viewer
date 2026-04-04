@@ -3,8 +3,8 @@ import { createEventDispatcher } from 'svelte';
 import { PDFSharingService, type SharePDFOptions } from '$lib/services/pdfSharingService';
 import { toastStore } from '$lib/stores/toastStore';
 import { trackPdfShare } from '$lib/utils/analytics';
-	import { Check, Copy, FileText, Mail, MessageCircle, PartyPopper, Twitter } from 'lucide-svelte';
-	import Toggle from './Toggle.svelte';
+import { Check, Copy, FileText, Mail, MessageCircle, PartyPopper, X as Twitter } from 'lucide-svelte';
+import Toggle from './Toggle.svelte';
 
 	export let isOpen = false;
   export let pdfFile: File | string | null = null;
