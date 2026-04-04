@@ -7,10 +7,10 @@ export interface ToastAction {
 
 export interface Toast {
 	id: string;
-	type: 'success' | 'error' | 'warning' | 'info';
+	type: 'success' | 'error' | 'warning' | 'info' | 'tip';
 	title: string;
 	message: string;
-	duration?: number; // in milliseconds
+	duration?: number; // in milliseconds, 0 = no auto-dismiss
 	dismissible?: boolean;
 	actions?: ToastAction[]; // Optional action buttons
 }
@@ -64,6 +64,10 @@ const createToastStore = () => {
 		return addToast({ type: 'info', title, message, ...options });
 	};
 
+	const tip = (title: string, message: string, options?: Partial<Toast>) => {
+		return addToast({ type: 'tip', title, message, duration: 0, dismissible: true, ...options });
+	};
+
 	return {
 		subscribe,
 		addToast,
@@ -72,7 +76,8 @@ const createToastStore = () => {
 		success,
 		error,
 		warning,
-		info
+		info,
+		tip
 	};
 };
 

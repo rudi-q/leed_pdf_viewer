@@ -5,6 +5,7 @@
 		arrowAnnotations,
 		clearTextAnnotationSelection,
 		currentPageArrowAnnotations,
+		currentPageImageAnnotations,
 		currentPagePaths,
 		currentPageStampAnnotations,
 		currentPageStickyNotes,
@@ -13,6 +14,7 @@
 		drawingPaths,
 		drawingState,
 		getStampById,
+		imageAnnotations,
 		pdfState,
 		type Point,
 		stampAnnotations,
@@ -39,6 +41,7 @@
 	import StickyNoteOverlay from './StickyNoteOverlay.svelte';
 	import StampOverlay from './StampOverlay.svelte';
 	import ArrowOverlay from './ArrowOverlay.svelte';
+	import ImageOverlay from './ImageOverlay.svelte';
 	import LinkOverlay from './LinkOverlay.svelte';
 	import TextSelectionOverlay from './TextSelectionOverlay.svelte';
 	import { TOOLBAR_HEIGHT } from '$lib/constants';
@@ -1624,12 +1627,21 @@
 		});
 		unsubscribeStickyNotes();
 
+		// Check image annotations
+		let hasImageAnnotations = false;
+		const unsubscribeImages = imageAnnotations.subscribe((annotations) => {
+			const pageImages = annotations.get(pageNumber) || [];
+			hasImageAnnotations = pageImages.length > 0;
+		});
+		unsubscribeImages();
+
 		const hasAnyAnnotations =
 			hasDrawingPaths ||
 			hasTextAnnotations ||
 			hasArrowAnnotations ||
 			hasStampAnnotations ||
-			hasStickyNotes;
+			hasStickyNotes ||
+			hasImageAnnotations;
 
 		console.log(`Page ${pageNumber} annotations check:`, {
 			hasDrawingPaths,
@@ -1665,7 +1677,8 @@
 			textAnnotations: $textAnnotations.get(pageNumber) || [],
 			stickyNotes: $stickyNoteAnnotations.get(pageNumber) || [],
 			stampAnnotations: $stampAnnotations.get(pageNumber) || [],
-			arrowAnnotations: $arrowAnnotations.get(pageNumber) || []
+			arrowAnnotations: $arrowAnnotations.get(pageNumber) || [],
+			imageAnnotations: $imageAnnotations.get(pageNumber) || []
 		};
 	}
 
@@ -1750,7 +1763,8 @@
 				pageTextAnnotations: [],
 				pageArrowAnnotations: [],
 				pageStampAnnotations: [],
-				pageStickyNotes: []
+				pageStickyNotes: [],
+				pageImageAnnotations: []
 			};
 		}
 
@@ -1759,7 +1773,8 @@
 				pageTextAnnotations: [],
 				pageArrowAnnotations: [],
 				pageStampAnnotations: [],
-				pageStickyNotes: []
+				pageStickyNotes: [],
+				pageImageAnnotations: []
 			};
 		}
 
@@ -1768,6 +1783,7 @@
 		let pageArrowAnnotations: any[] = [];
 		let pageStampAnnotations: any[] = [];
 		let pageStickyNotes: any[] = [];
+		let pageImageAnnotations: any[] = [];
 
 		try {
 			// Load text annotations
@@ -1805,11 +1821,20 @@
 				const parsedStickyNotes = JSON.parse(savedStickyNotes);
 				pageStickyNotes = parsedStickyNotes[pageNumber.toString()] || [];
 			}
+
+			// Load image annotations
+			const savedImageAnnotations = localStorage.getItem(
+				`leedpdf_image_annotations_${currentPDFKey}`
+			);
+			if (savedImageAnnotations) {
+				const parsedImageAnnotations = JSON.parse(savedImageAnnotations);
+				pageImageAnnotations = parsedImageAnnotations[pageNumber.toString()] || [];
+			}
 		} catch (error) {
 			console.error('Error loading annotations from localStorage:', error);
 		}
 
-		return { pageTextAnnotations, pageArrowAnnotations, pageStampAnnotations, pageStickyNotes };
+		return { pageTextAnnotations, pageArrowAnnotations, pageStampAnnotations, pageStickyNotes, pageImageAnnotations };
 	}
 
 	// Helper function to create merged canvas with all annotations
@@ -1936,14 +1961,15 @@
 		}
 
 		// Get all annotation types for this specific page from localStorage
-		const { pageTextAnnotations, pageArrowAnnotations, pageStampAnnotations, pageStickyNotes } =
+		const { pageTextAnnotations, pageArrowAnnotations, pageStampAnnotations, pageStickyNotes, pageImageAnnotations } =
 			getAnnotationsFromStorage(pageNumber);
 
 		console.log(`Page ${pageNumber} annotation counts:`, {
 			textAnnotations: pageTextAnnotations.length,
 			arrowAnnotations: pageArrowAnnotations.length,
 			stampAnnotations: pageStampAnnotations.length,
-			stickyNotes: pageStickyNotes.length
+			stickyNotes: pageStickyNotes.length,
+			imageAnnotations: pageImageAnnotations.length
 		});
 
 		// Debug: Show sample annotation data
@@ -2175,6 +2201,54 @@
 			const results = await Promise.all(stampPromises);
 			console.log('Stamp rendering results:', results);
 
+			ctx.restore();
+		}
+
+		// Draw image annotations - Apply outputScale to match the scaled canvas
+		if (pageImageAnnotations.length > 0) {
+			console.log(`Rendering ${pageImageAnnotations.length} image annotations for export`);
+			ctx.save();
+			ctx.scale(outputScale, outputScale);
+
+			const imagePromises = pageImageAnnotations.map(async (imgAnnotation: any) => {
+				const baseX =
+					imgAnnotation.x !== undefined ? imgAnnotation.x : imgAnnotation.relativeX * basePageWidth;
+				const baseY =
+					imgAnnotation.y !== undefined ? imgAnnotation.y : imgAnnotation.relativeY * basePageHeight;
+				const imgW =
+					imgAnnotation.width !== undefined
+						? imgAnnotation.width
+						: imgAnnotation.relativeWidth * basePageWidth;
+				const imgH =
+					imgAnnotation.height !== undefined
+						? imgAnnotation.height
+						: imgAnnotation.relativeHeight * basePageHeight;
+
+				const pt = transformPoint(baseX, baseY, currentRotation, basePageWidth, basePageHeight);
+				const x = pt.x;
+				const y = pt.y;
+
+				try {
+					const img = new Image();
+					await new Promise<void>((resolve, reject) => {
+						img.onload = () => resolve();
+						img.onerror = reject;
+						img.src = imgAnnotation.imageData;
+					});
+
+					ctx.save();
+					ctx.translate(x, y);
+					const totalRotation = currentRotation + (imgAnnotation.rotation || 0);
+					ctx.rotate((totalRotation * Math.PI) / 180);
+					ctx.translate(-x, -y);
+					ctx.drawImage(img, x, y, imgW, imgH);
+					ctx.restore();
+				} catch (error) {
+					console.warn('Failed to render image annotation for export:', error);
+				}
+			});
+
+			await Promise.all(imagePromises);
 			ctx.restore();
 		}
 
@@ -2675,6 +2749,67 @@
 				ctx.restore();
 			}
 
+			// Draw image annotations scaled to match PDF resolution
+			let currentImageAnnotations: any[] = [];
+			const unsubscribeImages = currentPageImageAnnotations.subscribe((annotations) => {
+				currentImageAnnotations = annotations;
+			});
+			unsubscribeImages();
+
+			if (currentImageAnnotations.length > 0) {
+				ctx.save();
+				ctx.scale(scaleX, scaleY);
+				const viewerScale = $pdfState.scale;
+				const currentRotation = $pdfState.rotation as RotationAngle;
+
+				const imagePromises = currentImageAnnotations.map(async (imgAnnotation: any) => {
+					const baseX =
+						imgAnnotation.x !== undefined
+							? imgAnnotation.x
+							: imgAnnotation.relativeX * basePageWidth;
+					const baseY =
+						imgAnnotation.y !== undefined
+							? imgAnnotation.y
+							: imgAnnotation.relativeY * basePageHeight;
+					const imgW =
+						imgAnnotation.width !== undefined
+							? imgAnnotation.width
+							: imgAnnotation.relativeWidth * basePageWidth;
+					const imgH =
+						imgAnnotation.height !== undefined
+							? imgAnnotation.height
+							: imgAnnotation.relativeHeight * basePageHeight;
+
+					const pt = transformPoint(baseX, baseY, currentRotation, basePageWidth, basePageHeight);
+					const x = pt.x * viewerScale;
+					const y = pt.y * viewerScale;
+					const w = imgW * viewerScale;
+					const h = imgH * viewerScale;
+
+					try {
+						const img = new Image();
+						await new Promise<void>((resolve, reject) => {
+							img.onload = () => resolve();
+							img.onerror = reject;
+							img.src = imgAnnotation.imageData;
+						});
+
+						ctx.save();
+						ctx.translate(x, y);
+						const totalRotation = currentRotation + (imgAnnotation.rotation || 0);
+						ctx.rotate((totalRotation * Math.PI) / 180);
+						ctx.translate(-x, -y);
+						ctx.drawImage(img, x, y, w, h);
+						ctx.restore();
+					} catch (error) {
+						console.warn('Failed to render image annotation for current page export:', error);
+					}
+				});
+
+				await Promise.all(imagePromises);
+				ctx.restore();
+			}
+
 			// Draw sticky note annotations scaled to match PDF resolution
 			let currentStickyNotes: any[] = [];
 			const unsubscribeStickyNotes = currentPageStickyNotes.subscribe((annotations) => {
@@ -2877,6 +3012,19 @@
 			<!-- Arrow Overlay for Custom Arrow Annotations -->
 			{#if $pdfState.document && canvasDisplayWidth > 0 && canvasDisplayHeight > 0}
 				<ArrowOverlay
+					containerWidth={canvasDisplayWidth}
+					containerHeight={canvasDisplayHeight}
+					scale={$pdfState.scale}
+					{viewOnlyMode}
+					rotation={$pdfState.rotation}
+					{basePageWidth}
+					{basePageHeight}
+				/>
+			{/if}
+
+			<!-- Image Overlay for Pasted Image Annotations -->
+			{#if $pdfState.document && canvasDisplayWidth > 0 && canvasDisplayHeight > 0}
+				<ImageOverlay
 					containerWidth={canvasDisplayWidth}
 					containerHeight={canvasDisplayHeight}
 					scale={$pdfState.scale}

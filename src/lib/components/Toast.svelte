@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { type Toast, toastStore } from '$lib/stores/toastStore';
-	import { AlertTriangle, CheckCircle, Info, X, XCircle } from 'lucide-svelte';
+	import { AlertTriangle, CheckCircle, Info, Lightbulb, X, XCircle } from 'lucide-svelte';
 
 	export let toast: Toast;
 
@@ -12,21 +12,24 @@
     success: CheckCircle,
     error: XCircle,
     warning: AlertTriangle,
-    info: Info
+    info: Info,
+    tip: Lightbulb
   };
 
   const colorMap = {
     success: 'border-sage/40 bg-sage/25 text-charcoal dark:bg-sage/30 dark:text-gray-100',
     error: 'border-sage/40 bg-sage/25 text-charcoal dark:bg-sage/30 dark:text-gray-100',
     warning: 'border-sage/40 bg-sage/25 text-charcoal dark:bg-sage/30 dark:text-gray-100',
-    info: 'border-sage/40 bg-sage/25 text-charcoal dark:bg-sage/30 dark:text-gray-100'
+    info: 'border-sage/40 bg-sage/25 text-charcoal dark:bg-sage/30 dark:text-gray-100',
+    tip: 'border-lavender/40 bg-lavender/15 text-charcoal dark:bg-lavender/20 dark:border-lavender/30 dark:text-gray-100'
   };
 
   const iconColorMap = {
     success: 'text-sage',
     error: 'text-sage',
     warning: 'text-sage',
-    info: 'text-sage'
+    info: 'text-sage',
+    tip: 'text-lavender dark:text-lavender'
   };
 
   function dismiss() {

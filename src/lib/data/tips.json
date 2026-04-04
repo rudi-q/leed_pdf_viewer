@@ -1,0 +1,86 @@
+[
+  {
+    "id": "image-paste",
+    "title": "Tip",
+    "routes": ["/pdf-upload", "/pdf/[url]"],
+    "trigger": "pdf-loaded",
+    "persistence": "session",
+    "delay": 1000,
+    "message": {
+      "mac": "Paste images onto your PDF — copy an image and press Cmd+V",
+      "windows": "Paste images onto your PDF — copy an image and press Ctrl+V"
+    }
+  },
+  {
+    "id": "keyboard-shortcuts",
+    "title": "Tip",
+    "routes": ["/pdf-upload", "/pdf/[url]"],
+    "trigger": "pdf-loaded",
+    "persistence": "session",
+    "delay": 3000,
+    "message": {
+      "mac": "Master keyboard shortcuts — press ? to see all available shortcuts",
+      "windows": "Master keyboard shortcuts — press ? to see all available shortcuts"
+    }
+  },
+  {
+    "id": "focus-mode",
+    "title": "Tip",
+    "routes": ["/pdf-upload", "/pdf/[url]"],
+    "trigger": "pdf-loaded",
+    "persistence": "session",
+    "delay": 5000,
+    "message": {
+      "mac": "Clean up your workspace — press F for focus mode (hides toolbar and UI)",
+      "windows": "Clean up your workspace — press F for focus mode (hides toolbar and UI)"
+    }
+  },
+  {
+    "id": "text-selection",
+    "title": "Tip",
+    "routes": ["/pdf-upload", "/pdf/[url]"],
+    "trigger": "pdf-loaded",
+    "persistence": "session",
+    "delay": 7000,
+    "message": {
+      "mac": "Select and copy text from your PDF — press 7 to activate text selection tool",
+      "windows": "Select and copy text from your PDF — press 7 to activate text selection tool"
+    }
+  },
+  {
+    "id": "page-rotation",
+    "title": "Tip",
+    "routes": ["/pdf-upload", "/pdf/[url]"],
+    "trigger": "pdf-loaded",
+    "persistence": "session",
+    "delay": 9000,
+    "message": {
+      "mac": "Rotate pages quickly — press R to rotate +90° or Shift+R to rotate -90°",
+      "windows": "Rotate pages quickly — press R to rotate +90° or Shift+R to rotate -90°"
+    }
+  },
+  {
+    "id": "granular-eraser",
+    "title": "Tip",
+    "routes": ["/pdf-upload", "/pdf/[url]"],
+    "trigger": "pdf-loaded",
+    "persistence": "session",
+    "delay": 11000,
+    "message": {
+      "mac": "Precise erasing — hold Alt while using the eraser (key 2) for more granular control",
+      "windows": "Precise erasing — hold Alt while using the eraser (key 2) for more granular control"
+    }
+  },
+  {
+    "id": "multiple-image-paste",
+    "title": "Tip",
+    "routes": ["/pdf-upload", "/pdf/[url]"],
+    "trigger": "pdf-loaded",
+    "persistence": "session",
+    "delay": 13000,
+    "message": {
+      "mac": "Add multiple images — paste as many images as you want on a single page with Cmd+V",
+      "windows": "Add multiple images — paste as many images as you want on a single page with Ctrl+V"
+    }
+  }
+]

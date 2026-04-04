@@ -2,12 +2,13 @@ import { PDFDocument, PDFPage, LineCapStyle, LineJoinStyle, BlendMode, degrees, 
 import fontkit from '@pdf-lib/fontkit';
 import { invoke } from '@tauri-apps/api/core';
 import { isTauri } from './tauriUtils';
-import type { 
-	DrawingPath, 
-	TextAnnotation, 
-	ArrowAnnotation, 
-	StickyNoteAnnotation, 
-	StampAnnotation
+import type {
+	DrawingPath,
+	TextAnnotation,
+	ArrowAnnotation,
+	StickyNoteAnnotation,
+	StampAnnotation,
+	ImageAnnotation
 } from '../stores/drawingStore';
 import { getStampById } from '../stores/drawingStore';
 import { transformPoint } from './rotationUtils';
@@ -18,6 +19,7 @@ export interface PageAnnotations {
 	stickyNotes: StickyNoteAnnotation[];
 	stampAnnotations: StampAnnotation[];
 	arrowAnnotations: ArrowAnnotation[];
+	imageAnnotations: ImageAnnotation[];
 }
 
 export interface ExportOptions {
@@ -677,7 +679,7 @@ export class PDFExporter {
 		}
 
 		// 5. Draw Stamps (VECTOR - SVG paths)
-		for (const stamp of annotations.stampAnnotations) {
+		for (const stamp of (annotations.stampAnnotations || [])) {
 			const stampDef = getStampById(stamp.stampId);
 			if (!stampDef) {
 				console.warn(`[PDFExport:Native] Stamp ID ${stamp.stampId} not found`);
@@ -751,6 +753,52 @@ export class PDFExporter {
 						});
 					}
 				}
+			}
+		}
+
+		// 6. Draw Image Annotations (RASTER - embedded PNG)
+		await this.drawImageAnnotations(pdfDoc, page, annotations);
+	}
+
+	private async drawImageAnnotations(
+		pdfDoc: PDFDocument,
+		page: PDFPage,
+		annotations: PageAnnotations
+	) {
+		const cropBox = page.getCropBox();
+		const baseWidth = cropBox.width;
+		const baseHeight = cropBox.height;
+
+		for (const imgAnnotation of (annotations.imageAnnotations || [])) {
+			try {
+				const base64 = imgAnnotation.imageData.split(',')[1];
+				if (!base64) continue;
+
+				const imgBytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+				const embeddedImage = imgAnnotation.imageData.startsWith('data:image/jpeg')
+					? await pdfDoc.embedJpg(imgBytes)
+					: await pdfDoc.embedPng(imgBytes);
+
+				const baseX = imgAnnotation.relativeX * baseWidth;
+				const baseY = imgAnnotation.relativeY * baseHeight;
+				const imgW = imgAnnotation.relativeWidth * baseWidth;
+				const imgH = imgAnnotation.relativeHeight * baseHeight;
+
+				// Convert from top-left web coords to bottom-left PDF coords
+				const pdfX = cropBox.x + baseX;
+				const pdfY = cropBox.y + (baseHeight - baseY - imgH);
+
+				page.drawImage(embeddedImage, {
+					x: pdfX,
+					y: pdfY,
+					width: imgW,
+					height: imgH,
+					rotate: degrees(-(imgAnnotation.rotation || 0))
+				});
+
+				console.log(`[PDFExport:Native] Image annotation at (${pdfX.toFixed(1)}, ${pdfY.toFixed(1)}) size ${imgW.toFixed(1)}x${imgH.toFixed(1)}`);
+			} catch (error) {
+				console.warn('[PDFExport:Native] Failed to embed image annotation:', error);
 			}
 		}
 	}
