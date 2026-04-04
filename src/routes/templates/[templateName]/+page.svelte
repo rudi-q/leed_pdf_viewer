@@ -55,6 +55,7 @@
 
 	let compressedPDFExport: CompressedPDFExport;
 	let pngExport: PngExport;
+	let menuUnlistenFns: Promise<() => void>[] = [];
 
 	// Load template PDF if it exists
 	$: if (browser && data) {
@@ -75,17 +76,142 @@
 		return cleanup;
 	});
 
-	// Named handler for show-shortcuts event (needed for proper cleanup)
-	function handleShowShortcuts() {
-		showShortcuts = true;
-	}
+	const handleMenuAction = (action: string, payload?: any) => {
+		console.log('[MENU] Received menu action:', action, payload);
+
+		switch (action) {
+			case 'show-shortcuts':
+				showShortcuts = true;
+				break;
+			case 'menu-undo':
+				undo();
+				break;
+			case 'menu-redo':
+				redo();
+				break;
+			case 'menu-previous-page':
+				pdfViewer?.previousPage();
+				break;
+			case 'menu-next-page':
+				pdfViewer?.nextPage();
+				break;
+			case 'menu-zoom-in':
+				pdfViewer?.zoomIn();
+				break;
+			case 'menu-zoom-out':
+				pdfViewer?.zoomOut();
+				break;
+			case 'menu-reset-zoom':
+				pdfViewer?.resetZoom();
+				break;
+			case 'menu-fit-width':
+				pdfViewer?.fitToWidth();
+				break;
+			case 'menu-fit-height':
+				pdfViewer?.fitToHeight();
+				break;
+			case 'menu-focus-mode':
+				focusMode = !focusMode;
+				break;
+			case 'menu-open-file':
+				handleFileUploadClick();
+				break;
+			case 'menu-browse-templates':
+				goto('/');
+				break;
+			case 'menu-start-fresh':
+				goto('/?create-blank=true');
+				break;
+			case 'menu-search-pdf':
+				goto('/search');
+				break;
+			case 'menu-export-as-pdf':
+				if (currentFile) {
+					handleExportPDF();
+				}
+				break;
+			case 'menu-export-as-lpdf':
+				if (currentFile) {
+					handleExportLPDF();
+				}
+				break;
+			case 'menu-export-as-docx':
+				if (currentFile) {
+					handleExportDOCX();
+				}
+				break;
+			case 'menu-share-pdf':
+				if (currentFile) {
+					showShareModal = true;
+				}
+				break;
+			case 'menu-help':
+				goto('/help');
+				break;
+			case 'menu-select-tool':
+				switch (payload) {
+					case 'pencil':
+						setTool('pencil');
+						break;
+					case 'eraser':
+						setTool('eraser');
+						break;
+					case 'text':
+						setTool('text');
+						break;
+					case 'arrow':
+						setTool('arrow');
+						break;
+					case 'highlighter':
+						setTool('highlight');
+						break;
+					case 'sticky':
+						setTool('note');
+						break;
+					case 'stamps':
+						setTool('stamp');
+						break;
+				}
+				break;
+		}
+	};
 
 	function setupEventListeners() {
 		console.log('[Template Route] Setting up event listeners');
 		document.addEventListener('fullscreenchange', handleFullscreenChange);
 
-		// Listen for menu shortcuts event from Tauri
-		window.addEventListener('show-shortcuts', handleShowShortcuts);
+		if (isTauri) {
+			const simpleMenuEvents = [
+				'show-shortcuts',
+				'menu-undo',
+				'menu-redo',
+				'menu-previous-page',
+				'menu-next-page',
+				'menu-zoom-in',
+				'menu-zoom-out',
+				'menu-reset-zoom',
+				'menu-fit-width',
+				'menu-fit-height',
+				'menu-focus-mode',
+				'menu-open-file',
+				'menu-browse-templates',
+				'menu-start-fresh',
+				'menu-search-pdf',
+				'menu-export-as-pdf',
+				'menu-export-as-lpdf',
+				'menu-export-as-docx',
+				'menu-share-pdf',
+				'menu-help'
+			];
+
+			simpleMenuEvents.forEach((event) => {
+				menuUnlistenFns.push(listen(event, () => handleMenuAction(event)));
+			});
+
+			menuUnlistenFns.push(
+				listen('menu-select-tool', (event) => handleMenuAction('menu-select-tool', event.payload))
+			);
+		}
 
 		// Strategy 1: Immediate checks for Tauri file associations
 		if (isTauri) {
@@ -128,7 +254,11 @@
 	function cleanup() {
 		console.log('[Template Route] Cleaning up');
 		document.removeEventListener('fullscreenchange', handleFullscreenChange);
-		window.removeEventListener('show-shortcuts', handleShowShortcuts);
+
+		menuUnlistenFns.forEach((unlistenPromise) => {
+			unlistenPromise.then((unlisten) => unlisten()).catch(console.error);
+		});
+		menuUnlistenFns = [];
 
 		// Clean up Tauri event listeners
 		if ((window as any).__templateRouteCleanup) {

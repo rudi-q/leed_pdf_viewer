@@ -68,6 +68,7 @@
 	let showDebugPanel = false;
 	let dropboxChooser: DropboxChooser;
 	let isDropboxLoading = false;
+	let menuUnlistenFns: Promise<() => void>[] = [];
 
 	let compressedPDFExport: CompressedPDFExport;
 	let pngExport: PngExport;
@@ -941,6 +942,99 @@
 		toastStore.error('Dropbox Error', message);
 	}
 
+	const handleMenuAction = (action: string, payload?: any) => {
+		switch (action) {
+			case 'show-shortcuts':
+				showShortcuts = true;
+				break;
+			case 'menu-undo':
+				undo();
+				break;
+			case 'menu-redo':
+				redo();
+				break;
+			case 'menu-previous-page':
+				pdfViewer?.previousPage();
+				break;
+			case 'menu-next-page':
+				pdfViewer?.nextPage();
+				break;
+			case 'menu-zoom-in':
+				pdfViewer?.zoomIn();
+				break;
+			case 'menu-zoom-out':
+				pdfViewer?.zoomOut();
+				break;
+			case 'menu-reset-zoom':
+				pdfViewer?.resetZoom();
+				break;
+			case 'menu-fit-width':
+				pdfViewer?.fitToWidth();
+				break;
+			case 'menu-fit-height':
+				pdfViewer?.fitToHeight();
+				break;
+			case 'menu-focus-mode':
+				focusMode = !focusMode;
+				break;
+			case 'menu-open-file':
+				handleFileUploadClick();
+				break;
+			case 'menu-browse-templates':
+				showTemplatePicker = true;
+				break;
+			case 'menu-start-fresh':
+				handleCreateBlankPDF();
+				break;
+			case 'menu-search-pdf':
+				goto('/search');
+				break;
+			case 'menu-export-as-pdf':
+				if (currentFile) {
+					handleExportPDF();
+				}
+				break;
+			case 'menu-export-as-lpdf':
+				if (currentFile) {
+					handleExportLPDF();
+				}
+				break;
+			case 'menu-export-as-docx':
+				if (currentFile) {
+					handleExportDOCX();
+				}
+				break;
+			case 'menu-help':
+				goto('/help');
+				break;
+			case 'menu-select-tool':
+				switch (payload) {
+					case 'pencil':
+						setTool('pencil');
+						break;
+					case 'eraser':
+						setTool('eraser');
+						break;
+					case 'text':
+						setTool('text');
+						break;
+					case 'arrow':
+						setTool('arrow');
+						break;
+					case 'highlighter':
+						setTool('highlight');
+						break;
+					case 'sticky':
+						setTool('note');
+						break;
+					case 'stamps':
+						setTool('stamp');
+						break;
+				}
+				break;
+		}
+	};
+
 	// Enhanced onMount with comprehensive file loading
 	onMount(() => {
 		if (import.meta.env.DEV) {
@@ -951,6 +1045,38 @@
 		if (browser) {
 			const dismissed = localStorage.getItem('leedpdf-download-card-dismissed');
 			showDownloadCard = dismissed !== 'true';
+		}
+
+		if (isTauri) {
+			const simpleMenuEvents = [
+				'show-shortcuts',
+				'menu-undo',
+				'menu-redo',
+				'menu-previous-page',
+				'menu-next-page',
+				'menu-zoom-in',
+				'menu-zoom-out',
+				'menu-reset-zoom',
+				'menu-fit-width',
+				'menu-fit-height',
+				'menu-focus-mode',
+				'menu-open-file',
+				'menu-browse-templates',
+				'menu-start-fresh',
+				'menu-search-pdf',
+				'menu-export-as-pdf',
+				'menu-export-as-lpdf',
+				'menu-export-as-docx',
+				'menu-help'
+			];
+
+			simpleMenuEvents.forEach((event) => {
+				menuUnlistenFns.push(listen(event, () => handleMenuAction(event)));
+			});
+
+			menuUnlistenFns.push(
+				listen('menu-select-tool', (event) => handleMenuAction('menu-select-tool', event.payload))
+			);
 		}
 
 		// Strategy 1: Immediate checks
@@ -1010,6 +1136,11 @@
 				console.log('[onDestroy] Cleaning up file loading systems');
 			}
 			document.removeEventListener('fullscreenchange', handleFullscreenChange);
+
+			menuUnlistenFns.forEach((unlistenPromise) => {
+				unlistenPromise.then((unlisten) => unlisten()).catch(console.error);
+			});
+			menuUnlistenFns = [];
 
 			// Clean up all event listeners
 			unlistenFileOpened.then((fn) => fn()).catch(console.error);
