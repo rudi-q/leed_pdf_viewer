@@ -52,8 +52,8 @@ importers:
         specifier: ^3.10.1
         version: 3.10.1
       lucide-svelte:
-        specifier: ^0.577.0
-        version: 0.577.0(svelte@5.55.1)
+        specifier: ^1.0.1
+        version: 1.0.1(svelte@5.54.1)
       pdf-lib:
         specifier: ^1.17.1
         version: 1.17.1
@@ -2195,8 +2195,8 @@ packages:
     resolution: {integrity: sha512-aY/R+aEsRelme17KGQa/1ZSIpLpNYYrhcrepKTZgE+W3WM16YMCaPwOHLHsmopZHELU0Ojin1lPVxKR0MihncA==}
     engines: {node: 20 || >=22}
 
-  lucide-svelte@0.577.0:
-    resolution: {integrity: sha512-0i88o57KsaHWnc80J57fY99CWzlZsSdtH5kKjLUJa7z8dum/9/AbINNLzJ7NiRFUdOgMnfAmJt8jFbW2zeC5qQ==}
+  lucide-svelte@1.0.1:
+    resolution: {integrity: sha512-WvzZgk0pqzgda+AErLvgWxHkfg/+GgUwqKMRHvzt0IqyMdmyEDzDCk3Z+Wo/3y753oIgx8u9Q4eUbWkghFa8Jg==}
     peerDependencies:
       svelte: ^3 || ^4 || ^5.0.0-next.42
 
@@ -4810,7 +4810,7 @@ snapshots:
 
   lru-cache@11.2.7: {}
 
-  lucide-svelte@0.577.0(svelte@5.55.1):
+  lucide-svelte@1.0.1(svelte@5.54.1):
     dependencies:
       svelte: 5.55.1
 
