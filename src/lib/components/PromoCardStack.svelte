@@ -16,7 +16,8 @@
 		const os = detectOS();
 		if (condition === 'windows') return os === 'Windows';
 		if (condition === 'macos') return os === 'macOS';
-		return true;
+		console.warn(`[PromoCardStack] Unrecognised condition: "${condition}"`);
+		return false;
 	}
 
 	function dismiss(id: string) {
