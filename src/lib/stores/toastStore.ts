@@ -65,7 +65,7 @@ const createToastStore = () => {
 	};
 
 	const tip = (title: string, message: string, options?: Partial<Toast>) => {
-		return addToast({ type: 'tip', title, message, duration: 0, dismissible: true, ...options });
+		return addToast({ type: 'tip', title, message, duration: 20000, dismissible: true, ...options });
 	};
 
 	return {
