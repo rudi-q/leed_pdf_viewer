@@ -1,7 +1,7 @@
 {
 	"name": "leedpdf",
 	"private": true,
-	"version": "2.32.0",
+	"version": "2.33.0",
 	"type": "module",
 	"packageManager": "pnpm@10.32.1",
 	"scripts": {
@@ -71,8 +71,8 @@
 		"@pdf-lib/fontkit": "^1.1.1",
 		"@tailwindcss/typography": "^0.5.19",
 		"@tauri-apps/plugin-deep-link": "^2.4.7",
-		"@tauri-apps/plugin-dialog": "^2.6.0",
-		"@tauri-apps/plugin-fs": "^2.4.5",
+		"@tauri-apps/plugin-dialog": "^2.7.0",
+		"@tauri-apps/plugin-fs": "^2.5.0",
 		"@tauri-apps/plugin-process": "^2.3.1",
 		"@tauri-apps/plugin-shell": "^2.3.5",
 		"@tauri-apps/plugin-updater": "~2.10.0",
