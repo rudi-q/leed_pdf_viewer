@@ -135,7 +135,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [v2.19.3] - 2025-10-24
+## [v2.19.3] - 2026-01-12
 
 ### Changed
 - Security dependency bumps (14 packages) via Dependabot
