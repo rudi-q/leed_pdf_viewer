@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v2.33.0] - 2026-04-12
+
+### Added
+- Related app cards (`PromoCard`, `PromoCardStack`) shown to web users on the upload page
+- `promoCards.json` data file for card content
+- Tip cards auto-dismiss after 20 seconds
+
+---
+
+## [v2.32.0] - 2026-04-04
+
+### Added
+- Image annotations with drag, resize, rotate, and clipboard paste support
+- `ImageAnnotation` and `ImageOverlay` components for in-viewer image placement
+- PDF export integration for image annotations
+- Tip toast type with distinct styling and placement (`tips.json`, `tipManager` utility)
+- View-only mode restrictions for image annotation interactions
+
+---
+
 ## [v2.31.0] - 2026-03-27
 
 ### Added
