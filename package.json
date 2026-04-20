@@ -45,7 +45,7 @@
 		"@vitest/ui": "^3.2.4",
 		"eslint-plugin-svelte": "^3.17.0",
 		"jsdom": "^29.0.2",
-		"prettier": "^3.8.2",
+		"prettier": "^3.8.3",
 		"prettier-plugin-svelte": "^3.5.1",
 		"svelte": "5.55.4",
 		"svelte-check": "^4.4.6",
@@ -84,8 +84,8 @@
 		"lucide-svelte": "^1.0.1",
 		"pdf-lib": "^1.17.1",
 		"pdfjs-dist": "5.6.205",
-		"postcss": "^8.5.9",
-		"posthog-js": "^1.368.2",
+		"postcss": "^8.5.10",
+		"posthog-js": "^1.369.3",
 		"tailwindcss": "^3.4.19"
 	}
 }
