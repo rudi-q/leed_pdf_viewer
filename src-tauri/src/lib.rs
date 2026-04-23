@@ -1545,6 +1545,11 @@ fn create_app_menu(
         .accelerator("CmdOrCtrl+Shift+Z")
         .build(app_handle)?;
 
+    let cut_item = PredefinedMenuItem::cut(app_handle, None)?;
+    let copy_item = PredefinedMenuItem::copy(app_handle, None)?;
+    let paste_item = PredefinedMenuItem::paste(app_handle, None)?;
+    let select_all_item = PredefinedMenuItem::select_all(app_handle, None)?;
+
     // Create View menu items
     let previous_page_item = MenuItemBuilder::with_id("previous_page", "Previous Page")
         .accelerator("Left")
@@ -1724,6 +1729,12 @@ fn create_app_menu(
             &tauri::menu::SubmenuBuilder::new(app_handle, "Edit")
                 .item(&undo_item)
                 .item(&redo_item)
+                .separator()
+                .item(&cut_item)
+                .item(&copy_item)
+                .item(&paste_item)
+                .separator()
+                .item(&select_all_item)
                 .build()?,
         )
         .item(&view_menu)
