@@ -116,6 +116,22 @@ export interface ArrowAnnotation {
 	relativeY2: number; // 0-1 range for scaling
 }
 
+// Pasted image annotation interface (clipboard paste)
+export interface ImageAnnotation {
+	id: string;
+	pageNumber: number;
+	x: number; // Base coords (unrotated, unscaled)
+	y: number;
+	width: number; // Base width
+	height: number; // Base height
+	imageData: string; // base64 data URL (PNG)
+	rotation: number; // Own rotation in degrees
+	relativeX: number; // 0-1 range for scaling
+	relativeY: number; // 0-1 range for scaling
+	relativeWidth: number; // 0-1 relative to basePageWidth
+	relativeHeight: number; // 0-1 relative to basePageHeight
+}
+
 // Stamp definitions
 export interface StampDefinition {
 	id: string;
@@ -286,6 +302,9 @@ export const stampAnnotations = writable<Map<number, StampAnnotation[]>>(new Map
 // Arrow annotations store - stores all arrow annotations per page (custom implementation)
 export const arrowAnnotations = writable<Map<number, ArrowAnnotation[]>>(new Map());
 
+// Image annotations store - stores all pasted image annotations per page
+export const imageAnnotations = writable<Map<number, ImageAnnotation[]>>(new Map());
+
 // Auto-save functionality - Storage keys configuration
 const STORAGE_KEYS = {
 	drawings: 'leedpdf_drawings',
@@ -293,6 +312,7 @@ const STORAGE_KEYS = {
 	stickyNotes: 'leedpdf_sticky_note_annotations',
 	stamps: 'leedpdf_stamp_annotations',
 	arrows: 'leedpdf_arrow_annotations',
+	images: 'leedpdf_image_annotations',
 	pdfInfo: 'leedpdf_current_pdf'
 } as const;
 
@@ -302,6 +322,7 @@ const STORAGE_KEY_TEXT = STORAGE_KEYS.textAnnotations;
 const STORAGE_KEY_STICKY_NOTES = STORAGE_KEYS.stickyNotes;
 const STORAGE_KEY_STAMP_ANNOTATIONS = STORAGE_KEYS.stamps;
 const STORAGE_KEY_ARROW_ANNOTATIONS = STORAGE_KEYS.arrows;
+const STORAGE_KEY_IMAGE_ANNOTATIONS = STORAGE_KEYS.images;
 const STORAGE_KEY_PDF_INFO = STORAGE_KEYS.pdfInfo;
 
 // Track current PDF to associate drawings with specific files
@@ -445,12 +466,13 @@ export const setCurrentPDF = (fileName: string, fileSize: number) => {
 		}
 	}
 
-	// Load drawings, shapes, text annotations, sticky notes, and stamps for this specific PDF
+	// Load drawings, shapes, text annotations, sticky notes, stamps, and images for this specific PDF
 	loadDrawingsForCurrentPDF();
 	loadTextAnnotationsForCurrentPDF();
 	loadStickyNotesForCurrentPDF();
 	loadStampAnnotationsForCurrentPDF();
 	loadArrowAnnotationsForCurrentPDF();
+	loadImageAnnotationsForCurrentPDF();
 
 	// Clear any text annotation selection from the previous PDF
 	selectedTextAnnotationId.set(null);
@@ -472,6 +494,9 @@ const loadStampAnnotationsForCurrentPDF = createAnnotationLoader<StampAnnotation
 const loadArrowAnnotationsForCurrentPDF = createAnnotationLoader<ArrowAnnotation>(
 	STORAGE_KEY_ARROW_ANNOTATIONS, arrowAnnotations, 'arrow annotations'
 );
+const loadImageAnnotationsForCurrentPDF = createAnnotationLoader<ImageAnnotation>(
+	STORAGE_KEY_IMAGE_ANNOTATIONS, imageAnnotations, 'image annotations'
+);
 
 // Load last PDF info on initialization
 if (typeof window !== 'undefined') {
@@ -485,6 +510,7 @@ if (typeof window !== 'undefined') {
 			loadStickyNotesForCurrentPDF();
 			loadStampAnnotationsForCurrentPDF();
 			loadArrowAnnotationsForCurrentPDF();
+			loadImageAnnotationsForCurrentPDF();
 		}
 	} catch (error) {
 		console.error('Error loading PDF info from localStorage:', error);
@@ -497,6 +523,7 @@ setupAnnotationAutoSave<TextAnnotation>(STORAGE_KEY_TEXT, textAnnotations, 'text
 setupAnnotationAutoSave<StickyNoteAnnotation>(STORAGE_KEY_STICKY_NOTES, stickyNoteAnnotations, 'sticky notes');
 setupAnnotationAutoSave<StampAnnotation>(STORAGE_KEY_STAMP_ANNOTATIONS, stampAnnotations, 'stamp annotations');
 setupAnnotationAutoSave<ArrowAnnotation>(STORAGE_KEY_ARROW_ANNOTATIONS, arrowAnnotations, 'arrow annotations');
+setupAnnotationAutoSave<ImageAnnotation>(STORAGE_KEY_IMAGE_ANNOTATIONS, imageAnnotations, 'image annotations');
 
 // Undo/redo functionality
 export const undoStack = writable<Array<{ pageNumber: number; paths: DrawingPath[] }>>([]);
@@ -735,6 +762,12 @@ export const clearCurrentPageDrawings = () => {
 				annotations.delete(currentPage);
 				return new Map(annotations);
 			});
+
+			// Clear image annotations
+			imageAnnotations.update((annotations) => {
+				annotations.delete(currentPage);
+				return new Map(annotations);
+			});
 		}
 	})();
 };
@@ -814,6 +847,7 @@ const textAnnotationsCRUD = createAnnotationCRUD(textAnnotations);
 const stickyNotesCRUD = createAnnotationCRUD(stickyNoteAnnotations);
 const stampsCRUD = createAnnotationCRUD(stampAnnotations);
 const arrowsCRUD = createAnnotationCRUD(arrowAnnotations);
+const imagesCRUD = createAnnotationCRUD(imageAnnotations);
 
 // Text annotation management functions (exported for backward compatibility)
 export const addTextAnnotation = textAnnotationsCRUD.add;
@@ -859,6 +893,11 @@ export const addArrowAnnotation = arrowsCRUD.add;
 export const updateArrowAnnotation = arrowsCRUD.update;
 export const deleteArrowAnnotation = arrowsCRUD.delete;
 
+// Image annotation management functions
+export const addImageAnnotation = imagesCRUD.add;
+export const updateImageAnnotation = imagesCRUD.update;
+export const deleteImageAnnotation = imagesCRUD.delete;
+
 // Force save all annotation data to localStorage immediately
 // This ensures all pending changes are persisted before operations like export
 export const forceSaveAllAnnotations = (): void => {
@@ -884,6 +923,7 @@ export const forceSaveAllAnnotations = (): void => {
 		forceSaveStore(stickyNoteAnnotations, STORAGE_KEY_STICKY_NOTES);
 		forceSaveStore(stampAnnotations, STORAGE_KEY_STAMP_ANNOTATIONS);
 		forceSaveStore(arrowAnnotations, STORAGE_KEY_ARROW_ANNOTATIONS);
+		forceSaveStore(imageAnnotations, STORAGE_KEY_IMAGE_ANNOTATIONS);
 
 		console.log(`Force saved all annotations for PDF ${currentPDFKey}`);
 	} catch (error) {
@@ -896,5 +936,13 @@ export const currentPageArrowAnnotations = derived(
 	[arrowAnnotations, pdfState],
 	([$arrowAnnotations, $pdfState]) => {
 		return $arrowAnnotations.get($pdfState.currentPage) || [];
+	}
+);
+
+// Derived store for current page image annotations
+export const currentPageImageAnnotations = derived(
+	[imageAnnotations, pdfState],
+	([$imageAnnotations, $pdfState]) => {
+		return $imageAnnotations.get($pdfState.currentPage) || [];
 	}
 );

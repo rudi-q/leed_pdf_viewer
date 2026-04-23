@@ -47,6 +47,7 @@
 	import PngExport from '$lib/components/PngExport.svelte';
 	import { keyboardShortcuts } from '$lib/utils/keyboardShortcuts';
 	import { handleFileUploadClick, handleStampToolClick } from '$lib/utils/pageKeyboardHelpers';
+	import PromoCardStack from '$lib/components/PromoCardStack.svelte';
 
 	let pdfViewer: PDFViewer;
 	let currentFile: File | string | null = null;
@@ -1030,6 +1031,8 @@
 			<HomeButton {showThumbnails} />
 		{/if}
 	{/if}
+
+	<PromoCardStack {focusMode} {presentationMode} />
 
 	<Footer
 		{focusMode}
