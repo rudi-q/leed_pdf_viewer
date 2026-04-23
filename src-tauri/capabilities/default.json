@@ -9,7 +9,7 @@
     "core:default",
     "core:window:allow-set-title",
     "updater:default",
-
+    "deep-link:default",
     "fs:allow-read-file",
     "fs:allow-localdata-read-recursive",
     "fs:allow-home-read-recursive",
@@ -19,6 +19,14 @@
     "fs:allow-download-read-recursive",
 
     "dialog:allow-save",
+
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://fra.cloud.appwrite.io/**" },
+        { "url": "https://cloud.appwrite.io/**" }
+      ]
+    },
 
     "fs:allow-write-file",
     "fs:allow-localdata-write-recursive",

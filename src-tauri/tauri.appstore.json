@@ -1,0 +1,19 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "identifier": "my.leed.pdf",
+  "bundle": {
+    "createUpdaterArtifacts": false,
+    "targets": ["dmg", "app"],
+    "macOS": {
+      "entitlements": "Entitlements.plist",
+      "hardenedRuntime": true,
+      "minimumSystemVersion": "12.0",
+      "signingIdentity": "${TAURI_MACOS_SIGNING_IDENTITY}"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": false
+    }
+  }
+}

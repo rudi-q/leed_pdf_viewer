@@ -29,12 +29,12 @@
   "bundle": {
     "publisher": "DoublOne Studios Limited",
     "homepage": "https://leedpdf.com",
-    "category": "productivity",
     "shortDescription": "PDF annotation tool - Draw, highlight, and add notes to PDFs",
     "longDescription": "LeedPDF is a lightweight PDF drawing and annotation tool that works in your browser and as a desktop app. Draw, highlight, add text, sticky notes, arrows, and stamps to your PDFs. Perfect for students, professionals, and anyone who needs to annotate documents. Works with mouse, touch, or stylus.",
     "active": true,
     "targets": "all",
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
+    "category": "Utility",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -45,26 +45,40 @@
     "fileAssociations": [
       {
         "name": "PDF Document",
-        "ext": ["pdf"],
+        "ext": [
+          "pdf"
+        ],
         "role": "Editor",
         "rank": "Owner",
         "description": "LeedPDF Annotatable PDF Document"
       },
       {
         "name": "Markdown Document",
-        "ext": ["md"],
+        "ext": [
+          "md"
+        ],
         "role": "Editor",
         "rank": "Owner",
         "description": "LeedPDF Annotatable Markdown Document"
       },
       {
         "name": "LeedPDF Document",
-        "ext": ["lpdf"],
+        "ext": [
+          "lpdf"
+        ],
         "role": "Editor",
         "rank": "Owner",
         "description": "LeedPDF Annotatable Document"
       }
-    ]
+    ],
+    "macOS": {
+      "entitlements": "Entitlements.plist",
+      "exceptionDomain": "localhost",
+      "hardenedRuntime": true,
+      "signingIdentity": null,
+      "minimumSystemVersion": "12.0",
+      "infoPlist": "macos/Info.plist"
+    }
   },
   "plugins": {
     "shell": {
@@ -72,11 +86,12 @@
     },
     "deep-link": {
       "desktop": {
-        "schemes": ["leedpdf"]
+        "schemes": ["leedpdf", "appwrite-callback-68c95a1d000e441c14d9"]
       }
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlENDY2MDQ5NkYzMUQ4RDMKUldUVDJERnZTV0JHbldiUUF1ZGJkMTNMcEpaV2t2MGU2ajRxaDIySktNRlBGVnRQc0pTZmRBdXUK",
+      "active": true,
+      "pubkey": "${TAURI_SIGNING_PUBLIC_KEY}",
       "endpoints": [
         "https://github.com/rudi-q/leed_pdf_viewer/releases/latest/download/latest.json"
       ],
@@ -86,5 +101,3 @@
     }
   }
 }
-
-

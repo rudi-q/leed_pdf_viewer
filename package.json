@@ -22,6 +22,8 @@
 		"test:e2e": "playwright test",
 		"tauri:dev": "tauri dev",
 		"tauri:build": "tauri build",
+		"tauri:build:appstore": "tauri build --config src-tauri/tauri.appstore.json --target universal-apple-darwin",
+		"release:appstore": "./macos.sh",
 		"tauri:build:debug": "tauri build --debug",
 		"tauri:check": "cd src-tauri && cargo check"
 	},
@@ -73,6 +75,8 @@
 		"@tauri-apps/plugin-deep-link": "^2.4.8",
 		"@tauri-apps/plugin-dialog": "^2.7.0",
 		"@tauri-apps/plugin-fs": "^2.5.0",
+		"@tauri-apps/plugin-http": "^2.5.7",
+		"@tauri-apps/plugin-os": "^2.3.2",
 		"@tauri-apps/plugin-process": "^2.3.1",
 		"@tauri-apps/plugin-shell": "^2.3.5",
 		"@tauri-apps/plugin-updater": "~2.10.1",

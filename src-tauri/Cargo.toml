@@ -30,9 +30,11 @@ urlencoding = "2.1"
 tokio = { version = "1.50", features = ["full"] }
 machine-uid = "0.5"
 rfd = "0.15"
+url = "2"
 font-kit = "0.14"
 lopdf = "0.37"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+tauri-plugin-http = "2.5.7"
 
 # Linux-specific: Use gtk3 instead of xdg-portal to avoid conflict
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -40,3 +42,4 @@ rfd = { version = "0.15", features = ["gtk3"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
+tauri-plugin-single-instance = { version = "2.0", features = ["deep-link"] }
