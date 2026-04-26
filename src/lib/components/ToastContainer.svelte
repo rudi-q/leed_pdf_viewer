@@ -3,10 +3,19 @@
 	import Toast from './Toast.svelte';
 </script>
 
-<!-- Toast Container - Fixed position at top right -->
-<div class="pointer-events-none fixed inset-0 z-[9999] flex items-start justify-end p-6 sm:p-6">
+<!-- Regular toasts - top right -->
+<div class="pointer-events-none fixed inset-0 z-[9999] flex items-start justify-end p-6">
   <div class="flex w-full flex-col items-center space-y-4 sm:items-end">
-    {#each $toastStore as toast (toast.id)}
+    {#each $toastStore.filter(t => t.type !== 'tip').slice(-1) as toast (toast.id)}
+      <Toast {toast} />
+    {/each}
+  </div>
+</div>
+
+<!-- Tip toasts - bottom left, above help button -->
+<div class="pointer-events-none fixed inset-0 z-[9999] flex items-end justify-start pb-16 pl-6 pr-6 pt-6">
+  <div class="flex w-full flex-col items-center space-y-4 sm:items-start">
+    {#each $toastStore.filter(t => t.type === 'tip').slice(-1) as toast (toast.id)}
       <Toast {toast} />
     {/each}
   </div>

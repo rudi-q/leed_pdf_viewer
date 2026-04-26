@@ -1,0 +1,27 @@
+[
+  {
+    "id": "glucose-player",
+    "name": "Glucose",
+    "tagline": "The No-UI Video Player",
+    "description": "Ultra-minimal video player with AI-powered local subtitles for Windows",
+    "href": "https://glucose.media",
+    "icon": "video",
+    "condition": "windows"
+  },
+  {
+    "id": "goldenday",
+    "name": "GoldenDay",
+    "tagline": "Save Anything Instantly",
+    "description": "Bookmark links, images, and notes with a single keystroke",
+    "href": "https://mygolden.day",
+    "icon": "sun"
+  },
+  {
+    "id": "doublshot",
+    "name": "DoublShot",
+    "tagline": "Beautiful Screenshots",
+    "description": "Auto-beautify screenshots with padding, shadows, and gradients",
+    "href": "https://doublshot.com",
+    "icon": "camera"
+  }
+]
