@@ -28,7 +28,7 @@ tauri-plugin-shell = "2.3.0"
 reqwest = { version = "0.11", features = ["json"] }
 urlencoding = "2.1"
 tokio = { version = "1.50", features = ["full"] }
-machine-uid = "0.5"
+machine-uid = "0.6"
 rfd = "0.15"
 font-kit = "0.14"
 lopdf = "0.37"
