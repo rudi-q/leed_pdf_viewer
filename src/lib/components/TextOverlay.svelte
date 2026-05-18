@@ -69,6 +69,9 @@
 
 	// Handle pointerup on overlay to create new text annotation (supports mouse, pen, and touch)
 	function handleOverlayPointerUp(event: PointerEvent) {
+		// Ignore non-primary button presses (e.g. right-click)
+		if (!event.isPrimary || event.button !== 0) return;
+
 		// Only handle clicks when text tool is active and not in view-only mode
 		if ($drawingState.tool !== 'text' || viewOnlyMode) return;
 
@@ -413,6 +416,13 @@
 		resizeDirection = null;
 	}
 
+	function handlePointerCancel() {
+		draggedAnnotation = null;
+		isResizing = false;
+		resizingAnnotation = null;
+		resizeDirection = null;
+	}
+
 	// Handle resize handle pointer down (supports mouse, pen, and touch)
 	function handleResizePointerDown(
 		event: PointerEvent,
@@ -443,10 +453,12 @@
 	onMount(() => {
 		document.addEventListener('pointermove', handlePointerMove);
 		document.addEventListener('pointerup', handlePointerUp);
+		document.addEventListener('pointercancel', handlePointerCancel);
 
 		return () => {
 			document.removeEventListener('pointermove', handlePointerMove);
 			document.removeEventListener('pointerup', handlePointerUp);
+			document.removeEventListener('pointercancel', handlePointerCancel);
 		};
 	});
 
