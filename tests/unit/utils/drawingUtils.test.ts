@@ -143,6 +143,18 @@ describe('DrawingUtils', () => {
 				expect(true).toBe(true);
 			});
 
+			it('should resize via direct property assignment when HTMLCanvasElement is absent', () => {
+				const original = (window as any).HTMLCanvasElement;
+				(window as any).HTMLCanvasElement = undefined;
+				try {
+					drawingEngine.resize(400, 300);
+					expect((canvas as any).width).toBe(400);
+					expect((canvas as any).height).toBe(300);
+				} finally {
+					(window as any).HTMLCanvasElement = original;
+				}
+			});
+
 			it('should export canvas as image', () => {
 				const dataUrl = drawingEngine.exportAsImage();
 
@@ -457,6 +469,77 @@ describe('DrawingUtils', () => {
 					const allPoints = parts.flatMap(p => p.points);
 					expect(allPoints.every(pt => pt.x <= 40 || pt.x >= 60)).toBe(true);
 				});
+
+				it('returns [stroke] when stroke has fewer than 2 points', () => {
+					const shortStroke: DrawingPath = {
+						tool: 'pencil', color: '#000', lineWidth: 2, pageNumber: 1,
+						points: [{ x: 0, y: 0 }]
+					};
+					const eraser: DrawingPath = {
+						tool: 'eraser', color: '#000', lineWidth: 10, pageNumber: 1,
+						points: [{ x: 0, y: 0 }, { x: 10, y: 10 }]
+					};
+					const parts = splitPathByEraser(shortStroke, eraser, 5);
+					expect(parts).toEqual([shortStroke]);
+				});
+
+				it('returns [stroke] when eraser has fewer than 2 points', () => {
+					const stroke: DrawingPath = {
+						tool: 'pencil', color: '#000', lineWidth: 2, pageNumber: 1,
+						points: [{ x: 0, y: 0 }, { x: 10, y: 0 }]
+					};
+					const shortEraser: DrawingPath = {
+						tool: 'eraser', color: '#000', lineWidth: 10, pageNumber: 1,
+						points: [{ x: 5, y: 0 }]
+					};
+					const parts = splitPathByEraser(stroke, shortEraser, 5);
+					expect(parts).toEqual([stroke]);
+				});
+
+				it('discards current subpath and continues when a segment is erased after kept segments', () => {
+					// Segment 0: (0,0)→(10,0) — far from eraser at x=15, tolerance=2 → kept
+					// Segment 1: (10,0)→(20,0) — eraser at x=15 is within 2px → erased
+					// This triggers the else-if(current) branch with current.length >= 2
+					const stroke: DrawingPath = {
+						tool: 'pencil', color: '#000', lineWidth: 2, pageNumber: 1,
+						points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 20, y: 0 }]
+					};
+					const eraser: DrawingPath = {
+						tool: 'eraser', color: '#000', lineWidth: 2, pageNumber: 1,
+						points: [{ x: 15, y: 0 }, { x: 16, y: 0 }]
+					};
+					const parts = splitPathByEraser(stroke, eraser, 2);
+					expect(Array.isArray(parts)).toBe(true);
+					// The first segment is kept as a subpath, the second is erased
+					expect(parts.some(p => p.points.every(pt => pt.x <= 10))).toBe(true);
+				});
+
+				it('returns [] when the entire stroke is erased', () => {
+					const stroke: DrawingPath = {
+						tool: 'pencil', color: '#000', lineWidth: 2, pageNumber: 1,
+						points: [{ x: 0, y: 0 }, { x: 10, y: 0 }]
+					};
+					// Eraser sits right on top of the stroke
+					const eraser: DrawingPath = {
+						tool: 'eraser', color: '#000', lineWidth: 20, pageNumber: 1,
+						points: [{ x: 0, y: 0 }, { x: 10, y: 0 }]
+					};
+					const parts = splitPathByEraser(stroke, eraser, 5);
+					expect(parts).toEqual([]);
+				});
+
+				it('returns [stroke] when bounds do not overlap', () => {
+					const stroke: DrawingPath = {
+						tool: 'pencil', color: '#000', lineWidth: 2, pageNumber: 1,
+						points: [{ x: 0, y: 0 }, { x: 10, y: 0 }]
+					};
+					const farEraser: DrawingPath = {
+						tool: 'eraser', color: '#000', lineWidth: 2, pageNumber: 1,
+						points: [{ x: 500, y: 500 }, { x: 600, y: 500 }]
+					};
+					const parts = splitPathByEraser(stroke, farEraser, 1);
+					expect(parts).toEqual([stroke]);
+				});
 			});
 
 			describe('Error Handling', () => {
@@ -534,6 +617,17 @@ describe('DrawingUtils', () => {
 				const lowTolerance = simplifyPath(complexPath, 0.1);
 
 				expect(highTolerance.length).toBeLessThanOrEqual(lowTolerance.length);
+			});
+
+			it('handles a path where first and last points are identical (degenerate line)', () => {
+				// Triggers perpendicularDistance with dx=0, dy=0
+				const closedPath: Point[] = [
+					{ x: 5, y: 5 },
+					{ x: 3, y: 3 },
+					{ x: 5, y: 5 }
+				];
+				const result = simplifyPath(closedPath, 1);
+				expect(result.length).toBeGreaterThan(0);
 			});
 		});
 
