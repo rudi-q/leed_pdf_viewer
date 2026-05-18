@@ -509,6 +509,7 @@
 				{#if !viewOnlyMode}
 					<button
 						class="text-box-delete-btn"
+						on:pointerdown|stopPropagation
 						on:click|stopPropagation={() => handleDelete(annotation)}
 						title="Delete text annotation"
 						aria-label="Delete text annotation"
@@ -537,6 +538,7 @@
 				{#if !viewOnlyMode}
 					<button
 						class="text-box-delete-btn"
+						on:pointerdown|stopPropagation
 						on:click|stopPropagation={() => handleDelete(annotation)}
 						title="Delete text annotation"
 						aria-label="Delete text annotation"

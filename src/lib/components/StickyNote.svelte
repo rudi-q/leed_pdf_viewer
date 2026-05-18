@@ -339,6 +339,7 @@
 	{#if !viewOnlyMode}
 		<button
 			class="delete-btn"
+			on:pointerdown|stopPropagation
 			on:click|stopPropagation={handleDelete}
 			title="Delete sticky note"
 			aria-label="Delete sticky note"
