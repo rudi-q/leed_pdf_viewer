@@ -1465,7 +1465,7 @@
 			// Debounce the expensive canvas re-render; commit reactive state only then.
 			if (wheelZoomDebounceId !== null) clearTimeout(wheelZoomDebounceId);
 			wheelZoomDebounceId = setTimeout(async () => {
-				wheelZoomDebounceId = null;
+				const myDebounceId = wheelZoomDebounceId;
 				const finalScale = wheelAccumulatedScale;
 				const finalPanX = wheelCurrentPanX;
 				const finalPanY = wheelCurrentPanY;
@@ -1478,6 +1478,7 @@
 					contentWrapperDiv.style.transform = `translate(${finalPanX}px, ${finalPanY}px)`;
 				}
 				pdfState.update((s) => ({ ...s, scale: finalScale }));
+				if (wheelZoomDebounceId === myDebounceId) wheelZoomDebounceId = null;
 			}, 80);
 			return;
 		}
