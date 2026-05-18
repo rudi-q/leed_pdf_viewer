@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
 	import type { StickyNoteAnnotation } from '$lib/stores/drawingStore';
 	import {
 		transformPoint,
@@ -160,6 +160,7 @@
 
 		document.addEventListener('pointermove', handlePointerMove);
 		document.addEventListener('pointerup', handlePointerUp);
+		document.addEventListener('pointercancel', handlePointerCancel);
 	};
 
 	// Handle pointer move for dragging
@@ -231,13 +232,26 @@
 		}
 	};
 
+	const removePointerListeners = () => {
+		document.removeEventListener('pointermove', handlePointerMove);
+		document.removeEventListener('pointerup', handlePointerUp);
+		document.removeEventListener('pointercancel', handlePointerCancel);
+	};
+
 	// Handle pointer up
 	const handlePointerUp = () => {
 		isDragging = false;
 		isResizing = false;
-		document.removeEventListener('pointermove', handlePointerMove);
-		document.removeEventListener('pointerup', handlePointerUp);
+		removePointerListeners();
 	};
+
+	const handlePointerCancel = () => {
+		isDragging = false;
+		isResizing = false;
+		removePointerListeners();
+	};
+
+	onDestroy(removePointerListeners);
 
 	// Handle resize handle pointer down
 	const handleResizePointerDown = (event: PointerEvent) => {
@@ -256,6 +270,7 @@
 
 		document.addEventListener('pointermove', handlePointerMove);
 		document.addEventListener('pointerup', handlePointerUp);
+		document.addEventListener('pointercancel', handlePointerCancel);
 	};
 
 	// Handle delete

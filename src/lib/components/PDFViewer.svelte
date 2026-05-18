@@ -362,6 +362,11 @@
 			pinchRafId = null;
 		}
 
+		if (wheelZoomDebounceId !== null) {
+			clearTimeout(wheelZoomDebounceId);
+			wheelZoomDebounceId = null;
+		}
+
 		if (pdfManager) {
 			pdfManager.destroy();
 		}
