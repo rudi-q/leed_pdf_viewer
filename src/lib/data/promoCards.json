@@ -23,5 +23,13 @@
     "description": "Auto-beautify screenshots with padding, shadows, and gradients",
     "href": "https://doublshot.com",
     "icon": "camera"
+  },
+  {
+    "id": "paperman",
+    "name": "Paperman",
+    "tagline": "Make Your Screen Feel Like Paper",
+    "description": "Applies a subtle matte texture to your display to reduce eye strain — no color shifting, zero CPU impact",
+    "href": "https://paperman.cc",
+    "icon": "file-text"
   }
 ]
