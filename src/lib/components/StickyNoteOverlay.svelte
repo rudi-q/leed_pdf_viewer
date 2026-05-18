@@ -24,14 +24,32 @@
 	let overlayElement: HTMLDivElement;
 	let isCreatingNote = false;
 
+	// Tap detection state for pointer events
+	let pointerDownX = 0;
+	let pointerDownY = 0;
+
 	// Listen for note tool activation and click events
 	$: isNoteTool = $drawingState.tool === 'note';
 
-	// Handle click to create new sticky note
-	const handleContainerClick = (event: MouseEvent) => {
+	// Record pointer-down position for tap detection
+	const handleContainerPointerDown = (event: PointerEvent) => {
+		pointerDownX = event.clientX;
+		pointerDownY = event.clientY;
+	};
+
+	// Handle pointer-up to create new sticky note (tap detection)
+	const handleContainerPointerUp = (event: PointerEvent) => {
 		if (!isNoteTool || isCreatingNote || viewOnlyMode) return;
 
-		// Don't create note if clicking on an existing note
+		// Only handle primary button / stylus / touch (not right-click)
+		if (event.button !== 0 && event.button !== -1) return;
+
+		// Tap detection: ignore if the pointer moved more than 10px (scroll/drag)
+		const dx = event.clientX - pointerDownX;
+		const dy = event.clientY - pointerDownY;
+		if (Math.sqrt(dx * dx + dy * dy) >= 10) return;
+
+		// Don't create note if tapping on an existing note
 		const target = event.target as HTMLElement;
 		if (target.closest('.sticky-note')) return;
 
@@ -149,7 +167,6 @@
 	});
 </script>
 
-<!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 <div
 	bind:this={overlayElement}
@@ -157,9 +174,11 @@
 	class:note-tool-active={isNoteTool}
 	style:width="{containerWidth}px"
 	style:height="{containerHeight}px"
-	on:click={handleContainerClick}
+	style:touch-action={isNoteTool ? 'none' : 'auto'}
+	on:pointerdown={handleContainerPointerDown}
+	on:pointerup={handleContainerPointerUp}
 	role="application"
-	aria-label="Sticky notes area - click to create new note when note tool is active"
+	aria-label="Sticky notes area - tap to create new note when note tool is active"
 >
 	{#each $currentPageStickyNotes as note (note.id)}
 		<StickyNote
@@ -181,7 +200,7 @@
 		<div class="note-tool-hint">
 			<div class="hint-content">
 				<div class="hint-icon">📝</div>
-				<div class="hint-text">Click anywhere to create a sticky note</div>
+				<div class="hint-text">Tap anywhere to create a sticky note</div>
 			</div>
 		</div>
 	{/if}

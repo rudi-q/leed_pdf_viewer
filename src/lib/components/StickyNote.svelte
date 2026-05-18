@@ -144,8 +144,8 @@
 		}
 	};
 
-	// Handle mouse down for dragging
-	const handleMouseDown = (event: MouseEvent) => {
+	// Handle pointer down for dragging
+	const handlePointerDown = (event: PointerEvent) => {
 		if (isEditing || viewOnlyMode) return; // Disable dragging in view-only mode
 
 		event.preventDefault();
@@ -155,12 +155,15 @@
 		dragStartX = event.clientX - displayX;
 		dragStartY = event.clientY - displayY;
 
-		document.addEventListener('mousemove', handleMouseMove);
-		document.addEventListener('mouseup', handleMouseUp);
+		// Capture the pointer so move/up events are received even outside the element
+		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+
+		document.addEventListener('pointermove', handlePointerMove);
+		document.addEventListener('pointerup', handlePointerUp);
 	};
 
-	// Handle mouse move for dragging
-	const handleMouseMove = (event: MouseEvent) => {
+	// Handle pointer move for dragging
+	const handlePointerMove = (event: PointerEvent) => {
 		if (isDragging) {
 			// Calculate new display position
 			const newDisplayX = event.clientX - dragStartX;
@@ -228,16 +231,16 @@
 		}
 	};
 
-	// Handle mouse up
-	const handleMouseUp = () => {
+	// Handle pointer up
+	const handlePointerUp = () => {
 		isDragging = false;
 		isResizing = false;
-		document.removeEventListener('mousemove', handleMouseMove);
-		document.removeEventListener('mouseup', handleMouseUp);
+		document.removeEventListener('pointermove', handlePointerMove);
+		document.removeEventListener('pointerup', handlePointerUp);
 	};
 
-	// Handle resize handle mouse down
-	const handleResizeMouseDown = (event: MouseEvent) => {
+	// Handle resize handle pointer down
+	const handleResizePointerDown = (event: PointerEvent) => {
 		if (viewOnlyMode) return; // Disable resizing in view-only mode
 		event.preventDefault();
 		event.stopPropagation();
@@ -248,8 +251,11 @@
 		resizeStartWidth = displayWidth;
 		resizeStartHeight = displayHeight;
 
-		document.addEventListener('mousemove', handleMouseMove);
-		document.addEventListener('mouseup', handleMouseUp);
+		// Capture pointer on the resize handle
+		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+
+		document.addEventListener('pointermove', handlePointerMove);
+		document.addEventListener('pointerup', handlePointerUp);
 	};
 
 	// Handle delete
@@ -296,7 +302,7 @@
 	class:editing={isEditing}
 	class:dragging={isDragging}
 	class:resizing={isResizing}
-	on:mousedown={handleMouseDown}
+	on:pointerdown={handlePointerDown}
 	on:dblclick={handleDoubleClick}
 	on:contextmenu={handleContextMenu}
 	on:keydown={(e) => {
@@ -353,7 +359,7 @@
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			class="resize-handle"
-			on:mousedown|stopPropagation={handleResizeMouseDown}
+			on:pointerdown|stopPropagation={handleResizePointerDown}
 			title="Drag to resize"
 		></div>
 	{/if}

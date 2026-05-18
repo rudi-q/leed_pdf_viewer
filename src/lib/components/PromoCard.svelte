@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Video, Sun, Camera } from 'lucide-svelte';
+	import { Video, Sun, Camera, FileText } from 'lucide-svelte';
 
 	export let name: string;
 	export let tagline: string;
@@ -11,7 +11,8 @@
 	const iconMap: Record<string, typeof Video> = {
 		video: Video,
 		sun: Sun,
-		camera: Camera
+		camera: Camera,
+		'file-text': FileText
 	};
 
 	$: IconComponent = iconMap[icon] ?? Sun;

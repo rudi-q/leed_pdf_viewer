@@ -67,10 +67,14 @@
 		return `text_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 	}
 
-	// Handle click on overlay to create new text annotation
-	function handleOverlayClick(event: MouseEvent) {
+	// Handle pointerup on overlay to create new text annotation (supports mouse, pen, and touch)
+	function handleOverlayPointerUp(event: PointerEvent) {
 		// Only handle clicks when text tool is active and not in view-only mode
 		if ($drawingState.tool !== 'text' || viewOnlyMode) return;
+
+		// Guard: pointerup fires after drags too (unlike click). Don't create an annotation
+		// when the user is just releasing from a drag or resize gesture.
+		if (draggedAnnotation || isResizing) return;
 
 		// Don't create new annotation if clicking on existing text
 		if (event.target !== overlayContainer) return;
@@ -294,7 +298,7 @@
 	let dragStart = { x: 0, y: 0 };
 	let annotationStart = { x: 0, y: 0 };
 
-	function handleMouseDown(event: MouseEvent, annotation: TextAnnotation) {
+	function handlePointerDown(event: PointerEvent, annotation: TextAnnotation) {
 		// Don't start drag if we're editing, resizing, or in view-only mode
 		if (editingAnnotation || isResizing || viewOnlyMode) return;
 
@@ -309,7 +313,7 @@
 		event.preventDefault();
 	}
 
-	function handleMouseMove(event: MouseEvent) {
+	function handlePointerMove(event: PointerEvent) {
 		if (draggedAnnotation) {
 			const deltaX = event.clientX - dragStart.x;
 			const deltaY = event.clientY - dragStart.y;
@@ -402,16 +406,16 @@
 		}
 	}
 
-	function handleMouseUp() {
+	function handlePointerUp() {
 		draggedAnnotation = null;
 		isResizing = false;
 		resizingAnnotation = null;
 		resizeDirection = null;
 	}
 
-	// Handle resize handle mouse down
-	function handleResizeMouseDown(
-		event: MouseEvent,
+	// Handle resize handle pointer down (supports mouse, pen, and touch)
+	function handleResizePointerDown(
+		event: PointerEvent,
 		annotation: TextAnnotation,
 		direction: 'se' | 'e' | 's' | 'w' | 'n'
 	) {
@@ -437,12 +441,12 @@
 	}
 
 	onMount(() => {
-		document.addEventListener('mousemove', handleMouseMove);
-		document.addEventListener('mouseup', handleMouseUp);
+		document.addEventListener('pointermove', handlePointerMove);
+		document.addEventListener('pointerup', handlePointerUp);
 
 		return () => {
-			document.removeEventListener('mousemove', handleMouseMove);
-			document.removeEventListener('mouseup', handleMouseUp);
+			document.removeEventListener('pointermove', handlePointerMove);
+			document.removeEventListener('pointerup', handlePointerUp);
 		};
 	});
 
@@ -459,8 +463,8 @@
 	class:cursor-crosshair={$drawingState.tool === 'text' && !editingAnnotation}
 	class:pointer-events-auto={$drawingState.tool === 'text'}
 	class:pointer-events-none={$drawingState.tool !== 'text'}
-	style="width: {canvasWidth}px; height: {canvasHeight}px; z-index: 4;"
-	on:click={handleOverlayClick}
+	style="width: {canvasWidth}px; height: {canvasHeight}px; z-index: 4; touch-action: none;"
+	on:pointerup={handleOverlayPointerUp}
 	role="application"
 	aria-label="Text annotation overlay"
 	tabindex="-1"
@@ -510,7 +514,7 @@
 				class:text-box-selected={$selectedTextAnnotationId === annotation.id}
 				style="left: {pos.x}px; top: {pos.y}px; width: {displayWidth}px; height: {displayHeight}px; transform: rotate({rotation + (annotation.rotation || 0)}deg); transform-origin: top left;"
 				on:dblclick={() => handleAnnotationDoubleClick(annotation)}
-				on:mousedown={(e) => handleMouseDown(e, annotation)}
+				on:pointerdown={(e) => handlePointerDown(e, annotation)}
 				on:keydown={(e) => handleAnnotationKeyDown(e, annotation)}
 				role="button"
 				tabindex="0"
@@ -544,7 +548,7 @@
 					<!-- svelte-ignore a11y-no-static-element-interactions -->
 					<div
 						class="text-box-resize-handle resize-se"
-						on:mousedown|stopPropagation={(e) => handleResizeMouseDown(e, annotation, 'se')}
+						on:pointerdown|stopPropagation={(e) => handleResizePointerDown(e, annotation, 'se')}
 						title="Drag to resize"
 						role="button"
 						tabindex="0"
@@ -555,25 +559,25 @@
 					<!-- svelte-ignore a11y-no-static-element-interactions -->
 					<div
 						class="text-box-resize-handle resize-e"
-						on:mousedown|stopPropagation={(e) => handleResizeMouseDown(e, annotation, 'e')}
+						on:pointerdown|stopPropagation={(e) => handleResizePointerDown(e, annotation, 'e')}
 						title="Drag to resize width"
 					></div>
 					<!-- svelte-ignore a11y-no-static-element-interactions -->
 					<div
 						class="text-box-resize-handle resize-s"
-						on:mousedown|stopPropagation={(e) => handleResizeMouseDown(e, annotation, 's')}
+						on:pointerdown|stopPropagation={(e) => handleResizePointerDown(e, annotation, 's')}
 						title="Drag to resize height"
 					></div>
 					<!-- svelte-ignore a11y-no-static-element-interactions -->
 					<div
 						class="text-box-resize-handle resize-w"
-						on:mousedown|stopPropagation={(e) => handleResizeMouseDown(e, annotation, 'w')}
+						on:pointerdown|stopPropagation={(e) => handleResizePointerDown(e, annotation, 'w')}
 						title="Drag to resize width"
 					></div>
 					<!-- svelte-ignore a11y-no-static-element-interactions -->
 					<div
 						class="text-box-resize-handle resize-n"
-						on:mousedown|stopPropagation={(e) => handleResizeMouseDown(e, annotation, 'n')}
+						on:pointerdown|stopPropagation={(e) => handleResizePointerDown(e, annotation, 'n')}
 						title="Drag to resize height"
 					></div>
 				{/if}

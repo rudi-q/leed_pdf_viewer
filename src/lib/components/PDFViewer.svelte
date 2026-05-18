@@ -132,6 +132,11 @@
 	let isPinching = false;
 	const PAN_THRESHOLD = 5; // px dead zone before pan activates
 	let isTouchDevice = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+	let wheelZoomDebounceId: ReturnType<typeof setTimeout> | null = null;
+	let wheelGestureBaseScale = 1;   // rendered scale at gesture start (CSS scale denominator)
+	let wheelAccumulatedScale = 1;   // accumulated logical scale during gesture (avoids reading reactive pdfState mid-gesture)
+	let wheelCurrentPanX = 0;        // accumulated pan X during gesture (avoids writing reactive panOffset mid-gesture)
+	let wheelCurrentPanY = 0;
 
 	// Eraser gesture modifier: Alt for partial erase
 	let isAltEraseMode = false;
@@ -1133,6 +1138,10 @@
 	}
 
 	function handleContainerPointerDown(event: PointerEvent) {
+		// Stylus events that aren't captured by the freehand overlay should not
+		// feed the gesture tracker or trigger pan — let the overlay handle them.
+		if (event.pointerType === 'pen' && !hasActiveFreehandTool()) return;
+
 		if (gestureTracker) gestureTracker.track(event);
 		if (panInertia) panInertia.cancel();
 
@@ -1412,14 +1421,59 @@
 		if (!containerDiv?.contains(event.target as Node)) return;
 
 		if (event.ctrlKey) {
-			// Ctrl + scroll = zoom
+			// Ctrl + scroll (or trackpad pinch) = smooth continuous zoom anchored to cursor.
+			//
+			// IMPORTANT: we deliberately avoid writing to reactive `panOffset` or calling
+			// `pdfState.update()` during the gesture. Any reactive write triggers a Svelte
+			// re-render which resets contentWrapperDiv.style.transform back to the
+			// template's translate-only value, destroying the CSS scale. We mirror the
+			// touch-pinch pattern: accumulate in local vars, commit only on gesture end.
 			event.preventDefault();
 
-			if (event.deltaY < 0) {
-				zoomIn();
-			} else {
-				zoomOut();
+			// First event of this gesture — snapshot state so we never read reactive
+			// stores mid-gesture.
+			if (wheelZoomDebounceId === null) {
+				wheelGestureBaseScale = $pdfState.scale;
+				wheelAccumulatedScale = $pdfState.scale;
+				wheelCurrentPanX = panOffset.x;
+				wheelCurrentPanY = panOffset.y;
 			}
+
+			const prevScale = wheelAccumulatedScale;
+			const factor = Math.pow(0.999, event.deltaY);
+			wheelAccumulatedScale = Math.max(0.1, Math.min(10, prevScale * factor));
+
+			// Cursor-anchored pan: keep the document point under the cursor fixed.
+			const rect = containerDiv.getBoundingClientRect();
+			const cursorX = event.clientX - rect.left;
+			const cursorY = event.clientY - rect.top;
+			wheelCurrentPanX = cursorX - (cursorX - wheelCurrentPanX) * (wheelAccumulatedScale / prevScale);
+			wheelCurrentPanY = cursorY - (cursorY - wheelCurrentPanY) * (wheelAccumulatedScale / prevScale);
+
+			// Apply visual scale immediately — no reactive writes so Svelte won't
+			// override this transform until we commit at gesture end.
+			const cssScale = wheelAccumulatedScale / wheelGestureBaseScale;
+			if (contentWrapperDiv) {
+				contentWrapperDiv.style.transform = `translate(${wheelCurrentPanX}px, ${wheelCurrentPanY}px) scale(${cssScale})`;
+			}
+
+			// Debounce the expensive canvas re-render; commit reactive state only then.
+			if (wheelZoomDebounceId !== null) clearTimeout(wheelZoomDebounceId);
+			wheelZoomDebounceId = setTimeout(async () => {
+				wheelZoomDebounceId = null;
+				const finalScale = wheelAccumulatedScale;
+				const finalPanX = wheelCurrentPanX;
+				const finalPanY = wheelCurrentPanY;
+				// Commit pan first so the template re-render uses the correct position.
+				panOffset = { x: finalPanX, y: finalPanY };
+				await renderCurrentPage(finalScale);
+				wheelGestureBaseScale = finalScale;
+				// Reset to translate-only — canvas is now rendered at the correct scale.
+				if (contentWrapperDiv) {
+					contentWrapperDiv.style.transform = `translate(${finalPanX}px, ${finalPanY}px)`;
+				}
+				pdfState.update((s) => ({ ...s, scale: finalScale }));
+			}, 80);
 			return;
 		}
 
