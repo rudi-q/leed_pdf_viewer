@@ -24,6 +24,7 @@
 	let overlayElement: HTMLDivElement;
 
 	let isCreatingArrow = false;
+	let activePointerId: number | null = null;
 
 	// Flags whether the arrow tool is active
 	$: isArrowTool = $drawingState.tool === 'arrow';
@@ -34,6 +35,7 @@
 
 	const handleContainerPointerDown = (event: PointerEvent) => {
 		if (!isArrowTool || viewOnlyMode) return;
+		if (isCreatingArrow) return;
 
 		// Don't create new arrows if clicking on existing arrow elements
 		const target = event.target as Element;
@@ -41,12 +43,10 @@
 			return;
 		}
 
-		// Reset flag to ensure we can create multiple arrows
-		isCreatingArrow = false;
-
 		event.preventDefault();
 		event.stopPropagation();
 
+		activePointerId = event.pointerId;
 		// Capture pointer so events keep routing here even if pointer leaves the element
 		overlayElement.setPointerCapture(event.pointerId);
 
@@ -135,17 +135,21 @@
 	};
 
 	const handleContainerPointerMove = (event: PointerEvent) => {
-		if (!isCreatingArrow) return;
+		if (!isCreatingArrow || event.pointerId !== activePointerId) return;
 		computeAndUpdateArrowEnd(event);
 	};
 
 	const handleContainerPointerUp = (event: PointerEvent) => {
+		if (event.pointerId !== activePointerId) return;
 		isCreatingArrow = false;
+		activePointerId = null;
 	};
 
 	// Also cancel arrow creation if pointer capture is lost (e.g. browser interruption)
-	const handleContainerPointerCancel = () => {
+	const handleContainerPointerCancel = (event: PointerEvent) => {
+		if (event.pointerId !== activePointerId) return;
 		isCreatingArrow = false;
+		activePointerId = null;
 	};
 
 	// Handle arrow update event from child components

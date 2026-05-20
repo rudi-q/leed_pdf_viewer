@@ -1477,13 +1477,16 @@
 				// Commit pan first so the template re-render uses the correct position.
 				panOffset = { x: finalPanX, y: finalPanY };
 				await renderCurrentPage(finalScale);
+				// A newer gesture may have started while the render was in flight — bail
+				// out to avoid clobbering its accumulated state.
+				if (wheelZoomDebounceId !== myDebounceId) return;
 				wheelGestureBaseScale = finalScale;
 				// Reset to translate-only — canvas is now rendered at the correct scale.
 				if (contentWrapperDiv) {
 					contentWrapperDiv.style.transform = `translate(${finalPanX}px, ${finalPanY}px)`;
 				}
 				pdfState.update((s) => ({ ...s, scale: finalScale }));
-				if (wheelZoomDebounceId === myDebounceId) wheelZoomDebounceId = null;
+				wheelZoomDebounceId = null;
 			}, 80);
 			return;
 		}

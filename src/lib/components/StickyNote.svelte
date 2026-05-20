@@ -25,6 +25,7 @@
 	let isEditing = false;
 	let isDragging = false;
 	let isResizing = false;
+	let activePointerId: number | null = null;
 	let dragStartX = 0;
 	let dragStartY = 0;
 	let resizeStartX = 0;
@@ -147,6 +148,7 @@
 	// Handle pointer down for dragging
 	const handlePointerDown = (event: PointerEvent) => {
 		if (isEditing || viewOnlyMode) return; // Disable dragging in view-only mode
+		if (!event.isPrimary || event.button !== 0) return;
 
 		event.preventDefault();
 		event.stopPropagation();
@@ -154,6 +156,7 @@
 		isDragging = true;
 		dragStartX = event.clientX - displayX;
 		dragStartY = event.clientY - displayY;
+		activePointerId = event.pointerId;
 
 		// Capture the pointer so move/up events are received even outside the element
 		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
@@ -165,6 +168,7 @@
 
 	// Handle pointer move for dragging
 	const handlePointerMove = (event: PointerEvent) => {
+		if (event.pointerId !== activePointerId) return;
 		if (isDragging) {
 			// Calculate new display position
 			const newDisplayX = event.clientX - dragStartX;
@@ -239,15 +243,19 @@
 	};
 
 	// Handle pointer up
-	const handlePointerUp = () => {
+	const handlePointerUp = (event: PointerEvent) => {
+		if (event.pointerId !== activePointerId) return;
 		isDragging = false;
 		isResizing = false;
+		activePointerId = null;
 		removePointerListeners();
 	};
 
-	const handlePointerCancel = () => {
+	const handlePointerCancel = (event: PointerEvent) => {
+		if (event.pointerId !== activePointerId) return;
 		isDragging = false;
 		isResizing = false;
+		activePointerId = null;
 		removePointerListeners();
 	};
 
@@ -256,6 +264,7 @@
 	// Handle resize handle pointer down
 	const handleResizePointerDown = (event: PointerEvent) => {
 		if (viewOnlyMode) return; // Disable resizing in view-only mode
+		if (!event.isPrimary || event.button !== 0) return;
 		event.preventDefault();
 		event.stopPropagation();
 
@@ -264,6 +273,7 @@
 		resizeStartY = event.clientY;
 		resizeStartWidth = displayWidth;
 		resizeStartHeight = displayHeight;
+		activePointerId = event.pointerId;
 
 		// Capture pointer on the resize handle
 		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);

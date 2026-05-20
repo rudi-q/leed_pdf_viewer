@@ -27,6 +27,7 @@
 	// Tap detection state for pointer events
 	let pointerDownX = 0;
 	let pointerDownY = 0;
+	let activePointerId: number | null = null;
 
 	// Listen for note tool activation and click events
 	$: isNoteTool = $drawingState.tool === 'note';
@@ -35,14 +36,21 @@
 	const handleContainerPointerDown = (event: PointerEvent) => {
 		pointerDownX = event.clientX;
 		pointerDownY = event.clientY;
+		activePointerId = event.pointerId;
 		// Prevent PDFViewer's container from capturing the pointer for panning,
 		// which would redirect the matching pointerup away from this overlay.
 		if (isNoteTool) event.stopPropagation();
 	};
 
+	const handleContainerPointerCancel = (event: PointerEvent) => {
+		if (event.pointerId === activePointerId) activePointerId = null;
+	};
+
 	// Handle pointer-up to create new sticky note (tap detection)
 	const handleContainerPointerUp = (event: PointerEvent) => {
 		if (!isNoteTool || isCreatingNote || viewOnlyMode) return;
+		if (event.pointerId !== activePointerId) return;
+		activePointerId = null;
 
 		// Only handle primary button / stylus / touch (not right-click)
 		if (event.button !== 0 && event.button !== -1) return;
@@ -179,6 +187,7 @@
 	style:height="{containerHeight}px"
 	style:touch-action={isNoteTool ? 'none' : 'auto'}
 	on:pointerdown={handleContainerPointerDown}
+	on:pointercancel={handleContainerPointerCancel}
 	on:pointerup={handleContainerPointerUp}
 	role="application"
 	aria-label="Sticky notes area - tap to create new note when note tool is active"

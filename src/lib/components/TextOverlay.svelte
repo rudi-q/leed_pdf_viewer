@@ -300,10 +300,12 @@
 	let draggedAnnotation: TextAnnotation | null = null;
 	let dragStart = { x: 0, y: 0 };
 	let annotationStart = { x: 0, y: 0 };
+	let activePointerId: number | null = null;
 
 	function handlePointerDown(event: PointerEvent, annotation: TextAnnotation) {
 		// Don't start drag if we're editing, resizing, or in view-only mode
 		if (editingAnnotation || isResizing || viewOnlyMode) return;
+		if (!event.isPrimary || event.button !== 0) return;
 
 		// Select this annotation when clicked
 		selectTextAnnotation(annotation.id);
@@ -312,11 +314,13 @@
 		dragStart = { x: event.clientX, y: event.clientY };
 		const pos = getDisplayPosition(annotation);
 		annotationStart = { x: pos.x, y: pos.y };
+		activePointerId = event.pointerId;
 
 		event.preventDefault();
 	}
 
 	function handlePointerMove(event: PointerEvent) {
+		if (activePointerId !== null && event.pointerId !== activePointerId) return;
 		if (draggedAnnotation) {
 			const deltaX = event.clientX - dragStart.x;
 			const deltaY = event.clientY - dragStart.y;
@@ -409,14 +413,18 @@
 		}
 	}
 
-	function handlePointerUp() {
+	function handlePointerUp(event: PointerEvent) {
+		if (event.pointerId !== activePointerId) return;
+		activePointerId = null;
 		draggedAnnotation = null;
 		isResizing = false;
 		resizingAnnotation = null;
 		resizeDirection = null;
 	}
 
-	function handlePointerCancel() {
+	function handlePointerCancel(event: PointerEvent) {
+		if (event.pointerId !== activePointerId) return;
+		activePointerId = null;
 		draggedAnnotation = null;
 		isResizing = false;
 		resizingAnnotation = null;
@@ -430,6 +438,7 @@
 		direction: 'se' | 'e' | 's' | 'w' | 'n'
 	) {
 		if (viewOnlyMode || editingAnnotation) return;
+		if (!event.isPrimary || event.button !== 0) return;
 
 		event.preventDefault();
 		event.stopPropagation();
@@ -439,6 +448,7 @@
 		resizeDirection = direction;
 		resizeStartX = event.clientX;
 		resizeStartY = event.clientY;
+		activePointerId = event.pointerId;
 
 		// Get current display dimensions and position
 		const safeScale = getSafeScale();
