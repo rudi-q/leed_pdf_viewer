@@ -35,6 +35,9 @@
 	const handleContainerPointerDown = (event: PointerEvent) => {
 		pointerDownX = event.clientX;
 		pointerDownY = event.clientY;
+		// Prevent PDFViewer's container from capturing the pointer for panning,
+		// which would redirect the matching pointerup away from this overlay.
+		if (isNoteTool) event.stopPropagation();
 	};
 
 	// Handle pointer-up to create new sticky note (tap detection)

@@ -1445,7 +1445,12 @@
 			}
 
 			const prevScale = wheelAccumulatedScale;
-			const factor = Math.pow(0.999, event.deltaY);
+			// Normalize deltaY to pixels (Firefox reports lines, some browsers report pages).
+			const LINE_HEIGHT = 16;
+			let zoomDelta = event.deltaY;
+			if (event.deltaMode === 1) zoomDelta *= LINE_HEIGHT;
+			else if (event.deltaMode === 2) zoomDelta *= containerDiv.clientHeight;
+			const factor = Math.pow(0.999, zoomDelta);
 			wheelAccumulatedScale = Math.max(0.1, Math.min(10, prevScale * factor));
 
 			// Cursor-anchored pan: keep the document point under the cursor fixed.

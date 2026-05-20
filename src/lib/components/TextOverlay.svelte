@@ -476,6 +476,7 @@
 	class:pointer-events-auto={$drawingState.tool === 'text'}
 	class:pointer-events-none={$drawingState.tool !== 'text'}
 	style="width: {canvasWidth}px; height: {canvasHeight}px; z-index: 4; touch-action: none;"
+	on:pointerdown|stopPropagation
 	on:pointerup={handleOverlayPointerUp}
 	role="application"
 	aria-label="Text annotation overlay"
