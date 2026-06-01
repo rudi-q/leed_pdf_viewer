@@ -34,6 +34,8 @@
 
 	// Record pointer-down position for tap detection
 	const handleContainerPointerDown = (event: PointerEvent) => {
+		// Ignore secondary touches so they can't overwrite the tracked pointer.
+		if (!event.isPrimary) return;
 		pointerDownX = event.clientX;
 		pointerDownY = event.clientY;
 		activePointerId = event.pointerId;

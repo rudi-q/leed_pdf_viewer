@@ -1409,6 +1409,33 @@
 		}
 	}
 
+	/**
+	 * Horizontal counterpart to scrollByDelta's pan: shifts panOffset.x when the
+	 * page is wider than the viewport (e.g. zoomed in or a landscape page).
+	 * Unlike the vertical axis there is no page navigation here.
+	 * Positive delta = swipe right, which moves the content left to reveal the
+	 * right side (matching scrollByDelta's vertical sign convention).
+	 */
+	function panHorizontalByDelta(delta: number) {
+		if (!pdfCanvas || !containerDiv || delta === 0) return;
+
+		const canvasWidth = parseFloat(pdfCanvas.style.width) || 0;
+		const viewportWidth = containerDiv.clientWidth;
+		const overflowX = canvasWidth - viewportWidth;
+
+		if (overflowX <= 0) return; // page fits horizontally — nothing to pan
+
+		const maxPanRight = overflowX / 2; // upper bound: reveals the left edge
+		const maxPanLeft = -(overflowX / 2); // lower bound: reveals the right edge
+		const scrollAmount = Math.min(Math.abs(delta), 100);
+
+		if (delta > 0) {
+			panOffset = { ...panOffset, x: Math.max(panOffset.x - scrollAmount, maxPanLeft) };
+		} else {
+			panOffset = { ...panOffset, x: Math.min(panOffset.x + scrollAmount, maxPanRight) };
+		}
+	}
+
 	// Fixed scroll amount for arrow key presses (in pixels)
 	const ARROW_KEY_SCROLL_PX = 60;
 
@@ -1496,13 +1523,21 @@
 
 		if (!pdfCanvas || !containerDiv) return;
 
-		// Normalize deltaY to pixels across browsers.
+		// Normalize deltaX/deltaY to pixels across browsers.
 		// Firefox reports deltaMode=1 (lines), most others report deltaMode=0 (pixels).
 		const LINE_HEIGHT = 16;
 		let pixelDelta = event.deltaY;
-		if (event.deltaMode === 1) pixelDelta *= LINE_HEIGHT;
-		else if (event.deltaMode === 2) pixelDelta *= containerDiv.clientHeight;
+		let pixelDeltaX = event.deltaX;
+		if (event.deltaMode === 1) {
+			pixelDelta *= LINE_HEIGHT;
+			pixelDeltaX *= LINE_HEIGHT;
+		} else if (event.deltaMode === 2) {
+			pixelDelta *= containerDiv.clientHeight;
+			pixelDeltaX *= containerDiv.clientWidth;
+		}
 
+		// Horizontal two-finger swipe pans a wide/zoomed page; no-op when it fits.
+		panHorizontalByDelta(pixelDeltaX);
 		scrollByDelta(pixelDelta);
 	}
 

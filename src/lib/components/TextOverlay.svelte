@@ -413,8 +413,7 @@
 		}
 	}
 
-	function handlePointerUp(event: PointerEvent) {
-		if (event.pointerId !== activePointerId) return;
+	function resetPointerState() {
 		activePointerId = null;
 		draggedAnnotation = null;
 		isResizing = false;
@@ -422,13 +421,14 @@
 		resizeDirection = null;
 	}
 
+	function handlePointerUp(event: PointerEvent) {
+		if (event.pointerId !== activePointerId) return;
+		resetPointerState();
+	}
+
 	function handlePointerCancel(event: PointerEvent) {
 		if (event.pointerId !== activePointerId) return;
-		activePointerId = null;
-		draggedAnnotation = null;
-		isResizing = false;
-		resizingAnnotation = null;
-		resizeDirection = null;
+		resetPointerState();
 	}
 
 	// Handle resize handle pointer down (supports mouse, pen, and touch)
