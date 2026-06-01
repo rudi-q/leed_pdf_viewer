@@ -46,7 +46,7 @@
 	import TextSelectionOverlay from './TextSelectionOverlay.svelte';
 	import { TOOLBAR_HEIGHT } from '$lib/constants';
 	import { setWindowTitle } from '$lib/utils/tauriUtils';
-	import { GestureTracker, PanInertia } from '$lib/utils/gestureUtils';
+	import { GestureTracker, PanInertia, type Point2D } from '$lib/utils/gestureUtils';
 	import GestureHint from './GestureHint.svelte';
 
 	// Helper function to build window title with page info
@@ -121,8 +121,27 @@
 	let pinchStartDistance = 0;
 	let pinchStartScale = 0;
 	let lastPinchScale = 0; // updated every move; avoids regex-parsing CSS on pinch end
-	let pinchStartMidpoint = { x: 0, y: 0 }; // midpoint at gesture start for two-finger pan
+	let pinchStartMidpoint = { x: 0, y: 0 }; // midpoint at gesture start for two-finger pan (client coords)
 	let pinchStartPanOffset = { x: 0, y: 0 }; // panOffset snapshot at gesture start
+	// Container rect cached at gesture start. `cx`/`cy` are the half-extents, i.e.
+	// the wrapper's transform-origin (CSS default `center`) in container coords.
+	// Caching avoids a layout read on every pinch frame.
+	let pinchRect = { left: 0, top: 0, cx: 0, cy: 0 };
+	// The two pointer ids that started the pinch. The gesture is computed ONLY
+	// from these, so a stray third finger or a ghost pointer can't corrupt the
+	// distance/midpoint mid-gesture.
+	let pinchPointerA: number | null = null;
+	let pinchPointerB: number | null = null;
+	// Per-frame pinch state. We judge intent each frame (is the spread changing
+	// faster than the midpoint is moving?) so a two-finger drag scrolls without
+	// creeping into zoom, while spreading the fingers still zooms at any point in
+	// the gesture — the fluid pan-then-zoom feel of iPad Preview.
+	let pinchAccumScale = 1; // logical scale accumulated across zoom-dominant frames
+	let prevPinchDist = 0; // finger spread on the previous frame
+	let prevPinchMid = { x: 0, y: 0 }; // finger midpoint on the previous frame (client coords)
+	// A frame counts as zoom only if the spread changes more than the midpoint
+	// moves AND by more than this much — filters out sensor noise when near-still.
+	const ZOOM_FRAME_EPS_PX = 0.5;
 	let lastPinchPanX = 0; // visual-only pan X during pinch (committed on end)
 	let lastPinchPanY = 0; // visual-only pan Y during pinch (committed on end)
 	let pinchRafId: number | null = null; // rAF handle for batching two-finger updates
@@ -1143,25 +1162,44 @@
 	}
 
 	function handleContainerPointerDown(event: PointerEvent) {
-		// Stylus events that aren't captured by the freehand overlay should not
-		// feed the gesture tracker or trigger pan — let the overlay handle them.
-		if (event.pointerType === 'pen' && !hasActiveFreehandTool()) return;
+		// Pinch / two-finger pan are TOUCH-only gestures. A stylus is handled
+		// entirely by the drawing overlay and must never feed the gesture tracker:
+		// a single missed pen pointerup would leave a ghost "finger" that turns
+		// later one-finger pans into accidental zooms (and survives a zoom reset).
+		if (event.pointerType === 'pen') return;
 
-		if (gestureTracker) gestureTracker.track(event);
+		if (event.pointerType === 'touch' && gestureTracker) gestureTracker.track(event);
 		if (panInertia) panInertia.cancel();
 
 		// ── Two-finger gesture starts (pinch / two-finger pan) ──
-		if (gestureTracker && gestureTracker.count === 2) {
+		// Use >= 2 (not === 2) so a lingering ghost pointer can't block the start;
+		// we lock onto a definite pair below.
+		if (gestureTracker && !isPinching && gestureTracker.count >= 2) {
+			// Lock the gesture to this finger plus the most-recent other pointer.
+			const other = gestureTracker.otherMostRecentId(event.pointerId);
+			if (other === null) return; // shouldn't happen with count >= 2
+			pinchPointerA = other;
+			pinchPointerB = event.pointerId;
+
 			// Cancel any single-finger pan that was in progress
 			isPanning = false;
 			isPanConfirmed = false;
 			isPinching = true;
-			pinchStartDistance = gestureTracker.getPinchDistance();
+			pinchStartDistance = gestureTracker.distanceBetween(pinchPointerA, pinchPointerB) ?? 0;
 			pinchStartScale = $pdfState.scale;
-			pinchStartMidpoint = gestureTracker.getPinchMidpoint();
+			pinchStartMidpoint = gestureTracker.midpointBetween(pinchPointerA, pinchPointerB) ?? {
+				x: 0,
+				y: 0
+			};
 			pinchStartPanOffset = { ...panOffset };
+			const rect = containerDiv.getBoundingClientRect();
+			pinchRect = { left: rect.left, top: rect.top, cx: rect.width / 2, cy: rect.height / 2 };
 			lastPinchPanX = panOffset.x;
 			lastPinchPanY = panOffset.y;
+			lastPinchScale = pinchStartScale;
+			pinchAccumScale = pinchStartScale;
+			prevPinchDist = pinchStartDistance;
+			prevPinchMid = { ...pinchStartMidpoint };
 			event.preventDefault();
 
 			// Also cancel any drawing that may have started from the first finger
@@ -1170,6 +1208,13 @@
 				drawingEngine.endDrawing();
 				currentDrawingPath = [];
 			}
+			return;
+		}
+
+		// A pinch is already in progress (this is a 3rd+ finger): ignore it so it
+		// can't start a competing single-finger pan or capture the pointer.
+		if (isPinching) {
+			event.preventDefault();
 			return;
 		}
 
@@ -1190,40 +1235,91 @@
 	}
 
 	/**
+	 * Compute the translate component for a pinch gesture so that the document
+	 * point under the starting finger midpoint stays pinned under the current
+	 * midpoint, while scaled by `cssScale`.
+	 *
+	 * The wrapper scales around its center (CSS transform-origin default), so the
+	 * formula folds in that pivot `C`. With `translate(pan) scale(cssScale)` and
+	 * origin `C`, a point P maps to `C + pan + cssScale*(layout(P) - C)`. Pinning
+	 * the anchor (whose start screen pos is the start midpoint) to the current
+	 * midpoint and solving for `pan` gives the expression below. It is chosen so
+	 * the live CSS transform and the post-commit re-render (canvas grows from its
+	 * center) resolve to the same screen position — no jump on release.
+	 *
+	 * All inputs/outputs are in container-relative coordinates.
+	 */
+	function computePinchPan(currentMidpoint: Point2D, cssScale: number): Point2D {
+		const curMidX = currentMidpoint.x - pinchRect.left;
+		const curMidY = currentMidpoint.y - pinchRect.top;
+		const startMidX = pinchStartMidpoint.x - pinchRect.left;
+		const startMidY = pinchStartMidpoint.y - pinchRect.top;
+		return {
+			x: curMidX - pinchRect.cx - cssScale * (startMidX - pinchStartPanOffset.x - pinchRect.cx),
+			y: curMidY - pinchRect.cy - cssScale * (startMidY - pinchStartPanOffset.y - pinchRect.cy)
+		};
+	}
+
+	/**
 	 * rAF callback: compute pinch scale + two-finger pan in one batched frame.
 	 * By the time this fires, both fingers' pointermove events have been
 	 * processed by gestureTracker, so midpoint & distance are stable.
+	 *
+	 * Pan is always live (the midpoint is tracked 1:1, like two-finger scroll).
+	 * Zoom only accrues on frames where the finger spread changes faster than the
+	 * midpoint moves, so panning never creeps into zoom, yet spreading the fingers
+	 * zooms at any moment — including right after a pan.
 	 */
 	function applyPinchFrame() {
 		pinchRafId = null; // allow next frame to be scheduled
-		if (!gestureTracker || gestureTracker.count < 2 || pinchStartDistance <= 0) return;
+		if (!gestureTracker || pinchPointerA === null || pinchPointerB === null || pinchStartDistance <= 0)
+			return;
 
-		// Scale
-		const currentDist = gestureTracker.getPinchDistance();
-		const scaleRatio = currentDist / pinchStartDistance;
-		const newScale = Math.max(0.1, Math.min(10, pinchStartScale * scaleRatio));
+		// Distance/midpoint come ONLY from the two locked pointers.
+		const currentDist = gestureTracker.distanceBetween(pinchPointerA, pinchPointerB);
+		const currentMidpoint = gestureTracker.midpointBetween(pinchPointerA, pinchPointerB);
+		if (currentDist === null || currentMidpoint === null || currentDist <= 0) return;
 
-		// Pan: simple midpoint delta from gesture start
-		const currentMidpoint = gestureTracker.getPinchMidpoint();
-		lastPinchPanX = pinchStartPanOffset.x + (currentMidpoint.x - pinchStartMidpoint.x);
-		lastPinchPanY = pinchStartPanOffset.y + (currentMidpoint.y - pinchStartMidpoint.y);
+		// Per-frame intent: zoom only when the spread out-changes the midpoint move.
+		const dSpread = currentDist - prevPinchDist;
+		const dMid = Math.hypot(currentMidpoint.x - prevPinchMid.x, currentMidpoint.y - prevPinchMid.y);
+		if (Math.abs(dSpread) > dMid && Math.abs(dSpread) > ZOOM_FRAME_EPS_PX && prevPinchDist > 0) {
+			pinchAccumScale = Math.max(0.1, Math.min(10, pinchAccumScale * (currentDist / prevPinchDist)));
+		}
+		prevPinchDist = currentDist;
+		prevPinchMid = { x: currentMidpoint.x, y: currentMidpoint.y };
 
-		// Apply CSS transform for smooth visual feedback
-		const cssScale = newScale / $pdfState.scale;
-		lastPinchScale = newScale;
+		const cssScale = pinchAccumScale / pinchStartScale;
+
+		// Anchor the zoom around the finger midpoint AND track midpoint movement
+		// (two-finger pan) in one step. See computePinchPan() for the derivation.
+		const pan = computePinchPan(currentMidpoint, cssScale);
+		lastPinchPanX = pan.x;
+		lastPinchPanY = pan.y;
+
+		lastPinchScale = pinchAccumScale;
 		if (contentWrapperDiv) {
 			contentWrapperDiv.style.transform = `translate(${lastPinchPanX}px, ${lastPinchPanY}px) scale(${cssScale})`;
 		}
 	}
 
 	function handleContainerPointerMove(event: PointerEvent) {
-		if (gestureTracker) gestureTracker.track(event);
+		// Touch-only, mirroring handleContainerPointerDown — never track the pen.
+		if (event.pointerType === 'touch' && gestureTracker) gestureTracker.track(event);
 
 		// ── Pinch-to-zoom + two-finger pan ──
 		// We only mark the rAF as needed here; the actual computation is
 		// deferred to applyPinchFrame() so that BOTH fingers' pointermove
 		// events are processed before we compute midpoint & distance.
-		if (isPinching && gestureTracker && gestureTracker.count >= 2 && pinchStartDistance > 0) {
+		if (
+			isPinching &&
+			gestureTracker &&
+			pinchPointerA !== null &&
+			pinchPointerB !== null &&
+			gestureTracker.has(pinchPointerA) &&
+			gestureTracker.has(pinchPointerB) &&
+			pinchStartDistance > 0
+		) {
 			event.preventDefault();
 			if (pinchRafId === null) {
 				pinchRafId = requestAnimationFrame(applyPinchFrame);
@@ -1258,15 +1354,24 @@
 	}
 
 	async function handleContainerPointerUp(event: PointerEvent) {
-		// Snapshot midpoint BEFORE untracking so we can compute final pan position
+		// Is the lifted pointer one of the two driving the pinch?
+		const liftedPinchPointer =
+			isPinching && (event.pointerId === pinchPointerA || event.pointerId === pinchPointerB);
+
+		// Snapshot the pinch midpoint BEFORE untracking so we can compute the
+		// final pan position from the two locked pointers while both are present.
 		let freshMid: { x: number; y: number } | null = null;
-		if (gestureTracker && gestureTracker.count >= 2) {
-			freshMid = gestureTracker.getPinchMidpoint();
+		if (isPinching && pinchPointerA !== null && pinchPointerB !== null) {
+			freshMid = gestureTracker?.midpointBetween(pinchPointerA, pinchPointerB) ?? null;
 		}
 		if (gestureTracker) gestureTracker.untrack(event);
 
+		// A non-participating finger lifted (e.g. a palm/third touch): the pinch
+		// continues with its two locked pointers untouched.
+		if (isPinching && !liftedPinchPointer) return;
+
 		// ── Pinch ended: commit the final scale + pan ──
-		if (isPinching && gestureTracker && gestureTracker.count < 2) {
+		if (isPinching && liftedPinchPointer && gestureTracker) {
 			// Cancel any pending rAF so it doesn't fire after we commit
 			if (pinchRafId !== null) {
 				cancelAnimationFrame(pinchRafId);
@@ -1274,25 +1379,17 @@
 			}
 
 			if (pinchStartDistance > 0) {
-				// Compute final scale and render once
-				const currentDist =
-					gestureTracker.count === 1
-						? 0 // last finger lifted — use last known ratio
-						: gestureTracker.getPinchDistance();
-				let finalScale = $pdfState.scale;
-				if (currentDist > 0) {
-					const scaleRatio = currentDist / pinchStartDistance;
-					finalScale = Math.max(0.1, Math.min(10, pinchStartScale * scaleRatio));
-				} else if (lastPinchScale > 0) {
-					// Use last recorded scale value — no CSS parsing needed
-					finalScale = Math.max(0.1, Math.min(10, lastPinchScale));
-				}
+				// Compute final scale and render once. One of the locked pointers is
+				// now gone, so prefer the last value computed during the gesture.
+				const finalScale = lastPinchScale > 0 ? lastPinchScale : $pdfState.scale;
 
 				// Use the midpoint snapshot (captured before untrack) to recompute
-				// pan position if the rAF was cancelled and values are stale
+				// pan position if the rAF was cancelled and values are stale.
+				// Same anchored formula as the live frames so the commit doesn't jump.
 				if (freshMid) {
-					lastPinchPanX = pinchStartPanOffset.x + (freshMid.x - pinchStartMidpoint.x);
-					lastPinchPanY = pinchStartPanOffset.y + (freshMid.y - pinchStartMidpoint.y);
+					const pan = computePinchPan(freshMid, finalScale / pinchStartScale);
+					lastPinchPanX = pan.x;
+					lastPinchPanY = pan.y;
 				}
 
 				// Commit the visual pan position accumulated during the gesture
@@ -1317,6 +1414,11 @@
 			pinchStartPanOffset = { x: 0, y: 0 };
 			lastPinchPanX = 0;
 			lastPinchPanY = 0;
+			pinchPointerA = null;
+			pinchPointerB = null;
+			pinchAccumScale = 1;
+			prevPinchDist = 0;
+			prevPinchMid = { x: 0, y: 0 };
 
 			isPinching = false;
 			if (gestureTracker.count === 0) {
@@ -1578,8 +1680,34 @@
 		pdfState.update((state) => ({ ...state, scale: newScale }));
 	}
 
+	/**
+	 * Clear all in-flight touch gesture state. A failsafe so a stuck/ghost
+	 * pointer (e.g. from a missed pointerup) can never wedge pinch/pan: any
+	 * zoom-reset gives the user a clean slate.
+	 */
+	function resetGestureState() {
+		if (pinchRafId !== null) {
+			cancelAnimationFrame(pinchRafId);
+			pinchRafId = null;
+		}
+		if (panInertia) panInertia.cancel();
+		if (gestureTracker) gestureTracker.reset();
+		isPinching = false;
+		isPanning = false;
+		isPanConfirmed = false;
+		pinchStartDistance = 0;
+		pinchStartScale = 0;
+		lastPinchScale = 0;
+		pinchPointerA = null;
+		pinchPointerB = null;
+		pinchAccumScale = 1;
+		prevPinchDist = 0;
+		prevPinchMid = { x: 0, y: 0 };
+	}
+
 	export async function resetZoom() {
 		// Reset both zoom and pan position to center the PDF
+		resetGestureState();
 		panOffset = { x: 0, y: 0 };
 		const newScale = 1.0;
 		// CRITICAL: Render FIRST, update state AFTER
@@ -1596,6 +1724,7 @@
 			const containerWidth = containerDiv.clientWidth - (presentationMode ? 0 : 40); // Account for padding
 			const newScale = containerWidth / viewport.width;
 
+			resetGestureState();
 			panOffset = { x: 0, y: 0 };
 			// CRITICAL: Render FIRST, update state AFTER
 			await renderCurrentPage(newScale);
@@ -1614,6 +1743,7 @@
 			const containerHeight = containerDiv.clientHeight - (presentationMode ? 0 : TOOLBAR_HEIGHT); // Account for toolbar and page info
 			const newScale = containerHeight / viewport.height;
 
+			resetGestureState();
 			panOffset = { x: 0, y: 0 };
 			// CRITICAL: Render FIRST, update state AFTER
 			await renderCurrentPage(newScale);
@@ -1637,6 +1767,7 @@
 			const widthScale = containerWidth / viewport.width;
 			const newScale = Math.min(heightScale, widthScale);
 
+			resetGestureState();
 			panOffset = { x: 0, y: 0 };
 			// CRITICAL: Render FIRST, update state AFTER
 			await renderCurrentPage(newScale);
