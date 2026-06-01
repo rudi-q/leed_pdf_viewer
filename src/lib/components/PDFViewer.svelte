@@ -1538,7 +1538,14 @@
 
 		// Horizontal two-finger swipe pans a wide/zoomed page; no-op when it fits.
 		panHorizontalByDelta(pixelDeltaX);
-		scrollByDelta(pixelDelta);
+
+		// Skip vertical handling when the gesture is clearly horizontal-dominant, so a
+		// sideways swipe can't scroll or (when zoomed out) flip pages via vertical noise.
+		// Require horizontal to dominate by 2x so genuine vertical scrolls — which carry
+		// minor per-event deltaX jitter on trackpads — aren't suppressed.
+		if (Math.abs(pixelDeltaX) <= Math.abs(pixelDelta) * 2) {
+			scrollByDelta(pixelDelta);
+		}
 	}
 
 	export async function goToPage(pageNumber: number) {
