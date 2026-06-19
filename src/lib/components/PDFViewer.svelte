@@ -667,8 +667,13 @@
 		}
 	}
 
-	async function renderCurrentPage(newScale?: number) {
-		if (!pdfCanvas || !$pdfState.document || isRendering) return;
+	// Returns false ONLY when the render was skipped because another render is already
+	// in flight (isRendering). Callers needing a guaranteed paint — the wheel-zoom
+	// commit — retry on false. Any other outcome (rendered, errored, or nothing to
+	// render) returns true so those callers don't retry indefinitely.
+	async function renderCurrentPage(newScale?: number): Promise<boolean> {
+		if (!pdfCanvas || !$pdfState.document) return true;
+		if (isRendering) return false;
 
 		isRendering = true;
 		try {
@@ -787,8 +792,10 @@
 				console.warn('Could not extract link annotations:', linkError);
 				pageLinks = [];
 			}
+			return true;
 		} catch (error) {
 			console.error('Error rendering page:', error);
+			return true;
 		} finally {
 			isRendering = false;
 			
@@ -1552,6 +1559,40 @@
 		scrollByDelta(-ARROW_KEY_SCROLL_PX);
 	}
 
+	// Commit the accumulated Ctrl+wheel zoom: re-render the canvas crisply at the final
+	// scale, then swap the live CSS-scaled transform for the plain translate. Scheduled
+	// (and re-scheduled on retry) via wheelZoomDebounceId.
+	async function commitWheelZoom() {
+		const myDebounceId = wheelZoomDebounceId;
+		const finalScale = wheelAccumulatedScale;
+		const finalPanX = wheelCurrentPanX;
+		const finalPanY = wheelCurrentPanY;
+		// Commit pan first so the template re-render uses the correct position.
+		panOffset = { x: finalPanX, y: finalPanY };
+		const rendered = await renderCurrentPage(finalScale);
+		// A newer gesture (or a reset) may have replaced this commit while the render
+		// was in flight — bail so we don't clobber its accumulated state.
+		if (wheelZoomDebounceId !== myDebounceId) return;
+		if (!rendered) {
+			// Another render was in progress, so ours was skipped and the canvas is
+			// still at the old scale. Re-apply the visual CSS scale so the view stays
+			// correctly zoomed, then retry — never commit a scale we didn't paint.
+			const cssScale = finalScale / wheelGestureBaseScale;
+			if (contentWrapperDiv) {
+				contentWrapperDiv.style.transform = `translate(${finalPanX}px, ${finalPanY}px) scale(${cssScale})`;
+			}
+			wheelZoomDebounceId = setTimeout(commitWheelZoom, 80);
+			return;
+		}
+		wheelGestureBaseScale = finalScale;
+		// Reset to translate-only — canvas is now rendered at the correct scale.
+		if (contentWrapperDiv) {
+			contentWrapperDiv.style.transform = `translate(${finalPanX}px, ${finalPanY}px)`;
+		}
+		pdfState.update((s) => ({ ...s, scale: finalScale }));
+		wheelZoomDebounceId = null;
+	}
+
 	function handleWheel(event: WheelEvent) {
 		// Only handle wheel events that originate inside the PDF container.
 		// This prevents blocking scrolling on toolbar, thumbnails, modals, etc.
@@ -1601,25 +1642,7 @@
 
 			// Debounce the expensive canvas re-render; commit reactive state only then.
 			if (wheelZoomDebounceId !== null) clearTimeout(wheelZoomDebounceId);
-			wheelZoomDebounceId = setTimeout(async () => {
-				const myDebounceId = wheelZoomDebounceId;
-				const finalScale = wheelAccumulatedScale;
-				const finalPanX = wheelCurrentPanX;
-				const finalPanY = wheelCurrentPanY;
-				// Commit pan first so the template re-render uses the correct position.
-				panOffset = { x: finalPanX, y: finalPanY };
-				await renderCurrentPage(finalScale);
-				// A newer gesture may have started while the render was in flight — bail
-				// out to avoid clobbering its accumulated state.
-				if (wheelZoomDebounceId !== myDebounceId) return;
-				wheelGestureBaseScale = finalScale;
-				// Reset to translate-only — canvas is now rendered at the correct scale.
-				if (contentWrapperDiv) {
-					contentWrapperDiv.style.transform = `translate(${finalPanX}px, ${finalPanY}px)`;
-				}
-				pdfState.update((s) => ({ ...s, scale: finalScale }));
-				wheelZoomDebounceId = null;
-			}, 80);
+			wheelZoomDebounceId = setTimeout(commitWheelZoom, 80);
 			return;
 		}
 
