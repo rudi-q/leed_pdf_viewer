@@ -1162,6 +1162,10 @@
 	}
 
 	function handleContainerPointerDown(event: PointerEvent) {
+		// Cancel any in-flight pan inertia on a fresh pointer-down — including a
+		// stylus, so the page can't keep gliding under the pen while drawing.
+		if (panInertia) panInertia.cancel();
+
 		// Pinch / two-finger pan are TOUCH-only gestures. A stylus is handled
 		// entirely by the drawing overlay and must never feed the gesture tracker:
 		// a single missed pen pointerup would leave a ghost "finger" that turns
@@ -1169,7 +1173,6 @@
 		if (event.pointerType === 'pen') return;
 
 		if (event.pointerType === 'touch' && gestureTracker) gestureTracker.track(event);
-		if (panInertia) panInertia.cancel();
 
 		// ── Two-finger gesture starts (pinch / two-finger pan) ──
 		// Use >= 2 (not === 2) so a lingering ghost pointer can't block the start;
@@ -1689,6 +1692,12 @@
 		if (pinchRafId !== null) {
 			cancelAnimationFrame(pinchRafId);
 			pinchRafId = null;
+		}
+		// Abort any pending Ctrl+wheel zoom commit so its (now stale) accumulated
+		// scale/pan can't fire after — and clobber — a zoom reset / fit done here.
+		if (wheelZoomDebounceId !== null) {
+			clearTimeout(wheelZoomDebounceId);
+			wheelZoomDebounceId = null;
 		}
 		if (panInertia) panInertia.cancel();
 		if (gestureTracker) gestureTracker.reset();
