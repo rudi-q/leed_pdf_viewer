@@ -16,7 +16,6 @@
         "height": 600,
         "maximized": true,
         "resizable": true,
-        "center": true,
         "focus": true,
         "dragDropEnabled": false,
         "devtools": true
