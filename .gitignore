@@ -65,3 +65,4 @@ test-results/
 !URL_LOADING_FEATURE.md
 !docs/SEARCH_FEATURE.md
 !todo.md
+*.pkg

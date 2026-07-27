@@ -23,6 +23,7 @@
 		"tauri:dev": "tauri dev",
 		"tauri:build": "tauri build",
 		"tauri:build:debug": "tauri build --debug",
+		"tauri:build:appstore": "env -u APPLE_API_ISSUER -u APPLE_API_KEY -u APPLE_API_KEY_PATH -u APPLE_ID -u APPLE_PASSWORD APPLE_SIGNING_IDENTITY='3rd Party Mac Developer Application: DoublOne Studios Limited (85PR7THRT2)' tauri build --target universal-apple-darwin --bundles app",
 		"tauri:check": "cd src-tauri && cargo check"
 	},
 	"engines": {

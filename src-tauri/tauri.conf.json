@@ -63,7 +63,10 @@
         "rank": "Owner",
         "description": "LeedPDF Annotatable Document"
       }
-    ]
+    ],
+    "macOS": {
+      "entitlements": null
+    }
   },
   "plugins": {
     "shell": {
