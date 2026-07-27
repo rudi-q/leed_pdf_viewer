@@ -46,7 +46,7 @@
 	import TextSelectionOverlay from './TextSelectionOverlay.svelte';
 	import { TOOLBAR_HEIGHT } from '$lib/constants';
 	import { setWindowTitle } from '$lib/utils/tauriUtils';
-	import { GestureTracker, PanInertia } from '$lib/utils/gestureUtils';
+	import { GestureTracker, PanInertia, type Point2D } from '$lib/utils/gestureUtils';
 	import GestureHint from './GestureHint.svelte';
 
 	// Helper function to build window title with page info
@@ -121,8 +121,27 @@
 	let pinchStartDistance = 0;
 	let pinchStartScale = 0;
 	let lastPinchScale = 0; // updated every move; avoids regex-parsing CSS on pinch end
-	let pinchStartMidpoint = { x: 0, y: 0 }; // midpoint at gesture start for two-finger pan
+	let pinchStartMidpoint = { x: 0, y: 0 }; // midpoint at gesture start for two-finger pan (client coords)
 	let pinchStartPanOffset = { x: 0, y: 0 }; // panOffset snapshot at gesture start
+	// Container rect cached at gesture start. `cx`/`cy` are the half-extents, i.e.
+	// the wrapper's transform-origin (CSS default `center`) in container coords.
+	// Caching avoids a layout read on every pinch frame.
+	let pinchRect = { left: 0, top: 0, cx: 0, cy: 0 };
+	// The two pointer ids that started the pinch. The gesture is computed ONLY
+	// from these, so a stray third finger or a ghost pointer can't corrupt the
+	// distance/midpoint mid-gesture.
+	let pinchPointerA: number | null = null;
+	let pinchPointerB: number | null = null;
+	// Per-frame pinch state. We judge intent each frame (is the spread changing
+	// faster than the midpoint is moving?) so a two-finger drag scrolls without
+	// creeping into zoom, while spreading the fingers still zooms at any point in
+	// the gesture — the fluid pan-then-zoom feel of iPad Preview.
+	let pinchAccumScale = 1; // logical scale accumulated across zoom-dominant frames
+	let prevPinchDist = 0; // finger spread on the previous frame
+	let prevPinchMid = { x: 0, y: 0 }; // finger midpoint on the previous frame (client coords)
+	// A frame counts as zoom only if the spread changes more than the midpoint
+	// moves AND by more than this much — filters out sensor noise when near-still.
+	const ZOOM_FRAME_EPS_PX = 0.5;
 	let lastPinchPanX = 0; // visual-only pan X during pinch (committed on end)
 	let lastPinchPanY = 0; // visual-only pan Y during pinch (committed on end)
 	let pinchRafId: number | null = null; // rAF handle for batching two-finger updates
@@ -132,6 +151,11 @@
 	let isPinching = false;
 	const PAN_THRESHOLD = 5; // px dead zone before pan activates
 	let isTouchDevice = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+	let wheelZoomDebounceId: ReturnType<typeof setTimeout> | null = null;
+	let wheelGestureBaseScale = 1;   // rendered scale at gesture start (CSS scale denominator)
+	let wheelAccumulatedScale = 1;   // accumulated logical scale during gesture (avoids reading reactive pdfState mid-gesture)
+	let wheelCurrentPanX = 0;        // accumulated pan X during gesture (avoids writing reactive panOffset mid-gesture)
+	let wheelCurrentPanY = 0;
 
 	// Eraser gesture modifier: Alt for partial erase
 	let isAltEraseMode = false;
@@ -355,6 +379,11 @@
 		if (pinchRafId !== null) {
 			cancelAnimationFrame(pinchRafId);
 			pinchRafId = null;
+		}
+
+		if (wheelZoomDebounceId !== null) {
+			clearTimeout(wheelZoomDebounceId);
+			wheelZoomDebounceId = null;
 		}
 
 		if (pdfManager) {
@@ -638,8 +667,13 @@
 		}
 	}
 
-	async function renderCurrentPage(newScale?: number) {
-		if (!pdfCanvas || !$pdfState.document || isRendering) return;
+	// Returns false ONLY when the render was skipped because another render is already
+	// in flight (isRendering). Callers needing a guaranteed paint — the wheel-zoom
+	// commit — retry on false. Any other outcome (rendered, errored, or nothing to
+	// render) returns true so those callers don't retry indefinitely.
+	async function renderCurrentPage(newScale?: number): Promise<boolean> {
+		if (!pdfCanvas || !$pdfState.document) return true;
+		if (isRendering) return false;
 
 		isRendering = true;
 		try {
@@ -758,8 +792,10 @@
 				console.warn('Could not extract link annotations:', linkError);
 				pageLinks = [];
 			}
+			return true;
 		} catch (error) {
 			console.error('Error rendering page:', error);
+			return true;
 		} finally {
 			isRendering = false;
 			
@@ -1133,21 +1169,47 @@
 	}
 
 	function handleContainerPointerDown(event: PointerEvent) {
-		if (gestureTracker) gestureTracker.track(event);
+		// Cancel any in-flight pan inertia on a fresh pointer-down — including a
+		// stylus, so the page can't keep gliding under the pen while drawing.
 		if (panInertia) panInertia.cancel();
 
+		// Pinch / two-finger pan are TOUCH-only gestures. A stylus is handled
+		// entirely by the drawing overlay and must never feed the gesture tracker:
+		// a single missed pen pointerup would leave a ghost "finger" that turns
+		// later one-finger pans into accidental zooms (and survives a zoom reset).
+		if (event.pointerType === 'pen') return;
+
+		if (event.pointerType === 'touch' && gestureTracker) gestureTracker.track(event);
+
 		// ── Two-finger gesture starts (pinch / two-finger pan) ──
-		if (gestureTracker && gestureTracker.count === 2) {
+		// Use >= 2 (not === 2) so a lingering ghost pointer can't block the start;
+		// we lock onto a definite pair below.
+		if (gestureTracker && !isPinching && gestureTracker.count >= 2) {
+			// Lock the gesture to this finger plus the most-recent other pointer.
+			const other = gestureTracker.otherMostRecentId(event.pointerId);
+			if (other === null) return; // shouldn't happen with count >= 2
+			pinchPointerA = other;
+			pinchPointerB = event.pointerId;
+
 			// Cancel any single-finger pan that was in progress
 			isPanning = false;
 			isPanConfirmed = false;
 			isPinching = true;
-			pinchStartDistance = gestureTracker.getPinchDistance();
+			pinchStartDistance = gestureTracker.distanceBetween(pinchPointerA, pinchPointerB) ?? 0;
 			pinchStartScale = $pdfState.scale;
-			pinchStartMidpoint = gestureTracker.getPinchMidpoint();
+			pinchStartMidpoint = gestureTracker.midpointBetween(pinchPointerA, pinchPointerB) ?? {
+				x: 0,
+				y: 0
+			};
 			pinchStartPanOffset = { ...panOffset };
+			const rect = containerDiv.getBoundingClientRect();
+			pinchRect = { left: rect.left, top: rect.top, cx: rect.width / 2, cy: rect.height / 2 };
 			lastPinchPanX = panOffset.x;
 			lastPinchPanY = panOffset.y;
+			lastPinchScale = pinchStartScale;
+			pinchAccumScale = pinchStartScale;
+			prevPinchDist = pinchStartDistance;
+			prevPinchMid = { ...pinchStartMidpoint };
 			event.preventDefault();
 
 			// Also cancel any drawing that may have started from the first finger
@@ -1156,6 +1218,13 @@
 				drawingEngine.endDrawing();
 				currentDrawingPath = [];
 			}
+			return;
+		}
+
+		// A pinch is already in progress (this is a 3rd+ finger): ignore it so it
+		// can't start a competing single-finger pan or capture the pointer.
+		if (isPinching) {
+			event.preventDefault();
 			return;
 		}
 
@@ -1176,40 +1245,91 @@
 	}
 
 	/**
+	 * Compute the translate component for a pinch gesture so that the document
+	 * point under the starting finger midpoint stays pinned under the current
+	 * midpoint, while scaled by `cssScale`.
+	 *
+	 * The wrapper scales around its center (CSS transform-origin default), so the
+	 * formula folds in that pivot `C`. With `translate(pan) scale(cssScale)` and
+	 * origin `C`, a point P maps to `C + pan + cssScale*(layout(P) - C)`. Pinning
+	 * the anchor (whose start screen pos is the start midpoint) to the current
+	 * midpoint and solving for `pan` gives the expression below. It is chosen so
+	 * the live CSS transform and the post-commit re-render (canvas grows from its
+	 * center) resolve to the same screen position — no jump on release.
+	 *
+	 * All inputs/outputs are in container-relative coordinates.
+	 */
+	function computePinchPan(currentMidpoint: Point2D, cssScale: number): Point2D {
+		const curMidX = currentMidpoint.x - pinchRect.left;
+		const curMidY = currentMidpoint.y - pinchRect.top;
+		const startMidX = pinchStartMidpoint.x - pinchRect.left;
+		const startMidY = pinchStartMidpoint.y - pinchRect.top;
+		return {
+			x: curMidX - pinchRect.cx - cssScale * (startMidX - pinchStartPanOffset.x - pinchRect.cx),
+			y: curMidY - pinchRect.cy - cssScale * (startMidY - pinchStartPanOffset.y - pinchRect.cy)
+		};
+	}
+
+	/**
 	 * rAF callback: compute pinch scale + two-finger pan in one batched frame.
 	 * By the time this fires, both fingers' pointermove events have been
 	 * processed by gestureTracker, so midpoint & distance are stable.
+	 *
+	 * Pan is always live (the midpoint is tracked 1:1, like two-finger scroll).
+	 * Zoom only accrues on frames where the finger spread changes faster than the
+	 * midpoint moves, so panning never creeps into zoom, yet spreading the fingers
+	 * zooms at any moment — including right after a pan.
 	 */
 	function applyPinchFrame() {
 		pinchRafId = null; // allow next frame to be scheduled
-		if (!gestureTracker || gestureTracker.count < 2 || pinchStartDistance <= 0) return;
+		if (!gestureTracker || pinchPointerA === null || pinchPointerB === null || pinchStartDistance <= 0)
+			return;
 
-		// Scale
-		const currentDist = gestureTracker.getPinchDistance();
-		const scaleRatio = currentDist / pinchStartDistance;
-		const newScale = Math.max(0.1, Math.min(10, pinchStartScale * scaleRatio));
+		// Distance/midpoint come ONLY from the two locked pointers.
+		const currentDist = gestureTracker.distanceBetween(pinchPointerA, pinchPointerB);
+		const currentMidpoint = gestureTracker.midpointBetween(pinchPointerA, pinchPointerB);
+		if (currentDist === null || currentMidpoint === null || currentDist <= 0) return;
 
-		// Pan: simple midpoint delta from gesture start
-		const currentMidpoint = gestureTracker.getPinchMidpoint();
-		lastPinchPanX = pinchStartPanOffset.x + (currentMidpoint.x - pinchStartMidpoint.x);
-		lastPinchPanY = pinchStartPanOffset.y + (currentMidpoint.y - pinchStartMidpoint.y);
+		// Per-frame intent: zoom only when the spread out-changes the midpoint move.
+		const dSpread = currentDist - prevPinchDist;
+		const dMid = Math.hypot(currentMidpoint.x - prevPinchMid.x, currentMidpoint.y - prevPinchMid.y);
+		if (Math.abs(dSpread) > dMid && Math.abs(dSpread) > ZOOM_FRAME_EPS_PX && prevPinchDist > 0) {
+			pinchAccumScale = Math.max(0.1, Math.min(10, pinchAccumScale * (currentDist / prevPinchDist)));
+		}
+		prevPinchDist = currentDist;
+		prevPinchMid = { x: currentMidpoint.x, y: currentMidpoint.y };
 
-		// Apply CSS transform for smooth visual feedback
-		const cssScale = newScale / $pdfState.scale;
-		lastPinchScale = newScale;
+		const cssScale = pinchAccumScale / pinchStartScale;
+
+		// Anchor the zoom around the finger midpoint AND track midpoint movement
+		// (two-finger pan) in one step. See computePinchPan() for the derivation.
+		const pan = computePinchPan(currentMidpoint, cssScale);
+		lastPinchPanX = pan.x;
+		lastPinchPanY = pan.y;
+
+		lastPinchScale = pinchAccumScale;
 		if (contentWrapperDiv) {
 			contentWrapperDiv.style.transform = `translate(${lastPinchPanX}px, ${lastPinchPanY}px) scale(${cssScale})`;
 		}
 	}
 
 	function handleContainerPointerMove(event: PointerEvent) {
-		if (gestureTracker) gestureTracker.track(event);
+		// Touch-only, mirroring handleContainerPointerDown — never track the pen.
+		if (event.pointerType === 'touch' && gestureTracker) gestureTracker.track(event);
 
 		// ── Pinch-to-zoom + two-finger pan ──
 		// We only mark the rAF as needed here; the actual computation is
 		// deferred to applyPinchFrame() so that BOTH fingers' pointermove
 		// events are processed before we compute midpoint & distance.
-		if (isPinching && gestureTracker && gestureTracker.count >= 2 && pinchStartDistance > 0) {
+		if (
+			isPinching &&
+			gestureTracker &&
+			pinchPointerA !== null &&
+			pinchPointerB !== null &&
+			gestureTracker.has(pinchPointerA) &&
+			gestureTracker.has(pinchPointerB) &&
+			pinchStartDistance > 0
+		) {
 			event.preventDefault();
 			if (pinchRafId === null) {
 				pinchRafId = requestAnimationFrame(applyPinchFrame);
@@ -1244,15 +1364,24 @@
 	}
 
 	async function handleContainerPointerUp(event: PointerEvent) {
-		// Snapshot midpoint BEFORE untracking so we can compute final pan position
+		// Is the lifted pointer one of the two driving the pinch?
+		const liftedPinchPointer =
+			isPinching && (event.pointerId === pinchPointerA || event.pointerId === pinchPointerB);
+
+		// Snapshot the pinch midpoint BEFORE untracking so we can compute the
+		// final pan position from the two locked pointers while both are present.
 		let freshMid: { x: number; y: number } | null = null;
-		if (gestureTracker && gestureTracker.count >= 2) {
-			freshMid = gestureTracker.getPinchMidpoint();
+		if (isPinching && pinchPointerA !== null && pinchPointerB !== null) {
+			freshMid = gestureTracker?.midpointBetween(pinchPointerA, pinchPointerB) ?? null;
 		}
 		if (gestureTracker) gestureTracker.untrack(event);
 
+		// A non-participating finger lifted (e.g. a palm/third touch): the pinch
+		// continues with its two locked pointers untouched.
+		if (isPinching && !liftedPinchPointer) return;
+
 		// ── Pinch ended: commit the final scale + pan ──
-		if (isPinching && gestureTracker && gestureTracker.count < 2) {
+		if (isPinching && liftedPinchPointer && gestureTracker) {
 			// Cancel any pending rAF so it doesn't fire after we commit
 			if (pinchRafId !== null) {
 				cancelAnimationFrame(pinchRafId);
@@ -1260,25 +1389,17 @@
 			}
 
 			if (pinchStartDistance > 0) {
-				// Compute final scale and render once
-				const currentDist =
-					gestureTracker.count === 1
-						? 0 // last finger lifted — use last known ratio
-						: gestureTracker.getPinchDistance();
-				let finalScale = $pdfState.scale;
-				if (currentDist > 0) {
-					const scaleRatio = currentDist / pinchStartDistance;
-					finalScale = Math.max(0.1, Math.min(10, pinchStartScale * scaleRatio));
-				} else if (lastPinchScale > 0) {
-					// Use last recorded scale value — no CSS parsing needed
-					finalScale = Math.max(0.1, Math.min(10, lastPinchScale));
-				}
+				// Compute final scale and render once. One of the locked pointers is
+				// now gone, so prefer the last value computed during the gesture.
+				const finalScale = lastPinchScale > 0 ? lastPinchScale : $pdfState.scale;
 
 				// Use the midpoint snapshot (captured before untrack) to recompute
-				// pan position if the rAF was cancelled and values are stale
+				// pan position if the rAF was cancelled and values are stale.
+				// Same anchored formula as the live frames so the commit doesn't jump.
 				if (freshMid) {
-					lastPinchPanX = pinchStartPanOffset.x + (freshMid.x - pinchStartMidpoint.x);
-					lastPinchPanY = pinchStartPanOffset.y + (freshMid.y - pinchStartMidpoint.y);
+					const pan = computePinchPan(freshMid, finalScale / pinchStartScale);
+					lastPinchPanX = pan.x;
+					lastPinchPanY = pan.y;
 				}
 
 				// Commit the visual pan position accumulated during the gesture
@@ -1303,6 +1424,11 @@
 			pinchStartPanOffset = { x: 0, y: 0 };
 			lastPinchPanX = 0;
 			lastPinchPanY = 0;
+			pinchPointerA = null;
+			pinchPointerB = null;
+			pinchAccumScale = 1;
+			prevPinchDist = 0;
+			prevPinchMid = { x: 0, y: 0 };
 
 			isPinching = false;
 			if (gestureTracker.count === 0) {
@@ -1395,6 +1521,33 @@
 		}
 	}
 
+	/**
+	 * Horizontal counterpart to scrollByDelta's pan: shifts panOffset.x when the
+	 * page is wider than the viewport (e.g. zoomed in or a landscape page).
+	 * Unlike the vertical axis there is no page navigation here.
+	 * Positive delta = swipe right, which moves the content left to reveal the
+	 * right side (matching scrollByDelta's vertical sign convention).
+	 */
+	function panHorizontalByDelta(delta: number) {
+		if (!pdfCanvas || !containerDiv || delta === 0) return;
+
+		const canvasWidth = parseFloat(pdfCanvas.style.width) || 0;
+		const viewportWidth = containerDiv.clientWidth;
+		const overflowX = canvasWidth - viewportWidth;
+
+		if (overflowX <= 0) return; // page fits horizontally — nothing to pan
+
+		const maxPanRight = overflowX / 2; // upper bound: reveals the left edge
+		const maxPanLeft = -(overflowX / 2); // lower bound: reveals the right edge
+		const scrollAmount = Math.min(Math.abs(delta), 100);
+
+		if (delta > 0) {
+			panOffset = { ...panOffset, x: Math.max(panOffset.x - scrollAmount, maxPanLeft) };
+		} else {
+			panOffset = { ...panOffset, x: Math.min(panOffset.x + scrollAmount, maxPanRight) };
+		}
+	}
+
 	// Fixed scroll amount for arrow key presses (in pixels)
 	const ARROW_KEY_SCROLL_PX = 60;
 
@@ -1406,20 +1559,90 @@
 		scrollByDelta(-ARROW_KEY_SCROLL_PX);
 	}
 
+	// Commit the accumulated Ctrl+wheel zoom: re-render the canvas crisply at the final
+	// scale, then swap the live CSS-scaled transform for the plain translate. Scheduled
+	// (and re-scheduled on retry) via wheelZoomDebounceId.
+	async function commitWheelZoom() {
+		const myDebounceId = wheelZoomDebounceId;
+		const finalScale = wheelAccumulatedScale;
+		const finalPanX = wheelCurrentPanX;
+		const finalPanY = wheelCurrentPanY;
+		// Commit pan first so the template re-render uses the correct position.
+		panOffset = { x: finalPanX, y: finalPanY };
+		const rendered = await renderCurrentPage(finalScale);
+		// A newer gesture (or a reset) may have replaced this commit while the render
+		// was in flight — bail so we don't clobber its accumulated state.
+		if (wheelZoomDebounceId !== myDebounceId) return;
+		if (!rendered) {
+			// Another render was in progress, so ours was skipped and the canvas is
+			// still at the old scale. Re-apply the visual CSS scale so the view stays
+			// correctly zoomed, then retry — never commit a scale we didn't paint.
+			const cssScale = finalScale / wheelGestureBaseScale;
+			if (contentWrapperDiv) {
+				contentWrapperDiv.style.transform = `translate(${finalPanX}px, ${finalPanY}px) scale(${cssScale})`;
+			}
+			wheelZoomDebounceId = setTimeout(commitWheelZoom, 80);
+			return;
+		}
+		wheelGestureBaseScale = finalScale;
+		// Reset to translate-only — canvas is now rendered at the correct scale.
+		if (contentWrapperDiv) {
+			contentWrapperDiv.style.transform = `translate(${finalPanX}px, ${finalPanY}px)`;
+		}
+		pdfState.update((s) => ({ ...s, scale: finalScale }));
+		wheelZoomDebounceId = null;
+	}
+
 	function handleWheel(event: WheelEvent) {
 		// Only handle wheel events that originate inside the PDF container.
 		// This prevents blocking scrolling on toolbar, thumbnails, modals, etc.
 		if (!containerDiv?.contains(event.target as Node)) return;
 
 		if (event.ctrlKey) {
-			// Ctrl + scroll = zoom
+			// Ctrl + scroll (or trackpad pinch) = smooth continuous zoom anchored to cursor.
+			//
+			// IMPORTANT: we deliberately avoid writing to reactive `panOffset` or calling
+			// `pdfState.update()` during the gesture. Any reactive write triggers a Svelte
+			// re-render which resets contentWrapperDiv.style.transform back to the
+			// template's translate-only value, destroying the CSS scale. We mirror the
+			// touch-pinch pattern: accumulate in local vars, commit only on gesture end.
 			event.preventDefault();
 
-			if (event.deltaY < 0) {
-				zoomIn();
-			} else {
-				zoomOut();
+			// First event of this gesture — snapshot state so we never read reactive
+			// stores mid-gesture.
+			if (wheelZoomDebounceId === null) {
+				wheelGestureBaseScale = $pdfState.scale;
+				wheelAccumulatedScale = $pdfState.scale;
+				wheelCurrentPanX = panOffset.x;
+				wheelCurrentPanY = panOffset.y;
 			}
+
+			const prevScale = wheelAccumulatedScale;
+			// Normalize deltaY to pixels (Firefox reports lines, some browsers report pages).
+			const LINE_HEIGHT = 16;
+			let zoomDelta = event.deltaY;
+			if (event.deltaMode === 1) zoomDelta *= LINE_HEIGHT;
+			else if (event.deltaMode === 2) zoomDelta *= containerDiv.clientHeight;
+			const factor = Math.pow(0.999, zoomDelta);
+			wheelAccumulatedScale = Math.max(0.1, Math.min(10, prevScale * factor));
+
+			// Cursor-anchored pan: keep the document point under the cursor fixed.
+			const rect = containerDiv.getBoundingClientRect();
+			const cursorX = event.clientX - rect.left;
+			const cursorY = event.clientY - rect.top;
+			wheelCurrentPanX = cursorX - (cursorX - wheelCurrentPanX) * (wheelAccumulatedScale / prevScale);
+			wheelCurrentPanY = cursorY - (cursorY - wheelCurrentPanY) * (wheelAccumulatedScale / prevScale);
+
+			// Apply visual scale immediately — no reactive writes so Svelte won't
+			// override this transform until we commit at gesture end.
+			const cssScale = wheelAccumulatedScale / wheelGestureBaseScale;
+			if (contentWrapperDiv) {
+				contentWrapperDiv.style.transform = `translate(${wheelCurrentPanX}px, ${wheelCurrentPanY}px) scale(${cssScale})`;
+			}
+
+			// Debounce the expensive canvas re-render; commit reactive state only then.
+			if (wheelZoomDebounceId !== null) clearTimeout(wheelZoomDebounceId);
+			wheelZoomDebounceId = setTimeout(commitWheelZoom, 80);
 			return;
 		}
 
@@ -1428,14 +1651,29 @@
 
 		if (!pdfCanvas || !containerDiv) return;
 
-		// Normalize deltaY to pixels across browsers.
+		// Normalize deltaX/deltaY to pixels across browsers.
 		// Firefox reports deltaMode=1 (lines), most others report deltaMode=0 (pixels).
 		const LINE_HEIGHT = 16;
 		let pixelDelta = event.deltaY;
-		if (event.deltaMode === 1) pixelDelta *= LINE_HEIGHT;
-		else if (event.deltaMode === 2) pixelDelta *= containerDiv.clientHeight;
+		let pixelDeltaX = event.deltaX;
+		if (event.deltaMode === 1) {
+			pixelDelta *= LINE_HEIGHT;
+			pixelDeltaX *= LINE_HEIGHT;
+		} else if (event.deltaMode === 2) {
+			pixelDelta *= containerDiv.clientHeight;
+			pixelDeltaX *= containerDiv.clientWidth;
+		}
 
-		scrollByDelta(pixelDelta);
+		// Horizontal two-finger swipe pans a wide/zoomed page; no-op when it fits.
+		panHorizontalByDelta(pixelDeltaX);
+
+		// Skip vertical handling when the gesture is clearly horizontal-dominant, so a
+		// sideways swipe can't scroll or (when zoomed out) flip pages via vertical noise.
+		// Require horizontal to dominate by 2x so genuine vertical scrolls — which carry
+		// minor per-event deltaX jitter on trackpads — aren't suppressed.
+		if (Math.abs(pixelDeltaX) <= Math.abs(pixelDelta) * 2) {
+			scrollByDelta(pixelDelta);
+		}
 	}
 
 	export async function goToPage(pageNumber: number) {
@@ -1468,8 +1706,40 @@
 		pdfState.update((state) => ({ ...state, scale: newScale }));
 	}
 
+	/**
+	 * Clear all in-flight touch gesture state. A failsafe so a stuck/ghost
+	 * pointer (e.g. from a missed pointerup) can never wedge pinch/pan: any
+	 * zoom-reset gives the user a clean slate.
+	 */
+	function resetGestureState() {
+		if (pinchRafId !== null) {
+			cancelAnimationFrame(pinchRafId);
+			pinchRafId = null;
+		}
+		// Abort any pending Ctrl+wheel zoom commit so its (now stale) accumulated
+		// scale/pan can't fire after — and clobber — a zoom reset / fit done here.
+		if (wheelZoomDebounceId !== null) {
+			clearTimeout(wheelZoomDebounceId);
+			wheelZoomDebounceId = null;
+		}
+		if (panInertia) panInertia.cancel();
+		if (gestureTracker) gestureTracker.reset();
+		isPinching = false;
+		isPanning = false;
+		isPanConfirmed = false;
+		pinchStartDistance = 0;
+		pinchStartScale = 0;
+		lastPinchScale = 0;
+		pinchPointerA = null;
+		pinchPointerB = null;
+		pinchAccumScale = 1;
+		prevPinchDist = 0;
+		prevPinchMid = { x: 0, y: 0 };
+	}
+
 	export async function resetZoom() {
 		// Reset both zoom and pan position to center the PDF
+		resetGestureState();
 		panOffset = { x: 0, y: 0 };
 		const newScale = 1.0;
 		// CRITICAL: Render FIRST, update state AFTER
@@ -1486,6 +1756,7 @@
 			const containerWidth = containerDiv.clientWidth - (presentationMode ? 0 : 40); // Account for padding
 			const newScale = containerWidth / viewport.width;
 
+			resetGestureState();
 			panOffset = { x: 0, y: 0 };
 			// CRITICAL: Render FIRST, update state AFTER
 			await renderCurrentPage(newScale);
@@ -1504,6 +1775,7 @@
 			const containerHeight = containerDiv.clientHeight - (presentationMode ? 0 : TOOLBAR_HEIGHT); // Account for toolbar and page info
 			const newScale = containerHeight / viewport.height;
 
+			resetGestureState();
 			panOffset = { x: 0, y: 0 };
 			// CRITICAL: Render FIRST, update state AFTER
 			await renderCurrentPage(newScale);
@@ -1527,6 +1799,7 @@
 			const widthScale = containerWidth / viewport.width;
 			const newScale = Math.min(heightScale, widthScale);
 
+			resetGestureState();
 			panOffset = { x: 0, y: 0 };
 			// CRITICAL: Render FIRST, update state AFTER
 			await renderCurrentPage(newScale);

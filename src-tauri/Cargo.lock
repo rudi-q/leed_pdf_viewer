@@ -2459,7 +2459,7 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "leed-pdf"
-version = "2.33.1"
+version = "2.35.0"
 dependencies = [
  "font-kit",
  "image",
