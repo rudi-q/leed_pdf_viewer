@@ -16,11 +16,11 @@
       items: [
         {
           question: 'How do I start using LeedPDF?',
-          answer: 'Simply visit leed.my and either upload a PDF file or paste a PDF URL. No registration or download required!'
+          answer: 'LeedPDF is available as a native desktop app for macOS and Windows, or use the web version at leed.my. Simply open the app and upload a PDF file or paste a PDF URL. No registration required!'
         },
         {
           question: 'What file formats are supported?',
-          answer: 'LeedPDF supports standard PDF files up to 50MB. You can upload local files or load PDFs from URLs (including Dropbox links).'
+          answer: 'LeedPDF supports standard PDF files up to 50MB, Markdown files (.md), and LeedPDF files (.lpdf). You can upload local files or load PDFs from URLs (including Dropbox links).'
         },
         {
           question: 'Do I need to create an account?',
@@ -28,7 +28,7 @@
         },
         {
           question: 'Is my data safe?',
-          answer: 'Absolutely. All processing happens locally in your browser. Your PDFs never leave your device or get uploaded to our servers.'
+          answer: 'Absolutely. All processing happens locally on your device. Your PDFs never leave your device or get uploaded to our servers.'
         }
       ]
     },
@@ -39,7 +39,7 @@
       items: [
         {
           question: 'How do I select different tools?',
-          answer: 'Use the toolbar at the top or keyboard shortcuts: 1 (Pencil), 2 (Eraser), 3 (Text), 4 (Rectangle), 5 (Circle), 6 (Arrow), 7 (Star), 8 (Highlight), 9 (Notes).'
+          answer: 'Use the toolbar at the top or keyboard shortcuts: 1 (Pencil), 2 (Eraser), 3 (Text), 4 (Arrow), 5 (Highlighter), 6 (Sticky Note), S (Stamps).'
         },
         {
           question: 'Can I change colors and sizes?',
@@ -85,19 +85,19 @@
       items: [
         {
           question: 'What are the essential keyboard shortcuts?',
-          answer: 'Numbers 1-9 select tools, Arrow keys navigate pages, Ctrl+Z/Y for undo/redo, W/H for fit width/height, T for thumbnails, U to upload, F for focus mode.'
+          answer: 'Numbers 1-6 and S select tools, Arrow keys (← →) navigate pages, Ctrl+Z/Y for undo/redo, W/H for fit width/height, T for thumbnails, U to upload, F for focus mode, F11 for fullscreen.'
+        },
+        {
+          question: 'How do I zoom?',
+          answer: 'Press Ctrl + Plus (+) to zoom in, Ctrl + Minus (-) to zoom out, and Ctrl + 0 to reset zoom. You can also use Ctrl + Scroll wheel to zoom.'
         },
         {
           question: 'How do I undo and redo changes?',
           answer: 'Press Ctrl+Z to undo and Ctrl+Y or Ctrl+Shift+Z to redo. These work for all drawing and annotation actions.'
         },
         {
-          question: 'Is there a fullscreen mode?',
-          answer: 'Yes! Press F11 to enter fullscreen mode. Press Escape or F11 again to exit.'
-        },
-        {
           question: 'How do I access help quickly?',
-          answer: 'Press ? (question mark) or F1 to open the keyboard shortcuts panel from anywhere in the app.'
+          answer: 'Press ? (question mark) or F1 to open the keyboard shortcuts panel from anywhere in the app. Press Esc to close dialogs.'
         }
       ]
     },
@@ -108,19 +108,19 @@
       items: [
         {
           question: 'How do I export my annotated PDF?',
-          answer: 'Click the export button in the toolbar or use the file menu. Your annotations will be embedded in the exported PDF.'
+          answer: 'Click the export button in the toolbar to save your annotated PDF. You can also export as LPDF (LeedPDF format) to preserve editing capabilities, or as DOCX for Word documents.'
         },
         {
           question: 'Can I load PDFs from cloud storage?',
-          answer: 'Yes! You can paste direct links to PDFs from Dropbox, Google Drive, or any publicly accessible URL.'
+          answer: 'Yes! You can paste direct links to PDFs from Dropbox, Google Drive, or any publicly accessible URL. The PDF will be loaded directly into the app.'
         },
         {
           question: 'Does LeedPDF work on tablets?',
-          answer: 'Absolutely! LeedPDF is optimized for touch devices and works great with styluses like Apple Pencil.'
+          answer: 'Yes! The web version works on tablets and is optimized for touch devices. It works great with styluses like Apple Pencil on iPad.'
         },
         {
           question: 'Can I work offline?',
-          answer: 'Yes! LeedPDF is a PWA (Progressive Web App) that works offline after your first visit. You can annotate local PDFs without internet.'
+          answer: 'Yes! The desktop app works completely offline. All processing happens locally on your device, so you can annotate PDFs anytime without an internet connection.'
         }
       ]
     },
@@ -131,19 +131,19 @@
       items: [
         {
           question: 'My PDF won\'t load. What should I do?',
-          answer: 'Check that the file is a valid PDF under 50MB. For URL loading, ensure the link is publicly accessible and ends with .pdf.'
+          answer: 'Check that the file is a valid PDF under 50MB. For URL loading, ensure the link is publicly accessible and ends with .pdf. Try restarting the app if issues persist.'
         },
         {
           question: 'The drawing feels laggy. How can I improve performance?',
-          answer: 'Try reducing the zoom level, closing other browser tabs, or switching to a simpler drawing tool. Performance improves on modern devices.'
+          answer: 'Try reducing the zoom level or switching to a simpler drawing tool. Performance is best on modern devices. In the desktop app, closing other applications can also help.'
         },
         {
           question: 'My annotations disappeared. Can I recover them?',
-          answer: 'LeedPDF auto-saves your work locally. Try refreshing the page or uploading the same file again to restore your annotations.'
+          answer: 'LeedPDF auto-saves your work locally. Try reopening the same file to restore your annotations. For important work, regularly export to LPDF format as a backup.'
         },
         {
           question: 'Can I use LeedPDF on my phone?',
-          answer: 'Yes! LeedPDF works on mobile browsers. For the best experience on small screens, use landscape orientation and focus mode (F key).'
+          answer: 'Yes! The web version works on mobile browsers. For the best experience on small screens, use landscape orientation and focus mode (F key). The desktop app is available for macOS and Windows.'
         }
       ]
     },
@@ -154,11 +154,11 @@
       items: [
         {
           question: 'How do I report a bug?',
-          answer: 'Found a bug? Please report it on our <a href="https://github.com/rudi-q/leed_pdf_viewer/issues" target="_blank" rel="noopener" class="text-sage hover:text-sage/80 underline">GitHub Issues page</a>. Include details about what you were doing when the bug occurred and your browser/device information.'
+          answer: 'Found a bug? Please report it on our <a href="https://github.com/rudi-q/leed_pdf_viewer/issues" target="_blank" rel="noopener" class="text-sage hover:text-sage/80 underline">GitHub Issues page</a>. Include details about what you were doing when the bug occurred and your device/OS information.'
         },
         {
-          question: 'How can I request a new feature?',
-          answer: 'Have an idea for a new feature? We\'d love to hear it! Submit your feature request on <a href="https://github.com/rudi-q/leed_pdf_viewer/issues" target="_blank" rel="noopener" class="text-sage hover:text-sage/80 underline">GitHub Issues</a>. Describe your use case and how the feature would help you.'
+          question: 'How can I submit feedback?',
+          answer: 'We\'d love to hear your thoughts! Email us at <a href="mailto:write@leed.my" class="text-sage hover:text-sage/80 underline">write@leed.my</a> or submit a feature request on <a href="https://github.com/rudi-q/leed_pdf_viewer/issues" target="_blank" rel="noopener" class="text-sage hover:text-sage/80 underline">GitHub Issues</a>.'
         },
         {
           question: 'Is there a community or forum?',
@@ -166,7 +166,7 @@
         },
         {
           question: 'How can I contribute to the project?',
-          answer: 'LeedPDF is open source! You can contribute code, report bugs, suggest features, or help with documentation. Check out our Contributing Guide on GitHub for more information.'
+          answer: 'LeedPDF is open source! You can contribute code, report bugs, suggest features, or help with documentation. Check out our <a href="https://github.com/rudi-q/leed_pdf_viewer/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener" class="text-sage hover:text-sage/80 underline">Contributing Guide</a> on GitHub.'
         }
       ]
     }

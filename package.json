@@ -22,6 +22,8 @@
 		"test:e2e": "playwright test",
 		"tauri:dev": "tauri dev",
 		"tauri:build": "tauri build",
+		"tauri:build:appstore": "tauri build --config src-tauri/tauri.appstore.json --target universal-apple-darwin",
+		"release:appstore": "./macos.sh",
 		"tauri:build:debug": "tauri build --debug",
 		"tauri:build:appstore": "env -u APPLE_API_ISSUER -u APPLE_API_KEY -u APPLE_API_KEY_PATH -u APPLE_ID -u APPLE_PASSWORD APPLE_SIGNING_IDENTITY='3rd Party Mac Developer Application: DoublOne Studios Limited (85PR7THRT2)' tauri build --target universal-apple-darwin --bundles app",
 		"tauri:check": "cd src-tauri && cargo check"
@@ -74,6 +76,8 @@
 		"@tauri-apps/plugin-deep-link": "^2.4.9",
 		"@tauri-apps/plugin-dialog": "^2.7.1",
 		"@tauri-apps/plugin-fs": "^2.5.1",
+    "@tauri-apps/plugin-http": "^2.5.7",
+		"@tauri-apps/plugin-os": "^2.3.2",
 		"@tauri-apps/plugin-process": "^2.3.1",
 		"@tauri-apps/plugin-shell": "^2.3.5",
 		"@tauri-apps/plugin-updater": "~2.10.1",
