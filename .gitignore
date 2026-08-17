@@ -14,6 +14,8 @@ src-tauri/target/
 src-tauri/gen/
 *.pkg
 appstore-build/
+appstore_build.log
+component.plist
 
 # Apple Development & macOS
 *.p12
