@@ -9,7 +9,13 @@
     "main"
   ],
   "permissions": [
-    "updater:default",
-    "core:window:allow-set-title"
+    "core:default",
+    "core:window:allow-create",
+    "core:window:allow-set-title",
+    "fs:default",
+    "dialog:default",
+    "shell:default",
+    "deep-link:default",
+    "updater:default"
   ]
 }

@@ -10,14 +10,18 @@
 	import { fileStorage } from '$lib/utils/fileStorageUtils';
 	import { licenseManager } from '$lib/utils/licenseManager';
 	import { initializeFonts } from '$lib/stores/drawingStore';
-	import { browser } from '$app/environment';
+	import { browser, dev } from '$app/environment';
 	import { onMount } from 'svelte';
-	import { isTauri } from '$lib/utils/tauriUtils';
+	import { isTauri, detectOS } from '$lib/utils/tauriUtils';
 	import { goto } from '$app/navigation';
 	import { getCurrent } from '@tauri-apps/plugin-deep-link';
 	import { listen } from '@tauri-apps/api/event';
 
-	// License validation state
+	// Detect if we're on macOS (App Store build - no license required)
+	const isMacOS = detectOS() === 'macOS';
+	const requiresLicense = isTauri && !isMacOS; // Only Windows/Linux need license
+
+	// License validation state (only used on Windows/Linux)
 	let showLicenseModal = false;
 	let licenseCheckCompleted = false;
 	let hasValidLicense = false;
@@ -29,29 +33,76 @@
 	// Initialize file storage auto-cleanup when app loads
 	if (browser) {
 		onMount(() => {
+			// Make licenseManager available in console for debugging (dev only)
+			if (dev) {
+				(window as any).licenseManager = licenseManager;
+			}
+
 			// Start auto-cleanup of old files every AUTO_CLEANUP_INTERVAL milliseconds
 			const stopCleanup = fileStorage.startAutoCleanup();
 
-			// License validation for Tauri desktop app only
-			if (isTauri) {
+			// License validation for Tauri desktop app only (Windows/Linux only)
+			if (requiresLicense) {
 				// Check license immediately after app loads (removed delay)
 				performLicenseCheck();
-
-				// Listen for deep-link events from Rust
-				listenForDeepLinks();
-
-				// Also register the plugin handler (might work for some cases)
-				registerDeepLinkHandler();
-
-				// Initialize system fonts for Windows
-				initializeFonts();
 			} else {
-				// Web version doesn't need license validation
+				// macOS App Store or web version doesn't need license validation
 				licenseCheckCompleted = true;
+				hasValidLicense = true;
+			}
+
+			// Initialize system fonts for all Tauri platforms (Windows, macOS, Linux)
+			if (isTauri) {
+				initializeFonts();
+			}
+
+			// Deep link handling for all Tauri platforms
+			let unlistenDeepLinks: (() => void) | null = null;
+			let unlistenDeepLinkHandler: (() => void) | null = null;
+			let unlistenLoadPdfFromDeepLink: (() => void) | null = null;
+
+			if (isTauri) {
+				// Set up listeners asynchronously
+				(async () => {
+					// Listen for deep-link events from Rust
+					unlistenDeepLinks = await listenForDeepLinks();
+
+					// Also register the plugin handler (might work for some cases)
+					unlistenDeepLinkHandler = await registerDeepLinkHandler();
+
+					// Listen for load-pdf-from-deep-link events (for URLs with file parameters)
+					unlistenLoadPdfFromDeepLink = await listenForLoadPdfFromDeepLink();
+				})();
 			}
 
 			// Cleanup on page unload
-			return stopCleanup;
+			return () => {
+				// Clean up file storage
+				stopCleanup();
+
+				// Clean up deep-link listeners (with null-checks)
+				if (unlistenDeepLinks) {
+					try {
+						unlistenDeepLinks();
+					} catch (error) {
+						console.error('Error cleaning up deep-link listener:', error);
+					}
+				}
+				if (unlistenDeepLinkHandler) {
+					try {
+						unlistenDeepLinkHandler();
+					} catch (error) {
+						console.error('Error cleaning up deep-link handler:', error);
+					}
+				}
+				if (unlistenLoadPdfFromDeepLink) {
+					try {
+						unlistenLoadPdfFromDeepLink();
+					} catch (error) {
+						console.error('Error cleaning up load-pdf-from-deep-link listener:', error);
+					}
+				}
+			};
 		});
 	}
 
@@ -113,7 +164,7 @@
 	}
 
 	// Listen for deep-link events emitted from Rust backend
-	async function listenForDeepLinks() {
+	async function listenForDeepLinks(): Promise<(() => void) | null> {
 		console.log('🔗 [Deep Link] Setting up event listener for deep-link events...');
 		try {
 			const unlisten = await listen('deep-link', (event) => {
@@ -141,13 +192,48 @@
 			const { invoke } = await import('@tauri-apps/api/core');
 			await invoke('check_file_associations');
 			console.log('✅ [Deep Link] Triggered re-check of command line args');
+
+			return unlisten;
 		} catch (error) {
 			console.error('❌ [Deep Link] Failed to register event listener:', error);
+			return null;
+		}
+	}
+
+	// Listen for load-pdf-from-deep-link events (for URLs with file parameters)
+	async function listenForLoadPdfFromDeepLink(): Promise<(() => void) | null> {
+		console.log('🔗 [Load PDF Deep Link] Setting up event listener...');
+		try {
+			const unlisten = await listen<{ pdf_path?: string; pdf_url?: string; page: number }>(
+				'load-pdf-from-deep-link',
+				(event) => {
+					console.log('🔗🔗🔗 [Load PDF Deep Link] EVENT RECEIVED!', event);
+					const { pdf_path, pdf_url, page } = event.payload;
+
+					if (pdf_url) {
+						// Handle URL - navigate to the PDF route
+						console.log('🔗 [Load PDF Deep Link] Loading PDF from URL:', pdf_url);
+						const encodedUrl = encodeURIComponent(pdf_url);
+						goto(`/pdf/${encodedUrl}`);
+					} else if (pdf_path) {
+						// Handle local file path - navigate to the PDF route
+						console.log('🔗 [Load PDF Deep Link] Loading PDF from path:', pdf_path);
+						const encodedPath = encodeURIComponent(pdf_path);
+						goto(`/pdf/${encodedPath}`);
+					}
+				}
+			);
+			console.log('✅ [Load PDF Deep Link] Event listener registered successfully!');
+
+			return unlisten;
+		} catch (error) {
+			console.error('❌ [Load PDF Deep Link] Failed to register event listener:', error);
+			return null;
 		}
 	}
 
 	// Register deep link handler - handles leedpdf:// URLs (plugin-based, may not work on all platforms)
-	async function registerDeepLinkHandler() {
+	async function registerDeepLinkHandler(): Promise<(() => void) | null> {
 		console.log('🔗 [Deep Link] Starting plugin registration...');
 		try {
 			console.log('🔗 [Deep Link] Getting current instance...');
@@ -156,7 +242,7 @@
 
 			if (!current || typeof current !== 'object' || !('onOpenUrl' in current)) {
 				console.log('⚠️ [Deep Link] Plugin API not available, relying on custom event handler');
-				return;
+				return null;
 			}
 
 			console.log('🔗 [Deep Link] Calling onOpenUrl...');
@@ -193,6 +279,8 @@
 				'✅ [Deep Link] Plugin handler registered successfully! Unlisten function:',
 				typeof unlisten
 			);
+
+			return unlisten;
 		} catch (error: unknown) {
 			console.error('❌ [Deep Link] Failed to register plugin handler:', error);
 			if (error instanceof Error) {
@@ -202,6 +290,7 @@
 					stack: error.stack
 				});
 			}
+			return null;
 		}
 	}
 </script>
@@ -214,10 +303,12 @@
 <UpdateNotification />
 <CookieConsentBanner />
 
-<!-- License Modal for Tauri Desktop App -->
-<LicenseModal
-	bind:isOpen={showLicenseModal}
-	bind:needsActivation
-	on:validated={handleLicenseValidated}
-	on:close={handleLicenseModalClose}
-/>
+<!-- License Modal for Windows/Linux only (excluded from macOS for App Store compliance) -->
+{#if requiresLicense}
+	<LicenseModal
+		bind:isOpen={showLicenseModal}
+		bind:needsActivation
+		on:validated={handleLicenseValidated}
+		on:close={handleLicenseModalClose}
+	/>
+{/if}

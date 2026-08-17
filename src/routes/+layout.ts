@@ -5,13 +5,14 @@ import { isEUUser } from '$lib/utils/geoDetection';
 import { buildingTauri, enableAnalytics } from '$lib/utils/buildConstants';
 import { initializeAnalytics } from '$lib/utils/analytics';
 import { consentStore } from '$lib/stores/consentStore';
+import { isTauri } from '$lib/utils/tauriUtils';
 
 injectAnalytics({ mode: enableAnalytics ? 'production' : 'development' });
 export const prerender = true;
 export const ssr = !buildingTauri;
 
 export const load = async () => {
-	if (enableAnalytics && PUBLIC_POSTHOG_KEY) {
+	if (enableAnalytics && PUBLIC_POSTHOG_KEY && !isTauri) {
 		// Check if PostHog is already initialized to prevent duplicate initialization
 		if (window.__posthogInitialized) {
 			console.log('PostHog already initialized, skipping...');

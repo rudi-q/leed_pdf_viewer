@@ -43,6 +43,7 @@
 			category: 'Actions',
 			items: [
 				{ keys: ['U'], description: 'Choose PDF file' },
+				{ keys: ['Ctrl', 'V'], description: 'Paste copied image onto the current PDF' },
 				{ keys: ['Ctrl', 'S'], description: 'Download/Export PDF' },
 				{ keys: ['Ctrl', 'Z'], description: 'Undo last action' },
 				{ keys: ['Ctrl', 'Y'], description: 'Redo action' },

@@ -6,7 +6,8 @@ import {
 	Query,
 	type SharedPDF,
 	storage,
-	STORAGE_BUCKET_ID
+	STORAGE_BUCKET_ID,
+	tauriFetchReady
 } from './appwrite';
 import {
 	arrowAnnotations,
@@ -111,6 +112,8 @@ export class PDFSharingService {
 		options: SharePDFOptions
 	): Promise<SharePDFResult> {
 		try {
+			await tauriFetchReady;
+
 			// Generate unique share ID
 			const shareId = ID.unique();
 
@@ -335,7 +338,12 @@ export class PDFSharingService {
 			};
 		} catch (error) {
 			console.error('Error sharing PDF:', error);
-			const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+			const errorMessage =
+				error instanceof Error
+					? error.message
+					: typeof error === 'string'
+						? error
+						: JSON.stringify(error) || 'Unknown error occurred';
 			toastStore.error('Sharing Failed', errorMessage);
 
 			return {
@@ -350,6 +358,7 @@ export class PDFSharingService {
 	 */
 	static async getSharedPDF(shareId: string, password?: string): Promise<GetSharedPDFResult> {
 		try {
+			await tauriFetchReady;
 			// Find the shared PDF record using share_token field
 			const response = await databases.listDocuments(DATABASE_ID, COLLECTIONS.SHARED_PDFS, [
 				Query.equal('share_token', shareId)

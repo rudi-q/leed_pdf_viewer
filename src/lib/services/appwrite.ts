@@ -23,13 +23,17 @@ const missingVars = Object.entries(envVars)
 	.filter(([_, value]) => !value)
 	.map(([key]) => key);
 
+const isTauri =
+	typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
+
 // For client-side code, we can detect production by checking the hostname
 // Includes tauri.localhost so the desktop app has full sharing features
 const isProduction =
 	!dev &&
 	typeof window !== 'undefined' &&
 	(window.location.hostname === 'leed.my' ||
-		window.location.hostname === 'tauri.localhost');
+		window.location.hostname === 'tauri.localhost' ||
+		isTauri);
 
 if (missingVars.length > 0) {
 	const errorMessage = `Missing required Appwrite environment variables: ${missingVars.join(', ')}`;
@@ -60,6 +64,37 @@ export const COLLECTIONS = {
 	PDF_ANNOTATIONS: PUBLIC_APPWRITE_PDF_ANNOTATIONS_COLLECTION_ID || 'pdf-annotations'
 } as const;
 
+// In Tauri, route Appwrite requests through the Rust HTTP plugin to bypass
+// the tauri:// origin scheme that Appwrite rejects.
+let tauriFetchReady: Promise<void> = Promise.resolve();
+
+if (browser && isTauri) {
+	tauriFetchReady = (async () => {
+		try {
+			const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
+			const nativeFetch = globalThis.fetch.bind(globalThis);
+			globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+				const url =
+					typeof input === 'string'
+						? input
+						: input instanceof URL
+							? input.href
+							: input.url;
+				if (url.includes('appwrite.io')) {
+					return tauriFetch(input, init as any);
+				}
+				return nativeFetch(input, init);
+			}) as typeof globalThis.fetch;
+			console.log('[Appwrite] Tauri HTTP fetch patch applied');
+		} catch (e) {
+			console.warn('[Appwrite] Tauri HTTP plugin not available:', e);
+		}
+	})();
+}
+
+/** Ensures the Tauri fetch patch is ready before making Appwrite API calls. */
+export { tauriFetchReady };
+
 // Initialize Appwrite client
 let client: Client;
 let databases: Databases;
@@ -67,7 +102,6 @@ let storage: Storage;
 
 if (browser) {
 	client = new Client().setEndpoint(APPWRITE_ENDPOINT).setProject(APPWRITE_PROJECT_ID);
-
 	databases = new Databases(client);
 	storage = new Storage(client);
 }
