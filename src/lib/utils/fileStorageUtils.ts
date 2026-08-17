@@ -6,6 +6,20 @@
 import { toastStore } from '$lib/stores/toastStore';
 import { MAX_FILE_SIZE, MAX_STORAGE_TIME, SESSION_MAX_FILE_SIZE, WARNING_FILE_SIZE } from '$lib/constants';
 
+// crypto.randomUUID() requires a secure context (HTTPS/localhost); falls back to
+// crypto.getRandomValues() which is available in all contexts including plain HTTP on LAN.
+function generateUUID(): string {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  return [
+    bytes.slice(0, 4), bytes.slice(4, 6), bytes.slice(6, 8),
+    bytes.slice(8, 10), bytes.slice(10, 16)
+  ].map(seg => Array.from(seg).map(b => b.toString(16).padStart(2, '0')).join('')).join('-');
+}
+
 export interface StoredFileData {
   id: string;
   name: string;
@@ -171,7 +185,7 @@ class FileStorageManager {
       }
 
       // Generate fileId and convert to ArrayBuffer early for potential fallback
-      const fileId = id || crypto.randomUUID();
+      const fileId = id || generateUUID();
       const arrayBuffer = await file.arrayBuffer();
 
       // Try IndexedDB first

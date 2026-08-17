@@ -10,6 +10,7 @@
     "core:window:allow-set-title",
     "updater:default",
     "deep-link:default",
+    "os:allow-platform",
     "fs:allow-read-file",
     "fs:allow-localdata-read-recursive",
     "fs:allow-home-read-recursive",

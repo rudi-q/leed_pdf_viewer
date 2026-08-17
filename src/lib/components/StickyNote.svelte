@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
 	import type { StickyNoteAnnotation } from '$lib/stores/drawingStore';
 	import {
 		transformPoint,
@@ -25,6 +25,7 @@
 	let isEditing = false;
 	let isDragging = false;
 	let isResizing = false;
+	let activePointerId: number | null = null;
 	let dragStartX = 0;
 	let dragStartY = 0;
 	let resizeStartX = 0;
@@ -144,9 +145,10 @@
 		}
 	};
 
-	// Handle mouse down for dragging
-	const handleMouseDown = (event: MouseEvent) => {
+	// Handle pointer down for dragging
+	const handlePointerDown = (event: PointerEvent) => {
 		if (isEditing || viewOnlyMode) return; // Disable dragging in view-only mode
+		if (!event.isPrimary || event.button !== 0) return;
 
 		event.preventDefault();
 		event.stopPropagation();
@@ -154,13 +156,19 @@
 		isDragging = true;
 		dragStartX = event.clientX - displayX;
 		dragStartY = event.clientY - displayY;
+		activePointerId = event.pointerId;
 
-		document.addEventListener('mousemove', handleMouseMove);
-		document.addEventListener('mouseup', handleMouseUp);
+		// Capture the pointer so move/up events are received even outside the element
+		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+
+		document.addEventListener('pointermove', handlePointerMove);
+		document.addEventListener('pointerup', handlePointerUp);
+		document.addEventListener('pointercancel', handlePointerCancel);
 	};
 
-	// Handle mouse move for dragging
-	const handleMouseMove = (event: MouseEvent) => {
+	// Handle pointer move for dragging
+	const handlePointerMove = (event: PointerEvent) => {
+		if (event.pointerId !== activePointerId) return;
 		if (isDragging) {
 			// Calculate new display position
 			const newDisplayX = event.clientX - dragStartX;
@@ -228,17 +236,35 @@
 		}
 	};
 
-	// Handle mouse up
-	const handleMouseUp = () => {
-		isDragging = false;
-		isResizing = false;
-		document.removeEventListener('mousemove', handleMouseMove);
-		document.removeEventListener('mouseup', handleMouseUp);
+	const removePointerListeners = () => {
+		document.removeEventListener('pointermove', handlePointerMove);
+		document.removeEventListener('pointerup', handlePointerUp);
+		document.removeEventListener('pointercancel', handlePointerCancel);
 	};
 
-	// Handle resize handle mouse down
-	const handleResizeMouseDown = (event: MouseEvent) => {
+	// Handle pointer up
+	const handlePointerUp = (event: PointerEvent) => {
+		if (event.pointerId !== activePointerId) return;
+		isDragging = false;
+		isResizing = false;
+		activePointerId = null;
+		removePointerListeners();
+	};
+
+	const handlePointerCancel = (event: PointerEvent) => {
+		if (event.pointerId !== activePointerId) return;
+		isDragging = false;
+		isResizing = false;
+		activePointerId = null;
+		removePointerListeners();
+	};
+
+	onDestroy(removePointerListeners);
+
+	// Handle resize handle pointer down
+	const handleResizePointerDown = (event: PointerEvent) => {
 		if (viewOnlyMode) return; // Disable resizing in view-only mode
+		if (!event.isPrimary || event.button !== 0) return;
 		event.preventDefault();
 		event.stopPropagation();
 
@@ -247,9 +273,14 @@
 		resizeStartY = event.clientY;
 		resizeStartWidth = displayWidth;
 		resizeStartHeight = displayHeight;
+		activePointerId = event.pointerId;
 
-		document.addEventListener('mousemove', handleMouseMove);
-		document.addEventListener('mouseup', handleMouseUp);
+		// Capture pointer on the resize handle
+		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+
+		document.addEventListener('pointermove', handlePointerMove);
+		document.addEventListener('pointerup', handlePointerUp);
+		document.addEventListener('pointercancel', handlePointerCancel);
 	};
 
 	// Handle delete
@@ -296,7 +327,7 @@
 	class:editing={isEditing}
 	class:dragging={isDragging}
 	class:resizing={isResizing}
-	on:mousedown={handleMouseDown}
+	on:pointerdown={handlePointerDown}
 	on:dblclick={handleDoubleClick}
 	on:contextmenu={handleContextMenu}
 	on:keydown={(e) => {
@@ -318,6 +349,7 @@
 	{#if !viewOnlyMode}
 		<button
 			class="delete-btn"
+			on:pointerdown|stopPropagation
 			on:click|stopPropagation={handleDelete}
 			title="Delete sticky note"
 			aria-label="Delete sticky note"
@@ -353,7 +385,7 @@
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			class="resize-handle"
-			on:mousedown|stopPropagation={handleResizeMouseDown}
+			on:pointerdown|stopPropagation={handleResizePointerDown}
 			title="Drag to resize"
 		></div>
 	{/if}
