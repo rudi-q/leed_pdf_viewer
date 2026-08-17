@@ -39,6 +39,12 @@ jobs:
         run: pnpm exec playwright install --with-deps
 
       - name: Build application
+        # VITE_* vars are baked in at build time. Playwright's webServer sets
+        # this when it builds locally, but CI builds here and only previews,
+        # so without it the cookie consent banner ships enabled and covers the
+        # page whenever geo detection reports (or defaults to) an EU user.
+        env:
+          VITE_E2E_TESTING: 'true'
         run: pnpm build
 
       - name: Run Playwright tests
