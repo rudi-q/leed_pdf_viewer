@@ -246,6 +246,9 @@
 		if (!target.closest('.export-menu-container')) {
 			showExportMenu = false;
 		}
+		if (!target.closest('.view-menu-container')) {
+			showViewMenu = false;
+		}
 	}
 </script>
 
@@ -358,9 +361,12 @@
 							<ZoomOut size={18} />
 						</button>
 					</Tooltip>
+				</div>
 
+				<!-- Tablet + Desktop: View options (Reset / Fit) dropdown -->
+				<div class="hidden md:flex items-center space-x-2">
 					<!-- View dropdown menu -->
-					<div class="relative">
+					<div class="relative view-menu-container">
 						<Tooltip content="View options (Reset, Fit)">
 							<button
 								class="tool-button h-8 w-8 flex items-center justify-center"
@@ -1239,8 +1245,8 @@
 									{/if}
 								</div>
 
-								<!-- Zoom controls -->
-								<div class="space-y-1 mb-3">
+								<!-- Zoom controls (phones only — tablet+ show them in the toolbar) -->
+								<div class="space-y-1 mb-3 md:hidden">
 									<button
 										class="w-full text-left p-2 rounded-lg hover:bg-sage/10 transition-colors text-sm flex items-center gap-2"
 										on:click={() => {
@@ -1372,7 +1378,7 @@
 
 <!-- Bottom Toolbar - Drawing tools for small screens -->
 <div class="toolbar-bottom fixed bottom-4 left-4 right-4 z-50 lg:hidden">
-	<div class="floating-panel !py-2 !px-3 overflow-x-auto relative">
+	<div class="floating-panel !py-2 !px-3 overflow-x-auto relative flex justify-center">
 		<!-- Left fade indicator -->
 		<div
 			class="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-white/80 dark:from-gray-800/80 to-transparent pointer-events-none z-[5]"

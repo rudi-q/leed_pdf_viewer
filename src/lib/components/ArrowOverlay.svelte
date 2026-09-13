@@ -24,6 +24,7 @@
 	let overlayElement: HTMLDivElement;
 
 	let isCreatingArrow = false;
+	let activePointerId: number | null = null;
 
 	// Flags whether the arrow tool is active
 	$: isArrowTool = $drawingState.tool === 'arrow';
@@ -32,8 +33,9 @@
 	let startX = 0;
 	let startY = 0;
 
-	const handleContainerMouseDown = (event: MouseEvent) => {
+	const handleContainerPointerDown = (event: PointerEvent) => {
 		if (!isArrowTool || viewOnlyMode) return;
+		if (isCreatingArrow) return;
 
 		// Don't create new arrows if clicking on existing arrow elements
 		const target = event.target as Element;
@@ -41,11 +43,12 @@
 			return;
 		}
 
-		// Reset flag to ensure we can create multiple arrows
-		isCreatingArrow = false;
-
 		event.preventDefault();
 		event.stopPropagation();
+
+		activePointerId = event.pointerId;
+		// Capture pointer so events keep routing here even if pointer leaves the element
+		overlayElement.setPointerCapture(event.pointerId);
 
 		const rect = overlayElement.getBoundingClientRect();
 		// Get click position in current scale
@@ -67,8 +70,8 @@
 		startY = basePoint.y;
 
 		isCreatingArrow = true;
-		document.addEventListener('mousemove', handleDocumentMouseMove);
-		document.addEventListener('mouseup', handleDocumentMouseUp);
+		// setPointerCapture (above) already routes all pointermove/pointerup back here —
+		// no document-level listeners needed.
 
 		// Create new arrow immediately (storing at base scale)
 		const newArrow: ArrowAnnotation = {
@@ -93,9 +96,9 @@
 		addArrowAnnotation(newArrow);
 	};
 
-	// Shared helper for transforming mouse event to base scale coordinates
+	// Shared helper for transforming pointer event to base scale coordinates
 	// and updating the arrow's end point.
-	const computeAndUpdateArrowEnd = (event: MouseEvent) => {
+	const computeAndUpdateArrowEnd = (event: PointerEvent) => {
 		const targetArrow = $currentPageArrowAnnotations[$currentPageArrowAnnotations.length - 1];
 		if (targetArrow && overlayElement) {
 			const rect = overlayElement.getBoundingClientRect();
@@ -131,33 +134,22 @@
 		}
 	};
 
-	const handleContainerMouseMove = (event: MouseEvent) => {
-		if (!isCreatingArrow) return;
+	const handleContainerPointerMove = (event: PointerEvent) => {
+		if (!isCreatingArrow || event.pointerId !== activePointerId) return;
 		computeAndUpdateArrowEnd(event);
 	};
 
-	const handleContainerMouseUp = (event: MouseEvent) => {
-		if (isCreatingArrow) {
-			isCreatingArrow = false;
-			// Clean up document event listeners
-			document.removeEventListener('mousemove', handleDocumentMouseMove);
-			document.removeEventListener('mouseup', handleDocumentMouseUp);
-		}
+	const handleContainerPointerUp = (event: PointerEvent) => {
+		if (event.pointerId !== activePointerId) return;
+		isCreatingArrow = false;
+		activePointerId = null;
 	};
 
-	// Document-level mouse handlers for better tracking during arrow creation
-	const handleDocumentMouseMove = (event: MouseEvent) => {
-		if (!isCreatingArrow || !overlayElement) return;
-		computeAndUpdateArrowEnd(event);
-	};
-
-	const handleDocumentMouseUp = (event: MouseEvent) => {
-		if (isCreatingArrow) {
-			isCreatingArrow = false;
-			// Clean up document event listeners
-			document.removeEventListener('mousemove', handleDocumentMouseMove);
-			document.removeEventListener('mouseup', handleDocumentMouseUp);
-		}
+	// Also cancel arrow creation if pointer capture is lost (e.g. browser interruption)
+	const handleContainerPointerCancel = (event: PointerEvent) => {
+		if (event.pointerId !== activePointerId) return;
+		isCreatingArrow = false;
+		activePointerId = null;
 	};
 
 	// Handle arrow update event from child components
@@ -175,12 +167,8 @@
 		// and will be displayed at current scale automatically
 	});
 
-	// Clean up event listeners on destroy
 	onDestroy(() => {
-		if (isCreatingArrow) {
-			document.removeEventListener('mousemove', handleDocumentMouseMove);
-			document.removeEventListener('mouseup', handleDocumentMouseUp);
-		}
+		// pointer capture is automatically released when the element is removed from the DOM
 	});
 
 	// Update cursor style based on tool
@@ -201,10 +189,11 @@
 <div
 	bind:this={overlayElement}
 	class="arrow-overlay absolute top-0 left-0 {pointerEventsClass}"
-	style="width: {containerWidth}px; height: {containerHeight}px; z-index: 3;"
-	on:mousedown={handleContainerMouseDown}
-	on:mousemove={handleContainerMouseMove}
-	on:mouseup={handleContainerMouseUp}
+	style="width: {containerWidth}px; height: {containerHeight}px; z-index: 3; touch-action: none;"
+	on:pointerdown={handleContainerPointerDown}
+	on:pointermove={handleContainerPointerMove}
+	on:pointerup={handleContainerPointerUp}
+	on:pointercancel={handleContainerPointerCancel}
 	role="application"
 	aria-label="Arrow annotations area"
 	data-arrow-overlay="true"
@@ -227,6 +216,7 @@
 <style>
 	.arrow-overlay {
 		background: transparent;
+		touch-action: none;
 	}
 
 	.pointer-events-auto {

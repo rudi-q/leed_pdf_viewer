@@ -63,6 +63,44 @@ export class GestureTracker {
         return null;
     }
 
+    /** Whether a specific pointer id is currently tracked. */
+    has(id: number): boolean {
+        return this.activePointers.has(id);
+    }
+
+    /**
+     * The most recently added pointer whose id is not `exclude`, or null.
+     * Used to pick a pinch's second pointer at gesture start without being
+     * fooled by stale/ghost pointers that lingered from earlier touches.
+     */
+    otherMostRecentId(exclude: number): number | null {
+        let result: number | null = null;
+        for (const id of this.activePointers.keys()) {
+            if (id !== exclude) result = id; // later entries are more recent
+        }
+        return result;
+    }
+
+    /**
+     * Distance between two SPECIFIC pointers, or null if either is missing.
+     * Scoping to fixed ids keeps a pinch immune to a third finger or a ghost
+     * pointer changing which pair `getPinchDistance()` would otherwise pick.
+     */
+    distanceBetween(id1: number, id2: number): number | null {
+        const a = this.activePointers.get(id1);
+        const b = this.activePointers.get(id2);
+        if (!a || !b) return null;
+        return Math.sqrt((a.clientX - b.clientX) ** 2 + (a.clientY - b.clientY) ** 2);
+    }
+
+    /** Midpoint between two SPECIFIC pointers, or null if either is missing. */
+    midpointBetween(id1: number, id2: number): Point2D | null {
+        const a = this.activePointers.get(id1);
+        const b = this.activePointers.get(id2);
+        if (!a || !b) return null;
+        return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+    }
+
     /** Clear all tracked pointers. */
     reset(): void {
         this.activePointers.clear();

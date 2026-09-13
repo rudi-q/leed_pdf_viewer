@@ -50,9 +50,8 @@ export async function generateThumbnail(
 	width: number = 150
 ): Promise<string> {
 	const arrayBuffer = await file.arrayBuffer();
-	const loadingTask = pdfjsLib.getDocument({ 
-		data: arrayBuffer,
-		isEvalSupported: false 
+	const loadingTask = pdfjsLib.getDocument({
+		data: arrayBuffer
 	});
 	const pdf = await loadingTask.promise;
 	const page = await pdf.getPage(pageNumber);

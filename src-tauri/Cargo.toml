@@ -1,8 +1,8 @@
 [package]
 name = "leed-pdf"
-version = "2.33.0"
+version = "2.34.1"
 description = "A Lightweight, Opensource and Private PDF Viewer & Annotation Tool"
-authors = ["Rudi K <reach@rudi.engineer>"]
+authors = ["Rudi K <write@leed.my>"]
 license = "AGPL"
 repository = "https://github.com/rudi-q/leed_pdf_viewer"
 edition = "2021"
@@ -19,7 +19,7 @@ tauri-build = { version = "2.3.1", features = [] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.10.3", features = [] }
+tauri = { version = "2.11", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-deep-link = "2"
 tauri-plugin-dialog = "2"
@@ -27,7 +27,7 @@ tauri-plugin-fs = "2"
 tauri-plugin-shell = "2.3.0"
 reqwest = { version = "0.11", features = ["json"] }
 urlencoding = "2.1"
-tokio = { version = "1.50", features = ["full"] }
+tokio = { version = "1.52", features = ["full"] }
 machine-uid = "0.5"
 rfd = "0.15"
 url = "2"
@@ -35,6 +35,7 @@ font-kit = "0.14"
 lopdf = "0.37"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 tauri-plugin-http = "2.5.7"
+tauri-plugin-os = "2"
 
 # Linux-specific: Use gtk3 instead of xdg-portal to avoid conflict
 [target.'cfg(target_os = "linux")'.dependencies]

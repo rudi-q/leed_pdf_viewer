@@ -1755,17 +1755,41 @@ fn create_app_menu(
 
 // Function to process PDF files and emit events
 fn process_pdf_files(app_handle: &tauri::AppHandle, pdf_files: Vec<String>) {
-    if !pdf_files.is_empty() {
-        // Store in global queue
-        {
-            let mut pending = PENDING_FILES.lock().unwrap();
-            for pdf_file in &pdf_files {
-                pending.push_back(pdf_file.clone());
-            }
-        }
+    if pdf_files.is_empty() {
+        return;
+    }
 
-        // Spawn background thread for persistent file loading attempts
+    let is_already_processed = *FILE_PROCESSED.lock().unwrap();
+
+    let mut pending = PENDING_FILES.lock().unwrap();
+    let mut files_to_broadcast = Vec::new();
+    let mut files_for_new_windows = Vec::new();
+
+    if is_already_processed {
+        // App is already active and has a file. All new files get their own windows.
+        files_for_new_windows = pdf_files;
+    } else {
+        // App is starting up or empty. First file goes to main window, rest get new windows.
+        files_to_broadcast.push(pdf_files[0].clone());
+        if pdf_files.len() > 1 {
+            files_for_new_windows.extend(pdf_files[1..].iter().cloned());
+        }
+    }
+
+    // Add to pending queue. This queue is read by frontend `get_pending_file`
+    for file in &files_to_broadcast {
+        pending.push_back(file.clone());
+    }
+    for file in &files_for_new_windows {
+        pending.push_back(file.clone());
+    }
+    // Drop lock before doing async/thread things
+    drop(pending);
+
+    // Broadcast to existing main window for the first file
+    if !files_to_broadcast.is_empty() {
         let app_handle_clone = app_handle.clone();
+        let broadcast_files = files_to_broadcast.clone();
         thread::spawn(move || {
             // Wait longer for frontend to be ready (especially for file associations)
             println!("Waiting for frontend to be ready...");
@@ -1794,7 +1818,7 @@ fn process_pdf_files(app_handle: &tauri::AppHandle, pdf_files: Vec<String>) {
                 thread::sleep(delay);
 
                 // Try to emit event for each PDF file
-                for (i, pdf_file) in pdf_files.iter().enumerate() {
+                for (i, pdf_file) in broadcast_files.iter().enumerate() {
                     let event_name = if i == 0 {
                         "file-opened"
                     } else {
@@ -1828,6 +1852,32 @@ fn process_pdf_files(app_handle: &tauri::AppHandle, pdf_files: Vec<String>) {
             }
 
             println!("File loading attempts completed");
+        });
+    }
+
+    // Create new windows for the rest
+    for _ in files_for_new_windows {
+        let app_handle_clone = app_handle.clone();
+        tauri::async_runtime::spawn(async move {
+            let label = format!("window_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis());
+            
+            match tauri::WebviewWindowBuilder::new(
+                &app_handle_clone,
+                label,
+                tauri::WebviewUrl::App("".into())
+            )
+            .title("LeedPDF - Draw and Annotate on PDFs")
+            .inner_size(800.0, 600.0)
+            .position(1.0, 1.0)
+            .maximized(true)
+            .resizable(true)
+            .build() {
+                Ok(window) => {
+                    let _ = window.set_focus();
+                    println!("Successfully created new window for additional file");
+                }
+                Err(e) => println!("Failed to create new window: {:?}", e),
+            }
         });
     }
 }
@@ -1877,6 +1927,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_os::init())
         .invoke_handler(tauri::generate_handler![
             get_pending_file,
             check_file_associations,
