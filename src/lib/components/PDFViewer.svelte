@@ -1684,6 +1684,41 @@
 		await renderCurrentPage();
 	}
 
+	// "Go to page" input in the page info pill. Mirrors currentPage unless the
+	// user is mid-edit, so navigating by other means doesn't clobber their typing.
+	let pageInput: HTMLInputElement;
+	let pageInputValue = '';
+	let isEditingPageInput = false;
+	$: if (!isEditingPageInput) pageInputValue = String($pdfState.currentPage);
+
+	export function focusPageInput() {
+		if (!pageInput) return;
+		pageInput.focus();
+		pageInput.select();
+	}
+
+	function commitPageInput() {
+		const target = parseInt(pageInputValue, 10);
+		isEditingPageInput = false;
+		if (!Number.isNaN(target)) {
+			const clamped = Math.min(Math.max(target, 1), $pdfState.totalPages);
+			if (clamped !== $pdfState.currentPage) goToPage(clamped);
+		}
+		pageInputValue = String($pdfState.currentPage);
+	}
+
+	function handlePageInputKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			pageInput.blur(); // blur commits
+		} else if (event.key === 'Escape') {
+			event.preventDefault();
+			event.stopPropagation();
+			isEditingPageInput = false;
+			pageInput.blur();
+		}
+	}
+
 	export async function nextPage() {
 		await goToPage($pdfState.currentPage + 1);
 	}
@@ -3344,8 +3379,31 @@
 		<!-- Page Info -->
 		<div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 floating-panel">
 			<div class="flex items-center space-x-2 text-sm text-charcoal dark:text-gray-200">
-				<span>Page</span>
-				<span class="font-semibold">{$pdfState.currentPage}</span>
+				<label for="pdf-page-input">Page</label>
+				<!-- stopPropagation keeps the container's touch-gesture handler from swallowing focus -->
+				<input
+					id="pdf-page-input"
+					bind:this={pageInput}
+					bind:value={pageInputValue}
+					type="text"
+					inputmode="numeric"
+					pattern="[0-9]*"
+					autocomplete="off"
+					title="Go to page (Ctrl+G)"
+					aria-label="Go to page, {$pdfState.totalPages} total"
+					class="page-input font-semibold text-center bg-transparent rounded border border-transparent hover:border-sage/40 focus:border-sage focus:outline-none tabular-nums"
+					style="width: {Math.max(String($pdfState.totalPages).length, 1) + 1.5}ch;"
+					on:pointerdown|stopPropagation
+					on:focus={() => {
+						isEditingPageInput = true;
+						pageInput.select();
+					}}
+					on:blur={() => {
+						if (isEditingPageInput) commitPageInput();
+						else pageInputValue = String($pdfState.currentPage);
+					}}
+					on:keydown={handlePageInputKeydown}
+				/>
 				<span>of</span>
 				<span class="font-semibold">{$pdfState.totalPages}</span>
 				<span class="mx-2">•</span>

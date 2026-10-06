@@ -16,6 +16,8 @@
 			category: 'Navigation',
 			items: [
 				{ keys: ['←', '→'], description: 'Navigate pages' },
+				{ keys: ['Ctrl', 'G'], description: 'Go to page' },
+				{ keys: ['Home', 'End'], description: 'First / last page' },
 				{ keys: ['↑', '↓'], description: 'Scroll/Navigate (pan when zoomed)' },
 				{ keys: ['Ctrl', '+'], description: 'Zoom in' },
 				{ keys: ['Ctrl', '-'], description: 'Zoom out' },
