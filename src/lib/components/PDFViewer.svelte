@@ -1698,9 +1698,11 @@
 	}
 
 	function commitPageInput() {
-		const target = parseInt(pageInputValue, 10);
+		const trimmed = pageInputValue.trim();
 		isEditingPageInput = false;
-		if (!Number.isNaN(target)) {
+		// Only whole numbers count; reject partial input like "12abc" or "2.5"
+		if (/^\d+$/.test(trimmed)) {
+			const target = parseInt(trimmed, 10);
 			const clamped = Math.min(Math.max(target, 1), $pdfState.totalPages);
 			if (clamped !== $pdfState.currentPage) goToPage(clamped);
 		}
@@ -1709,6 +1711,8 @@
 
 	function handlePageInputKeydown(event: KeyboardEvent) {
 		if (event.key === 'Enter') {
+			// Enter that confirms an IME composition shouldn't also submit
+			if (event.isComposing || event.keyCode === 229) return;
 			event.preventDefault();
 			pageInput.blur(); // blur commits
 		} else if (event.key === 'Escape') {

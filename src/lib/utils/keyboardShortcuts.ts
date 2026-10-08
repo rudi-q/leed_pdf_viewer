@@ -80,7 +80,8 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 				case 'g':
 				case 'G':
 					event.preventDefault();
-					params.pdfViewer?.focusPageInput();
+					// Don't pull focus out from behind the open shortcuts dialog
+					if (!params.showShortcuts) params.pdfViewer?.focusPageInput();
 					break;
 				case 's':
 					event.preventDefault();
@@ -101,11 +102,14 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 					event.preventDefault();
 					params.pdfViewer?.nextPage();
 					break;
+				// Leave Home/End alone while the shortcuts dialog is open so they scroll it
 				case 'Home':
+					if (params.showShortcuts) break;
 					event.preventDefault();
 					params.pdfViewer?.goToPage(1);
 					break;
 				case 'End':
+					if (params.showShortcuts) break;
 					event.preventDefault();
 					params.pdfViewer?.goToPage(get(pdfState).totalPages);
 					break;
