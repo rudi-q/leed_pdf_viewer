@@ -1,4 +1,5 @@
-import { setTool, undo, redo } from '$lib/stores/drawingStore';
+import { get } from 'svelte/store';
+import { setTool, undo, redo, pdfState } from '$lib/stores/drawingStore';
 
 export interface KeyboardShortcutsParams {
 	pdfViewer: {
@@ -7,6 +8,8 @@ export interface KeyboardShortcutsParams {
 		resetZoom: () => void;
 		previousPage: () => void;
 		nextPage: () => void;
+		goToPage: (pageNumber: number) => void;
+		focusPageInput: () => void;
 		fitToHeight: () => void;
 		fitToWidth: () => void;
 		scrollUp: () => void;
@@ -74,6 +77,12 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 					event.preventDefault();
 					params.pdfViewer?.resetZoom();
 					break;
+				case 'g':
+				case 'G':
+					event.preventDefault();
+					// Don't pull focus out from behind the open shortcuts dialog
+					if (!params.showShortcuts) params.pdfViewer?.focusPageInput();
+					break;
 				case 's':
 					event.preventDefault();
 					// Use setTimeout to detach the heavy export operation from the keyboard event
@@ -92,6 +101,17 @@ export function keyboardShortcuts(node: Window | HTMLElement, params: KeyboardSh
 				case 'ArrowRight':
 					event.preventDefault();
 					params.pdfViewer?.nextPage();
+					break;
+				// Leave Home/End alone while the shortcuts dialog is open so they scroll it
+				case 'Home':
+					if (params.showShortcuts) break;
+					event.preventDefault();
+					params.pdfViewer?.goToPage(1);
+					break;
+				case 'End':
+					if (params.showShortcuts) break;
+					event.preventDefault();
+					params.pdfViewer?.goToPage(get(pdfState).totalPages);
 					break;
 				case 'ArrowUp':
 					event.preventDefault();

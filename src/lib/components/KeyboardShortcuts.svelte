@@ -15,8 +15,10 @@
 		{
 			category: 'Navigation',
 			items: [
-				{ keys: ['←', '→'], description: 'Navigate pages' },
-				{ keys: ['↑', '↓'], description: 'Scroll/Navigate (pan when zoomed)' },
+				{ keys: ['←', '→'], description: 'Navigate pages', alternatives: true },
+				{ keys: ['Ctrl', 'G'], description: 'Go to page' },
+				{ keys: ['Home', 'End'], description: 'First / last page', alternatives: true },
+				{ keys: ['↑', '↓'], description: 'Scroll/Navigate (pan when zoomed)', alternatives: true },
 				{ keys: ['Ctrl', '+'], description: 'Zoom in' },
 				{ keys: ['Ctrl', '-'], description: 'Zoom out' },
 				{ keys: ['Ctrl', '0'], description: 'Reset zoom' },
@@ -128,7 +130,7 @@
 										<div class="flex items-center space-x-1">
 											{#each shortcut.keys as key, index}
 												{#if index > 0}
-													<span class="text-xs text-charcoal/50">+</span>
+													<span class="text-xs text-charcoal/50">{'alternatives' in shortcut && shortcut.alternatives ? '/' : '+'}</span>
 												{/if}
 												<kbd
 													class="px-2 py-1 text-xs font-medium bg-charcoal/10 text-charcoal rounded border border-charcoal/20 shadow-sm"
